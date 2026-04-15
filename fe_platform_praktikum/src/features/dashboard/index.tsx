@@ -1,11 +1,12 @@
-import { useAuth } from "../../entities/auth/useAuth";
+import { useCurrentUser } from "../../entities/currentUser/useCurrentUser"; 
 import AdminDashboard from "./admin/AdminDashboardPage";
 import LecturerDashboard from "./lecturer/LecturerDashboardPage";
 import StudentDashboard from "./student/StudentDashboardPage";
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, loading } = useCurrentUser();
 
+  if (loading) return null;
   if (!user) return null;
 
   switch (user.role) {

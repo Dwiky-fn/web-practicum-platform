@@ -30,6 +30,14 @@ export default function LoginForm() {
 
   return (
     <div>
+      <div className="flex justify-center mb-4">
+        <img
+          src="src/assets/logopolnep.jpg"
+          alt="Logo"
+          className="h-12"
+        />
+      </div>
+
       <h1 className="text-3xl font-bold">Masuk</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -44,7 +52,7 @@ export default function LoginForm() {
             placeholder="Masukkan email/NIM/NIP/username yang terdaftar"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full bg-gray-100 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-gray-100 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
         </div>

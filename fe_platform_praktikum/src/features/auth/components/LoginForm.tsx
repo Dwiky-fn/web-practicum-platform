@@ -1,0 +1,111 @@
+import { useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { login } from "../services/authService"
+
+export default function LoginForm() {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const navigate = useNavigate();
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    try {
+      const response = await login({ email, password })
+      console.log('Login SUCCESS,', response);
+      navigate('/dashboard')
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  const handleGoogleLogin = async () => {
+    try {
+      console.log("Login dengan Google Berhasil");
+      navigate('/dashboard')
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  return (
+    <div>
+      <h1 className="text-3xl font-bold">Masuk</h1>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        
+        {/* Email */}
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Email/Akun Pengguna
+          </label>
+          <input
+            type="email"
+            placeholder="Masukkan email/NIM/NIP/username yang terdaftar"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full bg-gray-100 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+            required
+          />
+        </div>
+
+        {/* Password */}
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Password
+          </label>
+          <input
+            type="password"
+            placeholder="Masukkan password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full bg-gray-100 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+            required
+          />
+
+          <div className="text-right mt-2">
+            <button
+              type="button"
+              className="text-gray-500 hover:text-blue-600 transition cursor-pointer"
+              onClick={() => console.log("Redirect ke reset password")
+              }
+            >
+              Lupa kata sandi?
+            </button>
+          </div>
+        </div>
+
+        {/* Button */}
+        <button
+          type="submit"
+          className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-800 transition cursor-pointer"
+        >
+          Masuk
+        </button>
+      </form>
+
+        {/* Divider */}
+        <div className="flex items-center my-6">
+          <div className="flex-1 h-px bg-gray-200" />
+            <span className="px-4 text-sm text-gray-400">atau masuk dengan</span>
+          <div className="flex-1 h-px bg-gray-200" />
+        </div>
+
+        {/* Google Login */}
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg py-3 mb-6 hover:bg-gray-100 transition cursor-pointer"
+        >
+          <img
+            src="https://www.svgrepo.com/show/475656/google-color.svg"
+            alt=""
+            className="h-5 w-5"
+          />
+          <span className="font-medium text-gray-700">
+            Google
+          </span>
+        </button>
+    </div>
+  )
+}

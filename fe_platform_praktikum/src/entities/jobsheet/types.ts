@@ -45,8 +45,6 @@ export interface Experiment {
   order: number;
   title: string;
 
-  instructionSteps: string[];
-
   instructionContent?: JSONContent;
   defaultTemplateCode: string;
 }

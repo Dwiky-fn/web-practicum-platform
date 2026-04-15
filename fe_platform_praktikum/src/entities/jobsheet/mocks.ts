@@ -644,12 +644,6 @@ export const jobsheetMocks: Jobsheet[] = [
         order: 1,
         title: "Percobaan 1: Tipe Data Bilangan Bulat",
 
-        instructionSteps: [
-          "Jalankan program pada tab Instruksi 1 dan amatilah outputnya!",
-          "Lakukan modifikasi program dengan mengubah nilai nilaiA menjadi -129 atau 128. Apa yang terjadi?",
-          "Lakukan modifikasi program dengan mengubah nilai hargaB menjadi 3000000000. Apa yang terjadi?"
-        ],
-
         instructionContent: {
           type: "doc",
           content: [
@@ -735,12 +729,6 @@ public class BilanganBulat {
         id: "percobaan-2",
         order: 2,
         title: "Percobaan 2: Tipe Data Bilangan Pecahan",
-
-        instructionSteps: [
-          "Jalankan program dan amati outputnya!",
-          "Ubah nilai ips menjadi 3.5 tanpa 'f'. Apa yang terjadi?",
-          "Bandingkan hasil float dan double."
-        ],
 
         instructionContent: {
           type: "doc",

@@ -1,5 +1,6 @@
 import type { Jobsheet } from "../../../../../../../../../entities/jobsheet/types"
 import type { JobsheetSubmission } from "../../../../../../../../../entities/jobsheetSubmission/types"
+import { extractSteps } from "../../../../../../../../../shared/utils/extractSteps"
 
 import ExperimentItem from "./ExperimentItem"
 
@@ -17,6 +18,10 @@ export default function ExperimentReport({
 
   const experimentList = jobsheet.experiments
 
+  const submissionMap = Object.fromEntries(
+    experimentsSubmission.map((s) => [s.experimentId, s])
+  )
+
   return (
     <div className="bg-white border rounded-xl overflow-hidden">
 
@@ -30,16 +35,14 @@ export default function ExperimentReport({
 
         {experimentList.map((exp, index) => {
 
-          const submissionData = experimentsSubmission.find(
-            (s) => s.experimentId === exp.id
-          )
+          const submissionData = submissionMap[exp.id]
 
           return (
             <ExperimentItem
               key={exp.id}
               title={exp.title}
               index={index}
-              instructionSteps={exp.instructionSteps}
+              instructionSteps={extractSteps(exp.instructionContent)}
               steps={submissionData?.steps ?? []}
             />
           )

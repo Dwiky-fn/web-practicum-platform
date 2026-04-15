@@ -9,11 +9,10 @@ export const jobsheetMocks: Jobsheet[] = [
       "Mahasiswa mempelajari tipe data, identifier, variabel, dan konstanta dalam Java.",
     goal:
       "Mahasiswa mampu menggunakan variabel, konstanta, dan berbagai jenis tipe data dalam program Java untuk menyelesaikan contoh kasus.",
-    deadline: "2026-04-23",
-    status: "NOT_SUBMITTED",
-    score: 0,
+    deadline: "2026-03-23",
+    status: "PUBLISHED",
 
-      summary: 
+    summary: 
     {
       type: "doc",
       content: [

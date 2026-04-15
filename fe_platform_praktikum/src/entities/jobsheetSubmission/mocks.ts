@@ -44,6 +44,9 @@ export const jobsheetSubmissionMocks: JobsheetSubmission[] = [
   {
     id: "sub-1",
     jobsheetId: "job-1",
+    studentId: '1',
+    status: "OVERDUE",
+    score: 100,
 
     experiments: [
       {
@@ -170,8 +173,6 @@ Teknik Informatika`,
       ),
       wordCount: 32,
     },
-
-    status: "DRAFT",
 
     createdAt: "2026-03-20",
     updatedAt: "2026-03-20",

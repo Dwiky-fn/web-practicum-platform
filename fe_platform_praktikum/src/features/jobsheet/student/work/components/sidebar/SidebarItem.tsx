@@ -1,6 +1,6 @@
 import { Check } from "lucide-react"
-import type { SidebarNode } from "../../utils/buildSidebarStructure"
 import { useNavigate } from "react-router-dom"
+import type { SidebarNode } from "../../utils/buildSidebarStructure"
 
 interface SidebarItemProps {
   item: SidebarNode

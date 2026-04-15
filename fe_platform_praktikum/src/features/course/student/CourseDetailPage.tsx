@@ -11,12 +11,15 @@ import CourseSummarySidebar from "./components/CourseSummary";
 import JobsheetCardSkeleton from "./components/loading/JobsheetCardSkeleton";
 import CourseSummarySidebarSkeleton from "./components/loading/CourseSummarySkeleton";
 import TopProgressBar from "../../../components/loading/TopProgressBar";
+import { getSubmissionByJobsheetId } from "../../../entities/jobsheetSubmission/service";
+import type { JobsheetSubmission } from "../../../entities/jobsheetSubmission/types";
 
 export default function CourseDetailPage() {
   const { courseId } = useParams<{ courseId: string }>();
   const { user } = useCurrentUser();
 
   const [jobsheets, setJobsheets] = useState<Jobsheet[]>([]);
+  const [submissions, setSubmissions] = useState<JobsheetSubmission[]>([]);
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -43,6 +46,21 @@ export default function CourseDetailPage() {
 
         const jobsheetData = await getJobsheets(currentCourseId);
         setJobsheets(jobsheetData);
+
+        const submissionList = await Promise.all(
+          jobsheetData.map(async (j) => {
+            try {
+              return await getSubmissionByJobsheetId(j.id);
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        // filter null (kalau belum ada submission)
+        setSubmissions(
+          submissionList.filter(Boolean) as JobsheetSubmission[]
+        );
       } catch (error) {
         console.error(error);
       } finally {
@@ -87,13 +105,22 @@ export default function CourseDetailPage() {
                 Belum ada jobsheet.
               </div>
             ) : (
-              jobsheets.map((jobsheet) => (
-                <JobsheetCard
-                  key={jobsheet.id}
-                  jobsheet={jobsheet}
-                  onClick={() => navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}`)}
-                />
-              ))
+              jobsheets.map((jobsheet) => {
+                const submission = submissions.find(
+                  (s) => s.jobsheetId === jobsheet.id
+                );
+
+                return (
+                  <JobsheetCard
+                    key={jobsheet.id}
+                    jobsheet={jobsheet}
+                    submission={submission}
+                    onClick={() =>
+                      navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}`)
+                    }
+                  />
+                );
+              })
             )}
 
           </div>
@@ -103,7 +130,10 @@ export default function CourseDetailPage() {
             {loading ? (
               <CourseSummarySidebarSkeleton />
             ) : (
-              <CourseSummarySidebar jobsheets={jobsheets} />
+              <CourseSummarySidebar
+                jobsheets={jobsheets}
+                submissions={submissions}  
+              />
             )}
           </div>
         </div>

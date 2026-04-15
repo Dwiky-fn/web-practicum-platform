@@ -18,7 +18,7 @@ export default function SidebarHeader({
 
         <button
           onClick={onToggle}
-          className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center transition"
+          className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center transition cursor-pointer"
         >
           <ChevronRight size={20} />
         </button>

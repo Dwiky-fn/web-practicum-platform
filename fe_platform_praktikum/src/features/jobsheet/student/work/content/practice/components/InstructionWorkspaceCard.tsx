@@ -1,7 +1,7 @@
 import { useState } from "react"
 import type { JSONContent } from "@tiptap/react"
-import CodeEditorPanel from "./workSpace/CodeEditorPanel"
-import OutputPanel from "./workSpace/OutputPanel"
+import CodeEditorPanel from "../../../../../../../shared/code-editor/CodeEditorPanel"
+import OutputPanel from "../../../../../../../shared/code-editor/OutputPanel"
 import AnalysisEditor from "./workSpace/AnalysisEditor"
 
 interface Props {

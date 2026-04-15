@@ -1,14 +1,14 @@
 import { CheckCircle, Clock, XCircle } from "lucide-react"
-import type { JobsheetStatus } from "../../../../../../../entities/jobsheet/types"
+import type { SubmissionStatus } from "../../../../../../../entities/jobsheetSubmission/types"
 
 interface Props {
-  status: JobsheetStatus
+  status: SubmissionStatus
 }
 
 type StepState = "completed" | "active" | "pending" | "rejected"
 
 function getStepStates(
-  status: JobsheetStatus
+  status: SubmissionStatus
 ): {
   upload: StepState
   review: StepState
@@ -37,6 +37,18 @@ function getStepStates(
       return {
         upload: "completed",
         review: "completed",
+        result: "rejected",
+      }
+    case "DRAFT":
+      return {
+        upload: "pending",
+        review: "pending",
+        result: "pending",
+      }
+    case "OVERDUE":
+      return {
+        upload: "pending",
+        review: "pending",
         result: "rejected",
       }
     default:
@@ -99,8 +111,10 @@ export default function SubmissionActivityTimeline({
         <Step
           label={
             status === "REVIEWING"
-              ? `Sedang direview`
-              : "Review selesai"
+              ? "Sedang direview"
+              : status === "ACCEPTED" || status === "REVISION"
+              ? "Review selesai"
+              : "Menunggu review"
           }
           state={steps.review}
         />
@@ -113,7 +127,18 @@ export default function SubmissionActivityTimeline({
           />
         </div>
 
-        <Step label="Diterima" state={steps.result} />
+        <Step
+          label={
+            status === "REVISION"
+              ? "Perlu Revisi"
+              : status === "OVERDUE"
+              ? "Terlambat"
+              : status === "ACCEPTED"
+              ? "Diterima"
+              : "Hasil"
+          }
+          state={steps.result}
+        />
       </div>
     </div>
   )

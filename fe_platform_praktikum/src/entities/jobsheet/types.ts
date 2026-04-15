@@ -2,22 +2,10 @@ import type { JSONContent } from "@tiptap/react";
 
 // Status
 export type JobsheetStatus =
-  | "NOT_SUBMITTED"
-  | "SUBMITTED"
-  | "REVIEWING"
-  | "REVISION"
-  | "ACCEPTED"
-  | "OVERDUE"
-  | "UNPUBLISHED";
-
-// History
-export interface SubmissionHistory {
-  id: string;
-  submittedAt: string;
-  status: "SUBMITTED" | "REVISION" | "ACCEPTED";
-  score?: number;
-  note?: string;
-}
+  | "DRAFT"
+  | "PUBLISHED"
+  | "UNPUBLISHED"
+  | "ARCHIVED";
 
 // Theory
 export interface TheoryTable {
@@ -75,62 +63,11 @@ export interface TaskConfig {
   };
 }
 
-// Activity Domain
-export interface ExperimentStepAttempt {
-  stepNumber: number;
-
-  code: string;
-  output: string;
-
-  analysis?: JSONContent;
-}
-
-export interface ExperimentAttempt {
-  experimentId: string;
-  studentId: string;
-
-  steps: ExperimentStepAttempt[];
-
-  lastUpdatedAt: string;
-}
-
-export interface ExerciseAttempt {
-  exerciseId: string;
-  studentId: string;
-
-  code: string;
-  output: string;
-
-  analysis?: JSONContent;
-
-  lastUpdatedAt: string;
-}
-
-// Task Submission
-export interface TaskSubmission {
-  id: string;
-  taskId: string;
-  studentId: string;
-
-  status: JobsheetStatus;
-
-  conclusion?: {
-    content: JSONContent;
-    wordCount: number;
-  };
-
-  selfDeclarationAccepted: boolean;
-
-  generatedReportHtml?: string;
-
-  submittedAt?: string;
-  updatedAt: string;
-}
-
 // Jobsheet
 export interface Jobsheet {
   id: string;
   courseId: string;
+  status: string;
 
   title: string;
   description: string;
@@ -139,8 +76,6 @@ export interface Jobsheet {
   goal: string;
 
   deadline: string;
-  status: JobsheetStatus;
-  score?: number;
 
   theory: TheoryItem[];
   experiments: Experiment[];

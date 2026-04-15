@@ -40,7 +40,6 @@ export default function WorkPage() {
         setCourse(selectedCourse || null)
 
         const sub = await getSubmissionByJobsheetId(jobsheetId)
-        console.log("SUBMISSION:", sub)
         setSubmission(sub)
 
       } finally {
@@ -101,6 +100,7 @@ export default function WorkPage() {
         <WorkSidebar
           courseId={courseId!}
           jobsheet={jobsheet}
+          submission={submission}
         />
       </div>
 
@@ -108,6 +108,7 @@ export default function WorkPage() {
       <WorkFooterNav
         courseId={courseId!}
         jobsheet={jobsheet}
+        submission={submission}
       />
     </div>
   )

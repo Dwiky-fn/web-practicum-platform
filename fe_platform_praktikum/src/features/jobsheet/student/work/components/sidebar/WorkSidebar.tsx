@@ -1,19 +1,22 @@
 import { useLocation } from "react-router-dom"
-import type { Jobsheet } from "../../../../../../entities/jobsheet/types"
 import { buildSidebarTree } from "../../utils/buildSidebarStructure"
-import SidebarGroup from "./SidebarGroup"
-import SidebarHeader from "./SidebarHeader"
 import { useState } from "react"
 import { Menu } from "lucide-react"
+import type { Jobsheet } from "../../../../../../entities/jobsheet/types"
+import type { JobsheetSubmission } from "../../../../../../entities/jobsheetSubmission/types"
+import SidebarGroup from "./SidebarGroup"
+import SidebarHeader from "./SidebarHeader"
 
 interface WorkSidebarProps {
   courseId: string
   jobsheet: Jobsheet
+  submission: JobsheetSubmission
 }
 
 export default function WorkSidebar({
   courseId,
-  jobsheet
+  jobsheet,
+  submission
 }: WorkSidebarProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [buttonVisible, setButtonVisible] = useState(false)
@@ -30,7 +33,7 @@ export default function WorkSidebar({
     if (!path) return "default"
     const index = flatItems.findIndex(i => i.path === path)
 
-    if (jobsheet.status === "ACCEPTED") {
+    if (submission.status === "ACCEPTED") {
       return "completed"
     }
 
@@ -60,7 +63,7 @@ export default function WorkSidebar({
 
   let progress = 0
 
-  if (jobsheet.status === "ACCEPTED") {
+  if (submission.status === "ACCEPTED") {
     progress = 100
   } else if (currentIndex >= 0) {
     progress = Math.round(((currentIndex + 1) / totalItems) * 100)

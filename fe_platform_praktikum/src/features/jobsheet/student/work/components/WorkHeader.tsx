@@ -13,7 +13,7 @@ export default function WorkHeader({ title, backTo }: WorkHeaderProps) {
     <header className="h-16 bg-white border-b flex items-center px-6">
       <button
         onClick={() => navigate(backTo)}
-        className="flex items-center gap-3 p-2 rounded hover:bg-gray-200 transition"
+        className="flex items-center gap-3 p-2 rounded hover:bg-gray-200 transition cursor-pointer"
       >
         <ArrowLeft size={20} className="shrink-0" />
         <span className="text-lg font-semibold text-gray-800">

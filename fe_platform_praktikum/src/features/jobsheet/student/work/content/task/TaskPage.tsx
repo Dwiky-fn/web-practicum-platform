@@ -1,22 +1,24 @@
 import { useOutletContext, useNavigate } from "react-router-dom"
 import type { Jobsheet } from "../../../../../../entities/jobsheet/types"
+import type { JobsheetSubmission } from "../../../../../../entities/jobsheetSubmission/types"
 import SubmissionActivityTimeline from "./components/SubmissionActivityTimeline"
 
 export default function TaskPage() {
   const navigate = useNavigate()
 
-  const { jobsheet } = useOutletContext<{
+  const { jobsheet, submission } = useOutletContext<{
     jobsheet: Jobsheet
+    submission: JobsheetSubmission
   }>()
 
-  const submissionStatus = jobsheet.status
+  const submissionStatus = submission.status
   
   const canViewReview =
     submissionStatus === "ACCEPTED" ||
     submissionStatus === "REVISION"
 
   const canSubmit =
-    submissionStatus === "NOT_SUBMITTED"
+    submissionStatus === "DRAFT"
 
   const isWaiting =
     submissionStatus === "SUBMITTED" ||

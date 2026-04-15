@@ -1,8 +1,8 @@
 import { useState } from "react"
 import { ChevronDown, ChevronRight } from "lucide-react"
+import { useLocation } from "react-router-dom"
 import type { SidebarNode } from "../../utils/buildSidebarStructure"
 import SidebarItem from "./SidebarItem"
-import { useLocation } from "react-router-dom"
 
 interface SidebarGroupProps {
   group: SidebarNode

@@ -1,19 +1,45 @@
 import type { Jobsheet } from "../../../../entities/jobsheet/types";
+import type { JobsheetSubmission } from "../../../../entities/jobsheetSubmission/types";
 
 interface CourseSummarySidebarProps {
   jobsheets: Jobsheet[];
+  submissions: JobsheetSubmission[];
+}
+
+function getStatusMap(submissions: JobsheetSubmission[]) {
+  const map = new Map<string, JobsheetSubmission>();
+
+  submissions.forEach((s) => {
+    map.set(s.jobsheetId, s);
+  });
+
+  return map;
 }
 
 export default function CourseSummarySidebar({
   jobsheets,
+  submissions
 }: CourseSummarySidebarProps) {
+
+  const statusMap = getStatusMap(submissions);
 
   const total = jobsheets.length;
 
-  const accepted = jobsheets.filter(j => j.status === "ACCEPTED").length;
-  const revision = jobsheets.filter(j => j.status === "REVISION").length;
-  const notSubmitted = jobsheets.filter(j => j.status === "NOT_SUBMITTED").length;
-  const overdue = jobsheets.filter(j => j.status === "OVERDUE").length;
+  const accepted = jobsheets.filter(j => 
+    statusMap.get(j.id)?.status === "ACCEPTED"
+  ).length;
+
+  const revision = jobsheets.filter(j => 
+    statusMap.get(j.id)?.status === "REVISION"
+  ).length;
+
+  const draft = jobsheets.filter(j => 
+    (statusMap.get(j.id)?.status ?? "DRAFT") === "DRAFT"
+  ).length;
+
+  const overdue = jobsheets.filter(j => 
+    statusMap.get(j.id)?.status === "OVERDUE"
+  ).length;
 
   const progress =
     total > 0 ? Math.round((accepted / total) * 100) : 0;
@@ -31,7 +57,7 @@ export default function CourseSummarySidebar({
         <StatBox label="Total" value={total} />
         <StatBox label="Diterima" value={accepted} color="green" />
         <StatBox label="Revisi" value={revision} color="red" />
-        <StatBox label="Belum Submit" value={notSubmitted} color="yellow" />
+        <StatBox label="Belum Submit" value={draft} color="yellow" />
 
       </div>
 

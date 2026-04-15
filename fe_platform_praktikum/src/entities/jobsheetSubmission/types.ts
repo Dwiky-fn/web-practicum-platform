@@ -5,8 +5,8 @@ export type SubmissionStatus =
   | "SUBMITTED"
   | "REVIEWING"
   | "REVISION"
-  | "ACCEPTED";
-
+  | "ACCEPTED"
+  | "OVERDUE";
 
 export interface SubmissionStep {
   step: number;
@@ -27,9 +27,17 @@ export interface ExerciseSubmission {
   analysis: JSONContent;
 }
 
+export interface SubmissionHistory {
+  id: string;
+  submittedAt: string;
+}
+
 export interface JobsheetSubmission {
   id: string;
   jobsheetId: string;
+  studentId: string;
+  status: SubmissionStatus;
+  score?: number;
 
   experiments: ExperimentSubmission[];
   exercises: ExerciseSubmission[];
@@ -39,8 +47,8 @@ export interface JobsheetSubmission {
     wordCount: number;
   };
 
-  status: SubmissionStatus;
-
   createdAt: string;
   updatedAt: string;
+
+  history?: SubmissionHistory[];
 }

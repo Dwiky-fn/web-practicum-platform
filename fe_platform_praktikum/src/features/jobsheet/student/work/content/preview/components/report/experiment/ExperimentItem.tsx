@@ -1,5 +1,5 @@
 import type { SubmissionStep } from "../../../../../../../../../entities/jobsheetSubmission/types"
-import OutputPanel from "../../../../practice/components/workSpace/OutputPanel"
+import OutputPanel from "../../../../../../../../../shared/code-editor/OutputPanel"
 import RichTextViewer from "../../../../../../../../../shared/editor/RichTextViewer"
 
 interface Props {

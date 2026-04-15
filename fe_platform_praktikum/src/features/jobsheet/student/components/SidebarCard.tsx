@@ -1,14 +1,17 @@
 import { useNavigate } from "react-router-dom";
 import type { Jobsheet } from "../../../../entities/jobsheet/types";
+import type { JobsheetSubmission, SubmissionStatus } from "../../../../entities/jobsheetSubmission/types"
 
 interface Props {
   jobsheet: Jobsheet;
+  submission: JobsheetSubmission;
   courseId: string;
   jobsheetId: string;
 }
 
 export default function SidebarCard({
   jobsheet,
+  submission,
   courseId,
   jobsheetId,
 }: Props) {
@@ -35,7 +38,7 @@ export default function SidebarCard({
     }
   }
 
-  function getStatusStyle(status: Jobsheet["status"]) {
+  function getStatusStyle(status: SubmissionStatus) {
     switch (status) {
       case "ACCEPTED":
         return "text-green-600";
@@ -43,16 +46,16 @@ export default function SidebarCard({
         return "text-red-600";
       case "SUBMITTED":
         return "text-blue-600";
-      case "NOT_SUBMITTED":
+      case "DRAFT":
         return "text-yellow-600";
       default:
         return "text-gray-600";
     }
   }
 
-  function getActionLabel(status: Jobsheet["status"]) {
+  function getActionLabel(status: SubmissionStatus) {
     switch (status) {
-      case "NOT_SUBMITTED":
+      case "DRAFT":
         return "Mulai Belajar";
       case "REVISION":
         return "Belajar Lagi";
@@ -73,8 +76,8 @@ export default function SidebarCard({
       {/* STATUS */}
       <div className="flex justify-between">
         <p className="text-sm text-gray-500">Status</p>
-        <span className={`text-sm font-medium ${getStatusStyle(jobsheet.status)}`}>
-          {jobsheet.status.replace("_", " ")}
+        <span className={`text-sm font-medium ${getStatusStyle(submission.status)}`}>
+          {submission.status.replace("_", " ")}
         </span>
       </div>
 
@@ -106,21 +109,21 @@ export default function SidebarCard({
       <div className="flex justify-between">
         <p className="text-sm text-gray-500">Nilai</p>
         <p className="text-sm font-semibold text-green-600">
-          {jobsheet.score ?? 0}
+          {submission.score ?? 0}
         </p>
       </div>
 
       {/* ACTION */}
       <button
-        disabled={isOverdue && jobsheet.status === "NOT_SUBMITTED"}
+        disabled={isOverdue && submission.status === "DRAFT"}
         onClick={goTo}
         className={`w-full py-2 rounded-lg transition ${
-          isOverdue && jobsheet.status === "NOT_SUBMITTED"
+          isOverdue && submission.status === "DRAFT"
             ? "bg-gray-300 text-gray-600 cursor-not-allowed"
             : "bg-blue-600 text-white hover:bg-blue-700"
         }`}
       >
-        {getActionLabel(jobsheet.status)}
+        {getActionLabel(submission.status)}
       </button>
     </div>
   );

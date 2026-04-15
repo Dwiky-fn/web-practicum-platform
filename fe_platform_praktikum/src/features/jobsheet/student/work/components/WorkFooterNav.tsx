@@ -2,15 +2,18 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { buildWorkNavigation } from "../utils/buildNavigation";
 import { ArrowLeft, ArrowRight, Home } from "lucide-react";
 import type { Jobsheet } from "../../../../../entities/jobsheet/types";
+import type { JobsheetSubmission } from "../../../../../entities/jobsheetSubmission/types";
 
 interface WorkFooterNavProps {
   courseId: string,
-  jobsheet: Jobsheet
+  jobsheet: Jobsheet,
+  submission: JobsheetSubmission
 }
 
 export default function WorkFooterNav({
   courseId,
-  jobsheet
+  jobsheet,
+  submission
 }: WorkFooterNavProps) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -29,7 +32,7 @@ export default function WorkFooterNav({
   const nextItem = navItems[currentIndex + 1]
   const currentItem = navItems[currentIndex]
   
-  const isAccepted = jobsheet.status === "ACCEPTED"
+  const isAccepted = submission.status === "ACCEPTED"
   const isLastItem = currentIndex === navItems.length - 1
 
   return (
@@ -40,7 +43,7 @@ export default function WorkFooterNav({
           {prevItem && (
             <button
             onClick={() => navigate(prevItem.path)}
-            className="flex items-center gap-2 text-gray-600 hover:text-black active:text-black transition"
+            className="flex items-center text-gray-600 gap-3 p-2 rounded hover:bg-gray-200 hover:text-black active:text-black transition cursor-pointer"
             >
               <ArrowLeft size={18} />
               <div className="font-semibold text-gray-700 truncate">
@@ -62,7 +65,7 @@ export default function WorkFooterNav({
         {nextItem && (
           <button
             onClick={() => navigate(nextItem.path)}
-            className="flex items-center gap-2 text-gray-600 hover:text-black active:text-black transition text-right"
+            className="flex items-center text-gray-600 gap-3 p-2 rounded hover:bg-gray-200 hover:text-black active:text-black transition text-right cursor-pointer"
           >
             <div className="font-semibold text-gray-700 truncate">
               {nextItem.label}
@@ -76,7 +79,7 @@ export default function WorkFooterNav({
             onClick={() =>
               navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}`)
             }
-            className="flex items-center gap-2 text-gray-600 hover:text-black active:text-black transition text-right"
+            className="flex items-center text-gray-600 gap-3 p-2 rounded hover:bg-gray-200 hover:text-black active:text-black transition text-right cursor-pointer"
           >
             <Home size={18} />
             <div className="font-semibold text-gray-700 truncate">

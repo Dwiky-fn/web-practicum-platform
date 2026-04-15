@@ -1,6 +1,6 @@
 import type { Jobsheet } from "../../../../../../../../../entities/jobsheet/types"
 import type { JobsheetSubmission } from "../../../../../../../../../entities/jobsheetSubmission/types"
-import OutputPanel from "../../../../practice/components/workSpace/OutputPanel"
+import OutputPanel from "../../../../../../../../../shared/code-editor/OutputPanel"
 import RichTextViewer from "../../../../../../../../../shared/editor/RichTextViewer"
 
 interface Props {

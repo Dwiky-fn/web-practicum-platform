@@ -51,10 +51,12 @@ export default function ExperimentPage() {
       </h1>
 
       <div className="max-w-3xl">
-        <RichTextViewer
-          content={experiment.instructionContent}
-          mode="viewer-default"
+        {experiment.instructionContent && (
+          <RichTextViewer
+            content={experiment.instructionContent}
+            mode="viewer-default"
           />
+        )}
 
         <InstructionWorkspaceCard
           key={experiment.id}

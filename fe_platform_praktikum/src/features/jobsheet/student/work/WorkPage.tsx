@@ -2,8 +2,10 @@ import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { getJobsheets } from "../../../../entities/jobsheet/service";
 import { mockCourseList } from "../../../../entities/course/mocks";
+import { getSubmissionByJobsheetId } from "../../../../entities/jobsheetSubmission/service";
 import type { Jobsheet } from "../../../../entities/jobsheet/types";
 import type { Course } from "../../../../entities/course/types";
+import type { JobsheetSubmission } from "../../../../entities/jobsheetSubmission/types";
 import NotFoundPage from "../../../not-found/NotFoundPage";
 import WorkHeader from "./components/WorkHeader";
 import WorkFooterNav from "./components/WorkFooterNav";
@@ -16,6 +18,7 @@ export default function WorkPage() {
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null)
   const [loading, setLoading] = useState(true)
   const [course, setCourse] = useState<Course | null>(null)
+  const [submission, setSubmission] = useState<JobsheetSubmission | null>(null)
 
   const navigate = useNavigate()
   const location = useLocation()
@@ -35,6 +38,10 @@ export default function WorkPage() {
           c => c.id === courseId
         )
         setCourse(selectedCourse || null)
+
+        const sub = await getSubmissionByJobsheetId(jobsheetId)
+        console.log("SUBMISSION:", sub)
+        setSubmission(sub)
 
       } finally {
         setLoading(false)
@@ -57,7 +64,7 @@ export default function WorkPage() {
     }
   }, [jobsheet, location.pathname, navigate])
 
-  if (loading) {
+  if (loading || !submission) {
     return (
       <TopProgressBar />
     )
@@ -84,6 +91,7 @@ export default function WorkPage() {
             <Outlet
               context={{
                 jobsheet,
+                submission,
                 programmingLanguage: course?.programmingLanguage
               }}
             />

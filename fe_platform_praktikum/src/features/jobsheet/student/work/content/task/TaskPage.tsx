@@ -56,7 +56,7 @@ export default function TaskPage() {
 
             {canSubmit && (
               <button
-                onClick={() => navigate("preview")}
+                onClick={() => navigate(`/courses/${jobsheet.courseId}/jobsheets/${jobsheet.id}/preview`)}
                 className="bg-blue-600 hover:bg-teal-600 transition text-white px-6 py-2 rounded-xl font-medium shadow-sm"
               >
                 Lanjut

@@ -14,6 +14,7 @@ import TheoryPage from "./features/jobsheet/student/work/content/theory/TheoryPa
 import ExperimentPage from "./features/jobsheet/student/work/content/practice/ExperimentPage"
 import ExercisePage from "./features/jobsheet/student/work/content/practice/ExercisePage"
 import TaskPage from "./features/jobsheet/student/work/content/task/TaskPage"
+import PreviewPage from "./features/jobsheet/student/work/content/preview/PreviewPage"
 
 function AppContent() {
   const { loading } = useCurrentUser()
@@ -39,6 +40,10 @@ function AppContent() {
         <Route path="exercises/:exerciseId" element={<ExercisePage />} />
         <Route path="task" element={<TaskPage />} />
       </Route>
+      <Route
+        path="/courses/:courseId/jobsheets/:jobsheetId/preview"
+        element={<PreviewPage />}
+      />
 
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

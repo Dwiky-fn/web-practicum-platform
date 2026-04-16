@@ -11,6 +11,7 @@ import ReportSection from "./components/report/ReportSection"
 import ConclusionEditor from "./components/ConclusionEditor"
 import SubmissionValidationCard from "./components/SubmissionValidationCard"
 import PreviewHeader from "./components/PreviewHeader"
+import TopProgressBar from "../../../../../../components/loading/TopProgressBar"
 
 export default function PreviewPage() {
 
@@ -43,7 +44,7 @@ export default function PreviewPage() {
   }, [courseId, jobsheetId])
 
   if (loading || !jobsheet || !submission) {
-    return <div>Loading...</div>
+    return <TopProgressBar />
   }
 
   return (

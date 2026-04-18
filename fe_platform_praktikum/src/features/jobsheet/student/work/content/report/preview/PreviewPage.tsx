@@ -1,17 +1,17 @@
 import { useParams } from "react-router-dom"
 import { useEffect, useState } from "react"
-import { getJobsheets } from "../../../../../../entities/jobsheet/service"
-import { getSubmissionByJobsheetId } from "../../../../../../entities/jobsheetSubmission/service"
+import { getJobsheets } from "../../../../../../../entities/jobsheet/service"
+import { getSubmissionByJobsheetId } from "../../../../../../../entities/jobsheetSubmission/service"
 
-import type { Jobsheet } from "../../../../../../entities/jobsheet/types"
-import type { JobsheetSubmission } from "../../../../../../entities/jobsheetSubmission/types"
+import type { Jobsheet } from "../../../../../../../entities/jobsheet/types" 
+import type { JobsheetSubmission } from "../../../../../../../entities/jobsheetSubmission/types"
 
-import StudentIdentityCard from "./components/StudentIdentityCard"
-import ReportSection from "./components/report/ReportSection"
-import ConclusionEditor from "./components/ConclusionEditor"
+import StudentIdentityCard from "../components/StudentIdentityCard"
+import ReportSection from "../components/report/ReportSection"
+import ConclusionEditor from "../components/ConclusionEditor"
 import SubmissionValidationCard from "./components/SubmissionValidationCard"
-import PreviewHeader from "./components/PreviewHeader"
-import TopProgressBar from "../../../../../../components/loading/TopProgressBar"
+import ReportHeader from "../components/ReportHeader"
+import TopProgressBar from "../../../../../../../components/loading/TopProgressBar"
 
 export default function PreviewPage() {
 
@@ -51,7 +51,7 @@ export default function PreviewPage() {
   <div className="min-h-screen bg-gray-50">
 
     {/* HEADER */}
-    <PreviewHeader
+    <ReportHeader
       title={jobsheet.title}
       backTo={`/courses/${courseId}/jobsheets/${jobsheet.id}/works/task`}
     />

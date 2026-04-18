@@ -1,20 +1,31 @@
-import type { SubmissionStep } from "../../../../../../../../../entities/jobsheetSubmission/types"
+import type {
+  JobsheetSubmission,
+  SubmissionStep
+} from "../../../../../../../../../entities/jobsheetSubmission/types"
+
 import OutputPanel from "../../../../../../../../../shared/code-editor/OutputPanel"
 import RichTextViewer from "../../../../../../../../../shared/editor/RichTextViewer"
 
 interface Props {
   title: string
   index: number
+  experimentId: string // 🔥 tambah ini (WAJIB, jangan pakai title lagi)
   instructionSteps: string[]
   steps: SubmissionStep[]
+  submission: JobsheetSubmission
 }
 
 export default function ExperimentItem({
   title,
   index,
+  experimentId,
   instructionSteps,
   steps,
+  submission
 }: Props) {
+
+  const comments = submission.review?.comments ?? []
+
   return (
     <div className="space-y-8">
 
@@ -27,18 +38,51 @@ export default function ExperimentItem({
       {instructionSteps.length > 0 ? (
         instructionSteps.map((instruction, i) => {
 
-          const stepData = steps.find((s) => s.step === i + 1)
+          const stepNumber = i + 1
+
+          const stepData = steps.find((s) => s.step === stepNumber)
+
+          const stepComments = comments.filter(
+            (c) =>
+              c.experimentId === experimentId &&
+              c.step === stepNumber
+          )
+
+          const hasComment = stepComments.length > 0
 
           return (
             <div
               key={i}
-              className="pl-4 border-l-2 border-gray-200 space-y-5"
+              className={`pl-4 border-l-4 space-y-5 transition-all duration-200 ${
+                hasComment
+                  ? "border-yellow-400 bg-yellow-50/40 rounded-md p-3"
+                  : "border-gray-200"
+              }`}
             >
 
-              {/* 🔥 INSTRUKSI */}
-              <p className="text-sm font-medium text-gray-700">
-                {i + 1}. {instruction}
-              </p>
+              {/* 🔥 HEADER STEP */}
+              <div className="flex items-center justify-between">
+
+                <p className="text-sm font-medium text-gray-700">
+                  {stepNumber}. {instruction}
+                </p>
+
+                {/* 🔥 BADGE KOMENTAR */}
+                {hasComment && (
+                  <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded-full font-medium">
+                    Ada komentar
+                  </span>
+                )}
+              </div>
+
+              {/* 🔥 KOMENTAR DOSEN (INLINE, LANGSUNG KELIHATAN) */}
+              {hasComment && (
+                <div className="bg-yellow-100 border border-yellow-300 rounded-md p-3 text-sm text-yellow-900">
+                  {stepComments.map((c, idx) => (
+                    <p key={idx}>💬 {c.comment}</p>
+                  ))}
+                </div>
+              )}
 
               {/* CODE */}
               <div>

@@ -1,13 +1,14 @@
+import RichTextEditor from "../../../../../../../shared/editor/RichTextEditor"
 import { useEffect, useMemo, useState } from "react"
-import type { Jobsheet } from "../../../../../../../entities/jobsheet/types" 
+import type { Jobsheet } from "../../../../../../../entities/jobsheet/types"
 import type { JobsheetSubmission } from "../../../../../../../entities/jobsheetSubmission/types"
 import type { JSONContent } from "@tiptap/react"
-
-import RichTextEditor from "../../../../../../../shared/editor/RichTextEditor" 
+import RichTextViewer from "../../../../../../../shared/editor/RichTextViewer"
 
 interface Props {
   jobsheet: Jobsheet
   submission: JobsheetSubmission
+  readOnly?: boolean
   onChange?: (data: {
     content: JSONContent
     wordCount: number
@@ -37,6 +38,7 @@ function countWordsFromJSON(content: JSONContent): number {
 export default function ConclusionEditor({
   jobsheet,
   submission,
+  readOnly = false,
   onChange,
 }: Props) {
 
@@ -67,6 +69,8 @@ export default function ConclusionEditor({
   /* ================= AUTOSAVE ================= */
 
   useEffect(() => {
+    if (readOnly) return
+
     const timeout = setTimeout(() => {
       onChange?.({
         content,
@@ -75,7 +79,7 @@ export default function ConclusionEditor({
     }, 500)
 
     return () => clearTimeout(timeout)
-  }, [content, wordCount, onChange])
+  }, [content, wordCount, onChange, readOnly])
 
   /* ================= CONDITIONAL RENDER ================= */
 
@@ -92,26 +96,40 @@ export default function ConclusionEditor({
 
       <div className="p-6 space-y-4">
 
-        <RichTextEditor
-          value={content}
-          onChange={setContent}
-          placeholder="Tulis kesimpulan praktikum di sini..."
-        />
+        {readOnly ? (
+          <div className="bg-white border border-gray-200 rounded-md p-3">
+            {content?.content?.length ? (
+              <RichTextViewer content={content} />
+            ) : (
+              <p className="text-sm text-gray-400">
+                Belum ada kesimpulan
+              </p>
+            )}
+          </div>
+        ) : (
+          <RichTextEditor
+            value={content}
+            onChange={setContent}
+            placeholder="Tulis kesimpulan praktikum di sini..."
+          />
+        )}
 
-        <div className="flex justify-between text-sm">
+        {!readOnly && (
+          <div className="flex justify-between text-sm">
 
-          <span className="text-gray-500">
-            {wordCount} kata
-            {config.minWord && <> (minimal {config.minWord})</>}
-          </span>
-
-          {!isValid && (
-            <span className="text-red-500">
-              Minimal {minWord} kata
+            <span className="text-gray-500">
+              {wordCount} kata
+              {config.minWord && <> (minimal {config.minWord})</>}
             </span>
-          )}
 
-        </div>
+            {!isValid && (
+              <span className="text-red-500">
+                Minimal {minWord} kata
+              </span>
+            )}
+
+          </div>
+        )}
 
       </div>
     </div>

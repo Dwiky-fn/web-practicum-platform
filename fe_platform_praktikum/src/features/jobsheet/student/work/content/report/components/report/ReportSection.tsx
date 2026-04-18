@@ -7,6 +7,7 @@ import ExerciseReport from "./exercise/ExerciseReport"
 interface Props {
   jobsheet: Jobsheet
   submission: JobsheetSubmission
+  readonly?: boolean
 }
 
 export default function ReportSection({

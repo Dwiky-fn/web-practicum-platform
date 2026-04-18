@@ -46,7 +46,7 @@ export const jobsheetSubmissionMocks: JobsheetSubmission[] = [
     jobsheetId: "job-1",
     studentId: '1',
     status: "DRAFT",
-    score: 100,
+    score: 0,
 
     experiments: [
       {
@@ -172,6 +172,62 @@ Teknik Informatika`,
         "Pada praktikum ini saya memahami batasan setiap tipe data dalam Java serta pentingnya menggunakan tipe data yang sesuai agar tidak terjadi error."
       ),
       wordCount: 32,
+    },
+
+    review: {
+      id: "rev-1",
+      submissionId: "sub-1",
+      lecturerId: "lec-1",
+
+      aiScore: 80,
+      finalScore: 85,
+      plagiarismScore: 5,
+
+      aiFeedback: {
+        summary: {
+          totalPercobaan: 2,
+          percobaanValid: 2,
+          nilaiAkhir: 80,
+        },
+        detail: [
+          {
+            percobaan: "Percobaan 1",
+            hasil: {
+              kebenaran: 8,
+              kualitasKode: 7,
+              kualitasAnalisis: 7,
+              total: 22,
+              feedback:
+                "Program sudah benar, namun analisis masih kurang dalam."
+            }
+          }
+        ]
+      },
+
+      lecturerFeedback:
+        "Secara umum sudah baik, namun perlu memperhatikan batas tipe data dan penjelasan analisis.",
+
+      decision: "REVISION",
+
+      comments: [
+        {
+          experimentId: "percobaan-1",
+          step: 2,
+          comment:
+            "Nilai -129 tidak valid untuk byte, perhatikan range (-128 sampai 127)."
+        },
+        {
+          experimentId: "percobaan-1",
+          step: 3,
+          comment:
+            "Gunakan suffix L untuk literal long agar tidak terjadi error."
+        },
+        {
+          exerciseId: "latihan-1",
+          comment:
+            "Output sudah benar, tapi analisis masih bisa diperjelas."
+        }
+      ]
     },
 
     createdAt: "2026-03-20",

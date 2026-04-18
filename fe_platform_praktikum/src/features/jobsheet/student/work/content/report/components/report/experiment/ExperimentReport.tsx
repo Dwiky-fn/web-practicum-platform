@@ -15,19 +15,33 @@ export default function ExperimentReport({
 }: Props) {
 
   const experimentsSubmission = submission?.experiments ?? []
-
   const experimentList = jobsheet.experiments
 
   const submissionMap = Object.fromEntries(
     experimentsSubmission.map((s) => [s.experimentId, s])
   )
 
+  // 🔥 hitung total step yang punya komentar (UX bonus)
+  const comments = submission.review?.comments ?? []
+
+  const totalCommentedSteps = comments.filter(c => c.experimentId).length
+
   return (
     <div className="bg-white border rounded-xl overflow-hidden">
 
       {/* Header */}
-      <div className="bg-gray-100 px-6 py-3 border-b font-semibold text-gray-800">
-        Percobaan
+      <div className="bg-gray-100 px-6 py-3 border-b flex justify-between items-center">
+
+        <p className="font-semibold text-gray-800">
+          Percobaan
+        </p>
+
+        {/* 🔥 BADGE GLOBAL */}
+        {totalCommentedSteps > 0 && (
+          <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded-full font-medium">
+            {totalCommentedSteps} perlu revisi
+          </span>
+        )}
       </div>
 
       {/* Content */}
@@ -42,8 +56,10 @@ export default function ExperimentReport({
               key={exp.id}
               title={exp.title}
               index={index}
+              experimentId={exp.id} // 🔥 FIX PENTING
               instructionSteps={extractSteps(exp.instructionContent)}
               steps={submissionData?.steps ?? []}
+              submission={submission}
             />
           )
         })}

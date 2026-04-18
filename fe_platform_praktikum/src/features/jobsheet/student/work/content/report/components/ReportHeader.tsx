@@ -1,17 +1,17 @@
 import { ArrowLeft } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 
-interface PreviewHeaderProps {
+interface ReportHeaderProps {
   title: string
   backTo: string
   rightContent?: React.ReactNode
 }
 
-export default function PreviewHeader({
+export default function ReportHeader({
   title,
   backTo,
   rightContent,
-}: PreviewHeaderProps) {
+}: ReportHeaderProps) {
   const navigate = useNavigate()
 
   return (

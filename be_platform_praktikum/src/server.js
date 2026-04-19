@@ -1,0 +1,27 @@
+require('dotenv').config();
+
+const express = require('express');
+const cors = require('cors');
+
+const submissions = require('./api/submissions');
+
+const app = express();
+
+// middleware
+app.use(cors());
+app.use(express.json());
+
+// register routes
+submissions(app);
+
+// test route
+app.get('/', (req, res) => {
+  res.send('API is running');
+});
+
+// start server
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});

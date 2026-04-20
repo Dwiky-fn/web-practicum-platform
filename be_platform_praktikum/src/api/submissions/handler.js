@@ -9,9 +9,6 @@ class SubmissionsHandler {
   async postSubmissionHandler(req, res) {
     try {
       const payload = req.body;
-
-      console.log('BODY:', payload);
-
       const submission = await this._service.createSubmission(payload);
 
       return res.status(201).json({

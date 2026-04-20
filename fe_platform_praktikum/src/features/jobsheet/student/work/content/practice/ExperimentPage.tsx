@@ -5,6 +5,12 @@ import type { JSONContent } from "@tiptap/core"
 import InstructionWorkspaceCard from "./components/InstructionWorkspaceCard"
 import RichTextViewer from "../../../../../../shared/editor/RichTextViewer"
 
+type StepData = {
+  files: Record<string, string>
+  output: string
+  analysis: JSONContent
+}
+
 function splitInstructionContent(doc?: JSONContent): JSONContent[] {
   if (!doc?.content) return []
 
@@ -27,11 +33,12 @@ function splitInstructionContent(doc?: JSONContent): JSONContent[] {
 
 export default function ExperimentPage() {
   const { experimentId } = useParams()
-  const { jobsheet, programmingLanguage } = useOutletContext<{
+  const { jobsheet, programmingLanguage, updateExperiment } = useOutletContext<{
     jobsheet: Jobsheet
     programmingLanguage: string
+    updateExperiment: (experimentId: string, steps: StepData[]) => void
   }>()
-
+  
   const experiment = jobsheet.experiments.find(
     exp => exp.id === experimentId
   )
@@ -63,6 +70,9 @@ export default function ExperimentPage() {
           instructions={instructions}
           templateCode={experiment.defaultTemplateCode}
           language={programmingLanguage}
+          onChange={(steps) => {
+            updateExperiment(experiment.id, steps)
+          }}
           />
       </div> 
     </div>

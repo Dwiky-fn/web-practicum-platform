@@ -6,5 +6,5 @@ module.exports = (app) => {
   const service = new SubmissionsService();
   const handler = new SubmissionsHandler(service);
 
-  app.use('/api', routes(handler));
+  app.use(routes(handler));
 };

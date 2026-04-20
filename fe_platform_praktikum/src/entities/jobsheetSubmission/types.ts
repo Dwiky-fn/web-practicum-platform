@@ -80,6 +80,27 @@ export interface SubmissionReview {
   comments?: ReviewComment[]
 }
 
+export type StepData = {
+  files: Record<string, string>
+  output: string
+  analysis: JSONContent
+}
+
+export type ReportData = {
+  experiments?: Record<string, {
+    steps: StepData[]
+  }>
+  exercises?: Record<string, {
+    files: Record<string, string>
+    output: string
+    analysis: JSONContent
+  }>
+  conclusion?: {
+    content: JSONContent
+    wordCount: number
+  }
+}
+
 export interface JobsheetSubmission {
   id: string;
   jobsheetId: string;
@@ -87,13 +108,7 @@ export interface JobsheetSubmission {
   status: SubmissionStatus;
   score?: number;
 
-  experiments: ExperimentSubmission[];
-  exercises: ExerciseSubmission[];
-
-  conclusion?: {
-    content: JSONContent;
-    wordCount: number;
-  };
+  report: ReportData;
 
   review?: SubmissionReview;
 

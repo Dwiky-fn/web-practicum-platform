@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { JSONContent } from "@tiptap/react"
 import CodeEditorPanel from "../../../../../../../shared/code-editor/CodeEditorPanel"
 import OutputPanel from "../../../../../../../shared/code-editor/OutputPanel"
@@ -8,6 +8,11 @@ interface Props {
   instructions: JSONContent[]
   templateCode: string
   language: string
+  onChange?: (steps: {
+    files: Record<string, string>
+    output: string
+    analysis: JSONContent
+  }[]) => void
 }
 
 function getDefaultFileName(language: string) {
@@ -29,6 +34,7 @@ export default function InstructionWorkspaceCard({
   instructions,
   templateCode,
   language,
+  onChange
 }: Props) {
   
   const defaultFileName = getDefaultFileName(language)
@@ -48,7 +54,6 @@ export default function InstructionWorkspaceCard({
       ])
     )
   )
-
 
   const [analysisMap, setAnalysisMap] =
     useState<Record<number, JSONContent>>(() =>
@@ -142,6 +147,16 @@ export default function InstructionWorkspaceCard({
       setActiveFile(Object.keys(rest)[0])
     }
   }
+
+  useEffect(() => {
+    const steps = instructions.map((_, i) => ({
+      files: codeMap[i],
+      output: outputMap[i],
+      analysis: analysisMap[i],
+    }))
+
+    onChange?.(steps)
+  }, [codeMap, outputMap, analysisMap])
 
   return (
     <div className="mt-3 border border-gray-200 rounded-xl shadow-sm overflow-hidden bg-white">

@@ -1,11 +1,12 @@
 import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getJobsheets } from "../../../../entities/jobsheet/service";
 import { mockCourseList } from "../../../../entities/course/mocks";
 import { getSubmissionByJobsheetId } from "../../../../entities/jobsheetSubmission/service";
 import type { Jobsheet } from "../../../../entities/jobsheet/types";
 import type { Course } from "../../../../entities/course/types";
 import type { JobsheetSubmission } from "../../../../entities/jobsheetSubmission/types";
+import type { JSONContent } from "@tiptap/core";
 import NotFoundPage from "../../../not-found/NotFoundPage";
 import WorkHeader from "./components/WorkHeader";
 import WorkFooterNav from "./components/WorkFooterNav";
@@ -22,6 +23,36 @@ export default function WorkPage() {
 
   const navigate = useNavigate()
   const location = useLocation()
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const autoSave = (updatedSubmission: JobsheetSubmission) => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        console.log("AUTO SAVE...", updatedSubmission.report)
+
+        // 🔥 nanti ganti dengan API beneran
+        await fetch(`http://localhost:3000/submissions/${jobsheetId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            report: updatedSubmission.report,
+            status: "DRAFT"
+          })
+        })
+
+        console.log("SAVED ✅")
+      } catch (err) {
+        console.error("AUTO SAVE ERROR ❌", err)
+      }
+    }, 800)
+  }
 
   useEffect(() => {
     async function loadData() {
@@ -63,6 +94,56 @@ export default function WorkPage() {
     }
   }, [jobsheet, location.pathname, navigate])
 
+  type StepData = {
+    files: Record<string, string>
+    output: string
+    analysis: JSONContent
+  }
+
+  const updateExperiment = (experimentId: string, steps: StepData[]) => {
+    setSubmission(prev => {
+      if (!prev) return prev
+
+      const updated = {
+        ...prev,
+        report: {
+          ...prev.report,
+          experiments: {
+            ...(prev.report?.experiments || {}),
+            [experimentId]: {
+              steps
+            }
+          }
+        }
+      }
+
+      autoSave(updated) // 🔥 ini kuncinya
+
+      return updated
+})
+  }
+
+  const updateExercise = (exerciseId: string, data: StepData) => {
+    setSubmission(prev => {
+      if (!prev) return prev
+
+      const updated = {
+        ...prev,
+        report: {
+          ...prev.report,
+          exercises: {
+            ...(prev.report?.exercises || {}),
+            [exerciseId]: data
+          }
+        }
+      }
+
+      autoSave(updated)
+
+      return updated
+    })
+  }
+
   if (loading || !submission) {
     return (
       <TopProgressBar />
@@ -74,6 +155,8 @@ export default function WorkPage() {
       <NotFoundPage />
     )
   }
+
+  
 
   return (
     <div className="h-dvh flex flex-col bg-gray-50">
@@ -91,7 +174,9 @@ export default function WorkPage() {
               context={{
                 jobsheet,
                 submission,
-                programmingLanguage: course?.programmingLanguage
+                programmingLanguage: course?.programmingLanguage,
+                updateExperiment,
+                updateExercise
               }}
             />
           </div>

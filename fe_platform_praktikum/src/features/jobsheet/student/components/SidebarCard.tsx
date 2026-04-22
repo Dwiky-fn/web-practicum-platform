@@ -30,12 +30,8 @@ export default function SidebarCard({
     ?? jobsheet.experiments[0]?.id
     ?? jobsheet.exercises[0]?.id;
 
-  function goTo() {
-    if (firstContent) {
-      navigate(
-        `/courses/${courseId}/jobsheets/${jobsheetId}/works/theory/${firstContent}`
-      )
-    }
+  async function goTo() {
+    navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/works/theory/${firstContent}`)
   }
 
   function getStatusStyle(status: SubmissionStatus) {

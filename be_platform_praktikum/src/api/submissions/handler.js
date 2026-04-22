@@ -9,6 +9,7 @@ class SubmissionsHandler {
   async postSubmissionHandler(req, res) {
     try {
       const payload = req.body;
+
       const submission = await this._service.createSubmission(payload);
 
       return res.status(201).json({
@@ -27,10 +28,9 @@ class SubmissionsHandler {
 
   async getSubmissionHandler(req, res) {
     const { jobsheetId } = req.params;
-
     const studentId = '1';
 
-    const submission = await this._service.getSubmissionByJobsheetId(
+    const submission = await this._service.getOrCreateSubmission(
       jobsheetId,
       studentId,
     );
@@ -43,8 +43,7 @@ class SubmissionsHandler {
 
   async putSubmissionHandler(req, res) {
     const { jobsheetId } = req.params;
-
-    const studentId = '1'; // nanti dari auth
+    const studentId = '1';
     const { report, status } = req.body;
 
     const submission = await this._service.updateSubmission({

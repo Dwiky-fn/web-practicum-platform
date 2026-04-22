@@ -126,12 +126,15 @@ export default function CodeEditorPanel({
 
       {/* Code Editor */}
       <Editor
-        key={activeFile}
         height="400px"
         language={language}
-        value={files[activeFile]}
+        value={files[activeFile] ?? ""}
         theme="vs-light"
-        onChange={(value) => onCodeChange(value || "")}
+        onChange={(value) => {
+          if (value !== undefined) {
+            onCodeChange(value)
+          }
+        }}
         options={{
           fontSize: 14,
           minimap: { enabled: false },

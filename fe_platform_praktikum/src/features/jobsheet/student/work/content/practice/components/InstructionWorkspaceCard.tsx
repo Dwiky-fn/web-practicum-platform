@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import type { JSONContent } from "@tiptap/react"
 import CodeEditorPanel from "../../../../../../../shared/code-editor/CodeEditorPanel"
 import OutputPanel from "../../../../../../../shared/code-editor/OutputPanel"
@@ -13,20 +13,20 @@ interface Props {
     output: string
     analysis: JSONContent
   }[]) => void
+  initialSteps?: {
+    files: Record<string, string>
+    output: string
+    analysis: JSONContent
+  }[]
 }
 
-function getDefaultFileName(language: string) {
+function getDefaultFileName(language: string): string {
   switch (language) {
-    case "java":
-      return "Main.java"
-    case "javascript":
-      return "index.js"
-    case "typescript":
-      return "index.ts"
-    case "python":
-      return "main.py"
-    default:
-      return `main.${language}`
+    case "java": return "Main.java"
+    case "javascript": return "index.js"
+    case "typescript": return "index.ts"
+    case "python": return "main.py"
+    default: return `main.${language || 'txt'}`
   }
 }
 
@@ -34,109 +34,163 @@ export default function InstructionWorkspaceCard({
   instructions,
   templateCode,
   language,
-  onChange
+  onChange,
+  initialSteps
 }: Props) {
-  
   const defaultFileName = getDefaultFileName(language)
 
   const [activeIndex, setActiveIndex] = useState(0)
-  const [activeFile, setActiveFile] = useState<string>(defaultFileName)
+  const [activeFile, setActiveFile] = useState(defaultFileName)
 
-  const [codeMap, setCodeMap] = useState<
-    Record<number, Record<string, string>>
-  >(() =>
-    Object.fromEntries(
-      instructions.map((_, i) => [
-        i,
-        {
-          [defaultFileName]: templateCode
-        }
-      ])
-    )
-  )
+  const [codeMap, setCodeMap] = useState<Record<number, Record<string, string>>>({})
+  const [analysisMap, setAnalysisMap] = useState<Record<number, JSONContent>>({})
+  const [outputMap, setOutputMap] = useState<Record<number, string>>({})
 
-  const [analysisMap, setAnalysisMap] =
-    useState<Record<number, JSONContent>>(() =>
-      Object.fromEntries(
-        instructions.map((_, i) => [
-          i,
-          { type: "doc", content: [] },
-        ])
+  // ✅ HYDRATION (ambil dari DB dulu, kalau ada)
+  useEffect(() => {
+    if (initialSteps && initialSteps.length > 0) {
+      const newCodeMap = Object.fromEntries(
+        initialSteps.map((step, i) => [i, step.files || {}])
       )
-    )
 
-  const [outputMap, setOutputMap] =
-    useState<Record<number, string>>(() =>
-      Object.fromEntries(
-        instructions.map((_, i) => [i, ""])
+      const newAnalysisMap = Object.fromEntries(
+        initialSteps.map((step, i) => [i, step.analysis || { type: "doc", content: [] }])
       )
-    )
 
-  const handleRun = () => {
-    const files = codeMap[activeIndex]
+      const newOutputMap = Object.fromEntries(
+        initialSteps.map((step, i) => [i, step.output || ""])
+      )
 
-    console.log(files)
+      setCodeMap(newCodeMap)
+      setAnalysisMap(newAnalysisMap)
+      setOutputMap(newOutputMap)
 
-    setOutputMap(prev => ({
-      ...prev,
-      [activeIndex]: "Program dijalankan (dummy output)..."
-    }))
-  }
+      return
+    }
 
-  const handleReset = () => {
+    if (instructions.length > 0) {
+      const defaultCodeMap = Object.fromEntries(
+        instructions.map((_, i) => [i, { [defaultFileName]: templateCode || "" }])
+      )
+
+      setCodeMap(defaultCodeMap)
+      setAnalysisMap(
+        Object.fromEntries(instructions.map((_, i) => [i, { type: "doc", content: [] }]))
+      )
+      setOutputMap(
+        Object.fromEntries(instructions.map((_, i) => [i, ""]))
+      )
+    }
+  }, [initialSteps, instructions, templateCode, defaultFileName])
+
+  // ✅ CODE CHANGE (NO AUTOSAVE)
+  const handleCodeChange = useCallback((value: string) => {
     setCodeMap(prev => ({
       ...prev,
       [activeIndex]: {
-        ...prev[activeIndex],
-        [activeFile]: templateCode
+        ...(prev[activeIndex] || {}),
+        [activeFile]: value
       }
     }))
-  }
+  }, [activeIndex, activeFile])
 
-  const handleAddFile = () => {
-    const newFile = `File${Object.keys(codeMap[activeIndex]).length + 1}.java`
+  // ✅ ANALYSIS CHANGE (NO AUTOSAVE)
+  const handleAnalysisChange = useCallback((value: JSONContent) => {
+    setAnalysisMap(prev => ({
+      ...prev,
+      [activeIndex]: value,
+    }))
+  }, [activeIndex])
+
+  // ✅ RUN = SAVE TRIGGER
+  const handleRun = useCallback(() => {
+    const newOutput = "Program dijalankan (dummy output)..."
+
+    console.log("🔥 CODEMAP:", codeMap)
+
+    setOutputMap(prev => {
+      const updatedOutputMap = {
+        ...prev,
+        [activeIndex]: newOutput
+      }
+
+      if (onChange) {
+        const steps =
+          instructions.length > 0
+            ? instructions.map((_, i) => ({
+                files: codeMap[i] || {},
+                output: updatedOutputMap[i] || "", // ✅ FIX DISINI
+                analysis: analysisMap[i] || { type: "doc", content: [] },
+              }))
+            : [
+                {
+                  files: codeMap[0] || {},
+                  output: updatedOutputMap[0] || "",
+                  analysis: analysisMap[0] || { type: "doc", content: [] },
+                },
+              ]
+
+        console.log("🔥 STEPS TO SAVE:", steps)
+
+        onChange(steps)
+      }
+
+      return updatedOutputMap
+    })
+  }, [activeIndex, instructions, codeMap, analysisMap, onChange])
+
+  // ✅ RESET
+  const handleReset = useCallback(() => {
+    setCodeMap(prev => ({
+      ...prev,
+      [activeIndex]: {
+        ...(prev[activeIndex] || {}),
+        [activeFile]: templateCode || ""
+      }
+    }))
+  }, [activeIndex, activeFile, templateCode])
+
+  // FILE HANDLING
+  const handleAddFile = useCallback(() => {
+    const current = codeMap[activeIndex] || {}
+    const newFile = `File${Object.keys(current).length + 1}.${language}`
 
     setCodeMap(prev => ({
       ...prev,
       [activeIndex]: {
-        ...prev[activeIndex],
+        ...current,
         [newFile]: ""
       }
     }))
 
     setActiveFile(newFile)
-  }
+  }, [activeIndex, codeMap, language])
 
-  const handleRenameFile = (oldName: string, newName: string) => {
-    if (!newName || oldName === newName) return
+  const handleRenameFile = useCallback((oldName: string, newName: string) => {
+    const current = codeMap[activeIndex]
+    if (!current || !current[oldName]) return
 
-    setCodeMap(prev => {
-      const currentFiles = prev[activeIndex]
-      const { [oldName]: content, ...rest } = currentFiles
+    const { [oldName]: content, ...rest } = current
 
-      return {
-        ...prev,
-        [activeIndex]: {
-          ...rest,
-          [newName]: content
-        }
+    setCodeMap(prev => ({
+      ...prev,
+      [activeIndex]: {
+        ...rest,
+        [newName]: content
       }
-    })
+    }))
 
     setActiveFile(newName)
-  }
+  }, [activeIndex, codeMap])
 
-  const handleDeleteFile = (fileName: string) => {
-    const files = codeMap[activeIndex]
+  const handleDeleteFile = useCallback((fileName: string) => {
+    const current = codeMap[activeIndex]
+    if (!current) return
 
-    if (Object.keys(files).length === 1) {
-      alert("Minimal harus ada 1 file")
-      return
-    }
+    if (Object.keys(current).length <= 1) return
 
-    const rest = Object.fromEntries(
-      Object.entries(files).filter(([key]) => key !== fileName)
-    )
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { [fileName]: _, ...rest } = current
 
     setCodeMap(prev => ({
       ...prev,
@@ -146,79 +200,60 @@ export default function InstructionWorkspaceCard({
     if (fileName === activeFile) {
       setActiveFile(Object.keys(rest)[0])
     }
-  }
+  }, [activeIndex, activeFile, codeMap])
 
-  useEffect(() => {
-    const steps = instructions.map((_, i) => ({
-      files: codeMap[i],
-      output: outputMap[i],
-      analysis: analysisMap[i],
-    }))
-
-    onChange?.(steps)
-  }, [codeMap, outputMap, analysisMap])
+  const codeEditorProps = useMemo(() => ({
+    language,
+    files: codeMap[activeIndex] || {},
+    activeFile,
+    onChangeFile: setActiveFile,
+    onCodeChange: handleCodeChange,
+    onRun: handleRun,
+    onReset: handleReset,
+    onAddFile: handleAddFile,
+    onRenameFile: handleRenameFile,
+    onDeleteFile: handleDeleteFile,
+  }), [
+    language,
+    codeMap,
+    activeIndex,
+    activeFile,
+    handleCodeChange,
+    handleRun,
+    handleReset,
+    handleAddFile,
+    handleRenameFile,
+    handleDeleteFile
+  ])
 
   return (
-    <div className="mt-3 border border-gray-200 rounded-xl shadow-sm overflow-hidden bg-white">
-
-      {/* Tab Instruksi */}
+    <div className="mt-3 border rounded-xl bg-white">
       {instructions.length > 1 && (
         <div className="flex border-b bg-gray-100">
-          {instructions.map((_, index) => (
+          {instructions.map((_, i) => (
             <button
-              key={index}
-              onClick={() => setActiveIndex(index)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 ${
-                activeIndex === index
-                  ? "border-blue-600 text-blue-600 bg-white"
-                  : "border-transparent text-gray-600"
-              }`}
+              key={i}
+              onClick={() => setActiveIndex(i)}
+              className={activeIndex === i ? "text-blue-600 px-4 py-2" : "px-4 py-2"}
             >
-              Program {index + 1}
+              Program {i + 1}
             </button>
           ))}
         </div>
       )}
 
-      {/* Code Editor */}
       <div className="p-6 border-b">
-        <CodeEditorPanel
-          language={language}
-          files={codeMap[activeIndex]}
-          activeFile={activeFile}
-          onChangeFile={setActiveFile}
-          onCodeChange={(value) =>
-            setCodeMap(prev => ({
-              ...prev,
-              [activeIndex]: {
-                ...prev[activeIndex],
-                [activeFile]: value
-              }
-            }))
-          }
-          onRun={handleRun}
-          onReset={handleReset}
-          onAddFile={handleAddFile}
-          onRenameFile={handleRenameFile}
-          onDeleteFile={handleDeleteFile}
-        />
+        <CodeEditorPanel {...codeEditorProps} />
       </div>
 
-      {/* Output */}
       <div className="p-6 border-b bg-gray-50">
-        <OutputPanel output={outputMap[activeIndex]} />
+        <OutputPanel output={outputMap[activeIndex] || ""} />
       </div>
 
-      {/* Analisis */}
       <div className="p-6">
         <AnalysisEditor
-          value={analysisMap[activeIndex]}
-          onChange={(value) =>
-            setAnalysisMap(prev => ({
-              ...prev,
-              [activeIndex]: value,
-            }))
-          }
+          value={analysisMap[activeIndex] || { type: "doc", content: [] }}
+          onChange={handleAnalysisChange}
         />
       </div>
     </div>

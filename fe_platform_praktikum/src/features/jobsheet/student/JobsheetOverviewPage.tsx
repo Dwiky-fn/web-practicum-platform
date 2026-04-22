@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getJobsheets } from "../../../entities/jobsheet/service";
 import { getSubmissionByJobsheetId } from "../../../entities/jobsheetSubmission/service";
 import type { Jobsheet } from "../../../entities/jobsheet/types";
 import type { JobsheetSubmission } from "../../../entities/jobsheetSubmission/types";
@@ -13,6 +12,8 @@ import GoalCardSkeleton from "./components/loading/GoalSkeleton";
 import SummaryCardSkeleton from "./components/loading/SummarySkeleton";
 import SidebarCardSkeleton from "./components/loading/SidebarSkeleton";
 import HistoryCardSkeleton from "./components/loading/HistorySkeleton";
+import { getJobsheetById } from "../../../services/jobsheet/service";
+import { mapJobsheet } from "../../../services/jobsheet/mapper";
 
 export default function JobsheetOverviewPage() {
   const { courseId, jobsheetId } = useParams<{
@@ -27,18 +28,22 @@ export default function JobsheetOverviewPage() {
   useEffect(() => {
     if (!courseId || !jobsheetId) return;
 
-    const currentCourseId = courseId;
     const currentJobsheetId = jobsheetId;
 
     async function loadData() {
       try {
-        const list = await getJobsheets(currentCourseId);
-        const selected = list.find((j) => j.id === currentJobsheetId);
-        setJobsheet(selected || null);
-        const sub = await getSubmissionByJobsheetId(currentJobsheetId)
+        const [raw, sub] = await Promise.all([
+          getJobsheetById(currentJobsheetId),
+          getSubmissionByJobsheetId(currentJobsheetId)
+        ])
+
+        const mapped = mapJobsheet(raw)
+
+        setJobsheet(mapped)
         setSubmission(sub)
+
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
     }
 

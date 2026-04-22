@@ -4,6 +4,8 @@ import type { Jobsheet } from "../../../../../../entities/jobsheet/types"
 import type { JSONContent } from "@tiptap/core"
 import InstructionWorkspaceCard from "./components/InstructionWorkspaceCard"
 import RichTextViewer from "../../../../../../shared/editor/RichTextViewer"
+import type { JobsheetSubmission } from "../../../../../../entities/jobsheetSubmission/types"
+import NotFoundPage from "../../../../../not-found/NotFoundPage"
 
 type StepData = {
   files: Record<string, string>
@@ -18,7 +20,10 @@ function splitInstructionContent(doc?: JSONContent): JSONContent[] {
     (node) => node.type === "orderedList"
   )
 
-  if (!orderedList?.content) return []
+  // ✅ kalau tidak ada orderedList → pakai full doc
+  if (!orderedList?.content) {
+    return [doc]
+  }
 
   return orderedList.content.map((listItem) => ({
     type: "doc",
@@ -33,23 +38,26 @@ function splitInstructionContent(doc?: JSONContent): JSONContent[] {
 
 export default function ExperimentPage() {
   const { experimentId } = useParams()
-  const { jobsheet, programmingLanguage, updateExperiment } = useOutletContext<{
+  const { jobsheet, programmingLanguage, updateExperiment, submission } = useOutletContext<{
     jobsheet: Jobsheet
     programmingLanguage: string
     updateExperiment: (experimentId: string, steps: StepData[]) => void
+    submission: JobsheetSubmission
   }>()
-  
-  const experiment = jobsheet.experiments.find(
-    exp => exp.id === experimentId
-  )
 
-  if (!experiment) {
-    return <div>Experiment not found</div>
+  const experiment = jobsheet.experiments.find(exp => exp.id === experimentId)
+
+  if (!experiment || !experimentId) {
+    return <NotFoundPage />
   }
 
-  const instructions = splitInstructionContent(
-    experiment.instructionContent
-  )
+  // PERBAIKI: Ambil data dari submission dengan lebih hati-hati
+  const initialSteps = submission?.report?.experiments?.[experiment.id]?.steps
+  
+  // TAMBAHKAN: Key yang lebih stabil
+  const componentKey = `${experiment.id}-${submission?.updatedAt || 'initial'}`
+
+  const instructions = splitInstructionContent(experiment.instructionContent)
 
   return (
     <div className="space-y-6">
@@ -66,14 +74,15 @@ export default function ExperimentPage() {
         )}
 
         <InstructionWorkspaceCard
-          key={experiment.id}
+          key={componentKey}  // PERBAIKI: Gunakan key yang lebih stabil
           instructions={instructions}
           templateCode={experiment.defaultTemplateCode}
           language={programmingLanguage}
+          initialSteps={initialSteps}
           onChange={(steps) => {
-            updateExperiment(experiment.id, steps)
+            updateExperiment(experimentId, steps)
           }}
-          />
+        />
       </div> 
     </div>
   )

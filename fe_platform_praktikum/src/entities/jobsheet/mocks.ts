@@ -1,4 +1,4 @@
-import type { Jobsheet } from "./types";
+import type { Jobsheet } from "../../services/jobsheet/types";
 
 export const jobsheetMocks: Jobsheet[] = [
   {

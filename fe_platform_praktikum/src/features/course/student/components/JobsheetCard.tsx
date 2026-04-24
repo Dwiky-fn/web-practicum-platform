@@ -1,5 +1,5 @@
 import { CalendarDays, Lock } from "lucide-react";
-import type { Jobsheet } from "../../../../entities/jobsheet/types";
+import type { Jobsheet } from "../../../../services/jobsheet/types";
 import type {
   JobsheetSubmission,
   SubmissionStatus,

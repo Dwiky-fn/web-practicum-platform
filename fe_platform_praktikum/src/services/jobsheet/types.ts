@@ -1,25 +1,13 @@
 import type { JSONContent } from "@tiptap/react";
 
-// Status
+// ================= STATUS =================
 export type JobsheetStatus =
   | "DRAFT"
   | "PUBLISHED"
   | "UNPUBLISHED"
   | "ARCHIVED";
 
-// Theory
-export interface TheoryTable {
-  headers: string[];
-  rows: string[][];
-}
-
-export interface TheorySection {
-  id: string;
-  subtitle: string;
-  paragraphs?: string[];
-  table?: TheoryTable;
-}
-
+// ================= THEORY =================
 export interface TheoryItem {
   id: string;
   order: number;
@@ -27,17 +15,16 @@ export interface TheoryItem {
   content: JSONContent;
 }
 
-// Experiment
+// ================= EXPERIMENT =================
 export interface Experiment {
   id: string;
   order: number;
   title: string;
-
   instructionContent?: JSONContent;
   defaultTemplateCode: string;
 }
 
-// Exercise
+// ================= EXERCISE =================
 export interface Exercise {
   id: string;
   order: number;
@@ -46,7 +33,7 @@ export interface Exercise {
   defaultTemplateCode?: string;
 }
 
-// Task Config
+// ================= TASK =================
 export interface TaskConfig {
   experimentIds: string[];
   exerciseIds: string[];
@@ -63,18 +50,58 @@ export interface TaskConfig {
   };
 }
 
-// Jobsheet
-export interface Jobsheet {
+// ================= RAW TYPES (FROM BE) =================
+export type RawExperiment = {
   id: string;
-  courseId: string;
-  status: string;
+  title: string;
+  order: number;
+  instruction_content: JSONContent;
+  default_template_code: string;
+};
+
+export type RawExercise = {
+  id: string;
+  title: string;
+  order: number;
+  instruction_content: JSONContent;
+  default_template_code: string;
+};
+
+export type RawTheory = {
+  id: string;
+  title: string;
+  order: number;
+  content: JSONContent;
+};
+
+export type RawJobsheet = {
+  id: string;
+  course_id: string;
+  status: JobsheetStatus;
 
   title: string;
   description: string;
   summary: JSONContent;
-
   goal: string;
+  deadline: string;
 
+  task: TaskConfig;
+
+  experiments: RawExperiment[];
+  exercises: RawExercise[];
+  theory: RawTheory[];
+};
+
+// ================= FINAL FE MODEL =================
+export interface Jobsheet {
+  id: string;
+  courseId: string;
+  status: JobsheetStatus;
+
+  title: string;
+  description: string;
+  summary: JSONContent;
+  goal: string;
   deadline: string;
 
   theory: TheoryItem[];

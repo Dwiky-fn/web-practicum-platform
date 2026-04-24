@@ -1,5 +1,5 @@
-import type { Jobsheet } from "../../../../../../../../entities/jobsheet/types"
-import type { JobsheetSubmission } from "../../../../../../../../entities/jobsheetSubmission/types" 
+import type { Jobsheet } from "../../../../../../../../services/jobsheet/types"
+import type { JobsheetSubmission } from "../../../../../../../../services/submission/types"
 
 import ExperimentReport from "./experiment/ExperimentReport"
 import ExerciseReport from "./exercise/ExerciseReport"
@@ -14,6 +14,9 @@ export default function ReportSection({
   jobsheet,
   submission,
 }: Props) {
+
+  console.log("🔥 MASUK REPORT SECTION")
+  console.log("submission:", submission)
   return (
     <div className="space-y-8">
 

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getSubmissionByJobsheetId } from "../../../entities/jobsheetSubmission/service";
-import type { Jobsheet } from "../../../entities/jobsheet/types";
-import type { JobsheetSubmission } from "../../../entities/jobsheetSubmission/types";
+import { getSubmissionByJobsheetId } from "../../../services/submission/service";
+import type { Jobsheet } from "../../../services/jobsheet/types";
+import type { JobsheetSubmission } from "../../../services/submission/types";
 import Navbar from "../../../components/navbar/Navbar";
 import GoalCard from "./components/GoalCard";
 import SummaryCard from "./components/SummaryCard";
@@ -13,7 +13,7 @@ import SummaryCardSkeleton from "./components/loading/SummarySkeleton";
 import SidebarCardSkeleton from "./components/loading/SidebarSkeleton";
 import HistoryCardSkeleton from "./components/loading/HistorySkeleton";
 import { getJobsheetById } from "../../../services/jobsheet/service";
-import { mapJobsheet } from "../../../services/jobsheet/mapper";
+// import { mapJobsheet } from "../../../services/jobsheet/mapper";
 
 export default function JobsheetOverviewPage() {
   const { courseId, jobsheetId } = useParams<{
@@ -28,23 +28,20 @@ export default function JobsheetOverviewPage() {
   useEffect(() => {
     if (!courseId || !jobsheetId) return;
 
-    const currentJobsheetId = jobsheetId;
+    const cId = courseId;
+    const jId = jobsheetId;
 
     async function loadData() {
-      try {
-        const [raw, sub] = await Promise.all([
-          getJobsheetById(currentJobsheetId),
-          getSubmissionByJobsheetId(currentJobsheetId)
-        ])
+      const [raw, sub] = await Promise.all([
+        getJobsheetById(cId, jId),
+        getSubmissionByJobsheetId(cId, jId)
+      ]);
 
-        const mapped = mapJobsheet(raw)
+      // const mapped = mapJobsheet(raw);
 
-        setJobsheet(mapped)
-        setSubmission(sub)
-
-      } finally {
-        setLoading(false)
-      }
+      setJobsheet(raw);
+      setSubmission(sub);
+      setLoading(false);
     }
 
     loadData();

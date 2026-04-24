@@ -28,10 +28,12 @@ class SubmissionsHandler {
 
   async getSubmissionHandler(req, res) {
     const { jobsheetId } = req.params;
+    const { courseId } = req.params;
     const studentId = '1';
 
     const submission = await this._service.getOrCreateSubmission(
       jobsheetId,
+      courseId,
       studentId,
     );
 
@@ -57,6 +59,25 @@ class SubmissionsHandler {
       status: 'success',
       data: { submission },
     });
+  }
+
+  async submitSubmissionHandler(req, res) {
+    try {
+      const { jobsheetId } = req.params;
+      const studentId = '1';
+
+      const submission = await this._service.submitSubmission(
+        jobsheetId,
+        studentId,
+      );
+
+      return res.json({ status: 'success', data: { submission } });
+    } catch (error) {
+      console.error(error);
+      return res
+        .status(500)
+        .json({ status: 'fail', message: 'Terjadi kesalahan saat submit' });
+    }
   }
 }
 

@@ -1,5 +1,5 @@
 import { jobsheetMocks } from "./mocks";
-import type { Jobsheet } from "./types";
+import type { Jobsheet } from "../../services/jobsheet/types";
 
 export async function fetchJobsheetsByCourse(
   courseId: string

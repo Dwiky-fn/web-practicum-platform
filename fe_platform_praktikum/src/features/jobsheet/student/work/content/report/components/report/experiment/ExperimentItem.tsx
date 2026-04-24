@@ -1,7 +1,4 @@
-import type {
-  JobsheetSubmission,
-  SubmissionStep
-} from "../../../../../../../../../entities/jobsheetSubmission/types"
+import type { JobsheetSubmission, StepData } from "../../../../../../../../../services/submission/types" 
 
 import OutputPanel from "../../../../../../../../../shared/code-editor/OutputPanel"
 import RichTextViewer from "../../../../../../../../../shared/editor/RichTextViewer"
@@ -9,9 +6,9 @@ import RichTextViewer from "../../../../../../../../../shared/editor/RichTextVie
 interface Props {
   title: string
   index: number
-  experimentId: string // 🔥 tambah ini (WAJIB, jangan pakai title lagi)
+  experimentId: string
   instructionSteps: string[]
-  steps: SubmissionStep[]
+  steps: StepData[]
   submission: JobsheetSubmission
 }
 
@@ -25,6 +22,9 @@ export default function ExperimentItem({
 }: Props) {
 
   const comments = submission.review?.comments ?? []
+
+  console.log("🔥 MASUK ITEM:", experimentId)
+  console.log("steps:", steps)
 
   return (
     <div className="space-y-8">
@@ -41,6 +41,10 @@ export default function ExperimentItem({
           const stepNumber = i + 1
 
           const stepData = steps.find((s) => s.step === stepNumber)
+
+          console.log("STEP NUMBER:", stepNumber)
+          console.log("STEP DATA:", stepData)
+          console.log("CODE:", stepData?.code)
 
           const stepComments = comments.filter(
             (c) =>
@@ -89,7 +93,9 @@ export default function ExperimentItem({
                 <p className="text-xs text-gray-500 mb-1">Kode Program</p>
                 <div className="bg-gray-100 border rounded-md p-4">
                   {stepData?.code ? (
-                    <RichTextViewer content={stepData.code} />
+                    <pre className="text-sm text-gray-800 whitespace-pre-wrap">
+                      {stepData.code}
+                    </pre>
                   ) : (
                     <p className="text-sm text-gray-400">Belum ada kode</p>
                   )}

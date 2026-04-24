@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { getJobsheets } from "../../../../../../../entities/jobsheet/service"
 import { getSubmissionByJobsheetId } from "../../../../../../../entities/jobsheetSubmission/service"
 
-import type { Jobsheet } from "../../../../../../../entities/jobsheet/types"
+import type { Jobsheet } from "../../../../../../../services/jobsheet/types"
 import type { JobsheetSubmission } from "../../../../../../../entities/jobsheetSubmission/types"
 
 import ReportHeader from "../components/ReportHeader"

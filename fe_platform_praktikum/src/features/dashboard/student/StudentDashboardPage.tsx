@@ -7,7 +7,7 @@ import { useCurrentUser } from "../../../entities/currentUser/useCurrentUser";
 import { getJobsheets } from "../../../entities/jobsheet/service";
 import type { Course } from "../../../entities/course/types";
 import type { Activity } from "../../../entities/activity/types";
-import type { Jobsheet } from "../../../entities/jobsheet/types";
+import type { Jobsheet } from "../../../services/jobsheet/types";
 import CourseCard from "../../../components/CourseCard";
 import Navbar from "../../../components/navbar/Navbar";
 import SummaryCard from "../components/SummaryCard";

@@ -9,8 +9,12 @@ class JobsheetsHandler {
   async getJobsheetFullHandler(req, res) {
     try {
       const { jobsheetId } = req.params;
+      const { courseId } = req.params;
 
-      const jobsheet = await this._service.getJobsheetFullById(jobsheetId);
+      const jobsheet = await this._service.getJobsheetFullById(
+        jobsheetId,
+        courseId,
+      );
 
       return res.json({
         status: 'success',

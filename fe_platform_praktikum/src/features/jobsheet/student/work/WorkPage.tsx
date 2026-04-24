@@ -19,7 +19,7 @@ export default function WorkPage() {
   } = useWorkPage(courseId, jobsheetId)
 
   if (loading) return <TopProgressBar />
-  if (!jobsheet || !submission) return <NotFoundPage />
+  if (!courseId || !jobsheet || !submission) return <NotFoundPage />
 
   return (
     <div className="h-dvh flex flex-col bg-gray-50">
@@ -33,6 +33,7 @@ export default function WorkPage() {
           <div className="max-w-4xl mx-auto">
             <Outlet
               context={{
+                course,
                 jobsheet,
                 submission,
                 programmingLanguage: course?.programmingLanguage,

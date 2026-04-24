@@ -1,5 +1,5 @@
-import type { Jobsheet } from "../../../../../../../../../entities/jobsheet/types"
-import type { JobsheetSubmission } from "../../../../../../../../../entities/jobsheetSubmission/types"
+import type { Jobsheet } from "../../../../../../../../../services/jobsheet/types"
+import type { JobsheetSubmission } from "../../../../../../../../../services/submission/types"
 import OutputPanel from "../../../../../../../../../shared/code-editor/OutputPanel"
 import RichTextViewer from "../../../../../../../../../shared/editor/RichTextViewer"
 
@@ -51,7 +51,9 @@ export default function ExerciseReport({
                       Kode Program
                     </p>
                     <div className="bg-gray-100 rounded-md p-4">
-                      <RichTextViewer content={submissionData.code} />
+                      <pre className="text-sm text-gray-800 whitespace-pre-wrap">
+                        {submissionData.code}
+                      </pre>
                     </div>
                   </div>
 

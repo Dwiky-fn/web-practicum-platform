@@ -1,4 +1,4 @@
-import type { Jobsheet } from "../../../../../entities/jobsheet/types"
+import type { Jobsheet } from "../../../../../services/jobsheet/types"
 
 export interface SidebarNode {
   id: string

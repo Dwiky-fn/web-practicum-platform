@@ -51,12 +51,19 @@ class SubmissionsService {
     };
   }
 
-  async createSubmission({ jobsheetId, studentId, status = 'DRAFT' }) {
+  async createSubmission({
+    jobsheetId,
+    courseId,
+    studentId,
+    status = 'DRAFT',
+  }) {
     // const id = `submission-${nanoid(10)}`;
     const id = `submission-1`;
 
-    const jobsheet =
-      await this._jobsheetService.getJobsheetFullById(jobsheetId);
+    const jobsheet = await this._jobsheetService.getJobsheetFullById(
+      jobsheetId,
+      courseId,
+    );
 
     const report = this._generateInitialReport(jobsheet);
 
@@ -88,11 +95,14 @@ class SubmissionsService {
     return result.rows[0] || null;
   }
 
-  async getOrCreateSubmission(jobsheetId, studentId) {
-    return await this.createSubmission({
+  async getOrCreateSubmission(jobsheetId, courseId, studentId) {
+    const existing = await this.getSubmissionByJobsheetId(
       jobsheetId,
       studentId,
-    });
+    );
+    if (existing) return existing;
+
+    return await this.createSubmission({ jobsheetId, courseId, studentId });
   }
 
   async updateSubmission({ jobsheetId, studentId, report, status }) {
@@ -115,6 +125,21 @@ class SubmissionsService {
 
     const result = await this._pool.query(query);
     return result.rows[0];
+  }
+
+  async submitSubmission(jobsheetId, studentId) {
+    const existing = await this.getSubmissionByJobsheetId(
+      jobsheetId,
+      studentId,
+    );
+    if (!existing) throw new Error('Submission tidak ditemukan');
+
+    return await this.updateSubmission({
+      jobsheetId,
+      studentId,
+      report: existing.report,
+      status: 'SUBMITTED',
+    });
   }
 }
 

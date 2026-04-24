@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getJobsheets } from "../../../entities/jobsheet/service";
 import { getCourseList } from "../../../entities/course/api";
 import { useCurrentUser } from "../../../entities/currentUser/useCurrentUser";
-import type { Jobsheet } from "../../../entities/jobsheet/types";
+import type { Jobsheet } from "../../../services/jobsheet/types";
 import type { Course } from "../../../entities/course/types";
 import Navbar from "../../../components/navbar/Navbar";
 import JobsheetCard from "./components/JobsheetCard";

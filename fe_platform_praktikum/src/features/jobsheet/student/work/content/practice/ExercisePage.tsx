@@ -1,10 +1,10 @@
 import { useParams, useOutletContext } from "react-router-dom"
-import type { Jobsheet } from "../../../../../../entities/jobsheet/types"
+import type { Jobsheet } from "../../../../../../services/jobsheet/types"
 import type { JSONContent } from "@tiptap/core"
 import type { JobsheetSubmission } from "../../../../../../entities/jobsheetSubmission/types"
 import InstructionWorkspaceCard from "./components/InstructionWorkspaceCard"
-import RichTextViewer from "../../../../../../shared/editor/RichTextViewer"
 import NotFoundPage from "../../../../../not-found/NotFoundPage"
+import RichTextViewer from "../../../../../../shared/editor/RichTextViewer"
 
 type StepData = {
   files: Record<string, string>
@@ -39,11 +39,13 @@ export default function ExercisePage() {
       </h1>
 
       <div className="max-w-3xl">
-        <RichTextViewer
-          content={exercise.instructionContent}
-          mode="viewer-default"
-        />
 
+        {exercise.instructionContent && (
+          <RichTextViewer
+            content={exercise.instructionContent}
+            mode="viewer-default"
+          />
+        )}
         <InstructionWorkspaceCard
           key={exercise.id}
           instructions={[exercise.instructionContent]}

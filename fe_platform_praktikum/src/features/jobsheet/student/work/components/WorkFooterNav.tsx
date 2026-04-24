@@ -1,7 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { buildWorkNavigation } from "../utils/buildNavigation";
 import { ArrowLeft, ArrowRight, Home } from "lucide-react";
-import type { Jobsheet } from "../../../../../entities/jobsheet/types";
+import type { Jobsheet } from "../../../../../services/jobsheet/types";
 import type { JobsheetSubmission } from "../../../../../entities/jobsheetSubmission/types";
 
 interface WorkFooterNavProps {

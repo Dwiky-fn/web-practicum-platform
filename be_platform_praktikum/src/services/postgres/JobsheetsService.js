@@ -5,11 +5,11 @@ class JobsheetsService {
     this._pool = pool;
   }
 
-  async getJobsheetFullById(jobsheetId) {
+  async getJobsheetFullById(jobsheetId, courseId) {
     // jobsheet
     const jobsheetRes = await this._pool.query(
-      `SELECT * FROM jobsheets WHERE id = $1`,
-      [jobsheetId],
+      `SELECT * FROM jobsheets WHERE id = $1 AND course_id = $2`,
+      [jobsheetId, courseId],
     );
 
     if (!jobsheetRes.rows.length) {

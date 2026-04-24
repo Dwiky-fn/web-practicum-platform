@@ -1,6 +1,6 @@
 import { mockCourseList } from "../course/mocks";
 import type { DashboardSummary } from "./types";
-import type { Jobsheet } from "../jobsheet/types";
+import type { Jobsheet } from "../../services/jobsheet/types";
 
 export async function getDashboardSummaryData(
   userId: string,

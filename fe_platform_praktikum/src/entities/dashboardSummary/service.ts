@@ -1,4 +1,4 @@
-import type { Jobsheet } from "../jobsheet/types";
+import type { Jobsheet } from "../../services/jobsheet/types";
 import { getDashboardSummaryData } from "./api";
 import type { DashboardSummary } from "./types";
 

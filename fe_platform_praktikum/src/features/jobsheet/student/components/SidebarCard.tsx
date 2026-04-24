@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import type { Jobsheet } from "../../../../entities/jobsheet/types";
-import type { JobsheetSubmission, SubmissionStatus } from "../../../../entities/jobsheetSubmission/types"
+import type { Jobsheet } from "../../../../services/jobsheet/types";
+import type { JobsheetSubmission, SubmissionStatus } from "../../../../services/submission/types";
 
 interface Props {
   jobsheet: Jobsheet;

@@ -1,5 +1,5 @@
 import { useCurrentUser } from "../../../../../../../entities/currentUser/useCurrentUser"
-import type { Jobsheet } from "../../../../../../../entities/jobsheet/types"
+import type { Jobsheet } from "../../../../../../../services/jobsheet/types"
 
 interface Props {
   jobsheet: Jobsheet

@@ -1,10 +1,13 @@
-import { useOutletContext, useNavigate } from "react-router-dom"
-import type { Jobsheet } from "../../../../../../entities/jobsheet/types"
-import type { JobsheetSubmission } from "../../../../../../entities/jobsheetSubmission/types"
+import { useOutletContext, useNavigate, useParams } from "react-router-dom"
+import type { Jobsheet } from "../../../../../../services/jobsheet/types" 
+import type { JobsheetSubmission } from "../../../../../../services/submission/types"
 import SubmissionActivityTimeline from "./components/SubmissionActivityTimeline"
 
 export default function TaskPage() {
   const navigate = useNavigate()
+  const { courseId, jobsheetId } = useParams()
+  console.log(courseId);
+  
 
   const { jobsheet, submission } = useOutletContext<{
     jobsheet: Jobsheet
@@ -58,7 +61,9 @@ export default function TaskPage() {
 
             {canSubmit && (
               <button
-                onClick={() => navigate(`/courses/${jobsheet.courseId}/jobsheets/${jobsheet.id}/preview`)}
+                onClick={() =>
+                  navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/preview`)
+                }
                 className="bg-blue-600 hover:bg-teal-600 transition text-white px-6 py-2 rounded-xl font-medium shadow-sm"
               >
                 Lanjut

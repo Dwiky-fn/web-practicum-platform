@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import type { JSONContent } from "@tiptap/core"
-import type { Jobsheet } from "../../../../../entities/jobsheet/types"
+import type { Jobsheet } from "../../../../../services/jobsheet/types" 
 import type { Course } from "../../../../../entities/course/types" 
 import type { JobsheetSubmission } from "../../../../../entities/jobsheetSubmission/types"
 import { getJobsheetById } from "../../../../../services/jobsheet/service"
@@ -50,7 +50,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
 
       try {
         // 1. Jobsheet
-        const jobsheetData = await getJobsheetById(jobsheetId)
+        const jobsheetData = await getJobsheetById(courseId, jobsheetId)
         if (!isMountedRef.current) return
         setJobsheet(jobsheetData)
 
@@ -60,7 +60,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
         setCourse(courseData)
 
         // 3. Submission
-        const submissionData = await getSubmissionByJobsheetId(jobsheetId)
+        const submissionData = await getSubmissionByJobsheetId(courseId!, jobsheetId)
         if (!isMountedRef.current) return
         setSubmission(submissionData)
 
@@ -82,13 +82,16 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
       console.log("SAVE TO DB 🔥", updatedSubmission.report)
 
       await updateSubmission(
+        courseId!,
         jobsheetIdRef.current!,
-        updatedSubmission.report,
-        "DRAFT"
+        updatedSubmission.report
       )
+
       console.log("FINAL REPORT:", JSON.stringify(updatedSubmission.report, null, 2))
 
       console.log("SAVED ✅")
+      console.log("CHECK REPORT TYPE:", typeof updatedSubmission.report)
+console.log("CHECK REPORT VALUE:", updatedSubmission.report)
     } catch (err) {
       console.error("SAVE ERROR ❌", err)
     }

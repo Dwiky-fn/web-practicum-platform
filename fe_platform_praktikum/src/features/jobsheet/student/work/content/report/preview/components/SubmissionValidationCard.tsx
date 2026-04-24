@@ -1,12 +1,14 @@
 import { useState } from "react"
-import type { Jobsheet } from "../../../../../../../../entities/jobsheet/types"
-import type { JobsheetSubmission } from "../../../../../../../../entities/jobsheetSubmission/types"
+import type { Jobsheet } from "../../../../../../../../services/jobsheet/types"
+import type { JobsheetSubmission } from "../../../../../../../../services/submission/types"
 import { CheckCircle, XCircle } from "lucide-react"
+import { splitInstructionContent } from "../../../../../../../../shared/utils/splitInstructionContent"
 
 interface Props {
   jobsheet: Jobsheet
   submission: JobsheetSubmission
   onSubmit?: () => void
+  submitting?: boolean
 }
 
 function ValidationItem({
@@ -32,47 +34,63 @@ export default function SubmissionValidationCard({
   jobsheet,
   submission,
   onSubmit,
+  submitting = false,
 }: Props) {
 
   const [isDeclared, setIsDeclared] = useState(false)
 
-  /* ================= VALIDATION ================= */
+  /* VALIDATION */
 
-  // 🔥 Percobaan (cek per item)
-  const experimentValidList = jobsheet.task.experimentIds.map((id) =>
-    submission.experiments.some(
-      (exp) => exp.experimentId === id && exp.steps.length > 0
+  // Percobaan
+  const experimentValidList = jobsheet.task.experimentIds.map((id) => {
+    const exp = submission.experiments.find((e) => e.experimentId === id)
+    if (!exp) return false
+
+    const jobsheetExp = jobsheet.experiments.find((e) => e.id === id)
+    const expectedSteps = splitInstructionContent(jobsheetExp?.instructionContent).length || 1
+
+    return (
+      exp.steps.length >= expectedSteps &&
+      exp.steps.every(
+        (step) =>
+          step.output.trim() !== "" &&
+          (step.analysis?.content?.length ?? 0) > 0
+      )
     )
-  )
+  })
 
   const experimentValid = experimentValidList.every(Boolean)
 
-  // 🔥 Latihan
-  const exerciseValidList = jobsheet.task.exerciseIds.map((id) =>
-    submission.exercises.some(
-      (ex) => ex.exerciseId === id && ex.code
+  // Latihan
+  const exerciseValidList = jobsheet.task.exerciseIds.map((id) => {
+    const ex = submission.exercises.find((e) => e.exerciseId === id)
+    if (!ex) return false
+
+    return (
+      ex.output.trim() !== "" &&
+      (ex.analysis?.content?.length ?? 0) > 0
     )
-  )
+  })
 
   const exerciseValid = exerciseValidList.every(Boolean)
 
-  // 🔥 Kesimpulan
+  // Kesimpulan
   const conclusionConfig = jobsheet.task.conclusionConfig
 
   const conclusionValid = conclusionConfig?.enabled
     ? conclusionConfig.required
-      ? !!submission.conclusion?.content
+      ? (submission.conclusion?.wordCount ?? 0) >= (conclusionConfig.minWord ?? 1)
       : true
     : true
 
-  // 🔥 FINAL VALIDATION
+  // FINAL VALIDATION
   const isAllValid =
     experimentValid &&
     exerciseValid &&
     conclusionValid &&
     isDeclared
 
-  /* ================= UI ================= */
+  /* UI */
 
   return (
     <div className="bg-white border rounded-xl shadow-sm p-6 space-y-5">
@@ -81,7 +99,7 @@ export default function SubmissionValidationCard({
         Validasi Laporan
       </h3>
 
-      {/* ===== AUTO CHECKLIST ===== */}
+      {/* AUTO CHECKLIST */}
       <div className="space-y-3">
 
         <ValidationItem
@@ -107,7 +125,7 @@ export default function SubmissionValidationCard({
 
       </div>
 
-      {/* ===== DECLARATION ===== */}
+      {/* DECLARATION */}
       <div className="border-t pt-4 space-y-3">
 
         <label className="flex items-start gap-3 text-sm text-gray-700">
@@ -124,11 +142,11 @@ export default function SubmissionValidationCard({
 
       </div>
 
-      {/* ===== STATUS TEXT ===== */}
+      {/* STATUS TEXT */}
       <div>
         {isAllValid ? (
           <p className="text-sm text-green-600 font-medium">
-            Laporan siap dikirim 🎉
+            Laporan siap dikirim
           </p>
         ) : (
           <p className="text-sm text-red-500">
@@ -137,20 +155,20 @@ export default function SubmissionValidationCard({
         )}
       </div>
 
-      {/* ===== SUBMIT BUTTON ===== */}
+      {/* SUBMIT BUTTON */}
       <button
-        disabled={!isAllValid}
+        disabled={!isAllValid || submitting}  // ← tambah submitting
         onClick={onSubmit}
         className={`
           w-full py-2 rounded-lg font-medium transition
           ${
-            isAllValid
+            isAllValid && !submitting
               ? "bg-blue-600 text-white hover:bg-blue-700"
               : "bg-gray-300 text-gray-500 cursor-not-allowed"
           }
         `}
       >
-        Submit Laporan
+        {submitting ? "Mengirim..." : "Submit Laporan"}
       </button>
 
     </div>

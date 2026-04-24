@@ -3,6 +3,5 @@ import { mapJobsheet } from "./mapper"
 
 export const getJobsheetById = async (courseId: string, jobsheetId: string) => {
   const res = await apiFetch(`/courses/${courseId}/jobsheets/${jobsheetId}/full`)
-  console.log("JOBSHEET API RESULT:", res.data)
   return mapJobsheet(res.data.jobsheet)
 }

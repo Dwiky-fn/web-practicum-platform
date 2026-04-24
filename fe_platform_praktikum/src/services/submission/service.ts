@@ -20,13 +20,7 @@ export const getSubmissionByJobsheetIdPreview = async (
   const res = await apiFetch(
     `/courses/${courseId}/submissions/${jobsheetId}`
   )
-
-  console.log("🔥 RAW FROM BE:", res.data.submission)
-
   const mapped = mapSubmission(res.data.submission)
-
-  console.log("🔥 AFTER MAPPER:", mapped)
-
   return mapped
 }
 
@@ -35,7 +29,6 @@ export const updateSubmission = async (
   jobsheetId: string,
   report: unknown,
 ) => {
-  console.log("🔥 SERVICE UPDATE FILE TERPAKAI")
   return apiFetch(`/courses/${courseId}/submissions/${jobsheetId}`, {
     method: "PUT",
     body: JSON.stringify({ report, status })

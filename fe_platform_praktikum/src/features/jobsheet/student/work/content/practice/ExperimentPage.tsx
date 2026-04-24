@@ -24,11 +24,6 @@ export default function ExperimentPage() {
   }>()
 
   const experiment = jobsheet.experiments.find(exp => exp.id === experimentId)
-  
-  console.log("raw experiment:", experiment)
-  console.log("instructionContent:", experiment?.instructionContent)
-  console.log("jobsheet experiments:", jobsheet.experiments)
-  
   if (!experiment || !experimentId) {
     return <NotFoundPage />
   }

@@ -13,10 +13,6 @@ export default function ExperimentReport({
   jobsheet,
   submission,
 }: Props) {
-
-  console.log("🔥 EXPERIMENT LIST:", jobsheet.experiments)
-  console.log("🔥 SUBMISSION EXP:", submission.experiments)
-
   const experimentsSubmission = submission?.experiments ?? []
   const experimentList = jobsheet.experiments
 
@@ -51,8 +47,6 @@ export default function ExperimentReport({
       <div className="p-6 space-y-10">
 
         {experimentList.map((exp, index) => {
-          console.log("🔥 LOOP EXP:", exp.id)
-
           const submissionData = submissionMap[exp.id]
 
           return (

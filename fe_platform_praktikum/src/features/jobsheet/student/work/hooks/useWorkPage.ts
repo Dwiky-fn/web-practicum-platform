@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import type { JSONContent } from "@tiptap/core"
@@ -79,25 +80,17 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
   // MANUAL SAVE
   const saveSubmission = async (updatedSubmission: JobsheetSubmission) => {
     try {
-      console.log("SAVE TO DB 🔥", updatedSubmission.report)
-
       await updateSubmission(
         courseId!,
         jobsheetIdRef.current!,
         updatedSubmission.report
       )
-
-      console.log("FINAL REPORT:", JSON.stringify(updatedSubmission.report, null, 2))
-
-      console.log("SAVED ✅")
-      console.log("CHECK REPORT TYPE:", typeof updatedSubmission.report)
-console.log("CHECK REPORT VALUE:", updatedSubmission.report)
     } catch (err) {
-      console.error("SAVE ERROR ❌", err)
+      console.error("SAVE ERROR", err)
     }
   }
 
-  // UPDATE STATE (NO AUTOSAVE)
+  // UPDATE STATE
   const updateExperiment = useCallback((experimentId: string, steps: StepData[]) => {
     setSubmission(prev => {
       if (!prev) return prev
@@ -106,8 +99,6 @@ console.log("CHECK REPORT VALUE:", updatedSubmission.report)
         console.warn("⚠️ SKIP SAVE - EMPTY STEPS")
         return prev
       }
-
-      console.log("🔥 STEPS:", steps)
 
       const currentExperiments = prev.report?.experiments || {}
 
@@ -151,20 +142,6 @@ console.log("CHECK REPORT VALUE:", updatedSubmission.report)
       return updated
     })
   }, [])
-
-  // SAVE SAAT PINDAH HALAMAN
-  // useEffect(() => {
-  //   return () => {
-  //     if (!submissionRef.current) return
-
-  //     console.log("🚪 SAVE BEFORE LEAVE")
-  //     updateSubmission(
-  //       jobsheetIdRef.current!,
-  //       submissionRef.current.report,
-  //       "DRAFT"
-  //     )
-  //   }
-  // }, [])
 
   // AUTO NAVIGATE THEORY
   useEffect(() => {

@@ -23,9 +23,6 @@ export default function ExperimentItem({
 
   const comments = submission.review?.comments ?? []
 
-  console.log("🔥 MASUK ITEM:", experimentId)
-  console.log("steps:", steps)
-
   return (
     <div className="space-y-8">
 
@@ -41,10 +38,6 @@ export default function ExperimentItem({
           const stepNumber = i + 1
 
           const stepData = steps.find((s) => s.step === stepNumber)
-
-          console.log("STEP NUMBER:", stepNumber)
-          console.log("STEP DATA:", stepData)
-          console.log("CODE:", stepData?.code)
 
           const stepComments = comments.filter(
             (c) =>

@@ -15,8 +15,6 @@ export default function ReportSection({
   submission,
 }: Props) {
 
-  console.log("🔥 MASUK REPORT SECTION")
-  console.log("submission:", submission)
   return (
     <div className="space-y-8">
 

@@ -6,8 +6,6 @@ import SubmissionActivityTimeline from "./components/SubmissionActivityTimeline"
 export default function TaskPage() {
   const navigate = useNavigate()
   const { courseId, jobsheetId } = useParams()
-  console.log(courseId);
-  
 
   const { jobsheet, submission } = useOutletContext<{
     jobsheet: Jobsheet

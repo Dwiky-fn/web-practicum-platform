@@ -236,7 +236,7 @@ export default function InstructionWorkspaceCard({
               onClick={() => setActiveIndex(i)}
               className={activeIndex === i ? "text-blue-600 px-4 py-2" : "px-4 py-2"}
             >
-              Program {i + 1}
+              Instruksi {i + 1}
             </button>
           ))}
         </div>

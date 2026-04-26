@@ -5,6 +5,7 @@ const cors = require('cors');
 
 const submissions = require('./api/submissions');
 const jobsheet = require('./api/jobsheet');
+const judge0 = require('./api/judge0');
 
 const app = express();
 
@@ -15,6 +16,7 @@ app.use(express.json());
 // register routes
 submissions(app);
 jobsheet(app);
+judge0(app)
 
 // test route
 app.get('/', (req, res) => {

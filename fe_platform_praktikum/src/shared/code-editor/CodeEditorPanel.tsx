@@ -5,10 +5,9 @@ interface Props {
   language: string
   files: Record<string, string>
   activeFile: string
+  editorPath: string
   onChangeFile: (fileName: string) => void
   onCodeChange: (value: string) => void
-  onRun: () => void
-  onReset: () => void
   onAddFile: () => void
   onRenameFile: (oldName: string, newName: string) => void
   onDeleteFile: (fileName: string) => void
@@ -18,10 +17,9 @@ export default function CodeEditorPanel({
   language,
   files,
   activeFile,
+  editorPath,
   onChangeFile,
   onCodeChange,
-  onRun,
-  onReset,
   onAddFile,
   onRenameFile,
   onDeleteFile
@@ -105,29 +103,14 @@ export default function CodeEditorPanel({
 
         </div>
 
-        {/* Right: Action Buttons */}
-        <div className="flex gap-2">
-          <button
-            onClick={onReset}
-            className="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600"
-          >
-            Reset
-          </button>
-
-          <button
-            onClick={onRun}
-            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Jalankan
-          </button>
-        </div>
-
       </div>
 
       {/* Code Editor */}
       <Editor
+        key={editorPath}
         height="400px"
         language={language}
+        path={editorPath}
         value={files[activeFile] ?? ""}
         theme="vs-light"
         onChange={(value) => {

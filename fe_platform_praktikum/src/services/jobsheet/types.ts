@@ -78,6 +78,10 @@ export type RawJobsheet = {
   id: string;
   course_id: string;
   status: JobsheetStatus;
+  programming_language?: string;
+  programming_language_display_name?: string;
+  judge0_language_id?: number;
+  programming_language_file_extension?: string;
 
   title: string;
   description: string;
@@ -97,6 +101,10 @@ export interface Jobsheet {
   id: string;
   courseId: string;
   status: JobsheetStatus;
+  programmingLanguage?: string;
+  programmingLanguageDisplayName?: string;
+  judge0LanguageId?: number;
+  programmingLanguageFileExtension?: string;
 
   title: string;
   description: string;

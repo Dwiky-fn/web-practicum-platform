@@ -16,9 +16,10 @@ type StepData = {
 
 export default function ExperimentPage() {
   const { experimentId } = useParams()
-  const { jobsheet, programmingLanguage, updateExperiment, submission } = useOutletContext<{
+  const { jobsheet, programmingLanguage, judge0LanguageId, updateExperiment, submission } = useOutletContext<{
     jobsheet: Jobsheet
     programmingLanguage: string
+    judge0LanguageId?: number
     updateExperiment: (experimentId: string, steps: StepData[]) => void
     submission: JobsheetSubmission
   }>()
@@ -55,6 +56,7 @@ export default function ExperimentPage() {
           instructions={instructions}
           templateCode={experiment.defaultTemplateCode}
           language={programmingLanguage}
+          judge0LanguageId={judge0LanguageId}
           initialSteps={initialSteps}
           onChange={(steps) => {
             updateExperiment(experimentId, steps)

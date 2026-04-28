@@ -36,7 +36,8 @@ export default function WorkPage() {
                 course,
                 jobsheet,
                 submission,
-                programmingLanguage: course?.programmingLanguage,
+                programmingLanguage: jobsheet.programmingLanguage || course?.programmingLanguage || "java",
+                judge0LanguageId: jobsheet.judge0LanguageId,
                 updateExperiment,
                 updateExercise
               }}

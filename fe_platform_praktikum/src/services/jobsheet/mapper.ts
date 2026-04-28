@@ -4,6 +4,10 @@ export const mapJobsheet = (data: RawJobsheet): Jobsheet => ({
   id: data.id,
   courseId: data.course_id, // 🔥 penting (snake → camel)
   status: data.status,
+  programmingLanguage: data.programming_language || "java",
+  programmingLanguageDisplayName: data.programming_language_display_name,
+  judge0LanguageId: data.judge0_language_id,
+  programmingLanguageFileExtension: data.programming_language_file_extension,
 
   title: data.title,
   description: data.description,

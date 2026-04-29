@@ -17,10 +17,12 @@ export default function SidebarHeader({
       <div className="flex items-center gap-3">
 
         <button
+          type="button"
           onClick={onToggle}
-          className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center transition cursor-pointer"
+          aria-label="Tutup daftar modul"
+          className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center transition cursor-pointer hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         >
-          <ChevronRight size={20} />
+          <ChevronRight size={20} aria-hidden="true" />
         </button>
 
         <h3 className="text-gray-800 font-semibold">

@@ -19,7 +19,6 @@ export default function WorkSidebar({
   submission
 }: WorkSidebarProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [buttonVisible, setButtonVisible] = useState(false)
 
   const location = useLocation()
   const groups = buildSidebarTree(courseId, jobsheet)
@@ -44,18 +43,10 @@ export default function WorkSidebar({
 
   const handleCollapse = () => {
     setSidebarOpen(false)
-
-    setTimeout(() => {
-      setButtonVisible(true)
-    }, 300)
   }
 
   const handleExpand = () => {
-    setButtonVisible(false)
-
-    setTimeout(() => {
-      setSidebarOpen(true)
-    }, 300)
+    setSidebarOpen(true)
   }
 
   // Hitung progres
@@ -72,23 +63,23 @@ export default function WorkSidebar({
   return (
     <>
       {/* FLOATING BUTTON */}
-      <button
-        onClick={handleExpand}
-        className={`
-          hidden lg:flex
-          absolute top-1/10 right-0 -translate-y-1/2
-          w-12 h-12 bg-blue-600 text-white rounded-l-full
-          items-center justify-center shadow-lg
-          transition-all duration-300 ease-in-out z-40 cursor-pointer
-          ${
-            buttonVisible
-              ? "translate-x-0 opacity-100"
-              : "translate-x-full opacity-0 pointer-events-none"
-          }
-        `}
-      >
-        <Menu size={20} />
-      </button>
+      {!sidebarOpen && (
+        <button
+          type="button"
+          onClick={handleExpand}
+          aria-label="Buka daftar modul"
+          aria-expanded={sidebarOpen}
+          className="
+            absolute right-0 top-6 z-40 hidden h-12 w-12
+            items-center justify-center rounded-l-full bg-blue-600
+            text-white shadow-lg transition hover:bg-blue-700
+            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+            lg:flex
+          "
+        >
+          <Menu size={20} aria-hidden="true" />
+        </button>
+      )}
 
       {/* SIDEBAR */}
       <aside
@@ -97,25 +88,28 @@ export default function WorkSidebar({
         className={`
           hidden lg:flex flex-col
           bg-white border-l border-gray-200
+          shrink-0 overflow-hidden
           transition-[width] duration-300 ease-in-out
-          ${sidebarOpen ? "w-80" : "w-0"}
+          ${sidebarOpen ? "w-80" : "w-0 border-l-0"}
         `}
       >
-        <SidebarHeader
-          progress={progress}
-          collapsed={!sidebarOpen}
-          onToggle={handleCollapse}
-        />
+        <div className="flex h-full w-80 flex-col">
+          <SidebarHeader
+            progress={progress}
+            collapsed={!sidebarOpen}
+            onToggle={handleCollapse}
+          />
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          {groups.map(group => (
-            <SidebarGroup
-              key={group.id}
-              group={group}
-              getStatus={getStatus}
-              collapsed={false}
-            />
-          ))}
+          <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            {groups.map(group => (
+              <SidebarGroup
+                key={group.id}
+                group={group}
+                getStatus={getStatus}
+                collapsed={false}
+              />
+            ))}
+          </div>
         </div>
       </aside>
     </>

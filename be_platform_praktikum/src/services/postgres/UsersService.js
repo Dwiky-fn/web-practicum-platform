@@ -7,15 +7,18 @@ class UsersService {
 
   async getUserById(userId) {
     const result = await this._pool.query(
-      `SELECT
-        id,
-        full_name,
-        email,
-        role,
-        is_active,
-        created_at
-      FROM users
-      WHERE id = $1`,
+      `SELECT 
+        u.id,
+        u.full_name,
+        u.email,
+        u.role,
+        u.is_active,
+        u.created_at,
+        sp.nim,
+        sp.status AS student_status
+      FROM users u
+      LEFT JOIN student_profiles sp ON sp.user_id = u.id
+      WHERE u.id = $1`,
       [userId],
     );
 

@@ -1,7 +1,7 @@
 const routes = require('./routes');
 const Judge0Handler = require('./handler');
 const Judge0Service = require('../../services/judge0/judge0Service');
-const Judge0RunnerService = require('../../services/postgres/Judge0RunnerService');
+const Judge0RunnerService = require('../../services/judge0/Judge0RunnerService');
 
 module.exports = (app) => {
   const judge0Service = new Judge0Service();

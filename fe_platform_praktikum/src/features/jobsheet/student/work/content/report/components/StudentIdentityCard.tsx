@@ -1,4 +1,4 @@
-import { useCurrentUser } from "../../../../../../../entities/currentUser/useCurrentUser"
+import { useUser } from "../../../../../../../services/user/useUser"
 import type { Jobsheet } from "../../../../../../../services/jobsheet/types"
 
 interface Props {
@@ -6,7 +6,8 @@ interface Props {
 }
 
 export default function StudentIdentityCard({ jobsheet }: Props) {
-  const { user } = useCurrentUser()
+  const userId = "1" // sementara
+  const { user, loading } = useUser(userId)
 
   const today = new Date().toLocaleDateString("id-ID", {
     day: "numeric",
@@ -17,25 +18,23 @@ export default function StudentIdentityCard({ jobsheet }: Props) {
   return (
     <div className="bg-white border rounded-xl overflow-hidden">
 
-      {/* Header */}
       <div className="bg-gray-100 px-6 py-3 border-b font-semibold text-gray-800">
         Identitas Mahasiswa
       </div>
 
-      {/* Content */}
       <div className="px-6 py-4 text-sm space-y-3">
 
         <div className="flex">
           <span className="w-32 text-gray-500">Nama</span>
           <span className="text-gray-800 font-medium">
-            : {user?.fullname ?? "-"}
+            : {loading ? "Loading..." : user?.full_name || "-"}
           </span>
         </div>
 
         <div className="flex">
           <span className="w-32 text-gray-500">NIM</span>
           <span className="text-gray-800 font-medium">
-            : {user?.studentProfile?.nim ?? "-"}
+            : {loading ? "Loading..." : user?.nim || "-"}
           </span>
         </div>
 

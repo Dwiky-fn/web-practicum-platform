@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
+const studentProgress = require('./api/studentProgress');
 const submissions = require('./api/submissions');
 const jobsheet = require('./api/jobsheets');
 const judge0 = require('./api/judge0');
@@ -15,6 +16,7 @@ app.use(cors());
 app.use(express.json());
 
 // register routes
+studentProgress(app)
 submissions(app);
 jobsheet(app);
 judge0(app);

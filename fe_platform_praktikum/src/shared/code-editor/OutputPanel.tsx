@@ -121,7 +121,7 @@ export default function OutputPanel({
             {isRunning ? (
               <span className="text-blue-300">Sedang menjalankan kode...</span>
             ) : output ? (
-              <pre className="m-0 whitespace-pre-wrap break-words text-gray-100">{output}</pre>
+              <pre className="m-0 whitespace-pre-wrap wrap-break-word text-gray-100">{output}</pre>
             ) : (
               <span className="text-gray-500">Belum ada output...</span>
             )}

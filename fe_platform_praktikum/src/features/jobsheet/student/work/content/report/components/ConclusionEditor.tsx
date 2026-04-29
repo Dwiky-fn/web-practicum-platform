@@ -1,9 +1,9 @@
 import RichTextEditor from "../../../../../../../shared/editor/RichTextEditor"
+import RichTextViewer from "../../../../../../../shared/editor/RichTextViewer"
 import { useEffect, useMemo, useState } from "react"
 import type { Jobsheet } from "../../../../../../../services/jobsheet/types"
 import type { JobsheetSubmission } from "../../../../../../../services/submission/types"
 import type { JSONContent } from "@tiptap/react"
-import RichTextViewer from "../../../../../../../shared/editor/RichTextViewer"
 
 interface Props {
   jobsheet: Jobsheet

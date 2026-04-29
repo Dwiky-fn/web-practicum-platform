@@ -4,8 +4,9 @@ const express = require('express');
 const cors = require('cors');
 
 const submissions = require('./api/submissions');
-const jobsheet = require('./api/jobsheet');
+const jobsheet = require('./api/jobsheets');
 const judge0 = require('./api/judge0');
+const users = require('./api/users');
 
 const app = express();
 
@@ -16,7 +17,8 @@ app.use(express.json());
 // register routes
 submissions(app);
 jobsheet(app);
-judge0(app)
+judge0(app);
+users(app);
 
 // test route
 app.get('/', (req, res) => {

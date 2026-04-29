@@ -1,8 +1,8 @@
 import { useState } from "react"
-import type { Jobsheet } from "../../../../../../../../services/jobsheet/types"
-import type { JobsheetSubmission } from "../../../../../../../../services/submission/types"
 import { CheckCircle, XCircle } from "lucide-react"
 import { splitInstructionContent } from "../../../../../../../../shared/utils/splitInstructionContent"
+import type { Jobsheet } from "../../../../../../../../services/jobsheet/types"
+import type { JobsheetSubmission } from "../../../../../../../../services/submission/types"
 
 interface Props {
   jobsheet: Jobsheet

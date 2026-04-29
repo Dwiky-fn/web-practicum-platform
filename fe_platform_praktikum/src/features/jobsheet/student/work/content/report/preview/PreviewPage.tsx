@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom"
 import { useEffect, useState } from "react"
 import { getJobsheetById } from "../../../../../../../services/jobsheet/service"
-import { getSubmissionByJobsheetIdPreview, submitSubmission } from "../../../../../../../services/submission/service"
+import { getSubmissionByJobsheetIdPreview, submitSubmission, updateSubmission } from "../../../../../../../services/submission/service"
 
 import type { Jobsheet } from "../../../../../../../services/jobsheet/types"
 import type { JobsheetSubmission } from "../../../../../../../services/submission/types"
@@ -13,6 +13,7 @@ import SubmissionValidationCard from "./components/SubmissionValidationCard"
 import ReportHeader from "../components/ReportHeader"
 import TopProgressBar from "../../../../../../../components/loading/TopProgressBar"
 import { CheckCircle } from "lucide-react"
+import { buildReport } from "../../../../../../../services/submission/buildReport"
 
 export default function PreviewPage() {
 
@@ -25,18 +26,26 @@ export default function PreviewPage() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
+// PreviewPage.tsx
+
   const handleSubmit = async () => {
-  if (!courseId || !jobsheetId) return
-  try {
-    setSubmitting(true)
-    await submitSubmission(courseId, jobsheetId)
-    setShowSuccess(true)
-  } catch (err) {
-    console.error("Submit error:", err)
-  } finally {
-    setSubmitting(false)
+    if (!courseId || !jobsheetId || !submission) return
+    try {
+      setSubmitting(true)
+
+      // 1. Simpan conclusion terbaru ke DB dulu
+      //    (kita perlu bentuk "report" yang sesuai format backend)
+      await updateSubmission(courseId, jobsheetId, buildReport(submission))
+
+      // 2. Baru submit
+      await submitSubmission(courseId, jobsheetId)
+      setShowSuccess(true)
+    } catch (err) {
+      console.error("Submit error:", err)
+    } finally {
+      setSubmitting(false)
+    }
   }
-}
 
   useEffect(() => {
     async function loadData() {

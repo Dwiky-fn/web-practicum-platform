@@ -1,4 +1,5 @@
-import { Play, RotateCcw } from "lucide-react"
+import { ChevronDown, ChevronUp, Play, RotateCcw } from "lucide-react"
+import { useState } from "react"
 
 interface Props {
   output: string
@@ -20,6 +21,7 @@ export default function OutputPanel({
   onRun,
 }: Props) {
   const canTypeInput = !!onCurrentInputChange
+  const [isInputOpen, setIsInputOpen] = useState(() => !!currentInput)
 
   return (
     <div className="overflow-hidden rounded-lg border border-gray-300 bg-white">
@@ -29,7 +31,7 @@ export default function OutputPanel({
             Console
           </h3>
           <p className="mt-0.5 text-xs text-gray-500">
-            Isi stdin sebelum menjalankan program.
+            Jalankan langsung. Stdin hanya dipakai kalau program membaca input.
           </p>
         </div>
 
@@ -63,15 +65,31 @@ export default function OutputPanel({
               {isRunning ? "Running" : "Run"}
             </button>
           )}
+
+          {canTypeInput && (
+            <button
+              type="button"
+              onClick={() => setIsInputOpen(prev => !prev)}
+              disabled={isRunning}
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+            >
+              {isInputOpen ? (
+                <ChevronUp size={16} aria-hidden="true" />
+              ) : (
+                <ChevronDown size={16} aria-hidden="true" />
+              )}
+              Stdin
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="grid gap-0 md:grid-cols-2">
-        {canTypeInput && (
+      <div className={`grid gap-0 ${canTypeInput && isInputOpen ? "md:grid-cols-2" : ""}`}>
+        {canTypeInput && isInputOpen && (
           <div className="border-b border-gray-200 md:border-b-0 md:border-r">
             <div className="flex h-10 items-center justify-between border-b border-gray-200 px-4">
               <label className="text-xs font-semibold uppercase tracking-wide text-gray-600">
-                Input
+                Input opsional
               </label>
               <span className="text-xs text-gray-400">
                 stdin
@@ -83,6 +101,7 @@ export default function OutputPanel({
               onChange={(event) => onCurrentInputChange(event.target.value)}
               disabled={isRunning}
               rows={8}
+              placeholder="Kosongkan kalau program tidak membutuhkan input."
               className="block min-h-52 w-full resize-y border-0 bg-white p-4 font-mono text-sm leading-6 text-gray-900 outline-none placeholder:text-gray-400 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
             />
           </div>

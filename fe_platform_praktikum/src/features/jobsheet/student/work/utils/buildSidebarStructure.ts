@@ -1,4 +1,5 @@
 import type { Jobsheet } from "../../../../../services/jobsheet/types"
+import type { JobsheetSubmission } from "../../../../../services/submission/types"
 
 export interface SidebarNode {
   id: string
@@ -10,7 +11,8 @@ export interface SidebarNode {
 
 export function buildSidebarTree(
   courseId: string,
-  jobsheet: Jobsheet
+  jobsheet: Jobsheet,
+  submission: JobsheetSubmission
 ): SidebarNode[] {
 
   const base = `/courses/${courseId}/jobsheets/${jobsheet.id}/works`
@@ -52,7 +54,7 @@ export function buildSidebarTree(
           title: "Laporan Praktikum",
           path: `${base}/task`,
           status:
-            jobsheet.status === "ACCEPTED"
+            submission?.status === "ACCEPTED"
               ? "completed"
               : "pending"
         }

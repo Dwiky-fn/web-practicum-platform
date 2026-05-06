@@ -13,7 +13,6 @@ import SummaryCardSkeleton from "./components/loading/SummarySkeleton";
 import SidebarCardSkeleton from "./components/loading/SidebarSkeleton";
 import HistoryCardSkeleton from "./components/loading/HistorySkeleton";
 import { getJobsheetById } from "../../../services/jobsheet/service";
-// import { mapJobsheet } from "../../../services/jobsheet/mapper";
 
 export default function JobsheetOverviewPage() {
   const { courseId, jobsheetId } = useParams<{

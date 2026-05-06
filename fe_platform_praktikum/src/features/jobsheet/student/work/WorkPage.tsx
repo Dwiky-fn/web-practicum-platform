@@ -1,4 +1,3 @@
-// WorkPage.tsx
 import { Outlet, useParams } from "react-router-dom"
 import { useWorkPage } from "./hooks/useWorkPage"
 import WorkHeader from "./components/WorkHeader"

@@ -1,22 +1,20 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getJobsheets } from "../../../entities/jobsheet/service";
-import { getCourseList } from "../../../entities/course/api";
-import { useCurrentUser } from "../../../entities/currentUser/useCurrentUser";
+import { getCourseById } from "../../../services/course/service";
+import { getJobsheets } from "../../../services/jobsheet/service";
+import { getMappedSubmissionByJobsheetId } from "../../../services/submission/service";
+import type { JobsheetSubmission } from "../../../services/submission/types";
 import type { Jobsheet } from "../../../services/jobsheet/types";
-import type { Course } from "../../../entities/course/types";
+import type { Course } from "../../../services/course/types";
 import Navbar from "../../../components/navbar/Navbar";
 import JobsheetCard from "./components/JobsheetCard";
 import CourseSummarySidebar from "./components/CourseSummary";
 import JobsheetCardSkeleton from "./components/loading/JobsheetCardSkeleton";
 import CourseSummarySidebarSkeleton from "./components/loading/CourseSummarySkeleton";
 import TopProgressBar from "../../../components/loading/TopProgressBar";
-import { getSubmissionByJobsheetId } from "../../../entities/jobsheetSubmission/service";
-import type { JobsheetSubmission } from "../../../entities/jobsheetSubmission/types";
 
 export default function CourseDetailPage() {
   const { courseId } = useParams<{ courseId: string }>();
-  const { user } = useCurrentUser();
 
   const [jobsheets, setJobsheets] = useState<Jobsheet[]>([]);
   const [submissions, setSubmissions] = useState<JobsheetSubmission[]>([]);
@@ -26,23 +24,17 @@ export default function CourseDetailPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!courseId || !user) {
+    if (!courseId) {
       setLoading(false);
       return;
     }
 
-    const userId = user.id
     const currentCourseId = courseId
 
     async function loadData() {
       try {
-        const courseResponse = await getCourseList(userId);
-
-        const selectedCourse = courseResponse.data.find(
-          (c) => c.id === courseId
-        );
-
-        setCourse(selectedCourse || null);
+        const selectedCourse = await getCourseById(currentCourseId);
+        setCourse(selectedCourse);
 
         const jobsheetData = await getJobsheets(currentCourseId);
         setJobsheets(jobsheetData);
@@ -50,7 +42,7 @@ export default function CourseDetailPage() {
         const submissionList = await Promise.all(
           jobsheetData.map(async (j) => {
             try {
-              return await getSubmissionByJobsheetId(j.id);
+              return await getMappedSubmissionByJobsheetId(currentCourseId, j.id);
             } catch {
               return null;
             }
@@ -69,7 +61,7 @@ export default function CourseDetailPage() {
     }
 
     loadData();
-  }, [courseId, user]);
+  }, [courseId]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -84,7 +76,7 @@ export default function CourseDetailPage() {
             {course?.name ?? <TopProgressBar />}
           </h1>
           <p className="text-gray-500 text-sm mt-1">
-            {course?.lecturer}
+            {course?.code}
           </p>
         </div>
 

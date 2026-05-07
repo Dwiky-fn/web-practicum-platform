@@ -1,5 +1,5 @@
 const pool = require('./index');
-const { nanoid } = require('nanoid');
+const { randomUUID } = require('crypto');
 
 class SubmissionsService {
   constructor(jobsheetService) {
@@ -57,8 +57,7 @@ class SubmissionsService {
     studentId,
     status = 'DRAFT',
   }) {
-    // const id = `submission-${nanoid(10)}`;
-    const id = `submission-1`;
+    const id = `sub-${randomUUID().slice(0, 12)}`;
 
     const jobsheet = await this._jobsheetService.getJobsheetFullById(
       jobsheetId,
@@ -69,12 +68,14 @@ class SubmissionsService {
 
     const query = {
       text: `
-      INSERT INTO task_submission
-      (id, jobsheet_id, student_id, report, status, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      INSERT INTO task_submissions
+      (id, jobsheet_id, student_id, report_html, status, submitted_at)
+      VALUES ($1, $2, $3, $4, $5, NULL)
       ON CONFLICT (jobsheet_id, student_id)
-      DO UPDATE SET updated_at = CURRENT_TIMESTAMP
-      RETURNING *
+      DO UPDATE SET report_html = task_submissions.report_html
+      RETURNING
+        *,
+        NULLIF(report_html, '')::json AS report
     `,
       values: [id, jobsheetId, studentId, JSON.stringify(report), status],
     };
@@ -86,7 +87,10 @@ class SubmissionsService {
 
   async getSubmissionByJobsheetId(jobsheetId, studentId) {
     const result = await this._pool.query(
-      `SELECT * FROM task_submission
+      `SELECT
+        *,
+        NULLIF(report_html, '')::json AS report
+       FROM task_submissions
        WHERE jobsheet_id = $1 AND student_id = $2
        LIMIT 1`,
       [jobsheetId, studentId],
@@ -108,17 +112,18 @@ class SubmissionsService {
   async updateSubmission({ jobsheetId, studentId, report, status }) {
     const query = {
       text: `
-        UPDATE task_submission
+        UPDATE task_submissions
         SET 
-          report = $1,
+          report_html = $1,
           status = COALESCE($2, status),
-          updated_at = CURRENT_TIMESTAMP,
           submitted_at = CASE 
             WHEN $2 = 'SUBMITTED' AND submitted_at IS NULL THEN CURRENT_TIMESTAMP 
             ELSE submitted_at 
           END
         WHERE jobsheet_id = $3 AND student_id = $4
-        RETURNING *
+        RETURNING
+          *,
+          NULLIF(report_html, '')::json AS report
       `,
       values: [JSON.stringify(report), status || null, jobsheetId, studentId],
     };

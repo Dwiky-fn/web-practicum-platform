@@ -6,6 +6,7 @@ const cors = require('cors');
 const studentProgress = require('./api/studentProgress');
 const submissions = require('./api/submissions');
 const jobsheet = require('./api/jobsheets');
+const courses = require('./api/courses');
 const judge0 = require('./api/judge0');
 const users = require('./api/users');
 
@@ -16,9 +17,10 @@ app.use(cors());
 app.use(express.json());
 
 // register routes
-studentProgress(app)
+studentProgress(app);
 submissions(app);
 jobsheet(app);
+courses(app);
 judge0(app);
 users(app);
 

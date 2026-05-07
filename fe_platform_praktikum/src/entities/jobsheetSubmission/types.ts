@@ -108,7 +108,14 @@ export interface JobsheetSubmission {
   status: SubmissionStatus;
   score?: number;
 
-  report: ReportData;
+  report?: ReportData;
+
+  experiments?: ExperimentSubmission[];
+  exercises?: ExerciseSubmission[];
+  conclusion?: {
+    content: JSONContent
+    wordCount: number
+  } | null;
 
   review?: SubmissionReview;
 

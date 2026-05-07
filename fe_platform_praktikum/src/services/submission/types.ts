@@ -34,6 +34,25 @@ export interface JobsheetSubmission {
   status: SubmissionStatus
   score?: number
 
+  report: {
+    experiments?: Record<string, {
+        steps: {
+        files: Record<string, string>
+        output: string
+        analysis: JSONContent
+      }[]
+    }>
+    exercises?: Record<string, {
+      files: Record<string, string>
+      output: string
+      analysis: JSONContent
+    }>
+    conclusion?: {
+      content: JSONContent
+      wordCount: number
+    } | null
+  }
+
   experiments: ExperimentSubmission[]
   exercises: ExerciseSubmission[]
 
@@ -43,12 +62,17 @@ export interface JobsheetSubmission {
   } | null
 
   review?: {
+    finalScore?: number
+    lecturerFeedback?: string
+    decision?: "PENDING" | "ACCEPTED" | "REVISION"
     comments: {
       experimentId?: string
+      exerciseId?: string
       step?: number
       comment: string
     }[]
   }
 
+  createdAt?: string
   updatedAt: string
 }

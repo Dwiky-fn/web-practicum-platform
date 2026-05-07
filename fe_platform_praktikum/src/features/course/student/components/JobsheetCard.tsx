@@ -3,7 +3,7 @@ import type { Jobsheet } from "../../../../services/jobsheet/types";
 import type {
   JobsheetSubmission,
   SubmissionStatus,
-} from "../../../../entities/jobsheetSubmission/types";
+} from "../../../../services/submission/types";
 
 interface JobsheetCardProps {
   jobsheet: Jobsheet;

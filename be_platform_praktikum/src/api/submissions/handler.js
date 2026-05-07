@@ -29,7 +29,7 @@ class SubmissionsHandler {
   async getSubmissionHandler(req, res) {
     const { jobsheetId } = req.params;
     const { courseId } = req.params;
-    const studentId = '1';
+    const studentId = req.user?.id || 'mhs-1';
 
     const submission = await this._service.getOrCreateSubmission(
       jobsheetId,
@@ -45,7 +45,7 @@ class SubmissionsHandler {
 
   async putSubmissionHandler(req, res) {
     const { jobsheetId } = req.params;
-    const studentId = '1';
+    const studentId = req.user?.id || 'mhs-1';
     const { report, status } = req.body;
 
     const submission = await this._service.updateSubmission({
@@ -64,7 +64,7 @@ class SubmissionsHandler {
   async submitSubmissionHandler(req, res) {
     try {
       const { jobsheetId } = req.params;
-      const studentId = '1';
+      const studentId = req.user?.id || 'mhs-1';
 
       const submission = await this._service.submitSubmission(
         jobsheetId,

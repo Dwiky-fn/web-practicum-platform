@@ -1,11 +1,11 @@
 import { useParams } from "react-router-dom"
 import { useEffect, useState } from "react"
 
-import { getJobsheets } from "../../../../../../../entities/jobsheet/service"
-import { getSubmissionByJobsheetId } from "../../../../../../../entities/jobsheetSubmission/service"
+import { getJobsheetById } from "../../../../../../../services/jobsheet/service"
+import { getSubmissionByJobsheetId } from "../../../../../../../services/submission/service"
 
 import type { Jobsheet } from "../../../../../../../services/jobsheet/types"
-import type { JobsheetSubmission } from "../../../../../../../entities/jobsheetSubmission/types"
+import type { JobsheetSubmission } from "../../../../../../../services/submission/types"
 
 import ReportHeader from "../components/ReportHeader"
 import StudentIdentityCard from "../components/StudentIdentityCard"
@@ -29,10 +29,8 @@ export default function ReviewPage() {
       setLoading(true)
 
       try {
-        const jobsheets = await getJobsheets(courseId)
-        const selected = jobsheets.find(j => j.id === jobsheetId)
-
-        const sub = await getSubmissionByJobsheetId(jobsheetId)
+        const selected = await getJobsheetById(courseId, jobsheetId)
+        const sub = await getSubmissionByJobsheetId(courseId, jobsheetId)
 
         setJobsheet(selected || null)
         setSubmission(sub)

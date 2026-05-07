@@ -3,7 +3,7 @@ import { buildSidebarTree } from "../../utils/buildSidebarStructure"
 import { useState } from "react"
 import { Menu } from "lucide-react"
 import type { Jobsheet } from "../../../../../../services/jobsheet/types"
-import type { JobsheetSubmission } from "../../../../../../entities/jobsheetSubmission/types"
+import type { JobsheetSubmission } from "../../../../../../services/submission/types"
 import SidebarGroup from "./SidebarGroup"
 import SidebarHeader from "./SidebarHeader"
 
@@ -21,7 +21,7 @@ export default function WorkSidebar({
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const location = useLocation()
-  const groups = buildSidebarTree(courseId, jobsheet)
+  const groups = buildSidebarTree(courseId, jobsheet, submission)
   const flatItems = groups.flatMap(g => g.children ?? [])
 
   const currentIndex = flatItems.findIndex(item =>

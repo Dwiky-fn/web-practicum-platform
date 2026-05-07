@@ -9,7 +9,8 @@ class UsersService {
     const result = await this._pool.query(
       `SELECT 
         u.id,
-        u.full_name,
+        u.fullname,
+        u.fullname AS full_name,
         u.email,
         u.role,
         u.is_active,

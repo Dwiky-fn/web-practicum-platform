@@ -9,9 +9,14 @@ class StudentProgressHandler {
   async getProgressHandler(req, res) {
     try {
       const { jobsheetId } = req.params;
-      const studentId = req.user?.id || '1'; // ganti sesuai auth kamu
+      const { classId } = req.query;
+      const studentId = req.user?.id || 'mhs-1'; // ganti sesuai auth kamu
 
-      const progress = await this._service.getProgress(studentId, jobsheetId);
+      const progress = await this._service.getProgress(
+        studentId,
+        jobsheetId,
+        classId,
+      );
 
       return res.json({
         status: 'success',
@@ -28,7 +33,7 @@ class StudentProgressHandler {
   async upsertProgressHandler(req, res) {
     try {
       const { jobsheetId } = req.params;
-      const studentId = req.user?.id || '1';
+      const studentId = req.user?.id || 'mhs-1';
       const { classId, progress, lastPage, status } = req.body;
 
       const result = await this._service.upsertProgress({

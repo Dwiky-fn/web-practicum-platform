@@ -5,7 +5,8 @@ export type JobsheetStatus =
   | "DRAFT"
   | "PUBLISHED"
   | "UNPUBLISHED"
-  | "ARCHIVED";
+  | "ARCHIVED"
+  | "ACCEPTED";
 
 // ================= THEORY =================
 export interface TheoryItem {
@@ -54,17 +55,19 @@ export interface TaskConfig {
 export type RawExperiment = {
   id: string;
   title: string;
-  order: number;
+  order?: number;
   instruction_content: JSONContent;
-  default_template_code: string;
+  template_code?: string;
+  default_template_code?: string;
 };
 
 export type RawExercise = {
   id: string;
   title: string;
-  order: number;
+  order?: number;
   instruction_content: JSONContent;
-  default_template_code: string;
+  template_code?: string;
+  default_template_code?: string;
 };
 
 export type RawTheory = {
@@ -85,15 +88,15 @@ export type RawJobsheet = {
 
   title: string;
   description: string;
-  summary: JSONContent;
-  goal: string;
+  summary?: JSONContent;
+  goal?: string;
   deadline: string;
 
-  task: TaskConfig;
+  task?: TaskConfig;
 
-  experiments: RawExperiment[];
-  exercises: RawExercise[];
-  theory: RawTheory[];
+  experiments?: RawExperiment[];
+  exercises?: RawExercise[];
+  theory?: RawTheory[];
 };
 
 // ================= FINAL FE MODEL =================

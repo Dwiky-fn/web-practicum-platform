@@ -1,4 +1,4 @@
-import type { JobsheetSubmission } from "../../../../../../../../entities/jobsheetSubmission/types"
+import type { JobsheetSubmission } from "../../../../../../../../services/submission/types"
 
 interface Props {
   submission: JobsheetSubmission

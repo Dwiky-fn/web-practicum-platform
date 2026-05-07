@@ -1,7 +1,7 @@
 import { useParams, useOutletContext } from "react-router-dom"
 import type { Jobsheet } from "../../../../../../services/jobsheet/types"
 import type { JSONContent } from "@tiptap/core"
-import type { JobsheetSubmission } from "../../../../../../entities/jobsheetSubmission/types"
+import type { JobsheetSubmission } from "../../../../../../services/submission/types"
 import InstructionWorkspaceCard from "./components/InstructionWorkspaceCard"
 import NotFoundPage from "../../../../../not-found/NotFoundPage"
 import RichTextViewer from "../../../../../../shared/editor/RichTextViewer"

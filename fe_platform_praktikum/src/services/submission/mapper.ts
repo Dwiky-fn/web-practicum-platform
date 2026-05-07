@@ -33,8 +33,11 @@ type RawSubmission = {
   jobsheet_id: string
   student_id: string
   status: string
+  created_at?: string
   updated_at: string
+  submitted_at?: string | null
   report?: RawReport
+  report_html?: string | null
 }
 
 /* ================= HELPER ================= */
@@ -50,15 +53,19 @@ function extractCode(files?: Record<string, string>) {
 /* ================= MAPPER ================= */
 
 export function mapSubmission(data: RawSubmission): JobsheetSubmission {
-  const experimentsObj = data.report?.experiments ?? {}
-  const exercisesObj = data.report?.exercises ?? {}
+  const report = normalizeReport(data)
+  const experimentsObj = report.experiments ?? {}
+  const exercisesObj = report.exercises ?? {}
+  const timestamp = data.updated_at ?? data.submitted_at ?? data.created_at ?? ""
 
   return {
     id: data.id,
     jobsheetId: data.jobsheet_id,
     studentId: data.student_id,
     status: mapStatus(data.status),
-    updatedAt: data.updated_at,
+    report,
+    createdAt: data.created_at,
+    updatedAt: timestamp,
 
     experiments: Object.entries(experimentsObj).map(
       ([experimentId, value]) => ({
@@ -81,11 +88,55 @@ export function mapSubmission(data: RawSubmission): JobsheetSubmission {
       })
     ),
 
-    conclusion: data.report?.conclusion ?? null
+    conclusion: report.conclusion ?? null
+  }
+}
+
+function normalizeReport(data: RawSubmission): JobsheetSubmission["report"] {
+  const raw = parseRawReport(data)
+
+  return {
+    experiments: Object.fromEntries(
+      Object.entries(raw.experiments ?? {}).map(([id, experiment]) => [
+        id,
+        {
+          steps: (experiment.steps ?? []).map((step) => ({
+            files: step.files ?? {},
+            output: step.output ?? "",
+            analysis: step.analysis ?? { type: "doc", content: [] },
+          })),
+        },
+      ])
+    ),
+    exercises: Object.fromEntries(
+      Object.entries(raw.exercises ?? {}).map(([id, exercise]) => [
+        id,
+        {
+          files: exercise.files ?? {},
+          output: exercise.output ?? "",
+          analysis: exercise.analysis ?? { type: "doc", content: [] },
+        },
+      ])
+    ),
+    conclusion: raw.conclusion ?? null,
+  }
+}
+
+function parseRawReport(data: RawSubmission): RawReport {
+  if (data.report) return data.report
+  if (!data.report_html) return {}
+
+  try {
+    return JSON.parse(data.report_html) as RawReport
+  } catch {
+    console.warn("Tidak bisa membaca report_html dari BE")
+    return {}
   }
 }
 
 function mapStatus(status: string): JobsheetSubmission["status"] {
+  if (status === "REVIEWED") return "ACCEPTED"
+
   const validStatuses: JobsheetSubmission["status"][] = [
     "DRAFT",
     "SUBMITTED",

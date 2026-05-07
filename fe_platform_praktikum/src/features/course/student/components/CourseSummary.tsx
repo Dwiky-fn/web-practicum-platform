@@ -1,5 +1,5 @@
 import type { Jobsheet } from "../../../../services/jobsheet/types";
-import type { JobsheetSubmission } from "../../../../entities/jobsheetSubmission/types";
+import type { JobsheetSubmission } from "../../../../services/submission/types";
 
 interface CourseSummarySidebarProps {
   jobsheets: Jobsheet[];

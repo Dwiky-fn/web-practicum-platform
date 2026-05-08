@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, CheckCircle, ClipboardList } from "lucide-react";
-import { getRecentActivities } from "../../../entities/activity/service";
-import { useCurrentUser } from "../../../entities/currentUser/useCurrentUser";
-import { getJobsheets } from "../../../entities/jobsheet/service";
+import { getRecentActivities } from "../../../services/activity/service";
+import { useCurrentUser } from "../../../services/user/useCurrentUser";
+import { getJobsheets } from "../../../services/jobsheet/service";
 import { getCoursesByStudentId } from "../../../services/course/service";
-import type { Course } from "../../../entities/course/types";
-import type { Activity } from "../../../entities/activity/types";
+import type { Course } from "../../../services/course/types";
+import type { Activity } from "../../../services/activity/types";
 import type { Jobsheet } from "../../../services/jobsheet/types";
 import CourseCard from "../../../components/CourseCard";
 import Navbar from "../../../components/navbar/Navbar";

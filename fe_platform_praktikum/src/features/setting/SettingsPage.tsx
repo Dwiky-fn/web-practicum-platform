@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCurrentUser } from "../../entities/currentUser/useCurrentUser";
+import { useCurrentUser } from "../../services/user/useCurrentUser";
 import Navbar from "../../components/navbar/Navbar";
 import SettingsLayout from "./components/SettingsLayout";
 import ProfileSection from "./components/ProfileSection";

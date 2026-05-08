@@ -1,4 +1,4 @@
-import type { Role } from "../../../entities/auth/types";
+import type { Role } from "../../../services/user/types";
 
 export interface FieldConfig {
   name: string;

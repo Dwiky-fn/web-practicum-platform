@@ -1,4 +1,4 @@
-import { useCurrentUser } from "../../entities/currentUser/useCurrentUser"; 
+import { useCurrentUser } from "../../services/user/useCurrentUser"; 
 import AdminDashboard from "./admin/AdminDashboardPage";
 import LecturerDashboard from "./lecturer/LecturerDashboardPage";
 import StudentDashboard from "./student/StudentDashboardPage";

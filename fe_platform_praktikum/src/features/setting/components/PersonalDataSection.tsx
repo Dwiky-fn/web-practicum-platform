@@ -51,17 +51,6 @@ export default function PersonalDataSection({ data }: Props) {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Jenis Kelamin
-          </label>
-          <input
-            className="w-full border rounded-lg px-4 py-2"
-            value={data.gender}
-            readOnly
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
             Kota
           </label>
           <input

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getNotifications } from "../../entities/notification/service";
-import { useCurrentUser } from "../../entities/currentUser/useCurrentUser";
-import type { Notification } from "../../entities/notification/types";
+import { getNotifications } from "../../services/notification/service";
+import { useCurrentUser } from "../../services/user/useCurrentUser";
+import type { Notification } from "../../services/notification/types";
 import logo from "../../assets/logopolnep.jpg";
 import pattern from "../../assets/circuit-board.svg";
 import NavbarOverlay from "./NavbarOverlay";

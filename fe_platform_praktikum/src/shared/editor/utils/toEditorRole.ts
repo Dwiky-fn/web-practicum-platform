@@ -1,4 +1,4 @@
-import type { Role } from "../../../entities/currentUser/types"; 
+import type { Role } from "../../../services/user/types"; 
 import type { EditorRole } from "./editorExtensions";
 
 export function toEditorRole(role: Role | undefined): EditorRole {

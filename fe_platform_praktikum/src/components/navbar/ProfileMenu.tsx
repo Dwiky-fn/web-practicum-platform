@@ -1,8 +1,8 @@
 import { User } from "lucide-react"
-import type { CurrentUser } from "../../entities/currentUser/types"
+import type { User as AppUser } from "../../services/user/types"
 
 interface ProfileMenuProps {
-  user: CurrentUser | null
+  user: AppUser | null
   open: boolean
   onToggle: () => void
   onSettings: () => void

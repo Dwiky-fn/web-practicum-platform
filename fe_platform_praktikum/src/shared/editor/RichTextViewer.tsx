@@ -2,8 +2,8 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import { useEffect } from "react";
 import { getEditorExtensions, type EditorMode, type EditorRole } from "./utils/editorExtensions";
 import type { JSONContent } from "@tiptap/react";
-import { useCurrentUser } from "../../entities/currentUser/useCurrentUser"; 
-import type { Role } from "../../entities/currentUser/types";
+import { useCurrentUser } from "../../services/user/useCurrentUser"; 
+import type { Role } from "../../services/user/types";
 import { toEditorRole } from "./utils/toEditorRole";
 
 interface Props {

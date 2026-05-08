@@ -1,5 +1,5 @@
 import { CheckCircle, BookOpen, ClipboardList } from "lucide-react";
-import type { Activity, ActivityType } from "../../../../entities/activity/types";
+import type { Activity, ActivityType } from "../../../../services/activity/types";
 import ActivitySectionSkeleton from "../loading/ActivitySkeleton";
 
 interface ActivitySectionProps {

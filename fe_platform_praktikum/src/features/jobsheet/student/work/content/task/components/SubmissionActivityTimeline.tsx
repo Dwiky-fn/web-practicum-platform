@@ -1,5 +1,5 @@
 import { CheckCircle, Clock, XCircle } from "lucide-react"
-import type { SubmissionStatus } from "../../../../../../../entities/jobsheetSubmission/types"
+import type { SubmissionStatus } from "../../../../../../../services/submission/types"
 
 interface Props {
   status: SubmissionStatus

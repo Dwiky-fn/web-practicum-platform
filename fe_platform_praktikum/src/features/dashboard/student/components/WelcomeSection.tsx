@@ -1,10 +1,10 @@
-import type { CurrentUser } from "../../../../entities/currentUser/types";
+import type { User } from "../../../../services/user/types";
 
 interface WelcomeSectionProps {
-  user: CurrentUser | null;
+  user: User | null;
 }
 
-function getSubtitle(user: CurrentUser | null): string {
+function getSubtitle(user: User | null): string {
   if (!user) return "";
 
   switch (user.role) {

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
-import { useCurrentUser } from "../../../entities/currentUser/useCurrentUser";
+import { useCurrentUser } from "../../../services/user/useCurrentUser";
 import { getCoursesByStudentId } from "../../../services/course/service";
 import { useNavigate } from "react-router-dom";
-import type { Course } from "../../../entities/course/types";
+import type { Course } from "../../../services/course/types";
 import Navbar from "../../../components/navbar/Navbar";
 import CourseCardSkeleton from "../../../components/loading/CourseSkeleton";
 import CourseCard from "../../../components/CourseCard";

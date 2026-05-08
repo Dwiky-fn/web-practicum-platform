@@ -1,6 +1,6 @@
 import { Routes, Route } from "react-router-dom"
-import { CurrentUserProvider } from "./entities/currentUser/CurrentUserProvider"
-import { useCurrentUser } from "./entities/currentUser/useCurrentUser"
+import { CurrentUserProvider } from "./services/user/CurrentUserProvider"
+import { useCurrentUser } from "./services/user/useCurrentUser"
 import LoginPage from "./features/auth/LoginPage"
 import DashboardPage from "./features/dashboard"
 import SettingsPage from "./features/setting/SettingsPage"

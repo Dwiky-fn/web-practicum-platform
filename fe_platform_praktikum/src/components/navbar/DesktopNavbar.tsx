@@ -2,11 +2,11 @@ import { Menu } from "lucide-react"
 import { NavLink } from "react-router-dom"
 import NotificationBell from "./NotificationBell"
 import ProfileMenu from "./ProfileMenu"
-import type { Notification } from "../../entities/notification/types"
-import type { CurrentUser } from "../../entities/currentUser/types"
+import type { Notification } from "../../services/notification/types"
+import type { User } from "../../services/user/types"
 
 interface DesktopNavbarProps {
-  user: CurrentUser | null
+  user: User | null
   logo: string
   pattern: string
   notifications: Notification[]

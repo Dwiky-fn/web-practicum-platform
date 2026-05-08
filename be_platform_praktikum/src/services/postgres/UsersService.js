@@ -16,9 +16,16 @@ class UsersService {
         u.is_active,
         u.created_at,
         sp.nim,
-        sp.status AS student_status
+        sp.program_studi,
+        sp.jurusan,
+        sp.angkatan,
+        sp.semester,
+        sp.status,
+        sp.status AS student_status,
+        lp.nip
       FROM users u
       LEFT JOIN student_profiles sp ON sp.user_id = u.id
+      LEFT JOIN lecturer_profiles lp ON lp.user_id = u.id
       WHERE u.id = $1`,
       [userId],
     );

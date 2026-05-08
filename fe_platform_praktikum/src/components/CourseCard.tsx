@@ -1,4 +1,4 @@
-import type { Course } from "../entities/course/types";
+import type { Course } from "../services/course/types";
 
 interface CourseCardProps {
   course: Course;

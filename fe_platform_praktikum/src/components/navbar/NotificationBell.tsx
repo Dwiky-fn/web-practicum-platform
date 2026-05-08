@@ -1,5 +1,5 @@
 import { Bell } from "lucide-react"
-import type { Notification } from "../../entities/notification/types"
+import type { Notification } from "../../services/notification/types"
 
 interface NotificationBellProps {
   notifications: Notification[]

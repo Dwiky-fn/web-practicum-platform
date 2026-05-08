@@ -3,11 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import type { JSONContent } from "@tiptap/core"
 import type { Jobsheet } from "../../../../../services/jobsheet/types" 
-import type { Course } from "../../../../../entities/course/types" 
+import type { Course } from "../../../../../services/course/types" 
 import type { JobsheetSubmission } from "../../../../../services/submission/types"
 import { getJobsheetById } from "../../../../../services/jobsheet/service"
 import { getSubmissionByJobsheetId } from "../../../../../services/submission/service" 
-import { mockCourseList } from "../../../../../entities/course/mocks"
+import { getCourseById } from "../../../../../services/course/service"
 import { updateSubmission } from "../../../../../services/submission/service"
 
 type StepData = {
@@ -56,8 +56,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
         setJobsheet(jobsheetData)
 
         // 2. Course
-        const courseData =
-          mockCourseList.data.find(c => c.id === courseId) || null
+        const courseData = await getCourseById(courseId)
         setCourse(courseData)
 
         // 3. Submission

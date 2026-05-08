@@ -27,14 +27,14 @@ export default function StudentIdentityCard({ jobsheet }: Props) {
         <div className="flex">
           <span className="w-32 text-gray-500">Nama</span>
           <span className="text-gray-800 font-medium">
-            : {loading ? "Loading..." : user?.full_name || "-"}
+            : {loading ? "Loading..." : user?.fullname || "-"}
           </span>
         </div>
 
         <div className="flex">
           <span className="w-32 text-gray-500">NIM</span>
           <span className="text-gray-800 font-medium">
-            : {loading ? "Loading..." : user?.nim || "-"}
+            : {loading ? "Loading..." : user?.studentProfile?.nim || "-"}
           </span>
         </div>
 

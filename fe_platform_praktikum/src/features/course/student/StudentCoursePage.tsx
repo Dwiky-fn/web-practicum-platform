@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
+import { Search } from "lucide-react";
 import { useCurrentUser } from "../../../entities/currentUser/useCurrentUser";
+import { getCoursesByStudentId } from "../../../services/course/service";
+import { useNavigate } from "react-router-dom";
 import type { Course } from "../../../entities/course/types";
-import { getCourseList } from "../../../entities/course/api";
 import Navbar from "../../../components/navbar/Navbar";
 import CourseCardSkeleton from "../../../components/loading/CourseSkeleton";
 import CourseCard from "../../../components/CourseCard";
-import { Search } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import TopProgressBar from "../../../components/loading/TopProgressBar";
 
 export default function StudentCoursePage() {
@@ -26,8 +26,8 @@ export default function StudentCoursePage() {
       }
 
       try {
-        const response = await getCourseList(user.id)
-        setCourses(response.data)
+        const courses = await getCoursesByStudentId(user.id)
+        setCourses(courses)
       } catch (error) {
         console.error(error);
       } finally {

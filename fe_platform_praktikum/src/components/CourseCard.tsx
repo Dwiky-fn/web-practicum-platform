@@ -9,6 +9,8 @@ export default function CourseCard({
   course,
   onClick,
 }: CourseCardProps) {
+  const progress = course.progress ?? 0;
+
   return (
     <div
       onClick={onClick}
@@ -19,19 +21,19 @@ export default function CourseCard({
       </h3>
 
       <p className="text-sm text-gray-500 mb-3">
-        {course.code} - { course.lecturer}
+        {course.code} - {course.lecturer ?? "Dosen belum ditentukan"}
       </p>
 
       {/* Progress */}
       <div className=" w-full bg-gray-200 h-2 rounded-full mb-3">
         <div
           className="bg-blue-600 h-2 rounded-full transition-all"
-          style={{ width: `${course.progress}`}}
+          style={{ width: `${progress}%` }}
         />
       </div>
 
       <p className="text-xs text-gray-500">
-        Progress: {course.progress}%
+        Progress: {progress}%
       </p>
 
     </div>

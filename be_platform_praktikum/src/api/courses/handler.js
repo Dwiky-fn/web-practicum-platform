@@ -27,6 +27,28 @@ class CoursesHandler {
     }
   }
 
+  async getCoursesByStudentIdHandler(req, res) {
+    try {
+      const { studentId } = req.params;
+
+      const courses = await this._service.getCoursesByStudentId(studentId);
+
+      return res.status(200).json({
+        status: 'success',
+        data: {
+          courses,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        status: 'error',
+        message: 'Terjadi kesalahan server',
+      });
+    }
+  }
+
   async getCourseByIdHandler(req, res) {
     try {
       const { id } = req.params;

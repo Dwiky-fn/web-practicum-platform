@@ -4,7 +4,7 @@ export async function fetchCurrentUser(): Promise<CurrentUser> {
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve({
-        id: "1",
+        id: "mhs-1",
         fullname: "Dwiky Juniardi",
         email: "dwiky@email.com",
         role: "MAHASISWA",

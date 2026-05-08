@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, CheckCircle, ClipboardList } from "lucide-react";
-import { getCourseList } from "../../../entities/course/api";
 import { getRecentActivities } from "../../../entities/activity/service";
 import { useCurrentUser } from "../../../entities/currentUser/useCurrentUser";
 import { getJobsheets } from "../../../entities/jobsheet/service";
+import { getCoursesByStudentId } from "../../../services/course/service";
 import type { Course } from "../../../entities/course/types";
 import type { Activity } from "../../../entities/activity/types";
 import type { Jobsheet } from "../../../services/jobsheet/types";
@@ -36,16 +36,16 @@ export default function StudentDashboardPage() {
       }
 
       try {
-        const [courseResponse, activityResponse] = await Promise.all([
-          getCourseList(user.id),
+        const [courseData, activityResponse] = await Promise.all([
+          getCoursesByStudentId(user.id),
           getRecentActivities(user.id),
         ]);
 
-        setCourses(courseResponse.data);
+        setCourses(courseData);
         setActivities(activityResponse);
 
         const jobsheetResponses = await Promise.all(
-          courseResponse.data.map((course) =>
+          courseData.map((course) =>
             getJobsheets(course.id)
           )
         );

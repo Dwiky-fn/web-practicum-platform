@@ -6,7 +6,7 @@ interface Props {
 }
 
 export default function StudentIdentityCard({ jobsheet }: Props) {
-  const userId = "1" // sementara
+  const userId = "mhs-1" // sementara
   const { user, loading } = useUser(userId)
 
   const today = new Date().toLocaleDateString("id-ID", {

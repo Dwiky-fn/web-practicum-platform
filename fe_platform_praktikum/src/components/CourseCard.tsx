@@ -2,14 +2,17 @@ import type { Course } from "../services/course/types";
 
 interface CourseCardProps {
   course: Course;
+  jobsheetCount?: number;
   onClick?: () => void;
 }
 
 export default function CourseCard({
   course,
+  jobsheetCount,
   onClick,
 }: CourseCardProps) {
   const progress = course.progress ?? 0;
+  const totalJobsheets = jobsheetCount ?? course.jobsheetCount ?? course.jobsheet_count ?? 0;
 
   return (
     <div
@@ -33,7 +36,7 @@ export default function CourseCard({
       </div>
 
       <p className="text-xs text-gray-500">
-        Progress: {progress}%
+        {totalJobsheets} jobsheet · Progress: {progress}%
       </p>
 
     </div>

@@ -1,4 +1,5 @@
 import type { Jobsheet } from "../../../../services/jobsheet/types"
+import { getDeadlineState, parseDeadline } from "../../../../shared/utils/deadline"
 import UpcomingTaskSkeleton from "../loading/UpcomingSkeleton"
 
 interface UpcomingTaskSectionProps {
@@ -22,16 +23,17 @@ export default function UpcomingTaskSection({
     if (job.status === "ACCEPTED" || job.status === "UNPUBLISHED") {
       return false
     }
-    // filter yang sudah lewat deadline
-    if (new Date(job.deadline).getTime() < now.getTime()) {
+    const deadline = parseDeadline(job.deadline)
+
+    if (!deadline || deadline.getTime() < now.getTime()) {
       return false
     }
     return true
   })
   .sort((a, b) => {
     return (
-      new Date(a.deadline).getTime() -
-      new Date(b.deadline).getTime()
+      (parseDeadline(a.deadline)?.getTime() ?? 0) -
+      (parseDeadline(b.deadline)?.getTime() ?? 0)
     )
   })
   .slice(0, 3) // tampilkan 3 terdekat saja
@@ -48,8 +50,7 @@ export default function UpcomingTaskSection({
     <div className="bg-white rounded-2xl shadow-sm divide-y overflow-hidden">
       {upcomingJobsheets.map((jobsheet) => {
         const deadlineDate = new Date(jobsheet.deadline)
-        const diffTime = deadlineDate.getTime() - now.getTime()
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        const deadlineState = getDeadlineState(jobsheet.deadline, now)
 
         return (
           <div
@@ -62,16 +63,16 @@ export default function UpcomingTaskSection({
               </p>
 
               <p className="text-sm text-gray-500">
-                {diffDays === 0 ? "Deadline hari ini" : `${diffDays} hari lagi`}
+                {deadlineState.label}
               </p>
             </div>
 
             <span
               className={`text-sm font-medium ${
-                diffDays <= 2 ? "text-red-500" : "text-gray-500"
+                deadlineState.isOverdue ? "text-red-500" : "text-gray-500"
               }`}
             >
-              {jobsheet.deadline}
+              {deadlineDate.toLocaleDateString("id-ID")}
             </span>
           </div>
         )

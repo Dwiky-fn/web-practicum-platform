@@ -62,12 +62,16 @@ export default function StudentDashboardPage() {
   }, [user]);
 
   const totalCourses = courses.length;
+  const jobsheetCountByCourse = jobsheets.reduce<Record<string, number>>((acc, jobsheet) => {
+    acc[jobsheet.courseId] = (acc[jobsheet.courseId] ?? 0) + 1;
+    return acc;
+  }, {});
 
-  const completedPractikum = jobsheets.filter(
+  const completedJobsheets = jobsheets.filter(
     (job) => job.status === "ACCEPTED"
   ).length;
 
-  const pendingTasks = jobsheets.filter(
+  const activeJobsheets = jobsheets.filter(
     (job) =>
       job.status !== "ACCEPTED" &&
       job.status !== "UNPUBLISHED"
@@ -102,14 +106,14 @@ export default function StudentDashboardPage() {
               />
 
               <SummaryCard
-                title="Tugas Belum Dikerjakan"
-                value={pendingTasks}
+                title="Jobsheet Aktif"
+                value={activeJobsheets}
                 icon={<ClipboardList size={28} />}
               />
 
               <SummaryCard
-                title="Praktikum Selesai"
-                value={completedPractikum}
+                title="Jobsheet Selesai"
+                value={completedJobsheets}
                 icon={<CheckCircle size={28} />}
               />
             </>
@@ -147,6 +151,7 @@ export default function StudentDashboardPage() {
                   <CourseCard
                     key={course.id}
                     course={course}
+                    jobsheetCount={jobsheetCountByCourse[course.id] ?? 0}
                     onClick={() =>
                       navigate(`/courses/${course.id}`)
                     }
@@ -159,7 +164,7 @@ export default function StudentDashboardPage() {
           {/* Upcoming Task */}
           <div className="lg:col-span-2">
             <h2 className="text-lg font-semibold mb-4">
-              Upcoming Praktikum
+              Praktikum sedang berlangsung
             </h2>
 
             <UpcomingTaskSection

@@ -1,15 +1,14 @@
-import { useEffect, useState, useCallback, useMemo } from "react"
+import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import type { JSONContent } from "@tiptap/react"
 import CodeEditorPanel from "../../../../../../../shared/code-editor/CodeEditorPanel"
 import OutputPanel from "../../../../../../../shared/code-editor/OutputPanel"
 import AnalysisEditor from "./workSpace/AnalysisEditor"
-import { runCode } from "../../../../../../../services/judge0/service"
+import { ExecutionClient } from "../../../../../../../services/execution/executionClient"
 
 interface Props {
   instructions: JSONContent[]
   templateCode: string
   language: string
-  judge0LanguageId?: number
   onChange?: (steps: {
     files: Record<string, string>
     output: string
@@ -57,7 +56,6 @@ export default function InstructionWorkspaceCard({
   instructions,
   templateCode,
   language,
-  judge0LanguageId,
   onChange,
   initialSteps
 }: Props) {
@@ -72,6 +70,14 @@ export default function InstructionWorkspaceCard({
   const [currentInputMap, setCurrentInputMap] = useState<Record<number, string>>({})
   const [runTimeMap, setRunTimeMap] = useState<Record<number, string>>({})
   const [runningMap, setRunningMap] = useState<Record<number, boolean>>({})
+  const executionClientRef = useRef<ExecutionClient | null>(null)
+  const terminalOutputRef = useRef<Record<number, string>>({})
+
+  useEffect(() => {
+    return () => {
+      executionClientRef.current?.close()
+    }
+  }, [])
 
   useEffect(() => {
     const currentFiles = codeMap[activeIndex] || {}
@@ -113,6 +119,7 @@ export default function InstructionWorkspaceCard({
         Array.from({ length: totalSteps }, (_, i) => [i, initialSteps[i]?.output || ""])
       )
 
+      terminalOutputRef.current = newOutputMap
       setCodeMap(newCodeMap)
       setAnalysisMap(newAnalysisMap)
       setOutputMap(newOutputMap)
@@ -134,6 +141,7 @@ export default function InstructionWorkspaceCard({
       setOutputMap(
         Object.fromEntries(instructions.map((_, i) => [i, ""]))
       )
+      terminalOutputRef.current = Object.fromEntries(instructions.map((_, i) => [i, ""]))
       setCurrentInputMap(
         Object.fromEntries(instructions.map((_, i) => [i, ""]))
       )
@@ -180,13 +188,56 @@ export default function InstructionWorkspaceCard({
     }))
   }, [activeIndex])
 
-  // RUN = SAVE TRIGGER
-  const handleRun = useCallback(async () => {
-    if (runningMap[activeIndex]) return
+  const saveCurrentSteps = useCallback(() => {
+    if (!onChange) return
+
+    const steps =
+      instructions.length > 0
+        ? instructions.map((_, i) => ({
+            files: codeMap[i] || {},
+            output: terminalOutputRef.current[i] ?? outputMap[i] ?? "",
+            analysis: analysisMap[i] || { type: "doc", content: [] },
+          }))
+        : [
+            {
+              files: codeMap[0] || {},
+              output: terminalOutputRef.current[0] ?? outputMap[0] ?? "",
+              analysis: analysisMap[0] || { type: "doc", content: [] },
+            },
+          ]
+
+    onChange(steps)
+  }, [analysisMap, codeMap, instructions, onChange, outputMap])
+
+  const finishRun = useCallback((stepIndex: number, runStartedAt: number) => {
+    setRunTimeMap(prev => ({
+      ...prev,
+      [stepIndex]: formatRunTime(performance.now() - runStartedAt),
+    }))
+    setRunningMap(prev => ({
+      ...prev,
+      [stepIndex]: false,
+    }))
+  }, [])
+
+  const appendOutput = useCallback((stepIndex: number, chunk: string) => {
+    const nextOutput = `${terminalOutputRef.current[stepIndex] || ""}${chunk}`
+    terminalOutputRef.current[stepIndex] = nextOutput
+
+    setOutputMap(prev => ({
+      ...prev,
+      [stepIndex]: nextOutput,
+    }))
+  }, [])
+
+  // RUN
+  const handleRun = useCallback(() => {
+    if (Object.values(runningMap).some(Boolean)) return
 
     const runIndex = activeIndex
-    const stdin = normalizeStdin(currentInputMap[runIndex] ?? "")
     const runStartedAt = performance.now()
+    const currentFiles = codeMap[runIndex] || {}
+    const sourceCode = Object.values(currentFiles).join("\n\n")
 
     setRunningMap(prev => ({
       ...prev,
@@ -197,91 +248,87 @@ export default function InstructionWorkspaceCard({
       [runIndex]: "",
     }))
 
-    try {
-      const currentFiles = codeMap[runIndex] || {}
-      const source_code = Object.values(currentFiles).join("\n\n")
+    terminalOutputRef.current[runIndex] = ""
+    setOutputMap(prev => ({
+      ...prev,
+      [runIndex]: "",
+    }))
 
-      if (!judge0LanguageId) {
-        const errorMessage = "Judge0 language id belum tersedia dari database"
-
-        setOutputMap(prev => ({
-          ...prev,
-          [runIndex]: errorMessage
-        }))
-        return
-      }
-
-      const result = await runCode(
-        source_code,
-        judge0LanguageId,
-        stdin
-      )
-      const runFinishedAt = performance.now()
-
-      const newOutput =
-        result.stdout ||
-        result.stderr ||
-        result.compile_output ||
-        result.message ||
-        "No output"
-
-      setRunTimeMap(prev => ({
-        ...prev,
-        [runIndex]: formatRunTime(runFinishedAt - runStartedAt),
-      }))
-
-      setOutputMap(prev => {
-        const updatedOutputMap = {
-          ...prev,
-          [runIndex]: newOutput
-        }
-
-        if (onChange) {
-          const steps =
-            instructions.length > 0
-              ? instructions.map((_, i) => ({
-                  files: codeMap[i] || {},
-                  output: updatedOutputMap[i] || "",
-                  analysis: analysisMap[i] || { type: "doc", content: [] },
-                }))
-              : [
-                  {
-                    files: codeMap[0] || {},
-                    output: updatedOutputMap[0] || "",
-                    analysis: analysisMap[0] || { type: "doc", content: [] },
-                  },
-                ]
-
-          onChange(steps)
-        }
-
-        return updatedOutputMap
-      })
-    } catch (err) {
-      console.error(err)
-
-      const errorMessage = "Error saat menjalankan kode"
-
-      setOutputMap(prev => ({
-        ...prev,
-        [runIndex]: errorMessage
-      }))
-    } finally {
-      setRunningMap(prev => ({
-        ...prev,
-        [runIndex]: false,
-      }))
+    const appendAndBufferOutput = (chunk: string) => {
+      appendOutput(runIndex, chunk)
     }
+
+    const client = new ExecutionClient({
+      onMessage: (message) => {
+        if (message.type === "output") {
+          appendAndBufferOutput(message.data)
+          return
+        }
+
+        if (message.type === "error") {
+          appendAndBufferOutput(message.data)
+          finishRun(runIndex, runStartedAt)
+          return
+        }
+
+        if (message.type === "timeout") {
+          appendAndBufferOutput(message.data)
+          finishRun(runIndex, runStartedAt)
+          return
+        }
+
+        if (message.type === "exit") {
+          appendAndBufferOutput(`\nProcess exited with code ${message.code}`)
+          finishRun(runIndex, runStartedAt)
+          return
+        }
+
+        if (message.type === "runner_closed") {
+          finishRun(runIndex, runStartedAt)
+        }
+      },
+      onError: (message) => {
+        appendAndBufferOutput(message)
+        finishRun(runIndex, runStartedAt)
+      },
+      onClose: () => {
+        setRunningMap(prev => ({
+          ...prev,
+          [runIndex]: false,
+        }))
+      },
+    })
+
+    executionClientRef.current = client
+    client.run(sourceCode)
   }, [
     activeIndex,
-    instructions,
     codeMap,
-    analysisMap,
-    onChange,
-    judge0LanguageId,
     runningMap,
-    currentInputMap
+    appendOutput,
+    finishRun,
   ])
+
+  const handleSendInput = useCallback(() => {
+    const value = normalizeStdin(currentInputMap[activeIndex] ?? "")
+
+    if (!value) return
+
+    executionClientRef.current?.sendInput(value)
+    appendOutput(activeIndex, value)
+    setCurrentInputMap(prev => ({
+      ...prev,
+      [activeIndex]: "",
+    }))
+  }, [activeIndex, appendOutput, currentInputMap])
+
+  const handleStop = useCallback(() => {
+    executionClientRef.current?.stop()
+    setRunningMap(prev => ({
+      ...prev,
+      [activeIndex]: false,
+    }))
+  }, [activeIndex])
 
   // RESET
   const handleReset = useCallback(() => {
@@ -302,37 +349,15 @@ export default function InstructionWorkspaceCard({
       ...prev,
       [activeIndex]: "",
     }))
+    terminalOutputRef.current[activeIndex] = ""
     setRunTimeMap(prev => ({
       ...prev,
       [activeIndex]: "",
     }))
-
-    if (onChange) {
-      const steps =
-        instructions.length > 0
-          ? instructions.map((_, i) => ({
-              files: i === activeIndex ? resetFiles : codeMap[i] || {},
-              output: i === activeIndex ? "" : outputMap[i] || "",
-              analysis: analysisMap[i] || { type: "doc", content: [] },
-            }))
-          : [
-              {
-                files: resetFiles,
-                output: "",
-                analysis: analysisMap[0] || { type: "doc", content: [] },
-              },
-            ]
-
-      onChange(steps)
-    }
   }, [
     activeIndex,
-    analysisMap,
     codeMap,
     defaultFileName,
-    instructions,
-    onChange,
-    outputMap,
     templateCode
   ])
 
@@ -438,8 +463,11 @@ export default function InstructionWorkspaceCard({
           runTime={runTimeMap[activeIndex] || ""}
           currentInput={currentInputMap[activeIndex] || ""}
           onCurrentInputChange={handleCurrentInputChange}
+          onSendInput={handleSendInput}
           onReset={handleReset}
           onRun={handleRun}
+          onSave={saveCurrentSteps}
+          onStop={handleStop}
         />
       </div>
 

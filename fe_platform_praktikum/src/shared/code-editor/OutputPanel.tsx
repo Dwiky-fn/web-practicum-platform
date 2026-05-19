@@ -1,5 +1,5 @@
-import { ChevronDown, ChevronUp, Play, RotateCcw } from "lucide-react"
-import { useState } from "react"
+import { Play, RotateCcw, Save, Square } from "lucide-react"
+import { useEffect, useRef } from "react"
 
 interface Props {
   output: string
@@ -7,8 +7,11 @@ interface Props {
   runTime?: string
   currentInput?: string
   onCurrentInputChange?: (value: string) => void
+  onSendInput?: () => void
   onReset?: () => void
   onRun?: () => void
+  onSave?: () => void
+  onStop?: () => void
 }
 
 export default function OutputPanel({
@@ -17,11 +20,33 @@ export default function OutputPanel({
   runTime,
   currentInput,
   onCurrentInputChange,
+  onSendInput,
   onReset,
   onRun,
+  onSave,
+  onStop,
 }: Props) {
   const canTypeInput = !!onCurrentInputChange
-  const [isInputOpen, setIsInputOpen] = useState(() => !!currentInput)
+  const terminalInputRef = useRef<HTMLInputElement | null>(null)
+  const consoleRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!isRunning) return
+
+    terminalInputRef.current?.focus()
+  }, [isRunning])
+
+  useEffect(() => {
+    consoleRef.current?.scrollTo({
+      top: consoleRef.current.scrollHeight,
+    })
+  }, [output])
+
+  const handleTerminalSubmit = () => {
+    if (!currentInput?.trim()) return
+
+    onSendInput?.()
+  }
 
   return (
     <div className="overflow-hidden rounded-lg border border-gray-300 bg-white">
@@ -31,7 +56,7 @@ export default function OutputPanel({
             Console
           </h3>
           <p className="mt-0.5 text-xs text-gray-500">
-            Jalankan langsung. Stdin hanya dipakai kalau program membaca input.
+            Saat program meminta input, ketik langsung di terminal lalu tekan Enter. Batas waktu eksekusi 10 detik.
           </p>
         </div>
 
@@ -54,6 +79,18 @@ export default function OutputPanel({
             </button>
           )}
 
+          {onSave && (
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={isRunning}
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+            >
+              <Save size={16} aria-hidden="true" />
+              Save
+            </button>
+          )}
+
           {onRun && (
             <button
               type="button"
@@ -66,64 +103,63 @@ export default function OutputPanel({
             </button>
           )}
 
-          {canTypeInput && (
+          {onStop && isRunning && (
             <button
               type="button"
-              onClick={() => setIsInputOpen(prev => !prev)}
-              disabled={isRunning}
-              className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+              onClick={onStop}
+              className="inline-flex h-9 items-center gap-2 rounded-md bg-red-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-red-700"
             >
-              {isInputOpen ? (
-                <ChevronUp size={16} aria-hidden="true" />
-              ) : (
-                <ChevronDown size={16} aria-hidden="true" />
-              )}
-              Stdin
+              <Square size={16} fill="currentColor" aria-hidden="true" />
+              Stop
             </button>
           )}
+
         </div>
       </div>
 
-      <div className={`grid gap-0 ${canTypeInput && isInputOpen ? "md:grid-cols-2" : ""}`}>
-        {canTypeInput && isInputOpen && (
-          <div className="border-b border-gray-200 md:border-b-0 md:border-r">
-            <div className="flex h-10 items-center justify-between border-b border-gray-200 px-4">
-              <label className="text-xs font-semibold uppercase tracking-wide text-gray-600">
-                Input opsional
-              </label>
-              <span className="text-xs text-gray-400">
-                stdin
-              </span>
-            </div>
+      <div>
+        <div className="flex h-10 items-center justify-between border-b border-gray-200 px-4">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+            Terminal
+          </span>
+          <span className="text-xs text-gray-400">
+            stdout / stderr / stdin
+          </span>
+        </div>
 
-            <textarea
-              value={currentInput || ""}
-              onChange={(event) => onCurrentInputChange(event.target.value)}
-              disabled={isRunning}
-              rows={8}
-              placeholder="Kosongkan kalau program tidak membutuhkan input."
-              className="block min-h-52 w-full resize-y border-0 bg-white p-4 font-mono text-sm leading-6 text-gray-900 outline-none placeholder:text-gray-400 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
-            />
-          </div>
-        )}
+        <div
+          ref={consoleRef}
+          onClick={() => terminalInputRef.current?.focus()}
+          className="min-h-52 max-h-96 cursor-text overflow-auto bg-gray-950 p-4 font-mono text-sm leading-6"
+        >
+          {!output && !isRunning && (
+            <span className="text-gray-500">Belum ada output...</span>
+          )}
 
-        <div>
-          <div className="flex h-10 items-center justify-between border-b border-gray-200 px-4">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">
-              Output
-            </span>
-            <span className="text-xs text-gray-400">
-              stdout / stderr
-            </span>
-          </div>
+          {!output && isRunning && !canTypeInput && (
+            <span className="text-blue-300">Menunggu output realtime...</span>
+          )}
 
-          <div className="min-h-52 max-h-96 overflow-auto bg-gray-950 p-4 font-mono text-sm leading-6">
-            {isRunning ? (
-              <span className="text-blue-300">Sedang menjalankan kode...</span>
-            ) : output ? (
-              <pre className="m-0 whitespace-pre-wrap wrap-break-word text-gray-100">{output}</pre>
-            ) : (
-              <span className="text-gray-500">Belum ada output...</span>
+          <div className="whitespace-pre-wrap wrap-break-word text-gray-100">
+            {output}
+            {canTypeInput && isRunning && (
+              <input
+                ref={terminalInputRef}
+                value={currentInput || ""}
+                onChange={(event) => onCurrentInputChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return
+
+                  event.preventDefault()
+                  handleTerminalSubmit()
+                }}
+                spellCheck={false}
+                autoComplete="off"
+                className="inline-block min-w-32 max-w-full border-0 bg-transparent p-0 font-mono text-sm leading-6 text-gray-100 caret-emerald-300 outline-none placeholder:text-gray-600"
+                style={{
+                  width: `${Math.max((currentInput || "").length + 1, 8)}ch`,
+                }}
+              />
             )}
           </div>
         </div>

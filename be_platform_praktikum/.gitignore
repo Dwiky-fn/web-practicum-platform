@@ -1,3 +1,4 @@
 node_modules/
 migrations copy/
 package-lock.json
+.env

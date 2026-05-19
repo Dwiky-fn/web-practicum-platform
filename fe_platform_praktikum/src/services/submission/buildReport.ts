@@ -1,6 +1,8 @@
 import type { JobsheetSubmission } from "./types";
 
 export function buildReport(submission: JobsheetSubmission) {
+  if (submission.report) return submission.report
+
   return {
     experiments: Object.fromEntries(
       submission.experiments.map((exp) => [

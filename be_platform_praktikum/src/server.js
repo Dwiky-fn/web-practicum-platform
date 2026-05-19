@@ -2,15 +2,17 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const http = require('http');
 
 const studentProgress = require('./api/studentProgress');
 const submissions = require('./api/submissions');
 const jobsheet = require('./api/jobsheets');
 const courses = require('./api/courses');
-const judge0 = require('./api/judge0');
+const execution = require('./api/execution');
 const users = require('./api/users');
 
 const app = express();
+const server = http.createServer(app);
 
 // middleware
 app.use(cors());
@@ -21,8 +23,8 @@ studentProgress(app);
 submissions(app);
 jobsheet(app);
 courses(app);
-judge0(app);
 users(app);
+execution(server);
 
 // test route
 app.get('/', (req, res) => {
@@ -32,6 +34,6 @@ app.get('/', (req, res) => {
 // start server
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

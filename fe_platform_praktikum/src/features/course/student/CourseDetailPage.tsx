@@ -8,9 +8,7 @@ import type { Jobsheet } from "../../../services/jobsheet/types";
 import type { Course } from "../../../services/course/types";
 import Navbar from "../../../components/navbar/Navbar";
 import JobsheetCard from "./components/JobsheetCard";
-import CourseSummarySidebar from "./components/CourseSummary";
 import JobsheetCardSkeleton from "./components/loading/JobsheetCardSkeleton";
-import CourseSummarySidebarSkeleton from "./components/loading/CourseSummarySkeleton";
 import TopProgressBar from "../../../components/loading/TopProgressBar";
 
 export default function CourseDetailPage() {
@@ -78,13 +76,12 @@ export default function CourseDetailPage() {
           <p className="text-gray-500 text-sm mt-1">
             {course?.code}
           </p>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-600">
+            {course?.description || "Deskripsi mata kuliah belum tersedia."}
+          </p>
         </div>
 
-        {/* Layout 2 kolom */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-
-          {/* LEFT - Jobsheet List */}
-          <div className="lg:col-span-3 space-y-4">
+        <div className="space-y-4">
 
             {loading ? (
               <div className="space-y-4">
@@ -115,19 +112,6 @@ export default function CourseDetailPage() {
               })
             )}
 
-          </div>
-
-          {/* RIGHT - Summary Sidebar */}
-          <div className="lg:col-span-1">
-            {loading ? (
-              <CourseSummarySidebarSkeleton />
-            ) : (
-              <CourseSummarySidebar
-                jobsheets={jobsheets}
-                submissions={submissions}  
-              />
-            )}
-          </div>
         </div>
       </main>
     </div>

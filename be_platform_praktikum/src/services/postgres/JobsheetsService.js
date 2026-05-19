@@ -28,13 +28,12 @@ class JobsheetsService {
       exercises,
       programming_language: 'java',
       programming_language_display_name: 'Java',
-      judge0_language_id: 62,
       programming_language_file_extension: 'java',
     };
   }
 
   async getJobsheetsByCourse(courseId) {
-    const result = await this._pool.query(
+    const jobsheetsRes = await this._pool.query(
       `SELECT
         j.id,
         j.course_id,
@@ -52,7 +51,60 @@ class JobsheetsService {
       [courseId],
     );
 
-    return result.rows.map((jobsheet) => this._mapJobsheet(jobsheet));
+    const jobsheetIds = jobsheetsRes.rows.map((jobsheet) => jobsheet.id);
+
+    if (!jobsheetIds.length) {
+      return [];
+    }
+
+    const experimentsRes = await this._pool.query(
+      `SELECT
+        id,
+        jobsheet_id,
+        title,
+        instruction_content,
+        template_code,
+        template_code AS default_template_code
+      FROM experiments
+      WHERE jobsheet_id = ANY($1)
+      ORDER BY jobsheet_id ASC, id ASC`,
+      [jobsheetIds],
+    );
+
+    const exercisesRes = await this._pool.query(
+      `SELECT
+        id,
+        jobsheet_id,
+        title,
+        instruction_content,
+        template_code,
+        template_code AS default_template_code
+      FROM exercises
+      WHERE jobsheet_id = ANY($1)
+      ORDER BY jobsheet_id ASC, id ASC`,
+      [jobsheetIds],
+    );
+
+    const experimentsByJobsheet = new Map();
+    const exercisesByJobsheet = new Map();
+
+    experimentsRes.rows.forEach((experiment) => {
+      const list = experimentsByJobsheet.get(experiment.jobsheet_id) || [];
+      list.push(experiment);
+      experimentsByJobsheet.set(experiment.jobsheet_id, list);
+    });
+
+    exercisesRes.rows.forEach((exercise) => {
+      const list = exercisesByJobsheet.get(exercise.jobsheet_id) || [];
+      list.push(exercise);
+      exercisesByJobsheet.set(exercise.jobsheet_id, list);
+    });
+
+    return jobsheetsRes.rows.map((jobsheet) => this._mapJobsheet(
+      jobsheet,
+      experimentsByJobsheet.get(jobsheet.id) || [],
+      exercisesByJobsheet.get(jobsheet.id) || [],
+    ));
   }
 
   async getJobsheetFullById(jobsheetId, courseId) {

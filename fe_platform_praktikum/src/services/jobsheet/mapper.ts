@@ -8,7 +8,6 @@ export const mapJobsheet = (data: RawJobsheet): Jobsheet => ({
   status: data.status,
   programmingLanguage: data.programming_language || "java",
   programmingLanguageDisplayName: data.programming_language_display_name || "Java",
-  judge0LanguageId: data.judge0_language_id ?? 62,
   programmingLanguageFileExtension: data.programming_language_file_extension || "java",
 
   title: data.title,

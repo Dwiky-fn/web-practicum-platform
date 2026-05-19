@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import type { Jobsheet } from "../../../../services/jobsheet/types";
 import type { JobsheetSubmission, SubmissionStatus } from "../../../../services/submission/types";
+import { getDeadlineState } from "../../../../shared/utils/deadline";
 
 interface Props {
   jobsheet: Jobsheet;
@@ -19,11 +20,8 @@ export default function SidebarCard({
 
   const deadlineDate = new Date(jobsheet.deadline);
   const now = new Date();
-  const isOverdue = deadlineDate < now;
-
-  const daysLeft = Math.ceil(
-    (deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-  );
+  const deadlineState = getDeadlineState(jobsheet.deadline, now);
+  const isOverdue = deadlineState.isOverdue;
 
   const firstContent =
     jobsheet.theory[0]?.id
@@ -66,6 +64,25 @@ export default function SidebarCard({
     }
   }
 
+  function getStatusLabel(status: SubmissionStatus) {
+    switch (status) {
+      case "DRAFT":
+        return "Belum Submit";
+      case "SUBMITTED":
+        return "Terkirim";
+      case "REVIEWING":
+        return "Sedang Direview";
+      case "REVISION":
+        return "Perlu Revisi";
+      case "ACCEPTED":
+        return "Diterima";
+      case "OVERDUE":
+        return "Terlambat";
+      default:
+        return status;
+    }
+  }
+
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6 mb-6">
       
@@ -73,7 +90,7 @@ export default function SidebarCard({
       <div className="flex justify-between">
         <p className="text-sm text-gray-500">Status</p>
         <span className={`text-sm font-medium ${getStatusStyle(submission.status)}`}>
-          {submission.status.replace("_", " ")}
+          {getStatusLabel(submission.status)}
         </span>
       </div>
 
@@ -85,18 +102,18 @@ export default function SidebarCard({
             className={`text-sm font-medium ${
               isOverdue
                 ? "text-red-600"
-                : daysLeft <= 3
+                : deadlineState.label === "Deadline hari ini"
                 ? "text-yellow-600"
                 : "text-gray-800"
             }`}
           >
-            {deadlineDate.toLocaleDateString()}
+            {deadlineDate.toLocaleDateString("id-ID")}
           </p>
         </div>
 
-        {!isOverdue && daysLeft > 0 && (
+        {!isOverdue && (
           <p className="text-xs text-gray-400 text-right mt-1">
-            {daysLeft} hari lagi
+            {deadlineState.label}
           </p>
         )}
       </div>

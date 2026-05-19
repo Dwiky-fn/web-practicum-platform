@@ -28,7 +28,7 @@ export default function WorkPage() {
       />
 
       <div className="flex flex-1 relative overflow-hidden">
-        <main className="flex-1 px-6 py-8 lg:px-10 overflow-y-auto">
+        <main data-work-scroll className="flex-1 px-6 py-8 lg:px-10 overflow-y-auto">
           <div className="max-w-4xl mx-auto">
             <Outlet
               context={{
@@ -36,7 +36,6 @@ export default function WorkPage() {
                 jobsheet,
                 submission,
                 programmingLanguage: jobsheet.programmingLanguage || course?.programmingLanguage || "java",
-                judge0LanguageId: jobsheet.judge0LanguageId,
                 updateExperiment,
                 updateExercise
               }}

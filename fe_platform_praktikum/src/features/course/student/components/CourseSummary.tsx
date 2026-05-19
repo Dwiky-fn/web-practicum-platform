@@ -24,6 +24,8 @@ export default function CourseSummarySidebar({
   const statusMap = getStatusMap(submissions);
 
   const total = jobsheets.length;
+  const totalExperiments = jobsheets.reduce((sum, jobsheet) => sum + jobsheet.experiments.length, 0);
+  const totalExercises = jobsheets.reduce((sum, jobsheet) => sum + jobsheet.exercises.length, 0);
 
   const accepted = jobsheets.filter(j => 
     statusMap.get(j.id)?.status === "ACCEPTED"
@@ -54,10 +56,10 @@ export default function CourseSummarySidebar({
       {/* Statistik */}
       <div className="grid grid-cols-2 gap-4 mb-4">
 
-        <StatBox label="Total" value={total} />
+        <StatBox label="Jobsheet" value={total} />
         <StatBox label="Diterima" value={accepted} color="green" />
-        <StatBox label="Revisi" value={revision} color="red" />
-        <StatBox label="Belum Submit" value={draft} color="yellow" />
+        <StatBox label="Percobaan" value={totalExperiments} />
+        <StatBox label="Latihan" value={totalExercises} color="yellow" />
 
       </div>
 
@@ -65,6 +67,17 @@ export default function CourseSummarySidebar({
       {overdue > 0 && (
         <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-600 text-sm">
           {overdue} jobsheet melewati deadline
+        </div>
+      )}
+
+      {(revision > 0 || draft > 0) && (
+        <div className="mb-4 grid grid-cols-2 gap-2 text-xs text-gray-600">
+          <div className="rounded-lg bg-red-50 p-3 text-red-600">
+            {revision} perlu revisi
+          </div>
+          <div className="rounded-lg bg-yellow-50 p-3 text-yellow-700">
+            {draft} belum submit
+          </div>
         </div>
       )}
 

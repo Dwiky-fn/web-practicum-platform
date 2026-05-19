@@ -14,10 +14,9 @@ type StepData = {
 
 export default function ExercisePage() {
   const { exerciseId } = useParams()
-  const { jobsheet, programmingLanguage, judge0LanguageId, updateExercise, submission } = useOutletContext<{
+  const { jobsheet, programmingLanguage, updateExercise, submission } = useOutletContext<{
     jobsheet: Jobsheet
     programmingLanguage: string
-    judge0LanguageId?: number
     updateExercise: (exerciseId: string, data: StepData) => void
     submission: JobsheetSubmission
   }>()
@@ -52,7 +51,6 @@ export default function ExercisePage() {
           instructions={[exercise.instructionContent]}
           templateCode={exercise.defaultTemplateCode || ''}
           language={programmingLanguage}
-          judge0LanguageId={judge0LanguageId}
           initialSteps={initialStep ? [initialStep] : undefined}
           onChange={(steps) => {
             updateExercise(exerciseId, steps[0])

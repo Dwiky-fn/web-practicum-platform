@@ -5,12 +5,37 @@ class CoursesService {
     this._pool = pool;
   }
 
+  async _hasCourseDescriptionColumn() {
+    const result = await this._pool.query(
+      `
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'courses'
+        AND column_name = 'description'
+      LIMIT 1
+      `,
+    );
+
+    return result.rowCount > 0;
+  }
+
+  async _getCourseDescriptionSelect(alias = '') {
+    const hasDescription = await this._hasCourseDescriptionColumn();
+    const prefix = alias ? `${alias}.` : '';
+
+    return hasDescription ? `${prefix}description` : "'' AS description";
+  }
+
   async getAllCourses() {
+    const descriptionSelect = await this._getCourseDescriptionSelect();
+
     const result = await this._pool.query(`
       SELECT
         id,
         name,
         code,
+        ${descriptionSelect},
         semester,
         sks,
         status,
@@ -23,26 +48,43 @@ class CoursesService {
   }
 
   async getCoursesByStudentId(studentId) {
+    const hasDescription = await this._hasCourseDescriptionColumn();
+    const descriptionSelect = hasDescription ? 'c.description' : "'' AS description";
+    const descriptionGroupBy = hasDescription ? 'c.description,' : '';
+
     const result = await this._pool.query(
       `
-      SELECT DISTINCT
+      SELECT
         c.id,
         c.name,
         c.code,
+        ${descriptionSelect},
         c.semester,
         c.sks,
         c.status,
         c.created_at,
         u.fullname AS lecturer,
-        0 AS progress
+        0 AS progress,
+        COUNT(DISTINCT j.id)::int AS jobsheet_count
       FROM class_students cs
       JOIN classes cl ON cl.id = cs.class_id
       JOIN courses c ON c.id = cl.course_id
       LEFT JOIN users u ON u.id = cl.lecturer_id
+      LEFT JOIN jobsheets j ON j.course_id = c.id AND j.status != 'UNPUBLISHED'
       WHERE cs.student_id = $1
         AND cs.status = 'AKTIF'
         AND cl.status = 'AKTIF'
         AND c.status = 'AKTIF'
+      GROUP BY
+        c.id,
+        c.name,
+        c.code,
+        ${descriptionGroupBy}
+        c.semester,
+        c.sks,
+        c.status,
+        c.created_at,
+        u.fullname
       ORDER BY c.semester ASC, c.name ASC
       `,
       [studentId],
@@ -52,12 +94,15 @@ class CoursesService {
   }
 
   async getCourseById(courseId) {
+    const descriptionSelect = await this._getCourseDescriptionSelect();
+
     const result = await this._pool.query(
       `
       SELECT
         id,
         name,
         code,
+        ${descriptionSelect},
         semester,
         sks,
         status,

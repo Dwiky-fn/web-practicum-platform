@@ -1,5 +1,5 @@
-import { User } from "lucide-react"
 import type { User as AppUser } from "../../services/user/types"
+import Avatar from "../Avatar"
 
 interface ProfileMenuProps {
   user: AppUser | null
@@ -22,18 +22,11 @@ export default function ProfileMenu({
         className="flex items-center gap-2 cursor-pointer group transition-colors duration-200"
         onClick={onToggle}
       >
-        {user?.avatarUrl ? (
-          <img
-            src={user.avatarUrl}
-            alt="Avatar"
-            className="w-9 h-9 rounded-full object-cover border-2 border-white"
-          />
-        ) : (
-          <User
-            size={25}
-            className="text-white group-hover:text-gray-400 group-active:text-gray-400 transition-colors"
-          />
-        )}
+        <Avatar
+          avatarUrl={user?.avatarUrl}
+          fullname={user?.fullname ?? '?'}
+          size={36}
+        />
 
         <span className="hidden md:block font-medium text-white group-hover:text-gray-400 group-active:text-gray-400 transition-colors">
           {user ? user.fullname : "Loading..."}

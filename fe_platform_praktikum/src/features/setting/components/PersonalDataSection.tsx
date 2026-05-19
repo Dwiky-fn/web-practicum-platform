@@ -1,11 +1,7 @@
+import type { PersonalData } from "../../../services/user/types";
+
 interface Props {
-  data: {
-    phone: string;
-    birthPlace: string;
-    birthDate: string;
-    gender: string;
-    city: string;
-  };
+  data: PersonalData;
 }
 
 export default function PersonalDataSection({ data }: Props) {
@@ -22,7 +18,7 @@ export default function PersonalDataSection({ data }: Props) {
           </label>
           <input
             className="w-full border rounded-lg px-4 py-2"
-            value={data.phone}
+            value={data.no_telepon}
             readOnly
           />
         </div>
@@ -33,7 +29,7 @@ export default function PersonalDataSection({ data }: Props) {
           </label>
           <input
             className="w-full border rounded-lg px-4 py-2"
-            value={data.birthPlace}
+            value={data.tempat_lahir}
             readOnly
           />
         </div>
@@ -44,7 +40,12 @@ export default function PersonalDataSection({ data }: Props) {
           </label>
           <input
             className="w-full border rounded-lg px-4 py-2"
-            value={data.birthDate}
+            value={
+              data.tanggal_lahir
+                ? new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+                    .format(new Date(data.tanggal_lahir))
+                : ''
+            }
             readOnly
           />
         </div>
@@ -55,7 +56,7 @@ export default function PersonalDataSection({ data }: Props) {
           </label>
           <input
             className="w-full border rounded-lg px-4 py-2"
-            value={data.city}
+            value={data.kota}
             readOnly
           />
         </div>

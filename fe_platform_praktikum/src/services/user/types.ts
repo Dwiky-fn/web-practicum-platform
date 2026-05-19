@@ -22,11 +22,10 @@ export interface AdminProfile {
 }
 
 export interface PersonalData {
-  phone: string;
-  birthPlace: string;
-  birthDate: string;
-  gender: string;
-  city: string;
+  no_telepon: string;
+  tempat_lahir: string;
+  tanggal_lahir: string;
+  kota: string;
 }
 
 export interface User {
@@ -60,9 +59,8 @@ export interface UserResponse {
   semester?: number
   status?: string
   student_status?: string
-  phone?: string
-  birth_place?: string
-  birth_date?: string
-  gender?: string
-  city?: string
+  no_telepon?: string
+  tempat_lahir?: string
+  tanggal_lahir?: string
+  kota?: string
 }

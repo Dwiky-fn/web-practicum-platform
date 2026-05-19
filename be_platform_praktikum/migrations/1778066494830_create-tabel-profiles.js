@@ -29,6 +29,22 @@ exports.up = (pgm) => {
     status: {
       type: 'VARCHAR(50)',
     },
+    avatar_url: {
+      type: 'TEXT',
+    },
+    // Data Pribadi
+    no_telepon: {
+      type: 'VARCHAR(20)',
+    },
+    tempat_lahir: {
+      type: 'VARCHAR(100)',
+    },
+    tanggal_lahir: {
+      type: 'DATE',
+    },
+    kota: {
+      type: 'VARCHAR(100)',
+    },
   });
 
   // LECTURER_PROFILES
@@ -51,6 +67,22 @@ exports.up = (pgm) => {
     },
     status: {
       type: 'VARCHAR(50)',
+    },
+    avatar_url: {
+      type: 'TEXT',
+    },
+    // Data Pribadi
+    no_telepon: {
+      type: 'VARCHAR(20)',
+    },
+    tempat_lahir: {
+      type: 'VARCHAR(100)',
+    },
+    tanggal_lahir: {
+      type: 'DATE',
+    },
+    kota: {
+      type: 'VARCHAR(100)',
     },
   });
 };

@@ -10,6 +10,11 @@ const routes = (handler) => {
     handler.getSubmissionHandler,
   );
 
+  router.get(
+    '/courses/:courseId/submissions/:jobsheetId/ensure',
+    handler.getOrCreateSubmissionHandler,
+  );
+
   router.put('/courses/:courseId/submissions/:jobsheetId', handler.putSubmissionHandler);
 
   router.patch(

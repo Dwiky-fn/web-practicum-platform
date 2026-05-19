@@ -1,4 +1,3 @@
-// jobsheetSubmission/service.ts
 import { apiFetch } from "../api"
 import { mapSubmission } from "./mapper"
 import type { JobsheetSubmission } from "./types"
@@ -19,6 +18,17 @@ export const getMappedSubmissionByJobsheetId = async (
   jobsheetId: string
 ): Promise<JobsheetSubmission | null> => {
   return getSubmissionByJobsheetId(courseId, jobsheetId)
+}
+
+export const getOrCreateSubmissionByJobsheetId = async (
+  courseId: string,
+  jobsheetId: string
+): Promise<JobsheetSubmission | null> => {
+  const res = await apiFetch(
+    `/courses/${courseId}/submissions/${jobsheetId}/ensure`
+  )
+
+  return res.data.submission ? mapSubmission(res.data.submission) : null
 }
 
 export const getSubmissionByJobsheetIdPreview = async (

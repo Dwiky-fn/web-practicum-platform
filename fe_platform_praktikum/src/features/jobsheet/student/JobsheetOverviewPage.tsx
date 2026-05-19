@@ -102,7 +102,7 @@ export default function JobsheetOverviewPage() {
                   jobsheet={jobsheet!}
                   courseId={courseId!}
                   jobsheetId={jobsheetId!}
-                  submission={submission!}
+                  submission={submission}
                 />
               </>
             )}

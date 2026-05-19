@@ -6,7 +6,7 @@ import type { Jobsheet } from "../../../../../services/jobsheet/types"
 import type { Course } from "../../../../../services/course/types" 
 import type { JobsheetSubmission } from "../../../../../services/submission/types"
 import { getJobsheetById } from "../../../../../services/jobsheet/service"
-import { getSubmissionByJobsheetId } from "../../../../../services/submission/service" 
+import { getOrCreateSubmissionByJobsheetId } from "../../../../../services/submission/service" 
 import { getCourseById } from "../../../../../services/course/service"
 import { updateSubmission } from "../../../../../services/submission/service"
 
@@ -60,7 +60,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
         setCourse(courseData)
 
         // 3. Submission
-        const submissionData = await getSubmissionByJobsheetId(courseId!, jobsheetId)
+        const submissionData = await getOrCreateSubmissionByJobsheetId(courseId!, jobsheetId)
         if (!isMountedRef.current) return
         setSubmission(submissionData)
 

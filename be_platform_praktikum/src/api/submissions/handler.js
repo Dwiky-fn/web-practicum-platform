@@ -28,7 +28,21 @@ class SubmissionsHandler {
 
   async getSubmissionHandler(req, res) {
     const { jobsheetId } = req.params;
-    const { courseId } = req.params;
+    const studentId = req.user?.id || 'mhs-1';
+
+    const submission = await this._service.getSubmissionByJobsheetId(
+      jobsheetId,
+      studentId,
+    );
+
+    return res.json({
+      status: 'success',
+      data: { submission },
+    });
+  }
+
+  async getOrCreateSubmissionHandler(req, res) {
+    const { jobsheetId, courseId } = req.params;
     const studentId = req.user?.id || 'mhs-1';
 
     const submission = await this._service.getOrCreateSubmission(

@@ -5,7 +5,7 @@ import { getDeadlineState } from "../../../../shared/utils/deadline";
 
 interface Props {
   jobsheet: Jobsheet;
-  submission: JobsheetSubmission;
+  submission: JobsheetSubmission | null;
   courseId: string;
   jobsheetId: string;
 }
@@ -22,6 +22,7 @@ export default function SidebarCard({
   const now = new Date();
   const deadlineState = getDeadlineState(jobsheet.deadline, now);
   const isOverdue = deadlineState.isOverdue;
+  const status = submission?.status;
 
   const firstContent =
     jobsheet.theory[0]?.id
@@ -32,7 +33,9 @@ export default function SidebarCard({
     navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/works/theory/${firstContent}`)
   }
 
-  function getStatusStyle(status: SubmissionStatus) {
+  function getStatusStyle(status?: SubmissionStatus) {
+    if (!status) return "text-gray-600";
+
     switch (status) {
       case "ACCEPTED":
         return "text-green-600";
@@ -47,7 +50,9 @@ export default function SidebarCard({
     }
   }
 
-  function getActionLabel(status: SubmissionStatus) {
+  function getActionLabel(status?: SubmissionStatus) {
+    if (!status) return "Mulai Kerjakan";
+
     switch (status) {
       case "DRAFT":
         return "Mulai Belajar";
@@ -64,7 +69,9 @@ export default function SidebarCard({
     }
   }
 
-  function getStatusLabel(status: SubmissionStatus) {
+  function getStatusLabel(status?: SubmissionStatus) {
+    if (!status) return "Belum Dikerjakan";
+
     switch (status) {
       case "DRAFT":
         return "Belum Submit";
@@ -89,8 +96,8 @@ export default function SidebarCard({
       {/* STATUS */}
       <div className="flex justify-between">
         <p className="text-sm text-gray-500">Status</p>
-        <span className={`text-sm font-medium ${getStatusStyle(submission.status)}`}>
-          {getStatusLabel(submission.status)}
+        <span className={`text-sm font-medium ${getStatusStyle(status)}`}>
+          {getStatusLabel(status)}
         </span>
       </div>
 
@@ -122,21 +129,21 @@ export default function SidebarCard({
       <div className="flex justify-between">
         <p className="text-sm text-gray-500">Nilai</p>
         <p className="text-sm font-semibold text-green-600">
-          {submission.score ?? 0}
+          {submission?.score ?? 0}
         </p>
       </div>
 
       {/* ACTION */}
       <button
-        disabled={isOverdue && submission.status === "DRAFT"}
+        disabled={isOverdue && (!status || status === "DRAFT")}
         onClick={goTo}
         className={`w-full py-2 rounded-lg transition ${
-          isOverdue && submission.status === "DRAFT"
+          isOverdue && (!status || status === "DRAFT")
             ? "bg-gray-300 text-gray-600 cursor-not-allowed"
             : "bg-blue-600 text-white hover:bg-blue-700"
         }`}
       >
-        {getActionLabel(submission.status)}
+        {getActionLabel(status)}
       </button>
     </div>
   );

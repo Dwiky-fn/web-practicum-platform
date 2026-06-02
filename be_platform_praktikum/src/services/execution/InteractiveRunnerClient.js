@@ -1,6 +1,7 @@
 const WebSocket = require('ws');
 
-const RUNNER_URL = process.env.INTERACTIVE_RUNNER_WS_URL || 'ws://192.168.1.15:4000/ws';
+const RUNNER_URL =
+  process.env.INTERACTIVE_RUNNER_WS_URL || 'ws://10.10.23.112:4000/ws';
 
 class InteractiveRunnerClient {
   constructor({ runnerUrl = RUNNER_URL } = {}) {

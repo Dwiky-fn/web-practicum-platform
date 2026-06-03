@@ -28,13 +28,20 @@ export default function WorkSidebar({
   const location = useLocation()
   const groups = buildSidebarTree(courseId, jobsheet, submission)
   const flatItems = groups.flatMap(g => g.children ?? [])
+  const isFinishedSubmission =
+    savedProgress >= 100 ||
+    submission.status === "SUBMITTED" ||
+    submission.status === "REVIEWING" ||
+    submission.status === "ACCEPTED"
 
   const isCompleted = (itemId?: string, itemType?: string) =>
-    !!itemId &&
+    isFinishedSubmission ||
+    (!!itemId &&
     !!itemType &&
-    completedItems.some((completed) => completed.type === itemType && completed.id === itemId)
+    completedItems.some((completed) => completed.type === itemType && completed.id === itemId))
 
   const isUnlocked = (itemIndex: number) => {
+    if (isFinishedSubmission) return true
     if (itemIndex <= 0) return true
 
     const previousItem = flatItems[itemIndex - 1]
@@ -49,7 +56,7 @@ export default function WorkSidebar({
     const active = !!item?.path && location.pathname.startsWith(item.path)
     const completed = isCompleted(item?.id, item?.type)
 
-    if (submission.status === "ACCEPTED") {
+    if (isFinishedSubmission) {
       return "completed"
     }
 
@@ -73,7 +80,7 @@ export default function WorkSidebar({
 
   let progress = 0
 
-  if (submission.status === "ACCEPTED") {
+  if (isFinishedSubmission) {
     progress = 100
   } else {
     progress = Math.min(Math.max(savedProgress, 0), 100)

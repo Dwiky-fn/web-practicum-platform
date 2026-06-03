@@ -34,10 +34,11 @@ export default function SidebarCard({
     switch (status) {
       case "ACCEPTED":
         return "text-green-600";
+      case "SUBMITTED":
+      case "REVIEWING":
+        return "text-green-600";
       case "REVISION":
         return "text-red-600";
-      case "SUBMITTED":
-        return "text-blue-600";
       case "DRAFT":
         return "text-yellow-600";
       default:
@@ -50,15 +51,15 @@ export default function SidebarCard({
 
     switch (status) {
       case "DRAFT":
-        return "Mulai Belajar";
+        return "Lanjutkan";
       case "REVISION":
-        return "Belajar Lagi";
+        return "Kerjakan Revisi";
       case "SUBMITTED":
-        return "Belajar Lagi";
+        return "Lihat Pekerjaan";
       case "ACCEPTED":
-        return "Belajar Lagi";
+        return "Lihat Pekerjaan";
       case "REVIEWING":
-        return "Belajar Lagi";
+        return "Lihat Pekerjaan";
       default:
         return "Mulai Kerjakan";
     }
@@ -69,21 +70,30 @@ export default function SidebarCard({
 
     switch (status) {
       case "DRAFT":
-        return "Belum Submit";
+        return "Draft";
       case "SUBMITTED":
-        return "Terkirim";
+        return "Selesai";
       case "REVIEWING":
-        return "Sedang Direview";
+        return "Selesai";
       case "REVISION":
         return "Perlu Revisi";
       case "ACCEPTED":
-        return "Diterima";
+        return "Selesai";
       case "OVERDUE":
         return "Terlambat";
       default:
         return status;
     }
   }
+
+  function getLatestReviewComment() {
+    const comments = submission?.review?.comments ?? [];
+    const latestComment = comments[comments.length - 1]?.comment?.trim();
+
+    return submission?.review?.lecturerFeedback?.trim() || latestComment || "";
+  }
+
+  const latestReviewComment = getLatestReviewComment();
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6 mb-6">
@@ -124,9 +134,20 @@ export default function SidebarCard({
       <div className="flex justify-between">
         <p className="text-sm text-gray-500">Nilai</p>
         <p className="text-sm font-semibold text-green-600">
-          {submission?.score ?? 0}
+          {submission?.score ?? "-"}
         </p>
       </div>
+
+      {latestReviewComment && status === "REVISION" && (
+        <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3">
+          <p className="text-xs font-semibold text-red-700">
+            Catatan revisi
+          </p>
+          <p className="mt-1 text-sm text-red-700">
+            {latestReviewComment}
+          </p>
+        </div>
+      )}
 
       {/* ACTION */}
       <button

@@ -26,18 +26,12 @@ export default function PreviewPage() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-// PreviewPage.tsx
-
   const handleSubmit = async () => {
     if (!courseId || !jobsheetId || !submission) return
     try {
       setSubmitting(true)
-
-      // 1. Simpan conclusion terbaru ke DB dulu
-      //    (kita perlu bentuk "report" yang sesuai format backend)
       await updateSubmission(courseId, jobsheetId, buildReport(submission))
 
-      // 2. Baru submit
       await submitSubmission(courseId, jobsheetId)
       setShowSuccess(true)
     } catch (err) {
@@ -54,8 +48,6 @@ export default function PreviewPage() {
       setLoading(true)
 
       try {
-        
-        // const jobsheets = await getJobsheetById(courseId)
         const jobsheets = await getJobsheetById(courseId, jobsheetId)
 
         setJobsheet(jobsheets)

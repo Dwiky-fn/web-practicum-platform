@@ -105,7 +105,7 @@ export default function CourseDetailPage() {
                     jobsheet={jobsheet}
                     submission={submission}
                     onClick={() =>
-                      navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}`)
+                      navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}/works`)
                     }
                   />
                 );

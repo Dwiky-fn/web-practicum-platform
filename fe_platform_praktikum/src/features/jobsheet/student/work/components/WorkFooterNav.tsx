@@ -9,6 +9,7 @@ interface WorkFooterNavProps {
   courseId: string,
   jobsheet: Jobsheet,
   submission: JobsheetSubmission
+  savedProgress: number
   completedItems: StudentProgressItem[]
 }
 
@@ -16,6 +17,7 @@ export default function WorkFooterNav({
   courseId,
   jobsheet,
   submission,
+  savedProgress,
   completedItems
 }: WorkFooterNavProps) {
   const navigate = useNavigate()
@@ -35,12 +37,21 @@ export default function WorkFooterNav({
   const nextItem = navItems[currentIndex + 1]
   const currentItem = navItems[currentIndex]
   
-  const isAccepted = submission.status === "ACCEPTED"
+  const isFinishedSubmission =
+    savedProgress >= 100 ||
+    submission.status === "SUBMITTED" ||
+    submission.status === "REVIEWING" ||
+    submission.status === "ACCEPTED"
+  const hasUploadedSubmission =
+    submission.status === "SUBMITTED" ||
+    submission.status === "REVIEWING" ||
+    submission.status === "REVISION" ||
+    submission.status === "ACCEPTED"
   const isLastItem = currentIndex === navItems.length - 1
   const currentCompleted = completedItems.some(
     (item) => item.type === currentItem.type && item.id === currentItem.id
   )
-  const canGoNext = isAccepted || currentCompleted
+  const canGoNext = isFinishedSubmission || currentCompleted
 
   return (
     <>
@@ -86,7 +97,7 @@ export default function WorkFooterNav({
           </button>
         )}
 
-        {!nextItem && isAccepted && isLastItem && (
+        {!nextItem && hasUploadedSubmission && isLastItem && (
           <button
             onClick={() =>
               navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}`)
@@ -133,7 +144,7 @@ export default function WorkFooterNav({
           >
             <ArrowRight size={18} />
           </button>
-        ) : isAccepted && isLastItem ? (
+        ) : hasUploadedSubmission && isLastItem ? (
           <button
             onClick={() =>
               navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}`)

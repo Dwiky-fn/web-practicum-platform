@@ -60,6 +60,8 @@ export function buildSidebarTree(
           type: "task",
           path: `${base}/task`,
           status:
+            submission?.status === "SUBMITTED" ||
+            submission?.status === "REVIEWING" ||
             submission?.status === "ACCEPTED"
               ? "completed"
               : "pending"

@@ -98,6 +98,7 @@ export default function WorkPage() {
         courseId={courseId!}
         jobsheet={jobsheet}
         submission={submission}
+        savedProgress={savedProgress}
         completedItems={completedItems}
       />
     </div>

@@ -12,18 +12,20 @@ interface JobsheetCardProps {
   onClick?: () => void;
 }
 
-function getStatusLabel(status: SubmissionStatus) {
+function getStatusLabel(status?: SubmissionStatus) {
+  if (!status) return "Belum dikerjakan";
+
   switch (status) {
     case "DRAFT":
-      return "Belum Submit";
+      return "Draft";
     case "SUBMITTED":
-      return "Terkirim";
+      return "Selesai";
     case "REVIEWING":
-      return "Sedang Direview";
+      return "Selesai";
     case "REVISION":
       return "Perlu Revisi";
     case "ACCEPTED":
-      return "Diterima";
+      return "Selesai";
     case "OVERDUE":
       return "Terlambat";
     default:
@@ -31,16 +33,17 @@ function getStatusLabel(status: SubmissionStatus) {
   }
 }
 
-function getStatusStyle(status: SubmissionStatus) {
+function getStatusStyle(status?: SubmissionStatus) {
+  if (!status) return "bg-gray-100 text-gray-600";
+
   switch (status) {
     case "ACCEPTED":
       return "bg-green-100 text-green-700";
+    case "SUBMITTED":
+    case "REVIEWING":
+      return "bg-green-100 text-green-700";
     case "REVISION":
       return "bg-red-100 text-red-700";
-    case "SUBMITTED":
-      return "bg-blue-100 text-blue-700";
-    case "REVIEWING":
-      return "bg-blue-100 text-blue-700";
     case "DRAFT":
       return "bg-yellow-100 text-yellow-700";
     case "OVERDUE":
@@ -64,6 +67,30 @@ function getProgressTone(completed: number, total: number) {
   return "bg-yellow-50 text-yellow-700 border-yellow-200";
 }
 
+function getActionLabel(status?: SubmissionStatus) {
+  if (!status) return "Mulai kerjakan";
+
+  switch (status) {
+    case "DRAFT":
+      return "Lanjutkan";
+    case "REVISION":
+      return "Kerjakan revisi";
+    case "SUBMITTED":
+    case "REVIEWING":
+    case "ACCEPTED":
+      return "Lihat pekerjaan";
+    default:
+      return "Detail";
+  }
+}
+
+function getLatestReviewComment(submission?: JobsheetSubmission) {
+  const comments = submission?.review?.comments ?? [];
+  const latestComment = comments[comments.length - 1]?.comment?.trim();
+
+  return submission?.review?.lecturerFeedback?.trim() || latestComment || "";
+}
+
 export default function JobsheetCard({
   jobsheet,
   submission,
@@ -73,14 +100,15 @@ export default function JobsheetCard({
   const now = new Date();
   const deadlineState = getDeadlineState(jobsheet.deadline, now);
 
-  const status: SubmissionStatus = submission?.status ?? "DRAFT";
+  const status = submission?.status;
   const score = submission?.score;
 
   const isUnpublished = jobsheet.status === "UNPUBLISHED";
 
   const isOverdue =
     status === "OVERDUE" ||
-    (deadlineState.isOverdue && status === "DRAFT");
+    (deadlineState.isOverdue && (!status || status === "DRAFT"));
+  const displayStatus: SubmissionStatus | undefined = isOverdue ? "OVERDUE" : status;
 
   const totalExperiments = jobsheet.experiments.length;
   const totalExercises = jobsheet.exercises.length;
@@ -103,6 +131,13 @@ export default function JobsheetCard({
 
     return hasCode && hasOutput && hasAnalysis;
   }).length;
+  const totalWorkItems = totalExperiments + totalExercises;
+  const completedWorkItems = completedExperiments + completedExercises;
+  const progressPercent = totalWorkItems > 0
+    ? Math.round((completedWorkItems / totalWorkItems) * 100)
+    : 0;
+  const latestReviewComment = getLatestReviewComment(submission);
+  const updatedAt = submission?.updatedAt ? new Date(submission.updatedAt) : null;
 
   const isDisabled = isUnpublished;
 
@@ -146,11 +181,39 @@ export default function JobsheetCard({
                   }
                 >
                   Deadline:{" "}
-                  {deadlineDate.toLocaleDateString("id-ID")} · {deadlineState.label}
+                  {deadlineDate.toLocaleDateString("id-ID")} - {deadlineState.label}
                 </span>
               </>
             )}
           </div>
+
+          {!isUnpublished && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span>Progress jobsheet</span>
+                <span className="font-medium text-gray-700">
+                  {completedWorkItems}/{totalWorkItems} bagian
+                </span>
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-gray-100">
+                <div
+                  className="h-2 rounded-full bg-blue-600"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {latestReviewComment && status === "REVISION" && (
+            <div className="mt-4 rounded-lg border border-red-100 bg-red-50 px-4 py-3">
+              <p className="text-xs font-semibold text-red-700">
+                Catatan revisi
+              </p>
+              <p className="mt-1 line-clamp-2 text-sm text-red-700">
+                {latestReviewComment}
+              </p>
+            </div>
+          )}
 
         </div>
 
@@ -158,10 +221,10 @@ export default function JobsheetCard({
           {/* STATUS BADGE */}
           <span
             className={`text-xs px-3 py-1 rounded-full font-medium ${getStatusStyle(
-              status
+              displayStatus
             )}`}
           >
-            {getStatusLabel(status)}
+            {getStatusLabel(displayStatus)}
           </span>
 
           <div className="grid w-full grid-cols-2 gap-3 text-center sm:w-72">
@@ -182,9 +245,13 @@ export default function JobsheetCard({
       {/* BOTTOM  */}
       <div className="mt-4 flex items-center justify-between">
         {/* NILAI */}
-        {status === "ACCEPTED" && score ? (
+        {status === "ACCEPTED" && score != null ? (
           <p className="text-sm text-green-600 font-medium">
             Nilai: {score}
+          </p>
+        ) : updatedAt ? (
+          <p className="text-sm text-gray-500">
+            Update terakhir: {updatedAt.toLocaleDateString("id-ID")}
           </p>
         ) : (
           <div />
@@ -196,7 +263,7 @@ export default function JobsheetCard({
             onClick={onClick}
             className="text-sm px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-700 transition cursor-pointer"
           >
-            Detail
+            {getActionLabel(status)}
           </button>
         )}
       </div>

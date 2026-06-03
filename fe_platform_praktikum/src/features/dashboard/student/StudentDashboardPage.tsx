@@ -192,6 +192,7 @@ export default function StudentDashboardPage() {
 
             <UpcomingTaskSection
               jobsheets={jobsheets}
+              submissions={submissions}
               loading={loading}
             />
           </div>

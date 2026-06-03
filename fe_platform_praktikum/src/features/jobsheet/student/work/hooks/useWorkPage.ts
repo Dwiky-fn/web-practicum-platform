@@ -33,6 +33,14 @@ function hasMeaningfulAnalysis(analysis?: JSONContent) {
   return JSON.stringify(analysis.content).replace(/\s/g, "").length > 20
 }
 
+function isFinishedSubmission(submission?: JobsheetSubmission | null) {
+  return (
+    submission?.status === "SUBMITTED" ||
+    submission?.status === "REVIEWING" ||
+    submission?.status === "ACCEPTED"
+  )
+}
+
 export function useWorkPage(courseId?: string, jobsheetId?: string) {
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null)
   const [course, setCourse] = useState<Course | null>(null)
@@ -211,6 +219,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
 
   useEffect(() => {
     if (!courseId || !jobsheetId || !jobsheet) return
+    if (!submission || lastSavedPage === null) return
 
     const navItems = buildWorkNavigation(courseId, jobsheet)
     const currentIndex = navItems.findIndex((item) =>
@@ -220,7 +229,9 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
     if (currentIndex < 0 || navItems.length === 0) return
 
     const currentItem = navItems[currentIndex]
-    const latestCompletedProgress = Math.round((completedItems.length / navItems.length) * 100)
+    const latestCompletedProgress = isFinishedSubmission(submission)
+      ? 100
+      : Math.round((completedItems.length / navItems.length) * 100)
     const progress = Math.max(savedProgress, latestCompletedProgress)
 
     if (latestCompletedProgress > savedProgress) {
@@ -241,10 +252,14 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
     location.pathname,
     savedProgress,
     completedItems,
+    submission,
+    lastSavedPage,
   ])
 
   useEffect(() => {
     if (!courseId || !jobsheet) return
+    if (!submission || lastSavedPage === null) return
+    if (isFinishedSubmission(submission) || savedProgress >= 100) return
 
     const navItems = buildWorkNavigation(courseId, jobsheet)
     const currentIndex = navItems.findIndex((item) =>
@@ -260,7 +275,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
     if (firstIncompleteIndex >= 0 && currentIndex > firstIncompleteIndex) {
       navigate(navItems[firstIncompleteIndex].path, { replace: true })
     }
-  }, [courseId, jobsheet, completedItems, location.pathname, navigate])
+  }, [courseId, jobsheet, completedItems, location.pathname, navigate, savedProgress, submission, lastSavedPage])
 
   const completeCurrentProgressItem = useCallback(() => {
     if (!courseId || !jobsheet || !submission) return

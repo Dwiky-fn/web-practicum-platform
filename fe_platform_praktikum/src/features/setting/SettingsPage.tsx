@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useCurrentUser } from "../../services/user/useCurrentUser";
-import { deactivateUser, updateUser, uploadUserAvatar } from "../../services/user/service";
+import { updateUser, uploadUserAvatar } from "../../services/user/service";
 import type { PersonalData, UpdateUserPayload } from "../../services/user/types";
 import Navbar from "../../components/navbar/Navbar";
 import SettingsLayout from "./components/SettingsLayout";
@@ -69,22 +69,6 @@ export default function SettingsPage() {
     await saveUser(payload, "Akun berhasil diperbarui.");
   };
 
-  const handleDeactivateAccount = async () => {
-    setSaving(true);
-    setMessage("");
-
-    try {
-      await deactivateUser(user.id);
-      setUser((prev) => prev ? { ...prev, isActive: false } : prev);
-      setMessage("Akun berhasil dinonaktifkan.");
-    } catch (error) {
-      console.error(error);
-      setMessage("Gagal menonaktifkan akun.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -117,11 +101,9 @@ export default function SettingsPage() {
         {activeTab === "Akun" && (
           <AccountSection
             email={user.email}
-            isActive={user.isActive}
             saving={saving}
             message={message}
             onSave={handleSaveAccount}
-            onDeactivate={handleDeactivateAccount}
           />
         )}
       </SettingsLayout>

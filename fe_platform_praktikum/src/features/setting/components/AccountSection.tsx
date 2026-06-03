@@ -2,25 +2,20 @@ import { useEffect, useState, type FormEvent } from "react";
 
 interface Props {
   email: string;
-  isActive: boolean;
   saving?: boolean;
   message?: string;
   onSave: (payload: { email?: string; password?: string }) => Promise<void>;
-  onDeactivate: () => Promise<void>;
 }
 
 export default function AccountSection({
   email,
-  isActive,
   saving = false,
   message,
   onSave,
-  onDeactivate,
 }: Props) {
   const [emailInput, setEmailInput] = useState(email);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [deactivateConfirm, setDeactivateConfirm] = useState("");
 
   useEffect(() => {
     setEmailInput(email);
@@ -44,7 +39,6 @@ export default function AccountSection({
   };
 
   const canSavePassword = password.length >= 6 && password === confirmPassword;
-  const canDeactivate = deactivateConfirm === "NONAKTIFKAN";
 
   return (
     <div className="bg-white rounded-2xl shadow p-8 space-y-8">
@@ -98,29 +92,6 @@ export default function AccountSection({
           {saving ? "Menyimpan..." : "Simpan Password"}
         </button>
       </form>
-
-      <div className="border-t pt-8">
-        <h3 className="font-semibold mb-2 text-red-700">
-          Nonaktifkan Akun
-        </h3>
-        <p className="mb-4 text-sm text-gray-500">
-          Akun akan dinonaktifkan tanpa menghapus riwayat praktikum.
-        </p>
-        <input
-          value={deactivateConfirm}
-          onChange={(event) => setDeactivateConfirm(event.target.value)}
-          placeholder="Ketik NONAKTIFKAN"
-          className="w-full border rounded-lg px-4 py-2 mb-3"
-        />
-        <button
-          type="button"
-          disabled={saving || !isActive || !canDeactivate}
-          onClick={onDeactivate}
-          className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:bg-gray-300 transition"
-        >
-          {isActive ? "Nonaktifkan Akun" : "Akun Sudah Nonaktif"}
-        </button>
-      </div>
 
       <p className="text-sm text-gray-500">{message}</p>
     </div>

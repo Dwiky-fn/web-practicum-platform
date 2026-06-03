@@ -129,7 +129,7 @@ export default function StudentDashboardPage() {
               />
 
               <SummaryCard
-                title="Jobsheet Aktif"
+                title="Jobsheet Belum Selesai"
                 value={activeJobsheets}
                 icon={<ClipboardList size={28} />}
               />

@@ -1,5 +1,7 @@
 const crypto = require('crypto');
 
+const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
+
 class CloudinaryService {
   _parseCloudinaryUrl(value) {
     if (!value) {
@@ -45,6 +47,17 @@ class CloudinaryService {
 
     if (!image || typeof image !== 'string') {
       throw new Error('INVALID_IMAGE');
+    }
+
+    if (!image.startsWith('data:image/')) {
+      throw new Error('INVALID_IMAGE');
+    }
+
+    const base64Payload = image.split(',')[1] || '';
+    const estimatedSize = Math.ceil((base64Payload.length * 3) / 4);
+
+    if (estimatedSize > MAX_IMAGE_SIZE_BYTES) {
+      throw new Error('IMAGE_TOO_LARGE');
     }
 
     const formData = new FormData();

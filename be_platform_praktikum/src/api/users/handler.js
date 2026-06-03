@@ -98,6 +98,13 @@ class UsersHandler {
         });
       }
 
+      if (error.message === 'IMAGE_TOO_LARGE') {
+        return res.status(413).json({
+          status: 'fail',
+          message: 'Ukuran foto maksimal 2 MB',
+        });
+      }
+
       if (error.message === 'CLOUDINARY_NOT_CONFIGURED') {
         return res.status(500).json({
           status: 'error',

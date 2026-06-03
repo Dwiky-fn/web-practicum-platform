@@ -3,6 +3,9 @@ import type { Role } from "../../../services/user/types";
 import { profileFieldByRole } from "../config/fieldConfig";
 import Avatar from "../../../components/Avatar";
 
+const MAX_AVATAR_SIZE_MB = 2;
+const MAX_AVATAR_SIZE_BYTES = MAX_AVATAR_SIZE_MB * 1024 * 1024;
+
 interface Props {
   role: Role;
   data: Record<string, string | number>;
@@ -26,6 +29,17 @@ export default function ProfileSection({
 
   const handleFileChange = async (file?: File) => {
     if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      window.alert("File harus berupa gambar.");
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_SIZE_BYTES) {
+      window.alert(`Ukuran foto maksimal ${MAX_AVATAR_SIZE_MB} MB.`);
+      return;
+    }
+
     await onUploadAvatar(file);
   };
 
@@ -39,6 +53,9 @@ export default function ProfileSection({
       <div className="flex items-center gap-6 mb-4">
         <Avatar avatarUrl={avatarUrl} fullname={fullname} size={112} />
         <div>
+          <p className="mb-2 text-sm font-medium text-gray-700">
+            Foto Profil
+          </p>
           <input
             ref={fileInputRef}
             type="file"
@@ -54,6 +71,9 @@ export default function ProfileSection({
           >
             {saving ? "Mengupload..." : "Upload Foto"}
           </button>
+          <p className="mt-2 text-xs text-gray-500">
+            Format JPG, PNG, atau WebP. Maksimal {MAX_AVATAR_SIZE_MB} MB.
+          </p>
           {message && (
             <p className="mt-2 text-sm text-gray-500">
               {message}

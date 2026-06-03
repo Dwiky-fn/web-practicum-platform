@@ -7,6 +7,12 @@ const emptyPersonalData = {
   kota: "",
 }
 
+function toDateOnly(value?: string) {
+  if (!value) return emptyPersonalData.tanggal_lahir
+
+  return value.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? value
+}
+
 export const mapUserResponse = (data: UserResponse): User => {
   const user: User = {
     id: data.id,
@@ -19,7 +25,7 @@ export const mapUserResponse = (data: UserResponse): User => {
     personalData: {
       no_telepon: data.no_telepon ?? emptyPersonalData.no_telepon,
       tempat_lahir: data.tempat_lahir ?? emptyPersonalData.tempat_lahir,
-      tanggal_lahir: data.tanggal_lahir ?? emptyPersonalData.tanggal_lahir,
+      tanggal_lahir: toDateOnly(data.tanggal_lahir),
       kota: data.kota ?? emptyPersonalData.kota,
     },
   }

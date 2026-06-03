@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import type { Role } from "../../../services/user/types";
 import { profileFieldByRole } from "../config/fieldConfig";
 import Avatar from "../../../components/Avatar";
@@ -6,11 +7,27 @@ interface Props {
   role: Role;
   data: Record<string, string | number>;
   avatarUrl?: string;
+  saving?: boolean;
+  message?: string;
+  onUploadAvatar: (file: File) => Promise<void>;
 }
 
-export default function ProfileSection({ role, data, avatarUrl }: Props) {
+export default function ProfileSection({
+  role,
+  data,
+  avatarUrl,
+  saving = false,
+  message,
+  onUploadAvatar,
+}: Props) {
   const fields = profileFieldByRole[role];
   const fullname = String(data.fullname ?? '');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFileChange = async (file?: File) => {
+    if (!file) return;
+    await onUploadAvatar(file);
+  };
 
   return (
     <div className="bg-white rounded-2xl shadow p-8">
@@ -22,11 +39,29 @@ export default function ProfileSection({ role, data, avatarUrl }: Props) {
       <div className="flex items-center gap-6 mb-4">
         <Avatar avatarUrl={avatarUrl} fullname={fullname} size={112} />
         <div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(event) => handleFileChange(event.target.files?.[0])}
+          />
           <button
-            className="mt-4 px-4 py-2 text-sm bg-blue-600 font-semibold text-blue-100 rounded-lg hover:bg-blue-100 hover:text-blue-600 transition active:bg-blue-100 active:text-blue-600"
+            type="button"
+            disabled={saving}
+            onClick={() => fileInputRef.current?.click()}
+            className="px-4 py-2 text-sm bg-blue-600 font-semibold text-white rounded-lg hover:bg-blue-700 transition disabled:bg-gray-300"
           >
-            Upload Foto
+            {saving ? "Mengupload..." : "Upload Foto"}
           </button>
+          <p className="mt-2 text-sm text-gray-500">
+            Foto profil akan disimpan ke Cloudinary.
+          </p>
+          {message && (
+            <p className="mt-2 text-sm text-gray-500">
+              {message}
+            </p>
+          )}
         </div>
       </div>
 
@@ -39,7 +74,7 @@ export default function ProfileSection({ role, data, avatarUrl }: Props) {
             <input
               type={field.type || 'text'}
               value={data[field.name] ?? ''}
-              className="w-full border rounded-lg px-4 py-2"
+              className="w-full border rounded-lg px-4 py-2 bg-gray-50 text-gray-600"
               readOnly
             />
           </div>

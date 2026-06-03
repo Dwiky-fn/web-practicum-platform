@@ -43,7 +43,7 @@ class UsersService {
     );
 
     if (!result.rows.length) {
-      throw new Error('User tidak ditemukan');
+      throw new Error('USER_NOT_FOUND');
     }
 
     const row = result.rows[0];
@@ -58,6 +58,144 @@ class UsersService {
     }
 
     return row;
+  }
+
+  async updateUser(userId, payload) {
+    const client = await this._pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const currentResult = await client.query(
+        'SELECT id, role FROM users WHERE id = $1',
+        [userId],
+      );
+
+      if (!currentResult.rows.length) {
+        throw new Error('USER_NOT_FOUND');
+      }
+
+      const role = currentResult.rows[0].role;
+      const personalData = payload.personalData || payload.personal_data || {};
+
+      await client.query(
+        `UPDATE users
+         SET
+          email = COALESCE($2, email),
+          password = COALESCE($3, password),
+          is_active = COALESCE($4, is_active)
+         WHERE id = $1`,
+        [
+          userId,
+          payload.email ?? null,
+          payload.password ?? null,
+          typeof payload.isActive === 'boolean' ? payload.isActive : null,
+        ],
+      );
+
+      if (role === 'MAHASISWA') {
+        await client.query(
+          `UPDATE student_profiles
+           SET
+            avatar_url = COALESCE($2, avatar_url),
+            no_telepon = COALESCE($3, no_telepon),
+            tempat_lahir = COALESCE($4, tempat_lahir),
+            tanggal_lahir = COALESCE($5, tanggal_lahir),
+            kota = COALESCE($6, kota)
+           WHERE user_id = $1`,
+          [
+            userId,
+            payload.avatarUrl ?? payload.avatar_url ?? null,
+            personalData.no_telepon ?? null,
+            personalData.tempat_lahir ?? null,
+            personalData.tanggal_lahir || null,
+            personalData.kota ?? null,
+          ],
+        );
+      }
+
+      if (role === 'DOSEN') {
+        await client.query(
+          `UPDATE lecturer_profiles
+           SET
+            avatar_url = COALESCE($2, avatar_url),
+            no_telepon = COALESCE($3, no_telepon),
+            tempat_lahir = COALESCE($4, tempat_lahir),
+            tanggal_lahir = COALESCE($5, tanggal_lahir),
+            kota = COALESCE($6, kota)
+           WHERE user_id = $1`,
+          [
+            userId,
+            payload.avatarUrl ?? payload.avatar_url ?? null,
+            personalData.no_telepon ?? null,
+            personalData.tempat_lahir ?? null,
+            personalData.tanggal_lahir || null,
+            personalData.kota ?? null,
+          ],
+        );
+      }
+
+      await client.query('COMMIT');
+
+      return this.getUserById(userId);
+    } catch (error) {
+      await client.query('ROLLBACK');
+
+      if (error.code === '23505') {
+        throw new Error('USER_DUPLICATE');
+      }
+
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async updateAvatarUrl(userId, avatarUrl) {
+    const currentResult = await this._pool.query(
+      'SELECT id, role FROM users WHERE id = $1',
+      [userId],
+    );
+
+    if (!currentResult.rows.length) {
+      throw new Error('USER_NOT_FOUND');
+    }
+
+    const role = currentResult.rows[0].role;
+
+    if (role === 'MAHASISWA') {
+      await this._pool.query(
+        `UPDATE student_profiles
+         SET avatar_url = $2
+         WHERE user_id = $1`,
+        [userId, avatarUrl],
+      );
+    }
+
+    if (role === 'DOSEN') {
+      await this._pool.query(
+        `UPDATE lecturer_profiles
+         SET avatar_url = $2
+         WHERE user_id = $1`,
+        [userId, avatarUrl],
+      );
+    }
+
+    return this.getUserById(userId);
+  }
+
+  async deactivateUser(userId) {
+    const result = await this._pool.query(
+      `UPDATE users
+       SET is_active = false
+       WHERE id = $1
+       RETURNING id`,
+      [userId],
+    );
+
+    if (!result.rows.length) {
+      throw new Error('USER_NOT_FOUND');
+    }
   }
 }
 

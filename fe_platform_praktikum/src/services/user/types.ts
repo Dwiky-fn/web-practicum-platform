@@ -64,3 +64,11 @@ export interface UserResponse {
   tanggal_lahir?: string
   kota?: string
 }
+
+export interface UpdateUserPayload {
+  email?: string
+  password?: string
+  isActive?: boolean
+  avatarUrl?: string
+  personalData?: Partial<PersonalData>
+}

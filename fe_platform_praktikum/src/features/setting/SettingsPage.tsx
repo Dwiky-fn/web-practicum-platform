@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useCurrentUser } from "../../services/user/useCurrentUser";
+import { deactivateUser, updateUser, uploadUserAvatar } from "../../services/user/service";
+import type { PersonalData, UpdateUserPayload } from "../../services/user/types";
 import Navbar from "../../components/navbar/Navbar";
 import SettingsLayout from "./components/SettingsLayout";
 import ProfileSection from "./components/ProfileSection";
@@ -8,12 +10,80 @@ import AccountSection from "./components/AccountSection";
 import TopProgressBar from "../../components/loading/TopProgressBar";
 
 export default function SettingsPage() {
-  const { user } = useCurrentUser();
+  const { user, setUser } = useCurrentUser();
   const [activeTab, setActiveTab] = useState("Profil");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
 
   if (!user) {
     return <div className="p-10">Loading...</div>
   }
+
+  const profileData =
+    user.role === "MAHASISWA"
+      ? { fullname: user.fullname, ...user.studentProfile }
+      : user.role === "DOSEN"
+      ? { fullname: user.fullname, ...user.lecturerProfile }
+      : { fullname: user.fullname, ...user.adminProfile };
+
+  const saveUser = async (payload: UpdateUserPayload, successMessage: string) => {
+    setSaving(true);
+    setMessage("");
+
+    try {
+      const updatedUser = await updateUser(user.id, payload);
+      setUser(updatedUser);
+      setMessage(successMessage);
+    } catch (error) {
+      console.error(error);
+      setMessage("Gagal menyimpan perubahan.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUploadAvatar = async (file: File) => {
+    setSaving(true);
+    setMessage("");
+
+    try {
+      const updatedUser = await uploadUserAvatar(user.id, file);
+      setUser(updatedUser);
+      setMessage("Foto profil berhasil diupload.");
+    } catch (error) {
+      console.error(error);
+      setMessage("Gagal mengupload foto profil.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSavePersonalData = async (personalData: PersonalData) => {
+    await saveUser(
+      { personalData },
+      "Data pribadi berhasil disimpan.",
+    );
+  };
+
+  const handleSaveAccount = async (payload: { email?: string; password?: string }) => {
+    await saveUser(payload, "Akun berhasil diperbarui.");
+  };
+
+  const handleDeactivateAccount = async () => {
+    setSaving(true);
+    setMessage("");
+
+    try {
+      await deactivateUser(user.id);
+      setUser((prev) => prev ? { ...prev, isActive: false } : prev);
+      setMessage("Akun berhasil dinonaktifkan.");
+    } catch (error) {
+      console.error(error);
+      setMessage("Gagal menonaktifkan akun.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -28,22 +98,31 @@ export default function SettingsPage() {
           <ProfileSection
             role={user.role}
             avatarUrl={user.avatarUrl}
-            data={
-              user.role === 'MAHASISWA'
-                ? {fullname: user.fullname, ...user.studentProfile}
-                : user.role === 'DOSEN'
-                ? {fullname: user.fullname, ...user.lecturerProfile}
-                : {fullname: user.fullname, ...user.adminProfile}
-            }
+            data={profileData}
+            saving={saving}
+            message={message}
+            onUploadAvatar={handleUploadAvatar}
           />
         )}
 
         {activeTab === "Data Pribadi" && (
-          <PersonalDataSection data={user.personalData} />
+          <PersonalDataSection
+            data={user.personalData}
+            saving={saving}
+            message={message}
+            onSave={handleSavePersonalData}
+          />
         )}
 
         {activeTab === "Akun" && (
-          <AccountSection />
+          <AccountSection
+            email={user.email}
+            isActive={user.isActive}
+            saving={saving}
+            message={message}
+            onSave={handleSaveAccount}
+            onDeactivate={handleDeactivateAccount}
+          />
         )}
       </SettingsLayout>
     </div>

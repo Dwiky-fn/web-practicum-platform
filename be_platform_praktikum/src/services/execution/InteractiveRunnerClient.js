@@ -1,7 +1,7 @@
 const WebSocket = require('ws');
 
 const RUNNER_URL =
-  process.env.INTERACTIVE_RUNNER_WS_URL || 'ws://10.10.23.112:4000/ws';
+  process.env.INTERACTIVE_RUNNER_WS_URL || 'ws://localhost:4000/ws';
 
 class InteractiveRunnerClient {
   constructor({ runnerUrl = RUNNER_URL } = {}) {
@@ -10,14 +10,17 @@ class InteractiveRunnerClient {
     this._isRunning = false;
   }
 
-  run(code, handlers) {
+  run(payload, handlers) {
     this.close();
 
     this._socket = new WebSocket(this._runnerUrl);
 
     this._socket.on('open', () => {
       this._isRunning = true;
-      this._sendToRunner({ type: 'run', code });
+      this._sendToRunner({
+        type: 'run',
+        ...payload,
+      });
     });
 
     this._socket.on('message', (data) => {
@@ -45,7 +48,7 @@ class InteractiveRunnerClient {
   }
 
   sendInput(value) {
-    this._sendToRunner({ type: 'input', value });
+    this._sendToRunner({ type: 'input', data: value });
   }
 
   stop() {

@@ -3,6 +3,7 @@ import { buildSidebarTree } from "../../utils/buildSidebarStructure"
 import { useState } from "react"
 import { Menu } from "lucide-react"
 import type { Jobsheet } from "../../../../../../services/jobsheet/types"
+import type { StudentProgressItem } from "../../../../../../services/progress/types"
 import type { JobsheetSubmission } from "../../../../../../services/submission/types"
 import SidebarGroup from "./SidebarGroup"
 import SidebarHeader from "./SidebarHeader"
@@ -11,12 +12,16 @@ interface WorkSidebarProps {
   courseId: string
   jobsheet: Jobsheet
   submission: JobsheetSubmission
+  savedProgress: number
+  completedItems: StudentProgressItem[]
 }
 
 export default function WorkSidebar({
   courseId,
   jobsheet,
-  submission
+  submission,
+  savedProgress,
+  completedItems
 }: WorkSidebarProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
@@ -24,20 +29,37 @@ export default function WorkSidebar({
   const groups = buildSidebarTree(courseId, jobsheet, submission)
   const flatItems = groups.flatMap(g => g.children ?? [])
 
-  const currentIndex = flatItems.findIndex(item =>
-    location.pathname.startsWith(item.path ?? "")
-  )
+  const isCompleted = (itemId?: string, itemType?: string) =>
+    !!itemId &&
+    !!itemType &&
+    completedItems.some((completed) => completed.type === itemType && completed.id === itemId)
 
-  const getStatus = (path?: string): "default" | "active" | "completed" => {
+  const isUnlocked = (itemIndex: number) => {
+    if (itemIndex <= 0) return true
+
+    const previousItem = flatItems[itemIndex - 1]
+
+    return isCompleted(previousItem.id, previousItem.type)
+  }
+
+  const getStatus = (path?: string): "default" | "active" | "completed" | "active-completed" | "locked" => {
     if (!path) return "default"
-    const index = flatItems.findIndex(i => i.path === path)
+    const item = flatItems.find(i => i.path === path)
+    const itemIndex = flatItems.findIndex(i => i.path === path)
+    const active = !!item?.path && location.pathname.startsWith(item.path)
+    const completed = isCompleted(item?.id, item?.type)
 
     if (submission.status === "ACCEPTED") {
       return "completed"
     }
 
-    if (index < currentIndex) return "completed"
-    if (index === currentIndex) return "active"
+    if (active && completed) return "active-completed"
+    if (active) return "active"
+    if (completed) {
+      return "completed"
+    }
+    if (!isUnlocked(itemIndex)) return "locked"
+
     return "default"
   }
 
@@ -49,15 +71,12 @@ export default function WorkSidebar({
     setSidebarOpen(true)
   }
 
-  // Hitung progres
-  const totalItems = flatItems.length
-
   let progress = 0
 
   if (submission.status === "ACCEPTED") {
     progress = 100
-  } else if (currentIndex >= 0) {
-    progress = Math.round(((currentIndex + 1) / totalItems) * 100)
+  } else {
+    progress = Math.min(Math.max(savedProgress, 0), 100)
   }
 
   return (

@@ -1,9 +1,11 @@
 import type { Jobsheet } from "../../../../../services/jobsheet/types"
+import type { StudentProgressItemType } from "../../../../../services/progress/types"
 import type { JobsheetSubmission } from "../../../../../services/submission/types"
 
 export interface SidebarNode {
   id: string
   title: string
+  type?: StudentProgressItemType
   path?: string
   children?: SidebarNode[]
   status?: "completed" | "active" | "pending"
@@ -24,6 +26,7 @@ export function buildSidebarTree(
       children: jobsheet.theory.map(t => ({
         id: t.id,
         title: t.title,
+        type: "theory",
         path: `${base}/theory/${t.id}`
       }))
     },
@@ -33,6 +36,7 @@ export function buildSidebarTree(
       children: jobsheet.experiments.map(e => ({
         id: e.id,
         title: e.title,
+        type: "experiment",
         path: `${base}/experiments/${e.id}`
       }))
     },
@@ -42,6 +46,7 @@ export function buildSidebarTree(
       children: jobsheet.exercises.map(e => ({
         id: e.id,
         title: e.title,
+        type: "exercise",
         path: `${base}/exercises/${e.id}`
       }))
     },
@@ -52,6 +57,7 @@ export function buildSidebarTree(
         {
           id: "task",
           title: "Laporan Praktikum",
+          type: "task",
           path: `${base}/task`,
           status:
             submission?.status === "ACCEPTED"

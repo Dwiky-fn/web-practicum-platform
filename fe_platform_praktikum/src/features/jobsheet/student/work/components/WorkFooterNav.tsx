@@ -2,18 +2,21 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { buildWorkNavigation } from "../utils/buildNavigation";
 import { ArrowLeft, ArrowRight, Home } from "lucide-react";
 import type { Jobsheet } from "../../../../../services/jobsheet/types";
+import type { StudentProgressItem } from "../../../../../services/progress/types";
 import type { JobsheetSubmission } from "../../../../../services/submission/types";
 
 interface WorkFooterNavProps {
   courseId: string,
   jobsheet: Jobsheet,
   submission: JobsheetSubmission
+  completedItems: StudentProgressItem[]
 }
 
 export default function WorkFooterNav({
   courseId,
   jobsheet,
-  submission
+  submission,
+  completedItems
 }: WorkFooterNavProps) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -34,6 +37,10 @@ export default function WorkFooterNav({
   
   const isAccepted = submission.status === "ACCEPTED"
   const isLastItem = currentIndex === navItems.length - 1
+  const currentCompleted = completedItems.some(
+    (item) => item.type === currentItem.type && item.id === currentItem.id
+  )
+  const canGoNext = isAccepted || currentCompleted
 
   return (
     <>
@@ -64,10 +71,15 @@ export default function WorkFooterNav({
         <div className="w-1/3 flex justify-end">
         {nextItem && (
           <button
+            disabled={!canGoNext}
             onClick={() => navigate(nextItem.path)}
-            className="flex items-center text-gray-600 gap-3 p-2 rounded hover:bg-gray-200 hover:text-black active:text-black transition text-right cursor-pointer"
+            className={`flex items-center gap-3 p-2 rounded transition text-right ${
+              canGoNext
+                ? "text-gray-600 hover:bg-gray-200 hover:text-black active:text-black cursor-pointer"
+                : "text-gray-300 cursor-not-allowed"
+            }`}
           >
-            <div className="font-semibold text-gray-700 truncate">
+            <div className="font-semibold truncate">
               {nextItem.label}
             </div>
             <ArrowRight size={18} />
@@ -113,8 +125,11 @@ export default function WorkFooterNav({
         {/* Next */}
         {nextItem ? (
           <button
+            disabled={!canGoNext}
             onClick={() => navigate(nextItem.path)}
-            className="flex flex-col items-center text-xs text-gray-600"
+            className={`flex flex-col items-center text-xs ${
+              canGoNext ? "text-gray-600" : "text-gray-300 cursor-not-allowed"
+            }`}
           >
             <ArrowRight size={18} />
           </button>

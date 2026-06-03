@@ -5,9 +5,11 @@ import { getRecentActivities } from "../../../services/activity/service";
 import { useCurrentUser } from "../../../services/user/useCurrentUser";
 import { getJobsheets } from "../../../services/jobsheet/service";
 import { getCoursesByStudentId } from "../../../services/course/service";
+import { getMappedSubmissionByJobsheetId } from "../../../services/submission/service";
 import type { Course } from "../../../services/course/types";
 import type { Activity } from "../../../services/activity/types";
 import type { Jobsheet } from "../../../services/jobsheet/types";
+import type { JobsheetSubmission } from "../../../services/submission/types";
 import CourseCard from "../../../components/CourseCard";
 import Navbar from "../../../components/navbar/Navbar";
 import SummaryCard from "../components/SummaryCard";
@@ -23,6 +25,7 @@ export default function StudentDashboardPage() {
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [jobsheets, setJobsheets] = useState<Jobsheet[]>([]);
+  const [submissions, setSubmissions] = useState<JobsheetSubmission[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -50,7 +53,20 @@ export default function StudentDashboardPage() {
           )
         );
 
-        setJobsheets(jobsheetResponses.flat());
+        const allJobsheets = jobsheetResponses.flat();
+        setJobsheets(allJobsheets);
+
+        const submissionResponses = await Promise.all(
+          allJobsheets.map(async (jobsheet) => {
+            try {
+              return await getMappedSubmissionByJobsheetId(jobsheet.courseId, jobsheet.id)
+            } catch {
+              return null
+            }
+          })
+        )
+
+        setSubmissions(submissionResponses.filter(Boolean) as JobsheetSubmission[])
       } catch (error) {
         console.error(error);
       } finally {
@@ -67,14 +83,21 @@ export default function StudentDashboardPage() {
     return acc;
   }, {});
 
-  const completedJobsheets = jobsheets.filter(
-    (job) => job.status === "ACCEPTED"
+  const completedJobsheets = submissions.filter(
+    (submission) =>
+      submission.status === "SUBMITTED" ||
+      submission.status === "REVIEWING" ||
+      submission.status === "ACCEPTED"
   ).length;
 
   const activeJobsheets = jobsheets.filter(
-    (job) =>
-      job.status !== "ACCEPTED" &&
-      job.status !== "UNPUBLISHED"
+    (jobsheet) => {
+      if (jobsheet.status === "UNPUBLISHED") return false
+
+      const submission = submissions.find((item) => item.jobsheetId === jobsheet.id)
+
+      return !submission || submission.status === "DRAFT" || submission.status === "REVISION"
+    }
   ).length;
 
   return (

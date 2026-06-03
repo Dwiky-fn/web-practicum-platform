@@ -64,13 +64,17 @@ class CoursesService {
         c.status,
         c.created_at,
         u.fullname AS lecturer,
-        0 AS progress,
+        COALESCE(ROUND(AVG(sp.progress)::numeric), 0)::int AS progress,
         COUNT(DISTINCT j.id)::int AS jobsheet_count
       FROM class_students cs
       JOIN classes cl ON cl.id = cs.class_id
       JOIN courses c ON c.id = cl.course_id
       LEFT JOIN users u ON u.id = cl.lecturer_id
       LEFT JOIN jobsheets j ON j.course_id = c.id AND j.status != 'UNPUBLISHED'
+      LEFT JOIN student_progress sp
+        ON sp.student_id = cs.student_id
+       AND sp.class_id = cl.id
+       AND sp.jobsheet_id = j.id
       WHERE cs.student_id = $1
         AND cs.status = 'AKTIF'
         AND cl.status = 'AKTIF'

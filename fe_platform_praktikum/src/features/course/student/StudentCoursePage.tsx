@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { useCurrentUser } from "../../../services/user/useCurrentUser";
 import { getCoursesByStudentId } from "../../../services/course/service";
@@ -37,9 +37,20 @@ export default function StudentCoursePage() {
     loadData()
   }, [user])
 
-  const handleSearch = () => {
-    console.log("Cari:", keyword);
-  }
+  const filteredCourses = useMemo(() => {
+    const normalizedKeyword = keyword.trim().toLowerCase()
+
+    if (!normalizedKeyword) return courses
+
+    return courses.filter((course) =>
+      [
+        course.name,
+        course.code,
+        course.lecturer,
+        course.description,
+      ].some((value) => value?.toLowerCase().includes(normalizedKeyword))
+    )
+  }, [courses, keyword])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -67,15 +78,11 @@ export default function StudentCoursePage() {
               placeholder="Cari mata kuliah..."
               className="w-full border border-gray-200 rounded-lg px-4 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               onChange={(e) => setKeyword(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleSearch();
-                }
-              }}
             />
 
             <button
-              onClick={handleSearch}
+              type="button"
+              aria-label="Cari mata kuliah"
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600 active:text-blue-600 transition"
             >
               <Search size={18} />
@@ -94,9 +101,13 @@ export default function StudentCoursePage() {
           <div className="bg-white rounded-2xl p-6 shadow-sm text-gray-500">
             Belum ada mata kuliah.
           </div>
+        ) : filteredCourses.length === 0 ? (
+          <div className="bg-white rounded-2xl p-6 shadow-sm text-gray-500">
+            Mata kuliah tidak ditemukan.
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {courses.map((course) => (
+            {filteredCourses.map((course) => (
               <CourseCard
                 key={course.id}
                 course={course}

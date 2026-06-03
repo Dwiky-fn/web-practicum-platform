@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { useLocation } from "react-router-dom"
 import type { SidebarNode } from "../../utils/buildSidebarStructure"
@@ -6,7 +6,7 @@ import SidebarItem from "./SidebarItem"
 
 interface SidebarGroupProps {
   group: SidebarNode
-  getStatus: (path?: string) => string
+  getStatus: (path?: string) => "default" | "active" | "completed" | "active-completed" | "locked"
   collapsed: boolean
 }
 
@@ -24,9 +24,19 @@ export default function SidebarGroup({
 
   const [open, setOpen] = useState(hasActiveChild)
 
+  useEffect(() => {
+    if (hasActiveChild) {
+      setOpen(true)
+    }
+  }, [hasActiveChild])
+
   const total = group.children?.length ?? 0
   const completed = group.children?.filter(
-    child => getStatus(child.path) === "completed"
+    child => {
+      const status = getStatus(child.path)
+
+      return status === "completed" || status === "active-completed"
+    }
   ).length ?? 0
 
   return (

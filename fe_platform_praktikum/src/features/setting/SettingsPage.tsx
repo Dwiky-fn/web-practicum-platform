@@ -39,11 +39,8 @@ export default function SettingsPage() {
         )}
 
         {activeTab === "Data Pribadi" && (
-  <>
-    {console.log("personalData:", user.personalData)}
-    <PersonalDataSection data={user.personalData} />
-  </>
-)}
+          <PersonalDataSection data={user.personalData} />
+        )}
 
         {activeTab === "Akun" && (
           <AccountSection />

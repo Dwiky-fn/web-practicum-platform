@@ -30,7 +30,13 @@ class ExecutionGatewayService {
       throw new Error('Kode program tidak boleh kosong');
     }
 
-    this._runnerClient.run(message.code, {
+    this._runnerClient.run({
+      language: message.language || 'python',
+      code: message.code,
+      files: message.files,
+      mainClass: message.mainClass,
+      entryFile: message.entryFile,
+    }, {
       onMessage: sendToClient,
       onClose: () => {
         sendToClient({ type: 'runner_closed' });

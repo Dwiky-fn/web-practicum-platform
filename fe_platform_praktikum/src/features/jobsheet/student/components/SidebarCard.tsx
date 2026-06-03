@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
+import { getDeadlineState } from "../../../../shared/utils/deadline";
 import type { Jobsheet } from "../../../../services/jobsheet/types";
 import type { JobsheetSubmission, SubmissionStatus } from "../../../../services/submission/types";
-import { getDeadlineState } from "../../../../shared/utils/deadline";
 
 interface Props {
   jobsheet: Jobsheet;
@@ -24,13 +24,8 @@ export default function SidebarCard({
   const isOverdue = deadlineState.isOverdue;
   const status = submission?.status;
 
-  const firstContent =
-    jobsheet.theory[0]?.id
-    ?? jobsheet.experiments[0]?.id
-    ?? jobsheet.exercises[0]?.id;
-
-  async function goTo() {
-    navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/works/theory/${firstContent}`)
+  function goTo() {
+    navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/works`)
   }
 
   function getStatusStyle(status?: SubmissionStatus) {

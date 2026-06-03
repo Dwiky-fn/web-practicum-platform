@@ -52,6 +52,17 @@ function normalizeStdin(value: string): string {
   return value.endsWith("\n") ? value : `${value}\n`
 }
 
+function toRunnerFiles(files: Record<string, string>) {
+  return Object.entries(files).map(([path, content]) => ({
+    path,
+    content,
+  }))
+}
+
+function getMainClass(fileName: string): string {
+  return fileName.replace(/\.java$/i, "").split(/[\\/]/).pop() || "Main"
+}
+
 export default function InstructionWorkspaceCard({
   instructions,
   templateCode,
@@ -238,6 +249,9 @@ export default function InstructionWorkspaceCard({
     const runStartedAt = performance.now()
     const currentFiles = codeMap[runIndex] || {}
     const sourceCode = Object.values(currentFiles).join("\n\n")
+    const entryFile = currentFiles[activeFile] !== undefined
+      ? activeFile
+      : Object.keys(currentFiles)[0] || defaultFileName
 
     setRunningMap(prev => ({
       ...prev,
@@ -253,13 +267,23 @@ export default function InstructionWorkspaceCard({
       ...prev,
       [runIndex]: "",
     }))
+    saveCurrentSteps()
 
     const appendAndBufferOutput = (chunk: string) => {
       appendOutput(runIndex, chunk)
     }
 
+    const finishAndSaveRun = () => {
+      finishRun(runIndex, runStartedAt)
+      saveCurrentSteps()
+    }
+
     const client = new ExecutionClient({
       onMessage: (message) => {
+        if (message.type === "started") {
+          return
+        }
+
         if (message.type === "output") {
           appendAndBufferOutput(message.data)
           return
@@ -267,29 +291,34 @@ export default function InstructionWorkspaceCard({
 
         if (message.type === "error") {
           appendAndBufferOutput(message.data)
-          finishRun(runIndex, runStartedAt)
+          finishAndSaveRun()
           return
         }
 
         if (message.type === "timeout") {
           appendAndBufferOutput(message.data)
-          finishRun(runIndex, runStartedAt)
+          finishAndSaveRun()
           return
         }
 
         if (message.type === "exit") {
-          appendAndBufferOutput(`\nProcess exited with code ${message.code}`)
-          finishRun(runIndex, runStartedAt)
+          finishAndSaveRun()
+          return
+        }
+
+        if (message.type === "stopped") {
+          appendAndBufferOutput(`\n${message.data}`)
+          finishAndSaveRun()
           return
         }
 
         if (message.type === "runner_closed") {
-          finishRun(runIndex, runStartedAt)
+          finishAndSaveRun()
         }
       },
       onError: (message) => {
         appendAndBufferOutput(message)
-        finishRun(runIndex, runStartedAt)
+        finishAndSaveRun()
       },
       onClose: () => {
         setRunningMap(prev => ({
@@ -300,13 +329,23 @@ export default function InstructionWorkspaceCard({
     })
 
     executionClientRef.current = client
-    client.run(sourceCode)
+    client.run({
+      language,
+      code: sourceCode,
+      files: toRunnerFiles(currentFiles),
+      entryFile,
+      mainClass: language === "java" ? getMainClass(entryFile) : undefined,
+    })
   }, [
     activeIndex,
+    activeFile,
     codeMap,
+    defaultFileName,
+    language,
     runningMap,
     appendOutput,
     finishRun,
+    saveCurrentSteps,
   ])
 
   const handleSendInput = useCallback(() => {

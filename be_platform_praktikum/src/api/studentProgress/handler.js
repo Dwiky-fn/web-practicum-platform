@@ -34,7 +34,7 @@ class StudentProgressHandler {
     try {
       const { jobsheetId } = req.params;
       const studentId = req.user?.id || 'mhs-1';
-      const { classId, progress, lastPage, status } = req.body;
+      const { classId, progress, lastPage, status, completedItems } = req.body;
 
       const result = await this._service.upsertProgress({
         studentId,
@@ -43,6 +43,7 @@ class StudentProgressHandler {
         progress,
         lastPage,
         status,
+        completedItems,
       });
 
       return res.json({

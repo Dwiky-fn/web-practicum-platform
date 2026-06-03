@@ -2,8 +2,16 @@ import type { ExecutionClientMessage, ExecutionServerMessage } from "./types"
 
 const DEFAULT_WS_URL = "ws://localhost:3000/execution"
 
+export interface RunExecutionPayload {
+  language: string
+  code: string
+  files?: { path: string; content: string }[]
+  mainClass?: string
+  entryFile?: string
+}
+
 export function getExecutionWsUrl() {
-  return import.meta.env.VITE_EXECUTION_WS_URL || DEFAULT_WS_URL
+  return DEFAULT_WS_URL
 }
 
 export class ExecutionClient {
@@ -22,13 +30,13 @@ export class ExecutionClient {
     this.handlers = handlers
   }
 
-  run(code: string) {
+  run(payload: RunExecutionPayload) {
     this.close()
 
     this.socket = new WebSocket(getExecutionWsUrl())
 
     this.socket.addEventListener("open", () => {
-      this.send({ type: "run", code })
+      this.send({ type: "run", ...payload })
     })
 
     this.socket.addEventListener("message", (event) => {

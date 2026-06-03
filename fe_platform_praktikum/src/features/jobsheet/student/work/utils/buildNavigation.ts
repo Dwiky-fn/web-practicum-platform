@@ -1,9 +1,11 @@
 import type { Jobsheet } from "../../../../../services/jobsheet/types"
+import type { StudentProgressItemType } from "../../../../../services/progress/types"
 
 export interface WorkNavItem {
   id: string
   label: string
   path: string
+  type: StudentProgressItemType
 }
 
 export function buildWorkNavigation(
@@ -18,7 +20,8 @@ export function buildWorkNavigation(
     items.push({
       id: t.id,
       label: t.title,
-      path: `${base}/theory/${t.id}`
+      path: `${base}/theory/${t.id}`,
+      type: "theory",
     })
   })
 
@@ -27,7 +30,8 @@ export function buildWorkNavigation(
     items.push({
       id: experiment.id,
       label: experiment.title,
-      path: `${base}/experiments/${experiment.id}`
+      path: `${base}/experiments/${experiment.id}`,
+      type: "experiment",
     })
   })
 
@@ -36,7 +40,8 @@ export function buildWorkNavigation(
     items.push({
       id: exercise.id,
       label: exercise.title,
-      path: `${base}/exercises/${exercise.id}`
+      path: `${base}/exercises/${exercise.id}`,
+      type: "exercise",
     })
   })
 
@@ -44,7 +49,8 @@ export function buildWorkNavigation(
   items.push({
     id: "task",
     label: "Laporan Praktikum",
-    path: `${base}/task`
+    path: `${base}/task`,
+    type: "task",
   })
 
   return items

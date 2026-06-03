@@ -54,9 +54,6 @@ export default function ProfileSection({
           >
             {saving ? "Mengupload..." : "Upload Foto"}
           </button>
-          <p className="mt-2 text-sm text-gray-500">
-            Foto profil akan disimpan ke Cloudinary.
-          </p>
           {message && (
             <p className="mt-2 text-sm text-gray-500">
               {message}

@@ -93,7 +93,7 @@ export default function UpcomingTaskSection({
   if (upcomingJobsheets.length === 0) {
     return (
       <div className="bg-white rounded-2xl shadow-sm p-6 text-gray-500">
-        Tidak ada tugas terdekat
+        Tidak ada praktikum terdekat
       </div>
     )
   }

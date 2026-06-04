@@ -10,6 +10,8 @@ const jobsheet = require('./api/jobsheets');
 const courses = require('./api/courses');
 const execution = require('./api/execution');
 const users = require('./api/users');
+const activities = require('./api/activities');
+const notifications = require('./api/notifications');
 
 const app = express();
 const server = http.createServer(app);
@@ -24,6 +26,8 @@ submissions(app);
 jobsheet(app);
 courses(app);
 users(app);
+activities(app);
+notifications(app);
 execution(server);
 
 // test route

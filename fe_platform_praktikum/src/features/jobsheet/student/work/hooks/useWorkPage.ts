@@ -11,6 +11,7 @@ import { getCourseById } from "../../../../../services/course/service"
 import { updateSubmission } from "../../../../../services/submission/service"
 import { getStudentProgress, upsertStudentProgress } from "../../../../../services/progress/service"
 import type { StudentProgressItem } from "../../../../../services/progress/types"
+import { useCurrentUser } from "../../../../../services/user/useCurrentUser"
 import { buildWorkNavigation } from "../utils/buildNavigation"
 
 type StepData = {
@@ -42,6 +43,7 @@ function isFinishedSubmission(submission?: JobsheetSubmission | null) {
 }
 
 export function useWorkPage(courseId?: string, jobsheetId?: string) {
+  const { user } = useCurrentUser()
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null)
   const [course, setCourse] = useState<Course | null>(null)
   const [submission, setSubmission] = useState<JobsheetSubmission | null>(null)
@@ -88,7 +90,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
   // LOAD DATA
   useEffect(() => {
     async function loadData() {
-      if (!courseId || !jobsheetId) {
+      if (!courseId || !jobsheetId || !user) {
         setLoading(false)
         return
       }
@@ -109,11 +111,15 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
         setCourse(courseData)
 
         // 3. Submission
-        const submissionData = await getOrCreateSubmissionByJobsheetId(courseId!, jobsheetId)
+        const submissionData = await getOrCreateSubmissionByJobsheetId(
+          courseId!,
+          jobsheetId,
+          user.id,
+        )
         if (!isMountedRef.current) return
         setSubmission(submissionData)
 
-        const progressData = await getStudentProgress(jobsheetId)
+        const progressData = await getStudentProgress(jobsheetId, user.id)
         if (!isMountedRef.current) return
         setSavedProgress(Math.max(0, Math.round(progressData?.progress ?? 0)))
         setCompletedItems(progressData?.completed_items ?? [])
@@ -130,7 +136,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
     }
 
     loadData()
-  }, [courseId, jobsheetId])
+  }, [courseId, jobsheetId, user])
 
   // MANUAL SAVE
   const saveSubmission = async (updatedSubmission: JobsheetSubmission) => {
@@ -138,6 +144,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
       await updateSubmission(
         courseId!,
         jobsheetIdRef.current!,
+        user!.id,
         updatedSubmission.report
       )
     } catch (err) {
@@ -218,7 +225,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
   }, [courseId, jobsheet, lastSavedPage, location.pathname, navigate])
 
   useEffect(() => {
-    if (!courseId || !jobsheetId || !jobsheet) return
+    if (!courseId || !jobsheetId || !jobsheet || !user) return
     if (!submission || lastSavedPage === null) return
 
     const navItems = buildWorkNavigation(courseId, jobsheet)
@@ -238,6 +245,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
       setSavedProgress(progress)
     }
     upsertStudentProgress(jobsheetId, {
+      studentId: user.id,
       progress,
       lastPage: currentItem.path,
       status: progress >= 100 ? "SELESAI" : "SEDANG",
@@ -254,6 +262,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
     completedItems,
     submission,
     lastSavedPage,
+    user,
   ])
 
   useEffect(() => {

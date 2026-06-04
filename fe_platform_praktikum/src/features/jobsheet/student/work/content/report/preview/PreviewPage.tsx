@@ -14,10 +14,12 @@ import ReportHeader from "../components/ReportHeader"
 import TopProgressBar from "../../../../../../../components/loading/TopProgressBar"
 import { CheckCircle } from "lucide-react"
 import { buildReport } from "../../../../../../../services/submission/buildReport"
+import { useCurrentUser } from "../../../../../../../services/user/useCurrentUser"
 
 export default function PreviewPage() {
 
   const { courseId, jobsheetId } = useParams()
+  const { user } = useCurrentUser()
   const navigate = useNavigate()
 
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null)
@@ -27,12 +29,12 @@ export default function PreviewPage() {
   const [submitting, setSubmitting] = useState(false)
 
   const handleSubmit = async () => {
-    if (!courseId || !jobsheetId || !submission) return
+    if (!courseId || !jobsheetId || !submission || !user) return
     try {
       setSubmitting(true)
-      await updateSubmission(courseId, jobsheetId, buildReport(submission))
+      await updateSubmission(courseId, jobsheetId, user.id, buildReport(submission))
 
-      await submitSubmission(courseId, jobsheetId)
+      await submitSubmission(courseId, jobsheetId, user.id)
       setShowSuccess(true)
     } catch (err) {
       console.error("Submit error:", err)
@@ -43,7 +45,7 @@ export default function PreviewPage() {
 
   useEffect(() => {
     async function loadData() {
-      if (!courseId || !jobsheetId) return
+      if (!courseId || !jobsheetId || !user) return
 
       setLoading(true)
 
@@ -52,7 +54,11 @@ export default function PreviewPage() {
 
         setJobsheet(jobsheets)
 
-        const sub = await getSubmissionByJobsheetIdPreview(courseId, jobsheetId)
+        const sub = await getSubmissionByJobsheetIdPreview(
+          courseId,
+          jobsheetId,
+          user.id,
+        )
 
         setJobsheet(jobsheets || null)
         setSubmission(sub)
@@ -62,7 +68,7 @@ export default function PreviewPage() {
     }
 
     loadData()
-  }, [courseId, jobsheetId])
+  }, [courseId, jobsheetId, user])
 
   if (loading || !jobsheet || !submission) {
     return <TopProgressBar />

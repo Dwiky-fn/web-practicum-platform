@@ -10,9 +10,11 @@ import Navbar from "../../../components/navbar/Navbar";
 import JobsheetCard from "./components/JobsheetCard";
 import JobsheetCardSkeleton from "./components/loading/JobsheetCardSkeleton";
 import TopProgressBar from "../../../components/loading/TopProgressBar";
+import { useCurrentUser } from "../../../services/user/useCurrentUser";
 
 export default function CourseDetailPage() {
   const { courseId } = useParams<{ courseId: string }>();
+  const { user } = useCurrentUser();
 
   const [jobsheets, setJobsheets] = useState<Jobsheet[]>([]);
   const [submissions, setSubmissions] = useState<JobsheetSubmission[]>([]);
@@ -22,12 +24,13 @@ export default function CourseDetailPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!courseId) {
+    if (!courseId || !user) {
       setLoading(false);
       return;
     }
 
     const currentCourseId = courseId
+    const studentId = user.id
 
     async function loadData() {
       try {
@@ -40,7 +43,11 @@ export default function CourseDetailPage() {
         const submissionList = await Promise.all(
           jobsheetData.map(async (j) => {
             try {
-              return await getMappedSubmissionByJobsheetId(currentCourseId, j.id);
+              return await getMappedSubmissionByJobsheetId(
+                currentCourseId,
+                j.id,
+                studentId,
+              );
             } catch {
               return null;
             }
@@ -59,7 +66,7 @@ export default function CourseDetailPage() {
     }
 
     loadData();
-  }, [courseId]);
+  }, [courseId, user]);
 
   return (
     <div className="min-h-screen bg-gray-50">

@@ -1,21 +1,32 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { login } from "../services/authService"
+import { login } from "../../../services/auth/service"
 
 export default function LoginForm() {
-  const [email, setEmail] = useState("")
+  const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
+  const [errorMessage, setErrorMessage] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const navigate = useNavigate();
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setErrorMessage("")
+    setIsSubmitting(true)
 
     try {
-      const response = await login({ email, password })
+      const response = await login({ identifier, password })
+      localStorage.setItem("authToken", response.token)
+      localStorage.setItem("authUser", JSON.stringify(response.user))
       console.log('Login SUCCESS,', response);
       navigate('/dashboard')
     } catch (err) {
       console.error(err);
+      setErrorMessage(
+        err instanceof Error ? err.message : "Login gagal, silakan coba lagi",
+      )
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -42,16 +53,16 @@ export default function LoginForm() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         
-        {/* Email */}
+        {/* Email / NIM */}
         <div>
           <label className="block text-sm font-medium mb-2">
-            Email/Akun Pengguna
+            Email/NIM
           </label>
           <input
-            type="email"
-            placeholder="Masukkan email/NIM/NIP/username yang terdaftar"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            type="text"
+            placeholder="Masukkan email atau NIM yang terdaftar"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             className="w-full bg-gray-100 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
@@ -86,10 +97,17 @@ export default function LoginForm() {
         {/* Button */}
         <button
           type="submit"
+          disabled={isSubmitting}
           className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-800 transition cursor-pointer"
         >
-          Masuk
+          {isSubmitting ? "Memproses..." : "Masuk"}
         </button>
+
+        {errorMessage && (
+          <p className="text-sm text-red-600">
+            {errorMessage}
+          </p>
+        )}
       </form>
 
         {/* Divider */}

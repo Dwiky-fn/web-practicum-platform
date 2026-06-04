@@ -13,8 +13,10 @@ import SummaryCardSkeleton from "./components/loading/SummarySkeleton";
 import SidebarCardSkeleton from "./components/loading/SidebarSkeleton";
 import HistoryCardSkeleton from "./components/loading/HistorySkeleton";
 import { getJobsheetById } from "../../../services/jobsheet/service";
+import { useCurrentUser } from "../../../services/user/useCurrentUser";
 
 export default function JobsheetOverviewPage() {
+  const { user } = useCurrentUser();
   const { courseId, jobsheetId } = useParams<{
     courseId: string;
     jobsheetId: string;
@@ -25,15 +27,16 @@ export default function JobsheetOverviewPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!courseId || !jobsheetId) return;
+    if (!courseId || !jobsheetId || !user) return;
 
     const cId = courseId;
     const jId = jobsheetId;
+    const studentId = user.id;
 
     async function loadData() {
       const [raw, sub] = await Promise.all([
         getJobsheetById(cId, jId),
-        getSubmissionByJobsheetId(cId, jId)
+        getSubmissionByJobsheetId(cId, jId, studentId)
       ]);
 
       // const mapped = mapJobsheet(raw);
@@ -44,7 +47,7 @@ export default function JobsheetOverviewPage() {
     }
 
     loadData();
-  }, [courseId, jobsheetId]);
+  }, [courseId, jobsheetId, user]);
 
   return (
     <div className="min-h-screen bg-gray-50">

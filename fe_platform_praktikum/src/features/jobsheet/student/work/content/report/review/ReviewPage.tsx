@@ -14,9 +14,11 @@ import ReviewSection from "./components/ReviewSection"
 import ReviewCommentPanel from "./components/ReviewCommentPanel"
 import TopProgressBar from "../../../../../../../components/loading/TopProgressBar"
 import ConclusionEditor from "../components/ConclusionEditor"
+import { useCurrentUser } from "../../../../../../../services/user/useCurrentUser"
 
 export default function ReviewPage() {
   const { courseId, jobsheetId } = useParams()
+  const { user } = useCurrentUser()
 
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null)
   const [submission, setSubmission] = useState<JobsheetSubmission | null>(null)
@@ -24,13 +26,13 @@ export default function ReviewPage() {
 
   useEffect(() => {
     async function loadData() {
-      if (!courseId || !jobsheetId) return
+      if (!courseId || !jobsheetId || !user) return
 
       setLoading(true)
 
       try {
         const selected = await getJobsheetById(courseId, jobsheetId)
-        const sub = await getSubmissionByJobsheetId(courseId, jobsheetId)
+        const sub = await getSubmissionByJobsheetId(courseId, jobsheetId, user.id)
 
         setJobsheet(selected || null)
         setSubmission(sub)
@@ -40,7 +42,7 @@ export default function ReviewPage() {
     }
 
     loadData()
-  }, [courseId, jobsheetId])
+  }, [courseId, jobsheetId, user])
 
   if (loading || !jobsheet || !submission) {
     return <TopProgressBar />

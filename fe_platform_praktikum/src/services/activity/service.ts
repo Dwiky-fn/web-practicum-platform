@@ -1,38 +1,22 @@
+import { apiFetch } from "../api"
 import type { Activity } from "./types"
 
-const mockActivities: Activity[] = [
-  {
-    id: "1",
-    userId: "1",
-    type: "TASK_SUBMITTED",
-    title: "Tugas Dikumpulkan",
-    description: "Anda mengumpulkan tugas REST API.",
-    createdAt: "2026-02-18",
-  },
-  {
-    id: "2",
-    userId: "1",
-    type: "GRADE_RELEASED",
-    title: "Nilai Telah Keluar",
-    description: "Nilai Basis Data telah dipublikasikan.",
-    createdAt: "2026-02-17",
-  },
-  {
-    id: "3",
-    userId: "2",
-    type: "TASK_CREATED",
-    title: "Tugas Baru Dibuat",
-    description: "Anda membuat tugas Struktur Data.",
-    createdAt: "2026-02-18",
-  },
-]
-
 export async function getRecentActivities(userId: string): Promise<Activity[]> {
-  return mockActivities
-    .filter((activity) => activity.userId === userId)
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() -
-        new Date(a.createdAt).getTime()
-    )
+  const res = await apiFetch(`/users/${userId}/activities`)
+
+  return res.data.activities.map((activity: {
+    id: string
+    student_id: string
+    type: Activity["type"]
+    title: string
+    description: string
+    created_at: string
+  }) => ({
+    id: activity.id,
+    userId: activity.student_id,
+    type: activity.type,
+    title: activity.title,
+    description: activity.description,
+    createdAt: activity.created_at,
+  }))
 }

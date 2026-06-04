@@ -59,7 +59,11 @@ export default function StudentDashboardPage() {
         const submissionResponses = await Promise.all(
           allJobsheets.map(async (jobsheet) => {
             try {
-              return await getMappedSubmissionByJobsheetId(jobsheet.courseId, jobsheet.id)
+              return await getMappedSubmissionByJobsheetId(
+                jobsheet.courseId,
+                jobsheet.id,
+                user.id,
+              )
             } catch {
               return null
             }

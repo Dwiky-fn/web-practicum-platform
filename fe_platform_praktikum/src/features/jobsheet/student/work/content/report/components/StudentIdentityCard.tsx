@@ -1,13 +1,12 @@
-import { useUser } from "../../../../../../../services/user/useUser"
 import type { Jobsheet } from "../../../../../../../services/jobsheet/types"
+import { useCurrentUser } from "../../../../../../../services/user/useCurrentUser"
 
 interface Props {
   jobsheet: Jobsheet
 }
 
 export default function StudentIdentityCard({ jobsheet }: Props) {
-  const userId = "mhs-1" // sementara
-  const { user, loading } = useUser(userId)
+  const { user, loading } = useCurrentUser()
 
   const today = new Date().toLocaleDateString("id-ID", {
     day: "numeric",

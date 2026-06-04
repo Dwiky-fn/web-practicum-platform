@@ -6,6 +6,24 @@ class SubmissionsHandler {
     autoBind(this);
   }
 
+  _getStudentId(req) {
+    return req.query.studentId || req.body.studentId;
+  }
+
+  _requireStudentId(req, res) {
+    const studentId = this._getStudentId(req);
+
+    if (!studentId) {
+      res.status(400).json({
+        status: 'fail',
+        message: 'studentId wajib diisi',
+      });
+      return null;
+    }
+
+    return studentId;
+  }
+
   async postSubmissionHandler(req, res) {
     try {
       const payload = req.body;
@@ -28,7 +46,8 @@ class SubmissionsHandler {
 
   async getSubmissionHandler(req, res) {
     const { jobsheetId } = req.params;
-    const studentId = req.user?.id || 'mhs-1';
+    const studentId = this._requireStudentId(req, res);
+    if (!studentId) return;
 
     const submission = await this._service.getSubmissionByJobsheetId(
       jobsheetId,
@@ -43,7 +62,8 @@ class SubmissionsHandler {
 
   async getOrCreateSubmissionHandler(req, res) {
     const { jobsheetId, courseId } = req.params;
-    const studentId = req.user?.id || 'mhs-1';
+    const studentId = this._requireStudentId(req, res);
+    if (!studentId) return;
 
     const submission = await this._service.getOrCreateSubmission(
       jobsheetId,
@@ -59,7 +79,8 @@ class SubmissionsHandler {
 
   async putSubmissionHandler(req, res) {
     const { jobsheetId } = req.params;
-    const studentId = req.user?.id || 'mhs-1';
+    const studentId = this._requireStudentId(req, res);
+    if (!studentId) return;
     const { report, status } = req.body;
 
     const submission = await this._service.updateSubmission({
@@ -78,7 +99,8 @@ class SubmissionsHandler {
   async submitSubmissionHandler(req, res) {
     try {
       const { jobsheetId } = req.params;
-      const studentId = req.user?.id || 'mhs-1';
+      const studentId = this._requireStudentId(req, res);
+      if (!studentId) return;
 
       const submission = await this._service.submitSubmission(
         jobsheetId,

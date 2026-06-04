@@ -7,6 +7,46 @@ class UsersHandler {
     autoBind(this);
   }
 
+  async loginHandler(req, res) {
+    try {
+      const { token, user } = await this._service.login(req.body);
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'Login berhasil',
+        data: {
+          token,
+          user,
+        },
+      });
+    } catch (error) {
+      const errors = {
+        LOGIN_IDENTIFIER_REQUIRED: [400, 'Email atau NIM wajib diisi'],
+        LOGIN_PASSWORD_REQUIRED: [400, 'Password wajib diisi'],
+        LOGIN_INVALID: [401, 'Email/NIM atau password salah'],
+        USER_INACTIVE: [403, 'Akun sudah dinonaktifkan'],
+      };
+
+      const detail = errors[error.message];
+
+      if (detail) {
+        const [statusCode, message] = detail;
+
+        return res.status(statusCode).json({
+          status: 'fail',
+          message,
+        });
+      }
+
+      console.error(error);
+
+      return res.status(500).json({
+        status: 'error',
+        message: 'Terjadi kesalahan server',
+      });
+    }
+  }
+
   async getUserByIdHandler(req, res) {
     try {
       const { id } = req.params;

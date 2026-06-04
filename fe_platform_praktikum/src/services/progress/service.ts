@@ -3,8 +3,11 @@ import type { StudentProgress, UpsertStudentProgressPayload } from "./types"
 
 export const getStudentProgress = async (
   jobsheetId: string,
+  studentId: string,
 ): Promise<StudentProgress | null> => {
-  const res = await apiFetch(`/student-progress/${jobsheetId}`)
+  const res = await apiFetch(
+    `/student-progress/${jobsheetId}?studentId=${encodeURIComponent(studentId)}`,
+  )
 
   return res.data.progress ?? null
 }

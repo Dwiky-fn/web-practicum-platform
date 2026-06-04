@@ -1,4 +1,5 @@
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const pool = require('.');
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -32,6 +33,59 @@ function hashBcrypt(password, saltRounds = 10) {
 class UsersService {
   constructor() {
     this._pool = pool;
+  }
+
+  async login(payload) {
+    const identifier = (
+      payload.identifier ||
+      payload.email ||
+      payload.nim ||
+      ''
+    ).trim();
+    const { password } = payload;
+
+    if (!identifier) {
+      throw new Error('LOGIN_IDENTIFIER_REQUIRED');
+    }
+
+    if (!password) {
+      throw new Error('LOGIN_PASSWORD_REQUIRED');
+    }
+
+    const result = await this._pool.query(
+      `SELECT u.id, u.password, u.is_active
+       FROM users u
+       LEFT JOIN student_profiles sp ON sp.user_id = u.id
+       WHERE LOWER(u.email) = LOWER($1)
+        OR sp.nim = $1
+       LIMIT 1`,
+      [identifier],
+    );
+
+    if (!result.rows.length) {
+      throw new Error('LOGIN_INVALID');
+    }
+
+    const account = result.rows[0];
+
+    if (!account.is_active) {
+      throw new Error('USER_INACTIVE');
+    }
+
+    if (!account.password) {
+      throw new Error('LOGIN_INVALID');
+    }
+
+    const validPassword = await compareBcrypt(password, account.password);
+
+    if (!validPassword) {
+      throw new Error('LOGIN_INVALID');
+    }
+
+    return {
+      token: crypto.randomBytes(32).toString('hex'),
+      user: await this.getUserById(account.id),
+    };
   }
 
   async getUserById(userId) {

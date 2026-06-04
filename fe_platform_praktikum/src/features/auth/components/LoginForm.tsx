@@ -1,13 +1,15 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { login } from "../../../services/auth/service"
+import { useCurrentUser } from "../../../services/user/useCurrentUser"
 
 export default function LoginForm() {
   const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [errorMessage, setErrorMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const navigate = useNavigate();
+  const navigate = useNavigate()
+  const { setUser } = useCurrentUser()
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -18,8 +20,9 @@ export default function LoginForm() {
       const response = await login({ identifier, password })
       localStorage.setItem("authToken", response.token)
       localStorage.setItem("authUser", JSON.stringify(response.user))
-      console.log('Login SUCCESS,', response);
-      navigate('/dashboard')
+      setUser(response.user)
+      console.log("Login SUCCESS,", response)
+      navigate(response.user.role === "ADMIN" ? "/admin" : "/dashboard")
     } catch (err) {
       console.error(err);
       setErrorMessage(
@@ -53,14 +56,14 @@ export default function LoginForm() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         
-        {/* Email / NIM */}
+        {/* Email / NIM / NIP */}
         <div>
           <label className="block text-sm font-medium mb-2">
-            Email/NIM
+            Email/NIM/NIP
           </label>
           <input
             type="text"
-            placeholder="Masukkan email atau NIM yang terdaftar"
+            placeholder="Masukkan email, NIM, atau NIP yang terdaftar"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             className="w-full bg-gray-100 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"

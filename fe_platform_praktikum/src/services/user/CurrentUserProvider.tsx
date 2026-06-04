@@ -14,6 +14,13 @@ export function CurrentUserProvider({ children }: Props) {
   useEffect(() => {
     async function fetchUser() {
       try {
+        const storedUser = localStorage.getItem("authUser")
+
+        if (storedUser) {
+          setUser(JSON.parse(storedUser) as User)
+          return
+        }
+
         const userData = await getUserById("mhs-1")
         setUser(userData)
       } catch (error) {

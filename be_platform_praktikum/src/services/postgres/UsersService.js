@@ -30,6 +30,14 @@ function hashBcrypt(password, saltRounds = 10) {
   });
 }
 
+async function verifyPassword(password, storedPassword) {
+  if (storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$')) {
+    return compareBcrypt(password, storedPassword);
+  }
+
+  return password === storedPassword;
+}
+
 class UsersService {
   constructor() {
     this._pool = pool;
@@ -56,8 +64,10 @@ class UsersService {
       `SELECT u.id, u.password, u.is_active
        FROM users u
        LEFT JOIN student_profiles sp ON sp.user_id = u.id
+       LEFT JOIN lecturer_profiles lp ON lp.user_id = u.id
        WHERE LOWER(u.email) = LOWER($1)
         OR sp.nim = $1
+        OR lp.nip = $1
        LIMIT 1`,
       [identifier],
     );
@@ -76,7 +86,7 @@ class UsersService {
       throw new Error('LOGIN_INVALID');
     }
 
-    const validPassword = await compareBcrypt(password, account.password);
+    const validPassword = await verifyPassword(password, account.password);
 
     if (!validPassword) {
       throw new Error('LOGIN_INVALID');

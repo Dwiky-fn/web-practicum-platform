@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom"
 interface MobileSidebarProps {
   open: boolean
   onClose: () => void
+  onLogout: () => void
   logo: string
   navItems: Array<{
     to: string
@@ -15,6 +16,7 @@ interface MobileSidebarProps {
 export default function MobileSidebar({
   open,
   onClose,
+  onLogout,
   logo,
   navItems,
   unreadCount,
@@ -100,7 +102,7 @@ export default function MobileSidebar({
 
         {/* Footer */}
         <button
-          onClick={() => goTo("/")}
+          onClick={onLogout}
           className="text-left text-red-500 hover:text-red-900 active:text-red-900 pt-6"
         >
           Keluar

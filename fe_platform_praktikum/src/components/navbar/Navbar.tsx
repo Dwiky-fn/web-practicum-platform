@@ -26,7 +26,7 @@ export default function Navbar({
   navItems = defaultNavItems,
   mobileEnabled = true,
 }: NavbarProps) {
-  const { user } = useCurrentUser();
+  const { user, setUser } = useCurrentUser();
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -54,6 +54,16 @@ export default function Navbar({
     )
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem("authToken")
+    localStorage.removeItem("authUser")
+    setUser(null)
+    setNotifOpen(false)
+    setProfileOpen(false)
+    setMobileOpen(false)
+    navigate("/")
+  }
+
   return (
     <>
       {/* Overlay */}
@@ -74,6 +84,7 @@ export default function Navbar({
           logo={logo}
           navItems={navItems}
           unreadCount={unreadCount}
+          onLogout={handleLogout}
         />
       )}
       
@@ -101,7 +112,7 @@ export default function Navbar({
         }}
         onMarkAllNotif={handleMarkAllAsRead}
         onSettings={() => navigate('/settings')}
-        onLogout={() => navigate('/')}
+        onLogout={handleLogout}
       />
     </>
   );

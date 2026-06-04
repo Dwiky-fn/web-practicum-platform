@@ -43,6 +43,15 @@ class AdminUsersHandler {
     }
   }
 
+  async updateUserHandler(req, res) {
+    try {
+      const user = await this._service.updateUser(req.params.id, req.body);
+      return ok(res, { user }, 'Pengguna berhasil diperbarui');
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
+
   async activateUserHandler(req, res) {
     try {
       const user = await this._service.setUserActive(req.params.id, true);

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import AdminLayout from "../components/AdminLayout"
 import {
+  AdminActionCell,
   AdminButton,
   AdminModal,
   AdminPanel,
@@ -227,7 +228,7 @@ export default function AdminClassDetailPage() {
                       <td className="px-4 py-3">{jobsheet.title}</td>
                       <td className="px-4 py-3">{jobsheet.deadline}</td>
                       <td className="px-4 py-3">{jobsheet.status}</td>
-                      <td className="px-4 py-3">
+                      <AdminActionCell>
                         <AdminButton
                           variant="ghost"
                           className="h-8 px-2"
@@ -235,7 +236,7 @@ export default function AdminClassDetailPage() {
                         >
                           Preview
                         </AdminButton>
-                      </td>
+                      </AdminActionCell>
                     </tr>
                   ))}
                 </AdminTable>

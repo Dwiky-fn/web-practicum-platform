@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import AdminLayout from "../components/AdminLayout"
 import {
+  AdminActionCell,
   AdminButton,
   AdminModal,
   AdminPanel,
@@ -547,7 +548,7 @@ export default function AdminAcademicPage() {
                     <td className="px-4 py-3">{semester.year}</td>
                     <td className="px-4 py-3">{semester.term}</td>
                     <td className="px-4 py-3">{semester.status}</td>
-                    <td className="px-4 py-3">
+                    <AdminActionCell>
                       <AdminButton
                         variant="ghost"
                         className="h-8 px-2"
@@ -558,7 +559,7 @@ export default function AdminAcademicPage() {
                       >
                         {semester.status === "Aktif" ? "Edit" : "Aktifkan"}
                       </AdminButton>
-                    </td>
+                    </AdminActionCell>
                   </tr>
                 ))}
               </AdminTable>
@@ -588,7 +589,7 @@ export default function AdminAcademicPage() {
                       <td className="px-4 py-3">{course.semester}</td>
                       <td className="px-4 py-3">{course.sks}</td>
                       <td className="px-4 py-3">{course.status}</td>
-                      <td className="px-4 py-3">
+                      <AdminActionCell>
                         <AdminButton
                           variant="ghost"
                           className="h-8 px-2"
@@ -603,7 +604,7 @@ export default function AdminAcademicPage() {
                         >
                           {course.status === "Aktif" ? "Edit" : "Aktifkan"}
                         </AdminButton>
-                      </td>
+                      </AdminActionCell>
                     </tr>
                   ))}
                 </AdminTable>
@@ -646,11 +647,11 @@ export default function AdminAcademicPage() {
                       <td className="px-4 py-3">{item.courseName}</td>
                       <td className="px-4 py-3">{item.lecturer}</td>
                       <td className="px-4 py-3">{item.status}</td>
-                      <td className="px-4 py-3">
+                      <AdminActionCell>
                         <AdminButton variant="ghost" className="h-8 px-2" onClick={() => navigate(`/admin/classes/${item.id}`)}>
                           Detail
                         </AdminButton>
-                      </td>
+                      </AdminActionCell>
                     </tr>
                   ))}
                 </AdminTable>

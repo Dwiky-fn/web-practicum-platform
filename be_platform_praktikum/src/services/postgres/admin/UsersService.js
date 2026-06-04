@@ -139,6 +139,90 @@ class AdminUsersService {
     }
   }
 
+  async updateUser(id, payload) {
+    const client = await this._pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const current = await client.query(
+        'SELECT id, role FROM users WHERE id = $1',
+        [id],
+      );
+
+      if (!current.rows.length) throw new Error('USER_NOT_FOUND');
+
+      const role = current.rows[0].role;
+      const status = payload.status ? normalizeStatus(payload.status) : null;
+
+      await client.query(
+        `UPDATE users
+         SET
+          fullname = COALESCE($2, fullname),
+          email = COALESCE($3, email),
+          is_active = COALESCE($4, is_active)
+         WHERE id = $1`,
+        [
+          id,
+          payload.fullname || null,
+          payload.email || null,
+          status ? status === 'AKTIF' : null,
+        ],
+      );
+
+      if (role === 'MAHASISWA') {
+        await client.query(
+          `UPDATE student_profiles
+           SET
+            nim = COALESCE($2, nim),
+            angkatan = COALESCE($3, angkatan),
+            semester = COALESCE($4, semester),
+            program_studi = COALESCE($5, program_studi),
+            jurusan = COALESCE($6, jurusan),
+            status = COALESCE($7, status)
+           WHERE user_id = $1`,
+          [
+            id,
+            payload.nim || null,
+            payload.angkatan ? Number(payload.angkatan) : null,
+            payload.semester ? Number(payload.semester) : null,
+            payload.programStudi || payload.program_studi || null,
+            payload.jurusan || null,
+            status ? displayStatus(status) : null,
+          ],
+        );
+      }
+
+      if (role === 'DOSEN') {
+        await client.query(
+          `UPDATE lecturer_profiles
+           SET
+            nip = COALESCE($2, nip),
+            program_studi = COALESCE($3, program_studi),
+            jurusan = COALESCE($4, jurusan),
+            status = COALESCE($5, status)
+           WHERE user_id = $1`,
+          [
+            id,
+            payload.nip || null,
+            payload.programStudi || payload.program_studi || null,
+            payload.jurusan || null,
+            status ? displayStatus(status) : null,
+          ],
+        );
+      }
+
+      await client.query('COMMIT');
+      return this.getUserById(id);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      if (error.code === '23505') throw new Error('USER_DUPLICATE');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async setUserActive(id, active) {
     const client = await this._pool.connect();
 

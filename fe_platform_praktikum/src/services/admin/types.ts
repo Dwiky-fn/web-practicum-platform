@@ -109,6 +109,18 @@ export interface CreateLecturerPayload {
   status?: AdminUserStatus
 }
 
+export interface UpdateAdminUserPayload {
+  fullname: string
+  email: string
+  status: AdminUserStatus
+  nim?: string
+  nip?: string
+  angkatan?: number
+  semester?: number
+  programStudi?: string
+  jurusan?: string
+}
+
 export interface CreateSemesterPayload {
   year: string
   term: "Ganjil" | "Genap"

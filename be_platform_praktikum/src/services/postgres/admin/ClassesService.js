@@ -33,6 +33,7 @@ class ClassesService {
       JOIN users u ON u.id = cl.lecturer_id
       JOIN academic_periods ap ON ap.id = cl.academic_period_id
       WHERE ($1 = '%%' OR LOWER(cl.name) LIKE $1 OR LOWER(c.name) LIKE $1 OR LOWER(u.fullname) LIKE $1)
+        AND ap.is_active = true
         ${statusClause}
       ORDER BY ap.is_active DESC, c.name ASC, cl.name ASC
       `,

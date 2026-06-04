@@ -5,6 +5,7 @@ const routes = (handler) => {
 
   router.get('/admin/users', handler.getUsersHandler);
   router.get('/admin/users/:id', handler.getUserByIdHandler);
+  router.put('/admin/users/:id', handler.updateUserHandler);
   router.post('/admin/users/students', handler.createStudentHandler);
   router.post('/admin/users/lecturers', handler.createLecturerHandler);
   router.post('/admin/users/:id/activate', handler.activateUserHandler);

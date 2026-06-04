@@ -5,6 +5,7 @@ import type {
   AdminStudent,
   CreateLecturerPayload,
   CreateStudentPayload,
+  UpdateAdminUserPayload,
   UserRoleTab,
 } from "../types"
 
@@ -38,6 +39,17 @@ export const createAdminLecturer = async (
 ): Promise<AdminLecturer> => {
   const res = await apiFetch("/admin/users/lecturers", {
     method: "POST",
+    body: JSON.stringify(payload),
+  })
+  return res.data.user
+}
+
+export const updateAdminUser = async (
+  id: string,
+  payload: UpdateAdminUserPayload,
+): Promise<AdminStudent | AdminLecturer> => {
+  const res = await apiFetch(`/admin/users/${id}`, {
+    method: "PUT",
     body: JSON.stringify(payload),
   })
   return res.data.user

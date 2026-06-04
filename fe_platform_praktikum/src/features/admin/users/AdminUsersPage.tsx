@@ -4,6 +4,8 @@ import { useNavigate, useParams } from "react-router-dom"
 import AdminLayout from "../components/AdminLayout"
 import {
   AdminButton,
+  AdminActionCell,
+  AdminConfirmModal,
   AdminModal,
   AdminSearchInput,
   AdminSectionHeader,
@@ -35,6 +37,7 @@ import {
 } from "../academic/semesterOptions"
 
 type ModalMode = "add" | "import" | "menu" | null
+type ConfirmAction = "activate" | "deactivate" | "delete"
 
 export default function AdminUsersPage() {
   const params = useParams<{ role?: UserRoleTab }>()
@@ -46,12 +49,17 @@ export default function AdminUsersPage() {
   const [semesters, setSemesters] = useState<AcademicSemester[]>([])
   const [students, setStudents] = useState<AdminStudent[]>([])
   const [lecturers, setLecturers] = useState<AdminLecturer[]>([])
+  const [confirm, setConfirm] = useState<{
+    action: ConfirmAction
+    user: AdminStudent | AdminLecturer
+  } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const isStudent = role === "students"
   const activeSemester = getActiveSemester(semesters)
   const studentSemesterOptions = getStudentSemesterOptions(activeSemester?.term)
   const academicYearOptions = getAcademicYearOptions(semesters)
+  const fallbackAcademicYears = Array.from({ length: 3 }, (_, index) => new Date().getFullYear() - index)
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
@@ -128,29 +136,25 @@ export default function AdminUsersPage() {
     }
   }
 
-  const handleToggleUserStatus = async (user: AdminStudent | AdminLecturer) => {
-    try {
-      if (user.status === "Aktif") {
-        await deactivateAdminUser(user.id)
-      } else {
-        await activateAdminUser(user.id)
-      }
-
-      fetchUsers()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal mengubah status pengguna")
-    }
+  const closeUserModal = () => {
+    setModal(null)
   }
 
-  const handleDeleteUser = async (user: AdminStudent | AdminLecturer) => {
-    const confirmed = window.confirm(`Hapus pengguna ${user.fullname}?`)
-    if (!confirmed) return
-
+  const handleConfirmAction = async () => {
+    if (!confirm) return
     try {
-      await deleteAdminUser(user.id)
+      if (confirm.action === "activate") {
+        await activateAdminUser(confirm.user.id)
+      } else if (confirm.action === "deactivate") {
+        await deactivateAdminUser(confirm.user.id)
+      } else {
+        await deleteAdminUser(confirm.user.id)
+      }
+
+      setConfirm(null)
       fetchUsers()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menghapus pengguna")
+      setError(err instanceof Error ? err.message : "Gagal memproses pengguna")
     }
   }
 
@@ -196,10 +200,10 @@ export default function AdminUsersPage() {
     return (
       <AdminModal
         title={title}
-        onClose={() => setModal(null)}
+        onClose={closeUserModal}
         footer={
           <>
-            <AdminButton variant="secondary" onClick={() => setModal(null)}>Batal</AdminButton>
+            <AdminButton variant="secondary" onClick={closeUserModal}>Batal</AdminButton>
             <AdminButton type="submit" form="admin-user-form">Tambah</AdminButton>
           </>
         }
@@ -221,7 +225,7 @@ export default function AdminUsersPage() {
               <FieldRow label="Angkatan">
                 <select name="angkatan" className={inputClass} required>
                   <option value="" disabled>Pilih angkatan</option>
-                  {(academicYearOptions.length ? academicYearOptions : [2025, 2024, 2023]).map((year) => (
+                  {(academicYearOptions.length ? academicYearOptions : fallbackAcademicYears).map((year) => (
                     <option key={year}>{year}</option>
                   ))}
                 </select>
@@ -317,7 +321,7 @@ export default function AdminUsersPage() {
                 <td className="px-4 py-3">{student.fullname}</td>
                 <td className="px-4 py-3">{student.semester}</td>
                 <td className="px-4 py-3">{student.status}</td>
-                <td className="flex flex-wrap gap-2 px-4 py-3">
+                <AdminActionCell>
                   <AdminButton
                     variant="ghost"
                     className="h-8 px-2"
@@ -328,7 +332,10 @@ export default function AdminUsersPage() {
                   <AdminButton
                     variant="ghost"
                     className="h-8 px-2"
-                    onClick={() => handleToggleUserStatus(student)}
+                    onClick={() => setConfirm({
+                      action: student.status === "Aktif" ? "deactivate" : "activate",
+                      user: student,
+                    })}
                   >
                     {student.status === "Aktif" ? <UserX size={14} /> : <UserCheck size={14} />}
                     {student.status === "Aktif" ? "Nonaktifkan" : "Aktifkan"}
@@ -336,12 +343,12 @@ export default function AdminUsersPage() {
                   <AdminButton
                     variant="danger"
                     className="h-8 px-2"
-                    onClick={() => handleDeleteUser(student)}
+                    onClick={() => setConfirm({ action: "delete", user: student })}
                   >
                     <Trash2 size={14} />
                     Hapus
                   </AdminButton>
-                </td>
+                </AdminActionCell>
               </tr>
             ))}
           </AdminTable>
@@ -359,7 +366,7 @@ export default function AdminUsersPage() {
               <td className="px-4 py-3">{lecturer.fullname}</td>
               <td className="px-4 py-3">{lecturer.email}</td>
               <td className="px-4 py-3">{lecturer.status}</td>
-              <td className="flex flex-wrap gap-2 px-4 py-3">
+              <AdminActionCell>
                 <AdminButton
                   variant="ghost"
                   className="h-8 px-2"
@@ -370,7 +377,10 @@ export default function AdminUsersPage() {
                 <AdminButton
                   variant="ghost"
                   className="h-8 px-2"
-                  onClick={() => handleToggleUserStatus(lecturer)}
+                  onClick={() => setConfirm({
+                    action: lecturer.status === "Aktif" ? "deactivate" : "activate",
+                    user: lecturer,
+                  })}
                 >
                   {lecturer.status === "Aktif" ? <UserX size={14} /> : <UserCheck size={14} />}
                   {lecturer.status === "Aktif" ? "Nonaktifkan" : "Aktifkan"}
@@ -378,12 +388,12 @@ export default function AdminUsersPage() {
                 <AdminButton
                   variant="danger"
                   className="h-8 px-2"
-                  onClick={() => handleDeleteUser(lecturer)}
+                  onClick={() => setConfirm({ action: "delete", user: lecturer })}
                 >
                   <Trash2 size={14} />
                   Hapus
                 </AdminButton>
-              </td>
+              </AdminActionCell>
             </tr>
           ))}
         </AdminTable>
@@ -395,6 +405,34 @@ export default function AdminUsersPage() {
       )}
 
       {renderAddModal()}
+      {confirm && (
+        <AdminConfirmModal
+          title={
+            confirm.action === "delete"
+              ? "Hapus Pengguna?"
+              : confirm.action === "activate"
+              ? "Aktifkan Pengguna?"
+              : "Nonaktifkan Pengguna?"
+          }
+          message={
+            confirm.action === "delete"
+              ? `Pengguna ${confirm.user.fullname} akan dihapus dari sistem.`
+              : confirm.action === "activate"
+              ? `Pengguna ${confirm.user.fullname} akan diaktifkan kembali.`
+              : `Pengguna ${confirm.user.fullname} akan dinonaktifkan.`
+          }
+          confirmLabel={
+            confirm.action === "delete"
+              ? "Hapus"
+              : confirm.action === "activate"
+              ? "Aktifkan"
+              : "Nonaktifkan"
+          }
+          variant={confirm.action === "delete" ? "danger" : "primary"}
+          onCancel={() => setConfirm(null)}
+          onConfirm={handleConfirmAction}
+        />
+      )}
     </AdminLayout>
   )
 }

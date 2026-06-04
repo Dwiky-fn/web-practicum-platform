@@ -130,7 +130,10 @@ export function AdminTable({
         <thead>
           <tr className="bg-blue-50 text-left text-gray-800">
             {headers.map((header) => (
-              <th key={header} className="border-b border-gray-200 px-4 py-3 font-semibold">
+              <th
+                key={header}
+                className="border-b border-gray-200 px-4 py-3 text-center font-semibold"
+              >
                 {header}
               </th>
             ))}
@@ -139,6 +142,20 @@ export function AdminTable({
         <tbody className="divide-y divide-gray-100">{children}</tbody>
       </table>
     </div>
+  )
+}
+
+export function AdminActionCell({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <td className="px-4 py-3">
+      <div className="flex flex-wrap justify-center gap-2">
+        {children}
+      </div>
+    </td>
   )
 }
 
@@ -182,6 +199,39 @@ export function AdminModal({
         <div className="mt-6 flex justify-center gap-4">{footer}</div>
       </div>
     </div>
+  )
+}
+
+export function AdminConfirmModal({
+  title,
+  message,
+  confirmLabel = "Konfirmasi",
+  cancelLabel = "Batal",
+  variant = "primary",
+  onCancel,
+  onConfirm,
+}: {
+  title: string
+  message: string
+  confirmLabel?: string
+  cancelLabel?: string
+  variant?: "primary" | "danger"
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <AdminModal
+      title={title}
+      onClose={onCancel}
+      footer={
+        <>
+          <AdminButton variant="secondary" onClick={onCancel}>{cancelLabel}</AdminButton>
+          <AdminButton variant={variant} onClick={onConfirm}>{confirmLabel}</AdminButton>
+        </>
+      }
+    >
+      <p className="text-center text-sm text-gray-700">{message}</p>
+    </AdminModal>
   )
 }
 

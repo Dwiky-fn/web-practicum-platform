@@ -9,7 +9,23 @@ import NavbarOverlay from "./NavbarOverlay";
 import MobileSidebar from "./MobileSidebar";
 import DesktopNavbar from "./DesktopNavbar";
 
-export default function Navbar() {
+const defaultNavItems = [
+  { to: "/dashboard", label: "Dashboard" },
+  { to: "/courses", label: "Mata Kuliah" },
+]
+
+interface NavbarProps {
+  navItems?: Array<{
+    to: string
+    label: string
+  }>
+  mobileEnabled?: boolean
+}
+
+export default function Navbar({
+  navItems = defaultNavItems,
+  mobileEnabled = true,
+}: NavbarProps) {
   const { user } = useCurrentUser();
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -42,7 +58,7 @@ export default function Navbar() {
     <>
       {/* Overlay */}
       <NavbarOverlay
-        open={notifOpen || profileOpen || mobileOpen}
+        open={notifOpen || profileOpen || (mobileEnabled && mobileOpen)}
         onClose={() => {
           setNotifOpen(false)
           setProfileOpen(false)
@@ -51,18 +67,23 @@ export default function Navbar() {
       />
 
       {/* Sidebar Mobile */}
-      <MobileSidebar
-        open={mobileOpen}
-        onClose={() => setMobileOpen(false)}
-        logo={logo}
-        unreadCount={unreadCount}
-      />
+      {mobileEnabled && (
+        <MobileSidebar
+          open={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          logo={logo}
+          navItems={navItems}
+          unreadCount={unreadCount}
+        />
+      )}
       
       {/* Navbar Desktop */}
       <DesktopNavbar
         user={user}
         logo={logo}
         pattern={pattern}
+        navItems={navItems}
+        showMobileButton={mobileEnabled}
         notifications={notifications}
         unreadCount={unreadCount}
         notifOpen={notifOpen}

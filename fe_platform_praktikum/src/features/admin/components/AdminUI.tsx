@@ -59,7 +59,11 @@ export function AdminSectionHeader({
           <p className="mt-2 text-sm text-gray-600">{description}</p>
         )}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-3">{actions}</div>}
+      {actions && (
+        <div className="flex flex-wrap items-center gap-3 md:flex-nowrap md:justify-end">
+          {actions}
+        </div>
+      )}
     </div>
   )
 }

@@ -9,6 +9,11 @@ interface DesktopNavbarProps {
   user: User | null
   logo: string
   pattern: string
+  navItems: Array<{
+    to: string
+    label: string
+  }>
+  showMobileButton: boolean
   notifications: Notification[]
   unreadCount: number
 
@@ -28,6 +33,8 @@ export default function DesktopNavbar({
   user,
   logo,
   pattern,
+  navItems,
+  showMobileButton,
   notifications,
   unreadCount,
   notifOpen,
@@ -63,12 +70,14 @@ export default function DesktopNavbar({
       <div className="flex items-center relative z-10">
 
         {/* Hamburger Mobile */}
-        <button
-          className="md:hidden"
-          onClick={onOpenMobile}
-        >
-          <Menu size={26} className="text-white" />
-        </button>
+        {showMobileButton && (
+          <button
+            className="md:hidden"
+            onClick={onOpenMobile}
+          >
+            <Menu size={26} className="text-white" />
+          </button>
+        )}
 
         {/* Desktop Logo + Menu */}
         <div className="hidden md:flex items-start gap-6">
@@ -95,16 +104,15 @@ export default function DesktopNavbar({
               </p>
             </div>
 
-            {/* Menu */}
-            <div className="flex gap-6">
-              <NavLink to="/dashboard" className={navClass}>
-                Dashboard
-              </NavLink>
-
-              <NavLink to="/courses" className={navClass}>
-                Mata Kuliah
-              </NavLink>
-            </div>
+            {navItems.length > 0 && (
+              <div className="flex gap-6">
+                {navItems.map((item) => (
+                  <NavLink key={item.to} to={item.to} className={navClass}>
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
+            )}
 
           </div>
 

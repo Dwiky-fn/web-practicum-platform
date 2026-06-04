@@ -5,6 +5,10 @@ interface MobileSidebarProps {
   open: boolean
   onClose: () => void
   logo: string
+  navItems: Array<{
+    to: string
+    label: string
+  }>
   unreadCount: number
 }
 
@@ -12,6 +16,7 @@ export default function MobileSidebar({
   open,
   onClose,
   logo,
+  navItems,
   unreadCount,
 }: MobileSidebarProps) {
 
@@ -61,19 +66,15 @@ export default function MobileSidebar({
         {/* Menu */}
         <div className="flex flex-col gap-4 flex-1 pt-6">
 
-          <button
-            onClick={() => goTo("/dashboard")}
-            className="text-left hover:text-blue-600 active:text-blue-600"
-          >
-            Dashboard
-          </button>
-
-          <button
-            onClick={() => goTo("/courses")}
-            className="text-left hover:text-blue-600 active:text-blue-600"
-          >
-            Mata Kuliah
-          </button>
+          {navItems.map((item) => (
+            <button
+              key={item.to}
+              onClick={() => goTo(item.to)}
+              className="text-left hover:text-blue-600 active:text-blue-600"
+            >
+              {item.label}
+            </button>
+          ))}
 
           <button
             onClick={() => goTo("/notifications")}

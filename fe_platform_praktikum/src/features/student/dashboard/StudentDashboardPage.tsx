@@ -12,12 +12,12 @@ import type { Jobsheet } from "../../../services/jobsheet/types";
 import type { JobsheetSubmission } from "../../../services/submission/types";
 import CourseCard from "../../../components/CourseCard";
 import Navbar from "../../../components/navbar/Navbar";
-import SummaryCard from "../components/SummaryCard";
+import SummaryCard from "../../../components/dashboard/SummaryCard";
 import UpcomingTaskSection from "./components/UpcomingTaskSection";
 import ActivitySection from "./components/ActivitySection";
 import WelcomeSection from "./components/WelcomeSection";
 import CourseCardSkeleton from "../../../components/loading/CourseSkeleton";
-import SummaryCardSkeleton from "../components/loading/SummarySkeleton";
+import SummaryCardSkeleton from "../../../components/dashboard/loading/SummarySkeleton";
 import TopProgressBar from "../../../components/loading/TopProgressBar";
 
 export default function StudentDashboardPage() {

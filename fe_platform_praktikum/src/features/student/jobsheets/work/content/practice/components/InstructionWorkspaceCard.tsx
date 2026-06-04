@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import type { JSONContent } from "@tiptap/react"
-import CodeEditorPanel from "../../../../../../../shared/code-editor/CodeEditorPanel"
-import OutputPanel from "../../../../../../../shared/code-editor/OutputPanel"
+import CodeEditorPanel from "../../../../../../../components/code-editor/CodeEditorPanel"
+import OutputPanel from "../../../../../../../components/code-editor/OutputPanel"
 import AnalysisEditor from "./workSpace/AnalysisEditor"
 import { ExecutionClient } from "../../../../../../../services/execution/executionClient"
 

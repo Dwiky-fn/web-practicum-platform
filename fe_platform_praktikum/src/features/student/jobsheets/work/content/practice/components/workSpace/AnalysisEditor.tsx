@@ -1,5 +1,5 @@
 import type { JSONContent } from "@tiptap/react";
-import RichTextEditor from "../../../../../../../../shared/editor/RichTextEditor";
+import RichTextEditor from "../../../../../../../../components/editor/RichTextEditor";
 
 interface Props {
   value: JSONContent;

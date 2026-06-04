@@ -5,7 +5,7 @@ import type { JSONContent } from "@tiptap/core"
 import InstructionWorkspaceCard from "./components/InstructionWorkspaceCard"
 import type { JobsheetSubmission } from "../../../../../../services/submission/types"
 import NotFoundPage from "../../../../../not-found/NotFoundPage"
-import RichTextViewer from "../../../../../../shared/editor/RichTextViewer"
+import RichTextViewer from "../../../../../../components/editor/RichTextViewer"
 import { splitInstructionContent } from "../../../../../../shared/utils/splitInstructionContent"
 
 type StepData = {

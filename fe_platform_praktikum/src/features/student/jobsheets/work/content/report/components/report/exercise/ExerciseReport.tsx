@@ -1,7 +1,7 @@
 import type { Jobsheet } from "../../../../../../../../../services/jobsheet/types"
 import type { JobsheetSubmission } from "../../../../../../../../../services/submission/types"
-import OutputPanel from "../../../../../../../../../shared/code-editor/OutputPanel"
-import RichTextViewer from "../../../../../../../../../shared/editor/RichTextViewer"
+import OutputPanel from "../../../../../../../../../components/code-editor/OutputPanel"
+import RichTextViewer from "../../../../../../../../../components/editor/RichTextViewer"
 
 interface Props {
   jobsheet: Jobsheet

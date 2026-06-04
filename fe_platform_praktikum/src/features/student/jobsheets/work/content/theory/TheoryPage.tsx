@@ -1,6 +1,6 @@
 import { useParams, useOutletContext } from "react-router-dom"
 import type { Jobsheet } from "../../../../../../services/jobsheet/types"
-import RichTextViewer from "../../../../../../shared/editor/RichTextViewer"
+import RichTextViewer from "../../../../../../components/editor/RichTextViewer"
 
 export default function TheoryPage() {
   const { theoryId } = useParams()

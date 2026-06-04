@@ -1,5 +1,5 @@
 import type { JSONContent } from "@tiptap/core";
-import RichTextViewer from "../../../../shared/editor/RichTextViewer";
+import RichTextViewer from "../../../../components/editor/RichTextViewer";
 
 interface Props {
   summary: JSONContent;

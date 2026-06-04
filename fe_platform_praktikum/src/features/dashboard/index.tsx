@@ -1,7 +1,7 @@
 import { useCurrentUser } from "../../services/user/useCurrentUser"; 
 import AdminDashboard from "./admin/AdminDashboardPage";
 import LecturerDashboard from "./lecturer/LecturerDashboardPage";
-import StudentDashboard from "./student/StudentDashboardPage";
+import StudentDashboard from "../student/dashboard/StudentDashboardPage";
 
 export default function DashboardPage() {
   const { user, loading } = useCurrentUser();

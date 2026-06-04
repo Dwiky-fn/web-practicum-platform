@@ -1,5 +1,5 @@
-import RichTextEditor from "../../../../../../../shared/editor/RichTextEditor"
-import RichTextViewer from "../../../../../../../shared/editor/RichTextViewer"
+import RichTextEditor from "../../../../../../../components/editor/RichTextEditor"
+import RichTextViewer from "../../../../../../../components/editor/RichTextViewer"
 import { useEffect, useMemo, useState } from "react"
 import type { Jobsheet } from "../../../../../../../services/jobsheet/types"
 import type { JobsheetSubmission } from "../../../../../../../services/submission/types"

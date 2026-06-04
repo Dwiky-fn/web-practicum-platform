@@ -16,6 +16,12 @@ import ExercisePage from "./features/jobsheet/student/work/content/practice/Exer
 import TaskPage from "./features/jobsheet/student/work/content/task/TaskPage"
 import PreviewPage from "./features/jobsheet/student/work/content/report/preview/PreviewPage"
 import ReviewPage from "./features/jobsheet/student/work/content/report/review/ReviewPage"
+import AdminDashboard from "./features/admin/dashboard/AdminDashboard"
+import AdminUsersPage from "./features/admin/users/AdminUsersPage"
+import AdminAcademicPage from "./features/admin/academic/AdminAcademicPage"
+import AdminUserProfilePage from "./features/admin/users/AdminUserProfilePage"
+import AdminClassDetailPage from "./features/admin/academic/AdminClassDetailPage"
+import AdminJobsheetPreviewPage from "./features/admin/academic/AdminJobsheetPreviewPage"
 
 function AppContent() {
   const { loading } = useCurrentUser()
@@ -29,6 +35,12 @@ function AppContent() {
       <Route path="/" element={<LoginPage />} />
       <Route path="/dashboard" element={<DashboardPage />} />
       <Route path="/settings" element={<SettingsPage />} />
+      <Route path="/admin" element={<AdminDashboard />} />
+      <Route path="/admin/users/:role" element={<AdminUsersPage />} />
+      <Route path="/admin/users/:role/:id" element={<AdminUserProfilePage />} />
+      <Route path="/admin/academic" element={<AdminAcademicPage />} />
+      <Route path="/admin/classes/:id" element={<AdminClassDetailPage />} />
+      <Route path="/admin/jobsheets/:id/preview" element={<AdminJobsheetPreviewPage />} />
       <Route path="/courses" element={<StudentCoursePage />} />
       <Route path="/courses/:courseId" element={<CourseDetailPage />} />
       <Route path="/courses/:courseId/jobsheets/:jobsheetId" element={<JobsheetOverviewPage />} />

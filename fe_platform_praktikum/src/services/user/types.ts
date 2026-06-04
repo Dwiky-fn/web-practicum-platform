@@ -66,9 +66,18 @@ export interface UserResponse {
 }
 
 export interface UpdateUserPayload {
-  email?: string
-  password?: string
   isActive?: boolean
   avatarUrl?: string
   personalData?: Partial<PersonalData>
+}
+
+export interface UpdateEmailPayload {
+  email: string
+  currentPassword: string
+}
+
+export interface UpdatePasswordPayload {
+  currentPassword: string
+  newPassword: string
+  confirmPassword: string
 }

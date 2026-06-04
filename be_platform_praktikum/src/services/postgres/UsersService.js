@@ -1,4 +1,33 @@
+const bcrypt = require('bcrypt');
 const pool = require('.');
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function compareBcrypt(password, hash) {
+  return new Promise((resolve, reject) => {
+    bcrypt.compare(password, hash, (error, result) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve(result);
+    });
+  });
+}
+
+function hashBcrypt(password, saltRounds = 10) {
+  return new Promise((resolve, reject) => {
+    bcrypt.hash(password, saltRounds, (error, hash) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve(hash);
+    });
+  });
+}
 
 class UsersService {
   constructor() {
@@ -81,14 +110,10 @@ class UsersService {
       await client.query(
         `UPDATE users
          SET
-          email = COALESCE($2, email),
-          password = COALESCE($3, password),
-          is_active = COALESCE($4, is_active)
+          is_active = COALESCE($2, is_active)
          WHERE id = $1`,
         [
           userId,
-          payload.email ?? null,
-          payload.password ?? null,
           typeof payload.isActive === 'boolean' ? payload.isActive : null,
         ],
       );
@@ -149,6 +174,105 @@ class UsersService {
     } finally {
       client.release();
     }
+  }
+
+  async updateEmail(userId, payload) {
+    const newEmail = payload.email?.trim().toLowerCase();
+    const currentPassword = payload.currentPassword || payload.current_password;
+
+    if (!newEmail) {
+      throw new Error('EMAIL_REQUIRED');
+    }
+
+    if (!EMAIL_PATTERN.test(newEmail)) {
+      throw new Error('EMAIL_INVALID');
+    }
+
+    if (!currentPassword) {
+      throw new Error('CURRENT_PASSWORD_REQUIRED');
+    }
+
+    const userResult = await this._pool.query(
+      'SELECT id, email, password FROM users WHERE id = $1',
+      [userId],
+    );
+
+    if (!userResult.rows.length) {
+      throw new Error('USER_NOT_FOUND');
+    }
+
+    const user = userResult.rows[0];
+
+    if (user.email.toLowerCase() === newEmail) {
+      throw new Error('EMAIL_SAME');
+    }
+
+    const validPassword = await compareBcrypt(currentPassword, user.password);
+
+    if (!validPassword) {
+      throw new Error('PASSWORD_INVALID');
+    }
+
+    try {
+      // TODO: Tambahkan OTP verifikasi email baru sebelum update email.
+      await this._pool.query(
+        'UPDATE users SET email = $2 WHERE id = $1',
+        [userId, newEmail],
+      );
+    } catch (error) {
+      if (error.code === '23505') {
+        throw new Error('EMAIL_DUPLICATE');
+      }
+
+      throw error;
+    }
+
+    return this.getUserById(userId);
+  }
+
+  async updatePassword(userId, payload) {
+    const currentPassword = payload.currentPassword || payload.current_password;
+    const newPassword = payload.newPassword || payload.new_password;
+    const confirmPassword = payload.confirmPassword || payload.confirm_password;
+
+    if (!currentPassword) {
+      throw new Error('CURRENT_PASSWORD_REQUIRED');
+    }
+
+    if (!newPassword || newPassword.length < 8) {
+      throw new Error('NEW_PASSWORD_INVALID');
+    }
+
+    if (newPassword !== confirmPassword) {
+      throw new Error('PASSWORD_CONFIRM_MISMATCH');
+    }
+
+    const userResult = await this._pool.query(
+      'SELECT id, password FROM users WHERE id = $1',
+      [userId],
+    );
+
+    if (!userResult.rows.length) {
+      throw new Error('USER_NOT_FOUND');
+    }
+
+    const validPassword = await compareBcrypt(
+      currentPassword,
+      userResult.rows[0].password,
+    );
+
+    if (!validPassword) {
+      throw new Error('PASSWORD_INVALID');
+    }
+
+    const hashedPassword = await hashBcrypt(newPassword, 10);
+
+    await this._pool.query(
+      'UPDATE users SET password = $2 WHERE id = $1',
+      [userId, hashedPassword],
+    );
+
+    return this.getUserById(userId);
   }
 
   async updateAvatarUrl(userId, avatarUrl) {

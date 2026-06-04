@@ -1,6 +1,11 @@
 import { apiFetch } from "../api"
 import { mapUserResponse } from "./mapper"
-import type { UpdateUserPayload, User } from "./types"
+import type {
+  UpdateEmailPayload,
+  UpdatePasswordPayload,
+  UpdateUserPayload,
+  User,
+} from "./types"
 
 export const getUserById = async (userId: string): Promise<User> => {
   const res = await apiFetch(`/users/${userId}`)
@@ -18,6 +23,28 @@ export const updateUser = async (
   })
 
   return mapUserResponse(res.data.user)
+}
+
+export const updateUserEmail = async (
+  userId: string,
+  payload: UpdateEmailPayload,
+): Promise<User> => {
+  const res = await apiFetch(`/users/${userId}/email`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  })
+
+  return mapUserResponse(res.data.user)
+}
+
+export const updateUserPassword = async (
+  userId: string,
+  payload: UpdatePasswordPayload,
+): Promise<void> => {
+  await apiFetch(`/users/${userId}/password`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  })
 }
 
 export const deactivateUser = async (userId: string): Promise<void> => {

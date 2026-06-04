@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useCurrentUser } from "../../services/user/useCurrentUser";
-import { updateUser, uploadUserAvatar } from "../../services/user/service";
+import {
+  updateUser,
+  updateUserEmail,
+  updateUserPassword,
+  uploadUserAvatar,
+} from "../../services/user/service";
 import type { PersonalData, UpdateUserPayload } from "../../services/user/types";
 import Navbar from "../../components/navbar/Navbar";
 import SettingsLayout from "./components/SettingsLayout";
@@ -65,8 +70,42 @@ export default function SettingsPage() {
     );
   };
 
-  const handleSaveAccount = async (payload: { email?: string; password?: string }) => {
-    await saveUser(payload, "Akun berhasil diperbarui.");
+  const handleChangeEmail = async (payload: {
+    email: string;
+    currentPassword: string;
+  }) => {
+    setSaving(true);
+    setMessage("");
+
+    try {
+      const updatedUser = await updateUserEmail(user.id, payload);
+      setUser(updatedUser);
+      setMessage("Email berhasil diperbarui.");
+    } catch (error) {
+      console.error(error);
+      setMessage(error instanceof Error ? error.message : "Gagal memperbarui email.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async (payload: {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+  }) => {
+    setSaving(true);
+    setMessage("");
+
+    try {
+      await updateUserPassword(user.id, payload);
+      setMessage("Password berhasil diperbarui.");
+    } catch (error) {
+      console.error(error);
+      setMessage(error instanceof Error ? error.message : "Gagal memperbarui password.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -103,7 +142,8 @@ export default function SettingsPage() {
             email={user.email}
             saving={saving}
             message={message}
-            onSave={handleSaveAccount}
+            onChangeEmail={handleChangeEmail}
+            onChangePassword={handleChangePassword}
           />
         )}
       </SettingsLayout>

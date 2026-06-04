@@ -7,7 +7,7 @@ class SubmissionsHandler {
   }
 
   _getStudentId(req) {
-    return req.query.studentId || req.body.studentId;
+    return req.query?.studentId || req.body?.studentId;
   }
 
   _requireStudentId(req, res) {

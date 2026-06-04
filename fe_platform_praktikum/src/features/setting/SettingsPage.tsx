@@ -13,6 +13,7 @@ import ProfileSection from "./components/ProfileSection";
 import PersonalDataSection from "./components/PersonalDataSection";
 import AccountSection from "./components/AccountSection";
 import TopProgressBar from "../../components/loading/TopProgressBar";
+import AdminLayout from "../admin/components/AdminLayout";
 
 export default function SettingsPage() {
   const { user, setUser } = useCurrentUser();
@@ -30,6 +31,7 @@ export default function SettingsPage() {
       : user.role === "DOSEN"
       ? { fullname: user.fullname, ...user.lecturerProfile }
       : { fullname: user.fullname, ...user.adminProfile };
+  const isAdmin = user.role === "ADMIN";
 
   const saveUser = async (payload: UpdateUserPayload, successMessage: string) => {
     setSaving(true);
@@ -108,11 +110,8 @@ export default function SettingsPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <TopProgressBar />
-
+  const settingsContent = (
+    <>
       <SettingsLayout
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -147,6 +146,23 @@ export default function SettingsPage() {
           />
         )}
       </SettingsLayout>
+    </>
+  );
+
+  if (isAdmin) {
+    return (
+      <AdminLayout>
+        <TopProgressBar />
+        {settingsContent}
+      </AdminLayout>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      <TopProgressBar />
+      {settingsContent}
     </div>
   );
 }

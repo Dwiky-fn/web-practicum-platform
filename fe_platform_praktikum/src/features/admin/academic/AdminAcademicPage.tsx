@@ -16,6 +16,7 @@ import {
   inputClass,
 } from "../components/AdminUI"
 import {
+  activateAdminCourse,
   activateAdminSemester,
   createAdminClass,
   createAdminCourse,
@@ -24,6 +25,7 @@ import {
   getAdminCourses,
   getAdminSemesters,
   getAdminUsers,
+  updateAdminCourse,
 } from "../../../services/admin/service"
 import type {
   AcademicClass,
@@ -32,8 +34,20 @@ import type {
   AdminLecturer,
   AdminTab,
 } from "../../../services/admin/types"
+import {
+  getActiveSemester,
+  getStudentSemesterOptions,
+} from "./semesterOptions"
 
-type ModalMode = "semester" | "course" | "class" | "activate" | null
+type ModalMode = "semester" | "course" | "course-edit" | "class" | "activate" | null
+
+type CourseFormState = {
+  code: string
+  name: string
+  semester: string
+  sks: string
+  status: "Aktif" | "Nonaktif" | ""
+}
 
 const tabs: Array<{ id: AdminTab; label: string }> = [
   { id: "semester", label: "Semester" },
@@ -52,6 +66,14 @@ export default function AdminAcademicPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [modal, setModal] = useState<ModalMode>(null)
   const [selectedSemester, setSelectedSemester] = useState<AcademicSemester | null>(null)
+  const [selectedCourse, setSelectedCourse] = useState<AcademicCourse | null>(null)
+  const [courseForm, setCourseForm] = useState<CourseFormState>({
+    code: "",
+    name: "",
+    semester: "",
+    sks: "",
+    status: "",
+  })
   const [semesters, setSemesters] = useState<AcademicSemester[]>([])
   const [courses, setCourses] = useState<AcademicCourse[]>([])
   const [classes, setClasses] = useState<AcademicClass[]>([])
@@ -108,11 +130,40 @@ export default function AdminAcademicPage() {
     })
   }, [classes, keyword, statusFilter])
 
-  const activeSemester = semesters.find((semester) => semester.status === "Aktif")
+  const activeSemester = getActiveSemester(semesters)
+  const studentSemesterOptions = useMemo(
+    () => getStudentSemesterOptions(activeSemester?.term),
+    [activeSemester?.term],
+  )
+  const classCourseOptions = useMemo(
+    () => courses.filter((course) => studentSemesterOptions.includes(course.semester)),
+    [courses, studentSemesterOptions],
+  )
+  const addClassDisabledReason = !activeSemester
+    ? "Belum ada semester akademik aktif."
+    : !classCourseOptions.length
+    ? `Belum ada mata kuliah semester ${studentSemesterOptions.join(", ")} untuk semester aktif ${activeSemester.term}.`
+    : !lecturers.length
+    ? "Belum ada dosen aktif untuk dijadikan pengampu."
+    : ""
   const closeModal = () => {
     setModal(null)
     setSelectedSemester(null)
+    setSelectedCourse(null)
+    setCourseForm({
+      code: "",
+      name: "",
+      semester: "",
+      sks: "",
+      status: "",
+    })
   }
+
+  useEffect(() => {
+    if (semesterFilter !== "all" && !studentSemesterOptions.includes(Number(semesterFilter))) {
+      setSemesterFilter("all")
+    }
+  }, [semesterFilter, studentSemesterOptions])
 
   const handleSemesterSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -123,8 +174,8 @@ export default function AdminAcademicPage() {
     try {
       await createAdminSemester({
         year: `${startYear}/${endYear}`,
-        term: String(form.get("term") || "Genap") as "Ganjil" | "Genap",
-        status: String(form.get("status") || "Nonaktif") as "Aktif" | "Nonaktif",
+        term: String(form.get("term") || "") as "Ganjil" | "Genap",
+        status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
       })
       closeModal()
       fetchAcademicData()
@@ -143,12 +194,52 @@ export default function AdminAcademicPage() {
         name: String(form.get("name") || ""),
         semester: Number(form.get("semester") || 0),
         sks: Number(form.get("sks") || 0),
-        status: String(form.get("status") || "Aktif") as "Aktif" | "Nonaktif",
+        status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
       })
       closeModal()
       fetchAcademicData()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan mata kuliah")
+    }
+  }
+
+  const openEditCourse = (course: AcademicCourse) => {
+    setSelectedCourse(course)
+    setCourseForm({
+      code: course.code,
+      name: course.name,
+      semester: String(course.semester),
+      sks: String(course.sks),
+      status: course.status,
+    })
+    setModal("course-edit")
+  }
+
+  const handleCourseEditSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedCourse) return
+
+    try {
+      await updateAdminCourse(selectedCourse.id, {
+        code: courseForm.code,
+        name: courseForm.name,
+        semester: Number(courseForm.semester),
+        sks: Number(courseForm.sks),
+        status: courseForm.status as "Aktif" | "Nonaktif",
+      })
+      closeModal()
+      fetchAcademicData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memperbarui mata kuliah")
+    }
+  }
+
+  const handleActivateCourse = async (course: AcademicCourse) => {
+    try {
+      await activateAdminCourse(course.id)
+      fetchAcademicData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal mengaktifkan mata kuliah")
     }
   }
 
@@ -162,7 +253,7 @@ export default function AdminAcademicPage() {
         name: String(form.get("name") || ""),
         lecturerId: String(form.get("lecturerId") || ""),
         academicPeriodId: activeSemester?.id,
-        status: String(form.get("status") || "Aktif") as "Aktif" | "Nonaktif",
+        status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
       })
       closeModal()
       fetchAcademicData()
@@ -221,20 +312,20 @@ export default function AdminAcademicPage() {
           <form id="admin-semester-form" className="space-y-4" onSubmit={handleSemesterSubmit}>
             <FieldRow label="Tahun Ajaran">
               <div className="flex items-center gap-2">
-                <input name="startYear" className={`${inputClass} w-28`} defaultValue="2025" required />
+                <input name="startYear" className={`${inputClass} w-28`} placeholder="2025" required />
                 <span>/</span>
-                <input name="endYear" className={`${inputClass} w-28`} defaultValue="2026" required />
+                <input name="endYear" className={`${inputClass} w-28`} placeholder="2026" required />
               </div>
             </FieldRow>
             <FieldRow label="Semester">
               <div className="flex gap-5">
-                <label className="flex items-center gap-2"><input type="radio" name="term" value="Genap" defaultChecked /> Genap</label>
+                <label className="flex items-center gap-2"><input type="radio" name="term" value="Genap" required /> Genap</label>
                 <label className="flex items-center gap-2"><input type="radio" name="term" value="Ganjil" /> Ganjil</label>
               </div>
             </FieldRow>
             <FieldRow label="Status">
               <div className="flex gap-5">
-                <label className="flex items-center gap-2"><input type="radio" name="status" value="Aktif" defaultChecked /> Aktif</label>
+                <label className="flex items-center gap-2"><input type="radio" name="status" value="Aktif" required /> Aktif</label>
                 <label className="flex items-center gap-2"><input type="radio" name="status" value="Nonaktif" /> Nonaktif</label>
               </div>
             </FieldRow>
@@ -256,16 +347,108 @@ export default function AdminAcademicPage() {
           }
         >
           <form id="admin-course-form" className="space-y-4" onSubmit={handleCourseSubmit}>
-            <FieldRow label="Kode MK"><input name="code" className={inputClass} defaultValue="TIF11018" required /></FieldRow>
-            <FieldRow label="Mata Kuliah"><input name="name" className={inputClass} defaultValue="Basis Data" required /></FieldRow>
+            <FieldRow label="Kode MK"><input name="code" className={inputClass} placeholder="Masukkan kode mata kuliah" required /></FieldRow>
+            <FieldRow label="Mata Kuliah"><input name="name" className={inputClass} placeholder="Masukkan nama mata kuliah" required /></FieldRow>
             <FieldRow label="Semester Mahasiswa">
-              <select name="semester" className={inputClass} defaultValue="5"><option>1</option><option>3</option><option>5</option><option>6</option></select>
+              <select name="semester" className={inputClass} required>
+                <option value="" disabled>Pilih semester</option>
+                {studentSemesterOptions.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
             </FieldRow>
-            <FieldRow label="Jumlah SKS"><input name="sks" className={inputClass} defaultValue="3" required /></FieldRow>
+            <FieldRow label="Jumlah SKS"><input name="sks" className={inputClass} placeholder="Masukkan jumlah SKS" required /></FieldRow>
             <FieldRow label="Status">
               <div className="flex gap-5">
-                <label className="flex items-center gap-2"><input type="radio" name="status" value="Aktif" defaultChecked /> Aktif</label>
+                <label className="flex items-center gap-2"><input type="radio" name="status" value="Aktif" required /> Aktif</label>
                 <label className="flex items-center gap-2"><input type="radio" name="status" value="Nonaktif" /> Nonaktif</label>
+              </div>
+            </FieldRow>
+          </form>
+        </AdminModal>
+      )
+    }
+
+    if (modal === "course-edit") {
+      return (
+        <AdminModal
+          title="Edit Mata Kuliah"
+          onClose={closeModal}
+          footer={
+            <>
+              <AdminButton variant="secondary" onClick={closeModal}>Batal</AdminButton>
+              <AdminButton type="submit" form="admin-course-edit-form">Simpan</AdminButton>
+            </>
+          }
+        >
+          <form id="admin-course-edit-form" className="space-y-4" onSubmit={handleCourseEditSubmit}>
+            <FieldRow label="Kode MK">
+              <input
+                name="code"
+                className={inputClass}
+                value={courseForm.code}
+                onChange={(event) => setCourseForm((form) => ({ ...form, code: event.target.value }))}
+                placeholder="Masukkan kode mata kuliah"
+                required
+              />
+            </FieldRow>
+            <FieldRow label="Mata Kuliah">
+              <input
+                name="name"
+                className={inputClass}
+                value={courseForm.name}
+                onChange={(event) => setCourseForm((form) => ({ ...form, name: event.target.value }))}
+                placeholder="Masukkan nama mata kuliah"
+                required
+              />
+            </FieldRow>
+            <FieldRow label="Semester Mahasiswa">
+              <select
+                name="semester"
+                className={inputClass}
+                value={courseForm.semester}
+                onChange={(event) => setCourseForm((form) => ({ ...form, semester: event.target.value }))}
+                required
+              >
+                <option value="" disabled>Pilih semester</option>
+                {[1, 2, 3, 4, 5, 6].map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
+            </FieldRow>
+            <FieldRow label="Jumlah SKS">
+              <input
+                name="sks"
+                className={inputClass}
+                value={courseForm.sks}
+                onChange={(event) => setCourseForm((form) => ({ ...form, sks: event.target.value }))}
+                placeholder="Masukkan jumlah SKS"
+                required
+              />
+            </FieldRow>
+            <FieldRow label="Status">
+              <div className="flex gap-5">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="status"
+                    value="Aktif"
+                    checked={courseForm.status === "Aktif"}
+                    onChange={() => setCourseForm((form) => ({ ...form, status: "Aktif" }))}
+                    required
+                  />
+                  Aktif
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="status"
+                    value="Nonaktif"
+                    checked={courseForm.status === "Nonaktif"}
+                    onChange={() => setCourseForm((form) => ({ ...form, status: "Nonaktif" }))}
+                  />
+                  Nonaktif
+                </label>
               </div>
             </FieldRow>
           </form>
@@ -288,21 +471,29 @@ export default function AdminAcademicPage() {
           <FieldRow label="Semester Akademik"><span className="text-sm font-semibold">{activeSemester ? `${activeSemester.year} - ${activeSemester.term}` : "Belum ada semester aktif"}</span></FieldRow>
           <FieldRow label="Mata Kuliah">
             <select name="courseId" className={inputClass} required>
-              {courses.map((course) => <option key={course.id} value={course.id}>{course.name}</option>)}
+              <option value="" disabled>Pilih mata kuliah</option>
+              {classCourseOptions.map((course) => <option key={course.id} value={course.id}>{course.name}</option>)}
             </select>
           </FieldRow>
           <FieldRow label="Kelas">
-            <select name="name" className={inputClass} defaultValue="A"><option>A</option><option>B</option><option>C</option><option>D</option></select>
+            <select name="name" className={inputClass} required>
+              <option value="" disabled>Pilih kelas</option>
+              <option>A</option>
+              <option>B</option>
+              <option>C</option>
+              <option>D</option>
+            </select>
           </FieldRow>
           <FieldRow label="Dosen Pengampu">
             <select name="lecturerId" className={inputClass} required>
+              <option value="" disabled>Pilih dosen pengampu</option>
               {lecturers.map((lecturer) => <option key={lecturer.id} value={lecturer.id}>{lecturer.fullname}</option>)}
             </select>
           </FieldRow>
           <FieldRow label="Status">
             <div className="flex gap-5">
-              <label className="flex items-center gap-2"><input type="radio" name="status" value="Nonaktif" /> Draft</label>
-              <label className="flex items-center gap-2"><input type="radio" name="status" value="Aktif" defaultChecked /> Aktif</label>
+              <label className="flex items-center gap-2"><input type="radio" name="status" value="Nonaktif" required /> Draft</label>
+              <label className="flex items-center gap-2"><input type="radio" name="status" value="Aktif" /> Aktif</label>
             </div>
           </FieldRow>
         </form>
@@ -380,10 +571,9 @@ export default function AdminAcademicPage() {
                   <AdminButton onClick={() => setModal("course")}><Plus size={16} />Tambah Mata Kuliah</AdminButton>
                   <AdminSelect value={semesterFilter} onChange={setSemesterFilter} label="Semester">
                     <option value="all">Semua Semester</option>
-                    <option value="1">Semester 1</option>
-                    <option value="3">Semester 3</option>
-                    <option value="5">Semester 5</option>
-                    <option value="6">Semester 6</option>
+                    {studentSemesterOptions.map((option) => (
+                      <option key={option} value={option}>Semester {option}</option>
+                    ))}
                   </AdminSelect>
                   <AdminSearchInput value={keyword} onChange={setKeyword} placeholder="Cari Mata Kuliah" />
                 </div>
@@ -398,7 +588,22 @@ export default function AdminAcademicPage() {
                       <td className="px-4 py-3">{course.semester}</td>
                       <td className="px-4 py-3">{course.sks}</td>
                       <td className="px-4 py-3">{course.status}</td>
-                      <td className="px-4 py-3"><AdminButton variant="ghost" className="h-8 px-2" disabled>{course.status === "Aktif" ? "Edit" : "Aktifkan"}</AdminButton></td>
+                      <td className="px-4 py-3">
+                        <AdminButton
+                          variant="ghost"
+                          className="h-8 px-2"
+                          onClick={() => {
+                            if (course.status === "Aktif") {
+                              openEditCourse(course)
+                              return
+                            }
+
+                            handleActivateCourse(course)
+                          }}
+                        >
+                          {course.status === "Aktif" ? "Edit" : "Aktifkan"}
+                        </AdminButton>
+                      </td>
                     </tr>
                   ))}
                 </AdminTable>
@@ -411,7 +616,14 @@ export default function AdminAcademicPage() {
               <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <h2 className="text-lg font-semibold">Daftar Kelas</h2>
                 <div className="flex flex-wrap gap-3">
-                  <AdminButton onClick={() => setModal("class")} disabled={!activeSemester || !courses.length || !lecturers.length}><Plus size={16} />Tambah Kelas</AdminButton>
+                  <AdminButton
+                    onClick={() => setModal("class")}
+                    disabled={Boolean(addClassDisabledReason)}
+                    title={addClassDisabledReason || "Tambah Kelas"}
+                  >
+                    <Plus size={16} />
+                    Tambah Kelas
+                  </AdminButton>
                   <AdminSelect value={statusFilter} onChange={setStatusFilter} label="Status">
                     <option value="all">Semua Status</option>
                     <option value="Aktif">Aktif</option>
@@ -420,6 +632,11 @@ export default function AdminAcademicPage() {
                   <AdminSearchInput value={keyword} onChange={setKeyword} placeholder="Cari Kelas" />
                 </div>
               </div>
+              {addClassDisabledReason && (
+                <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  {addClassDisabledReason}
+                </div>
+              )}
 
               {filteredClasses.length ? (
                 <AdminTable headers={["Kelas", "Mata Kuliah", "Dosen", "Status", "Aksi"]}>
@@ -438,7 +655,19 @@ export default function AdminAcademicPage() {
                   ))}
                 </AdminTable>
               ) : (
-                <EmptyState title="Belum ada kelas pada semester ini" action={<AdminButton onClick={() => setModal("class")}><Plus size={16} />Tambah Kelas</AdminButton>} />
+                <EmptyState
+                  title="Belum ada kelas pada semester ini"
+                  action={
+                    <AdminButton
+                      onClick={() => setModal("class")}
+                      disabled={Boolean(addClassDisabledReason)}
+                      title={addClassDisabledReason || "Tambah Kelas"}
+                    >
+                      <Plus size={16} />
+                      Tambah Kelas
+                    </AdminButton>
+                  }
+                />
               )}
             </div>
           )}

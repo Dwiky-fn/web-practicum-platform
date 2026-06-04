@@ -1,6 +1,6 @@
 import { BookOpen, GraduationCap, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Users } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Navbar from "../../../components/navbar/Navbar"
 
 interface Props {
@@ -16,9 +16,15 @@ const linkClass = ({ isActive, collapsed }: { isActive: boolean; collapsed: bool
 
 export default function AdminLayout({ children }: Props) {
   const location = useLocation()
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => (
+    localStorage.getItem("adminSidebarCollapsed") === "true"
+  ))
 
   const isUsers = location.pathname.startsWith("/admin/users")
+
+  useEffect(() => {
+    localStorage.setItem("adminSidebarCollapsed", String(collapsed))
+  }, [collapsed])
 
   const sidebar = (
     <aside

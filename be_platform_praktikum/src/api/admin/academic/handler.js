@@ -49,6 +49,26 @@ class AcademicHandler {
       return handleAdminError(error, res);
     }
   }
+
+  async updateCourseHandler(req, res) {
+    try {
+      const course = await this._service.updateCourse(req.params.id, req.body);
+      return ok(res, { course }, 'Mata kuliah berhasil diperbarui');
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
+
+  async activateCourseHandler(req, res) {
+    try {
+      const course = await this._service.updateCourse(req.params.id, {
+        status: 'Aktif',
+      });
+      return ok(res, { course }, 'Mata kuliah berhasil diaktifkan');
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
 }
 
 module.exports = AcademicHandler;

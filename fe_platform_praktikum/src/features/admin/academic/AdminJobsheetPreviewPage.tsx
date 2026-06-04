@@ -49,18 +49,18 @@ export default function AdminJobsheetPreviewPage() {
           <PreviewSection title="Informasi Umum">
             <label className="block text-sm font-medium">
               Judul Jobsheet *
-              <input className={`${inputClass} mt-2 w-full`} defaultValue="Tipe Data, Variabel, dan Konstanta" readOnly />
+              <input className={`${inputClass} mt-2 w-full`} placeholder="Masukkan judul jobsheet" readOnly />
             </label>
             <label className="block text-sm font-medium">
               Deskripsi Singkat
-              <input className={`${inputClass} mt-2 w-full`} defaultValue="Mahasiswa memahami tipe data dasar Java." readOnly />
+              <input className={`${inputClass} mt-2 w-full`} placeholder="Masukkan deskripsi singkat" readOnly />
             </label>
           </PreviewSection>
 
           <PreviewSection title="Tujuan Praktikum *">
             <textarea
               className="min-h-28 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-              defaultValue="Mahasiswa mampu menggunakan variabel, konstanta, dan berbagai tipe data dalam program Java."
+              placeholder="Masukkan tujuan praktikum"
               readOnly
             />
           </PreviewSection>
@@ -68,11 +68,11 @@ export default function AdminJobsheetPreviewPage() {
           <PreviewSection title="Dasar Teori *">
             <label className="block text-sm font-medium">
               Subtopik 1
-              <input className={`${inputClass} mt-2 w-full`} defaultValue="Tipe Data" readOnly />
+              <input className={`${inputClass} mt-2 w-full`} placeholder="Masukkan judul subtopik" readOnly />
             </label>
             <textarea
               className="min-h-32 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-              defaultValue="Tipe data digunakan untuk menentukan jenis nilai yang dapat disimpan oleh variabel."
+              placeholder="Masukkan materi dasar teori"
               readOnly
             />
           </PreviewSection>
@@ -82,7 +82,7 @@ export default function AdminJobsheetPreviewPage() {
               <h3 className="font-semibold text-blue-950">Percobaan 1</h3>
               <label className="mt-3 block text-sm font-medium">
                 Judul *
-                <input className={`${inputClass} mt-2 w-full`} defaultValue="Tipe Data Integer" readOnly />
+                <input className={`${inputClass} mt-2 w-full`} placeholder="Masukkan judul percobaan" readOnly />
               </label>
               <p className="mt-4 text-sm font-medium">Instruksi Percobaan</p>
               <ol className="ml-5 mt-2 list-decimal text-sm text-gray-700">
@@ -107,13 +107,13 @@ export default function AdminJobsheetPreviewPage() {
           <PreviewSection title="Tugas Praktikum">
             <div className="space-y-3 text-sm">
               <p className="font-medium">Konten Laporan</p>
-              <label className="flex items-center gap-2"><input type="checkbox" defaultChecked /> Percobaan 1 - Pengenalan OOP</label>
-              <label className="flex items-center gap-2"><input type="checkbox" defaultChecked /> Percobaan 2 - Kelas dan Objek</label>
+              <label className="flex items-center gap-2"><input type="checkbox" /> Percobaan 1 - Pengenalan OOP</label>
+              <label className="flex items-center gap-2"><input type="checkbox" /> Percobaan 2 - Kelas dan Objek</label>
               <label className="block font-medium">
                 Instruksi *
                 <textarea
                   className="mt-2 min-h-24 w-full rounded-md border border-gray-300 bg-white px-3 py-2"
-                  defaultValue="Buatlah laporan praktikum untuk percobaan dan latihan yang telah ditentukan."
+                  placeholder="Masukkan instruksi laporan"
                   readOnly
                 />
               </label>

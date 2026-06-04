@@ -80,7 +80,10 @@ class AdminUsersService {
     const normalizedRole = role === 'lecturers' || role === 'DOSEN' ? 'DOSEN' : 'MAHASISWA';
     const prefix = normalizedRole === 'DOSEN' ? 'dosen' : 'mhs';
     const id = payload.id || createId(prefix);
-    const password = await bcrypt.hash(payload.password || DEFAULT_PASSWORD, 10);
+    const defaultPassword = normalizedRole === 'MAHASISWA'
+      ? payload.nim || DEFAULT_PASSWORD
+      : DEFAULT_PASSWORD;
+    const password = await bcrypt.hash(payload.password || defaultPassword, 10);
 
     try {
       await client.query('BEGIN');
@@ -130,6 +133,83 @@ class AdminUsersService {
     } catch (error) {
       await client.query('ROLLBACK');
       if (error.code === '23505') throw new Error('USER_DUPLICATE');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async setUserActive(id, active) {
+    const client = await this._pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const current = await client.query(
+        'SELECT id, role FROM users WHERE id = $1',
+        [id],
+      );
+
+      if (!current.rows.length) throw new Error('USER_NOT_FOUND');
+
+      const role = current.rows[0].role;
+      const status = active ? 'Aktif' : 'Nonaktif';
+
+      await client.query(
+        'UPDATE users SET is_active = $2 WHERE id = $1',
+        [id, active],
+      );
+
+      if (role === 'MAHASISWA') {
+        await client.query(
+          'UPDATE student_profiles SET status = $2 WHERE user_id = $1',
+          [id, status],
+        );
+      }
+
+      if (role === 'DOSEN') {
+        await client.query(
+          'UPDATE lecturer_profiles SET status = $2 WHERE user_id = $1',
+          [id, status],
+        );
+      }
+
+      await client.query('COMMIT');
+      return this.getUserById(id);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async deleteUser(id) {
+    const client = await this._pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const current = await client.query(
+        'SELECT id, role FROM users WHERE id = $1',
+        [id],
+      );
+
+      if (!current.rows.length) throw new Error('USER_NOT_FOUND');
+
+      if (current.rows[0].role === 'DOSEN') {
+        const assignedClasses = await client.query(
+          'SELECT id FROM classes WHERE lecturer_id = $1 LIMIT 1',
+          [id],
+        );
+
+        if (assignedClasses.rows.length) throw new Error('USER_HAS_CLASSES');
+      }
+
+      await client.query('DELETE FROM users WHERE id = $1', [id]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();

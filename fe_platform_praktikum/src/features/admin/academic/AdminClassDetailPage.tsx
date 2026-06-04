@@ -24,6 +24,7 @@ import type {
   AdminLecturer,
   AdminStudent,
 } from "../../../services/admin/types"
+import { getStudentSemesterOptions } from "./semesterOptions"
 
 type DetailTab = "students" | "jobsheets" | "settings"
 
@@ -91,6 +92,16 @@ export default function AdminClassDetailPage() {
 
   const selectedClass = classDetail
   const candidates = useMemo(() => studentCandidates, [studentCandidates])
+  const studentSemesterOptions = useMemo(
+    () => getStudentSemesterOptions(selectedClass?.semesterYear),
+    [selectedClass?.semesterYear],
+  )
+
+  useEffect(() => {
+    if (studentSemester !== "all" && !studentSemesterOptions.includes(Number(studentSemester))) {
+      setStudentSemester("all")
+    }
+  }, [studentSemester, studentSemesterOptions])
 
   const toggleStudent = (studentId: string) => {
     setSelectedStudentIds((prev) =>
@@ -248,7 +259,11 @@ export default function AdminClassDetailPage() {
               <section className="border-b border-gray-200 py-5">
                 <h2 className="text-lg font-semibold text-gray-900">Dosen Pengampu</h2>
                 <FieldRow label="Pilih Dosen">
-                  <select className={`${inputClass} max-w-sm`} defaultValue={selectedClass.lecturerId}>
+                  <select
+                    className={`${inputClass} max-w-sm`}
+                    value={selectedClass.lecturerId}
+                    onChange={() => undefined}
+                  >
                     {lecturers.map((lecturer) => <option key={lecturer.id} value={lecturer.id}>{lecturer.fullname}</option>)}
                   </select>
                 </FieldRow>
@@ -258,7 +273,12 @@ export default function AdminClassDetailPage() {
                 <div className="mt-3 grid gap-2 text-sm">
                   {["Draft", "Aktif", "Arsip"].map((status) => (
                     <label key={status} className="flex items-center gap-2">
-                      <input type="radio" name="class-status" defaultChecked={selectedClass.status === status} />
+                      <input
+                        type="radio"
+                        name="class-status"
+                        checked={selectedClass.status === status}
+                        onChange={() => undefined}
+                      />
                       {status}
                     </label>
                   ))}
@@ -288,10 +308,9 @@ export default function AdminClassDetailPage() {
             <FieldRow label="Semester Mahasiswa">
               <select className={inputClass} value={studentSemester} onChange={(event) => setStudentSemester(event.target.value)}>
                 <option value="all">Semua Semester</option>
-                <option value="1">1</option>
-                <option value="3">3</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
+                {studentSemesterOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
               </select>
             </FieldRow>
             <FieldRow label="Cari Mahasiswa">

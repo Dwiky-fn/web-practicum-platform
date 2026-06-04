@@ -42,3 +42,27 @@ export const createAdminLecturer = async (
   })
   return res.data.user
 }
+
+export const activateAdminUser = async (
+  id: string,
+): Promise<AdminStudent | AdminLecturer> => {
+  const res = await apiFetch(`/admin/users/${id}/activate`, {
+    method: "POST",
+  })
+  return res.data.user
+}
+
+export const deactivateAdminUser = async (
+  id: string,
+): Promise<AdminStudent | AdminLecturer> => {
+  const res = await apiFetch(`/admin/users/${id}/deactivate`, {
+    method: "POST",
+  })
+  return res.data.user
+}
+
+export const deleteAdminUser = async (id: string): Promise<void> => {
+  await apiFetch(`/admin/users/${id}`, {
+    method: "DELETE",
+  })
+}

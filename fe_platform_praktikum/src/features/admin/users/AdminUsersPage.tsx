@@ -1,4 +1,4 @@
-import { ChevronDown, FileUp, Plus } from "lucide-react"
+import { ChevronDown, FileUp, Plus, Trash2, UserCheck, UserX } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import AdminLayout from "../components/AdminLayout"
@@ -14,15 +14,25 @@ import {
   inputClass,
 } from "../components/AdminUI"
 import {
+  activateAdminUser,
   createAdminLecturer,
   createAdminStudent,
+  deactivateAdminUser,
+  deleteAdminUser,
+  getAdminSemesters,
   getAdminUsers,
 } from "../../../services/admin/service"
 import type {
+  AcademicSemester,
   AdminLecturer,
   AdminStudent,
   UserRoleTab,
 } from "../../../services/admin/types"
+import {
+  getAcademicYearOptions,
+  getActiveSemester,
+  getStudentSemesterOptions,
+} from "../academic/semesterOptions"
 
 type ModalMode = "add" | "import" | "menu" | null
 
@@ -33,11 +43,15 @@ export default function AdminUsersPage() {
   const [keyword, setKeyword] = useState("")
   const [semester, setSemester] = useState("all")
   const [modal, setModal] = useState<ModalMode>(null)
+  const [semesters, setSemesters] = useState<AcademicSemester[]>([])
   const [students, setStudents] = useState<AdminStudent[]>([])
   const [lecturers, setLecturers] = useState<AdminLecturer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const isStudent = role === "students"
+  const activeSemester = getActiveSemester(semesters)
+  const studentSemesterOptions = getStudentSemesterOptions(activeSemester?.term)
+  const academicYearOptions = getAcademicYearOptions(semesters)
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
@@ -65,6 +79,25 @@ export default function AdminUsersPage() {
     fetchUsers()
   }, [fetchUsers])
 
+  useEffect(() => {
+    async function fetchSemesters() {
+      try {
+        const data = await getAdminSemesters()
+        setSemesters(data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Gagal mengambil data semester")
+      }
+    }
+
+    fetchSemesters()
+  }, [])
+
+  useEffect(() => {
+    if (semester !== "all" && !studentSemesterOptions.includes(Number(semester))) {
+      setSemester("all")
+    }
+  }, [semester, studentSemesterOptions])
+
   const handleAddSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
@@ -77,14 +110,14 @@ export default function AdminUsersPage() {
           email: String(form.get("email") || ""),
           angkatan: Number(form.get("angkatan") || 0),
           semester: Number(form.get("semester") || 0),
-          status: String(form.get("status") || "Aktif") as "Aktif" | "Nonaktif",
+          status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
         })
       } else {
         await createAdminLecturer({
           nip: String(form.get("identifier") || ""),
           fullname: String(form.get("fullname") || ""),
           email: String(form.get("email") || ""),
-          status: String(form.get("status") || "Aktif") as "Aktif" | "Nonaktif",
+          status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
         })
       }
 
@@ -92,6 +125,32 @@ export default function AdminUsersPage() {
       fetchUsers()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan pengguna")
+    }
+  }
+
+  const handleToggleUserStatus = async (user: AdminStudent | AdminLecturer) => {
+    try {
+      if (user.status === "Aktif") {
+        await deactivateAdminUser(user.id)
+      } else {
+        await activateAdminUser(user.id)
+      }
+
+      fetchUsers()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal mengubah status pengguna")
+    }
+  }
+
+  const handleDeleteUser = async (user: AdminStudent | AdminLecturer) => {
+    const confirmed = window.confirm(`Hapus pengguna ${user.fullname}?`)
+    if (!confirmed) return
+
+    try {
+      await deleteAdminUser(user.id)
+      fetchUsers()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menghapus pengguna")
     }
   }
 
@@ -147,34 +206,42 @@ export default function AdminUsersPage() {
       >
         <form id="admin-user-form" className="space-y-4" onSubmit={handleAddSubmit}>
           <FieldRow label={isStudent ? "NIM" : "NIP"}>
-            <input name="identifier" className={inputClass} defaultValue={isStudent ? "3202316008" : "1997xxxxxx"} required />
+            <input
+              name="identifier"
+              className={inputClass}
+              placeholder={isStudent ? "Masukkan NIM" : "Masukkan NIP"}
+              required
+            />
           </FieldRow>
           <FieldRow label="Nama Lengkap">
-            <input name="fullname" className={inputClass} defaultValue="Hafidz Syadi" required />
+            <input name="fullname" className={inputClass} placeholder="Masukkan nama lengkap" required />
           </FieldRow>
           {isStudent && (
             <>
               <FieldRow label="Angkatan">
-                <select name="angkatan" className={inputClass} defaultValue="2025">
-                  <option>2025</option>
-                  <option>2024</option>
-                  <option>2023</option>
+                <select name="angkatan" className={inputClass} required>
+                  <option value="" disabled>Pilih angkatan</option>
+                  {(academicYearOptions.length ? academicYearOptions : [2025, 2024, 2023]).map((year) => (
+                    <option key={year}>{year}</option>
+                  ))}
                 </select>
               </FieldRow>
               <FieldRow label="Semester">
-                <select name="semester" className={inputClass} defaultValue="5">
-                  <option>1</option>
-                  <option>3</option>
-                  <option>5</option>
+                <select name="semester" className={inputClass} required>
+                  <option value="" disabled>Pilih semester</option>
+                  {studentSemesterOptions.map((option) => (
+                    <option key={option}>{option}</option>
+                  ))}
                 </select>
               </FieldRow>
             </>
           )}
           <FieldRow label="Email">
-            <input name="email" className={inputClass} type="email" defaultValue="email@domain.com" required />
+            <input name="email" className={inputClass} type="email" placeholder="Masukkan email" required />
           </FieldRow>
           <FieldRow label="Status">
-            <select name="status" className={inputClass} defaultValue="Aktif">
+            <select name="status" className={inputClass} required>
+              <option value="" disabled>Pilih status</option>
               <option>Aktif</option>
               <option>Nonaktif</option>
             </select>
@@ -194,10 +261,9 @@ export default function AdminUsersPage() {
             {isStudent && (
               <AdminSelect value={semester} onChange={setSemester} label="Filter semester">
                 <option value="all">Semua Semester</option>
-                <option value="1">Semester 1</option>
-                <option value="3">Semester 3</option>
-                <option value="5">Semester 5</option>
-                <option value="6">Semester 6</option>
+                {studentSemesterOptions.map((option) => (
+                  <option key={option} value={option}>Semester {option}</option>
+                ))}
               </AdminSelect>
             )}
             <AdminSearchInput
@@ -251,13 +317,29 @@ export default function AdminUsersPage() {
                 <td className="px-4 py-3">{student.fullname}</td>
                 <td className="px-4 py-3">{student.semester}</td>
                 <td className="px-4 py-3">{student.status}</td>
-                <td className="px-4 py-3">
+                <td className="flex flex-wrap gap-2 px-4 py-3">
                   <AdminButton
                     variant="ghost"
                     className="h-8 px-2"
                     onClick={() => navigate(`/admin/users/students/${student.id}`)}
                   >
                     Detail
+                  </AdminButton>
+                  <AdminButton
+                    variant="ghost"
+                    className="h-8 px-2"
+                    onClick={() => handleToggleUserStatus(student)}
+                  >
+                    {student.status === "Aktif" ? <UserX size={14} /> : <UserCheck size={14} />}
+                    {student.status === "Aktif" ? "Nonaktifkan" : "Aktifkan"}
+                  </AdminButton>
+                  <AdminButton
+                    variant="danger"
+                    className="h-8 px-2"
+                    onClick={() => handleDeleteUser(student)}
+                  >
+                    <Trash2 size={14} />
+                    Hapus
                   </AdminButton>
                 </td>
               </tr>
@@ -277,13 +359,29 @@ export default function AdminUsersPage() {
               <td className="px-4 py-3">{lecturer.fullname}</td>
               <td className="px-4 py-3">{lecturer.email}</td>
               <td className="px-4 py-3">{lecturer.status}</td>
-              <td className="px-4 py-3">
+              <td className="flex flex-wrap gap-2 px-4 py-3">
                 <AdminButton
                   variant="ghost"
                   className="h-8 px-2"
                   onClick={() => navigate(`/admin/users/lecturers/${lecturer.id}`)}
                 >
                   Detail
+                </AdminButton>
+                <AdminButton
+                  variant="ghost"
+                  className="h-8 px-2"
+                  onClick={() => handleToggleUserStatus(lecturer)}
+                >
+                  {lecturer.status === "Aktif" ? <UserX size={14} /> : <UserCheck size={14} />}
+                  {lecturer.status === "Aktif" ? "Nonaktifkan" : "Aktifkan"}
+                </AdminButton>
+                <AdminButton
+                  variant="danger"
+                  className="h-8 px-2"
+                  onClick={() => handleDeleteUser(lecturer)}
+                >
+                  <Trash2 size={14} />
+                  Hapus
                 </AdminButton>
               </td>
             </tr>

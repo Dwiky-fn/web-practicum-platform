@@ -10,7 +10,9 @@ function handleAdminError(error, res) {
   const errors = {
     USER_NOT_FOUND: [404, 'User tidak ditemukan'],
     USER_DUPLICATE: [409, 'Email, NIM, atau NIP sudah digunakan'],
+    USER_HAS_CLASSES: [409, 'Dosen masih menjadi pengampu kelas'],
     CLASS_NOT_FOUND: [404, 'Kelas tidak ditemukan'],
+    COURSE_NOT_FOUND: [404, 'Mata kuliah tidak ditemukan'],
     SEMESTER_NOT_FOUND: [404, 'Semester tidak ditemukan'],
     ACTIVE_SEMESTER_NOT_FOUND: [400, 'Belum ada semester aktif'],
   };

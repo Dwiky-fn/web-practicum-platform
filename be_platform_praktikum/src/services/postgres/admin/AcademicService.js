@@ -114,6 +114,36 @@ class AcademicService {
 
     return (await this.getCourses()).find((item) => item.id === id);
   }
+
+  async updateCourse(id, payload) {
+    const current = await this._pool.query(
+      'SELECT id FROM courses WHERE id = $1',
+      [id],
+    );
+
+    if (!current.rows.length) throw new Error('COURSE_NOT_FOUND');
+
+    await this._pool.query(
+      `UPDATE courses
+       SET
+        code = COALESCE($2, code),
+        name = COALESCE($3, name),
+        semester = COALESCE($4, semester),
+        sks = COALESCE($5, sks),
+        status = COALESCE($6, status)
+       WHERE id = $1`,
+      [
+        id,
+        payload.code || null,
+        payload.name || null,
+        payload.semester ? Number(payload.semester) : null,
+        payload.sks ? Number(payload.sks) : null,
+        payload.status ? normalizeStatus(payload.status) : null,
+      ],
+    );
+
+    return (await this.getCourses()).find((item) => item.id === id);
+  }
 }
 
 module.exports = AcademicService;

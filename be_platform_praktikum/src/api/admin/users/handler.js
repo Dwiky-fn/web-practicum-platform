@@ -42,6 +42,33 @@ class AdminUsersHandler {
       return handleAdminError(error, res);
     }
   }
+
+  async activateUserHandler(req, res) {
+    try {
+      const user = await this._service.setUserActive(req.params.id, true);
+      return ok(res, { user }, 'Pengguna berhasil diaktifkan');
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
+
+  async deactivateUserHandler(req, res) {
+    try {
+      const user = await this._service.setUserActive(req.params.id, false);
+      return ok(res, { user }, 'Pengguna berhasil dinonaktifkan');
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
+
+  async deleteUserHandler(req, res) {
+    try {
+      await this._service.deleteUser(req.params.id);
+      return ok(res, {}, 'Pengguna berhasil dihapus');
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
 }
 
 module.exports = AdminUsersHandler;

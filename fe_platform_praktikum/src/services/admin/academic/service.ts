@@ -44,3 +44,23 @@ export const createAdminCourse = async (
   })
   return res.data.course
 }
+
+export const updateAdminCourse = async (
+  id: string,
+  payload: CreateCoursePayload,
+): Promise<AcademicCourse> => {
+  const res = await apiFetch(`/admin/academic/courses/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  })
+  return res.data.course
+}
+
+export const activateAdminCourse = async (
+  id: string,
+): Promise<AcademicCourse> => {
+  const res = await apiFetch(`/admin/academic/courses/${id}/activate`, {
+    method: "POST",
+  })
+  return res.data.course
+}

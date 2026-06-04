@@ -1,5 +1,5 @@
 import { ChevronDown, FileUp, Plus } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import AdminLayout from "../components/AdminLayout"
 import {
@@ -14,12 +14,15 @@ import {
   inputClass,
 } from "../components/AdminUI"
 import {
-  adminLecturers,
-  adminStudents,
-  type AdminLecturer,
-  type AdminStudent,
-  type UserRoleTab,
-} from "../data/adminData"
+  createAdminLecturer,
+  createAdminStudent,
+  getAdminUsers,
+} from "../../../services/admin/service"
+import type {
+  AdminLecturer,
+  AdminStudent,
+  UserRoleTab,
+} from "../../../services/admin/types"
 
 type ModalMode = "add" | "import" | "menu" | null
 
@@ -30,29 +33,67 @@ export default function AdminUsersPage() {
   const [keyword, setKeyword] = useState("")
   const [semester, setSemester] = useState("all")
   const [modal, setModal] = useState<ModalMode>(null)
+  const [students, setStudents] = useState<AdminStudent[]>([])
+  const [lecturers, setLecturers] = useState<AdminLecturer[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
   const isStudent = role === "students"
 
-  const students = useMemo(() => {
-    const normalized = keyword.trim().toLowerCase()
-    return adminStudents.filter((student) => {
-      const matchKeyword = !normalized ||
-        [student.nim, student.fullname, student.email].some((value) =>
-          value.toLowerCase().includes(normalized),
-        )
-      const matchSemester = semester === "all" || String(student.semester) === semester
-      return matchKeyword && matchSemester
-    })
-  }, [keyword, semester])
+  const fetchUsers = useCallback(async () => {
+    setLoading(true)
+    setError("")
 
-  const lecturers = useMemo(() => {
-    const normalized = keyword.trim().toLowerCase()
-    return adminLecturers.filter((lecturer) =>
-      !normalized ||
-      [lecturer.nip, lecturer.fullname, lecturer.email].some((value) =>
-        value.toLowerCase().includes(normalized),
-      ),
-    )
-  }, [keyword])
+    try {
+      const data = await getAdminUsers(role, {
+        keyword,
+        semester: isStudent ? semester : undefined,
+      })
+
+      if (isStudent) {
+        setStudents(data as AdminStudent[])
+      } else {
+        setLecturers(data as AdminLecturer[])
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal mengambil data pengguna")
+    } finally {
+      setLoading(false)
+    }
+  }, [isStudent, keyword, role, semester])
+
+  useEffect(() => {
+    fetchUsers()
+  }, [fetchUsers])
+
+  const handleAddSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const form = new FormData(event.currentTarget)
+
+    try {
+      if (isStudent) {
+        await createAdminStudent({
+          nim: String(form.get("identifier") || ""),
+          fullname: String(form.get("fullname") || ""),
+          email: String(form.get("email") || ""),
+          angkatan: Number(form.get("angkatan") || 0),
+          semester: Number(form.get("semester") || 0),
+          status: String(form.get("status") || "Aktif") as "Aktif" | "Nonaktif",
+        })
+      } else {
+        await createAdminLecturer({
+          nip: String(form.get("identifier") || ""),
+          fullname: String(form.get("fullname") || ""),
+          email: String(form.get("email") || ""),
+          status: String(form.get("status") || "Aktif") as "Aktif" | "Nonaktif",
+        })
+      }
+
+      setModal(null)
+      fetchUsers()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan pengguna")
+    }
+  }
 
   const renderAddModal = () => {
     if (!modal || modal === "menu") return null
@@ -69,14 +110,14 @@ export default function AdminUsersPage() {
           footer={
             <>
               <AdminButton variant="secondary" onClick={() => setModal(null)}>Batal</AdminButton>
-              <AdminButton onClick={() => setModal(null)}>Import</AdminButton>
+              <AdminButton onClick={() => setModal(null)} disabled>Import</AdminButton>
             </>
           }
         >
           <div className="space-y-5">
             <div>
               <p className="text-sm font-medium text-gray-700">Upload File (CSV / Excel)</p>
-              <AdminButton variant="secondary" className="mt-3">
+              <AdminButton variant="secondary" className="mt-3" disabled>
                 <FileUp size={16} />
                 Pilih File
               </AdminButton>
@@ -86,7 +127,7 @@ export default function AdminUsersPage() {
               <p>
                 Format: {isStudent ? "NIM, Nama, Angkatan, Semester, Email" : "NIP, Nama, Email"}
               </p>
-              <p>Status default: Aktif</p>
+              <p>Import banyak belum diaktifkan.</p>
             </div>
           </div>
         </AdminModal>
@@ -100,28 +141,28 @@ export default function AdminUsersPage() {
         footer={
           <>
             <AdminButton variant="secondary" onClick={() => setModal(null)}>Batal</AdminButton>
-            <AdminButton onClick={() => setModal(null)}>Tambah</AdminButton>
+            <AdminButton type="submit" form="admin-user-form">Tambah</AdminButton>
           </>
         }
       >
-        <div className="space-y-4">
+        <form id="admin-user-form" className="space-y-4" onSubmit={handleAddSubmit}>
           <FieldRow label={isStudent ? "NIM" : "NIP"}>
-            <input className={inputClass} defaultValue={isStudent ? "3202316008" : "1997xxxxxx"} />
+            <input name="identifier" className={inputClass} defaultValue={isStudent ? "3202316008" : "1997xxxxxx"} required />
           </FieldRow>
           <FieldRow label="Nama Lengkap">
-            <input className={inputClass} defaultValue="Hafidz Syadi" />
+            <input name="fullname" className={inputClass} defaultValue="Hafidz Syadi" required />
           </FieldRow>
           {isStudent && (
             <>
               <FieldRow label="Angkatan">
-                <select className={inputClass} defaultValue="2025">
+                <select name="angkatan" className={inputClass} defaultValue="2025">
                   <option>2025</option>
                   <option>2024</option>
                   <option>2023</option>
                 </select>
               </FieldRow>
               <FieldRow label="Semester">
-                <select className={inputClass} defaultValue="5">
+                <select name="semester" className={inputClass} defaultValue="5">
                   <option>1</option>
                   <option>3</option>
                   <option>5</option>
@@ -130,15 +171,15 @@ export default function AdminUsersPage() {
             </>
           )}
           <FieldRow label="Email">
-            <input className={inputClass} defaultValue="email@domain.com" />
+            <input name="email" className={inputClass} type="email" defaultValue="email@domain.com" required />
           </FieldRow>
           <FieldRow label="Status">
-            <select className={inputClass} defaultValue="Aktif">
+            <select name="status" className={inputClass} defaultValue="Aktif">
               <option>Aktif</option>
               <option>Nonaktif</option>
             </select>
           </FieldRow>
-        </div>
+        </form>
       </AdminModal>
     )
   }
@@ -156,6 +197,7 @@ export default function AdminUsersPage() {
                 <option value="1">Semester 1</option>
                 <option value="3">Semester 3</option>
                 <option value="5">Semester 5</option>
+                <option value="6">Semester 6</option>
               </AdminSelect>
             )}
             <AdminSearchInput
@@ -192,10 +234,18 @@ export default function AdminUsersPage() {
         }
       />
 
-      {isStudent ? (
+      {error && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <EmptyState title="Memuat data pengguna..." />
+      ) : isStudent ? (
         students.length ? (
           <AdminTable headers={["NIM", "Nama", "Semester", "Status", "Aksi"]}>
-            {students.map((student: AdminStudent) => (
+            {students.map((student) => (
               <tr key={student.id}>
                 <td className="px-4 py-3 font-mono tracking-wide">{student.nim}</td>
                 <td className="px-4 py-3">{student.fullname}</td>
@@ -221,7 +271,7 @@ export default function AdminUsersPage() {
         )
       ) : lecturers.length ? (
         <AdminTable headers={["NIP", "Nama", "Email", "Status", "Aksi"]}>
-          {lecturers.map((lecturer: AdminLecturer) => (
+          {lecturers.map((lecturer) => (
             <tr key={lecturer.id}>
               <td className="px-4 py-3 font-mono tracking-wide">{lecturer.nip}</td>
               <td className="px-4 py-3">{lecturer.fullname}</td>

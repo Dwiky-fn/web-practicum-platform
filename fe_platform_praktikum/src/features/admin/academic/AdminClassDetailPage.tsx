@@ -1,5 +1,5 @@
 import { ArrowLeft, Plus } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import AdminLayout from "../components/AdminLayout"
 import {
@@ -14,12 +14,16 @@ import {
   inputClass,
 } from "../components/AdminUI"
 import {
-  academicClasses,
-  adminLecturers,
-  adminStudents,
-  availableStudents,
-  classJobsheets,
-} from "../data/adminData"
+  assignAdminStudentsToClass,
+  getAdminClassById,
+  getAdminStudentCandidates,
+  getAdminUsers,
+} from "../../../services/admin/service"
+import type {
+  AdminClassDetail,
+  AdminLecturer,
+  AdminStudent,
+} from "../../../services/admin/types"
 
 type DetailTab = "students" | "jobsheets" | "settings"
 
@@ -31,19 +35,102 @@ const tabs: Array<{ id: DetailTab; label: string }> = [
 
 export default function AdminClassDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const selectedClass = academicClasses.find((item) => item.id === id) ?? academicClasses[0]
+  const [classDetail, setClassDetail] = useState<AdminClassDetail | null>(null)
+  const [lecturers, setLecturers] = useState<AdminLecturer[]>([])
   const [activeTab, setActiveTab] = useState<DetailTab>("students")
   const [assignOpen, setAssignOpen] = useState(false)
   const [query, setQuery] = useState("")
+  const [studentSemester, setStudentSemester] = useState("all")
+  const [studentCandidates, setStudentCandidates] = useState<AdminStudent[]>([])
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
   const navigate = useNavigate()
 
-  const studentCandidates = useMemo(() => {
-    const normalized = query.trim().toLowerCase()
-    return availableStudents.filter((student) =>
-      !normalized ||
-      [student.nim, student.fullname].some((value) => value.toLowerCase().includes(normalized)),
+  const fetchClass = useCallback(async () => {
+    if (!id) return
+    setLoading(true)
+    setError("")
+
+    try {
+      const [detail, lecturerData] = await Promise.all([
+        getAdminClassById(id),
+        getAdminUsers("lecturers"),
+      ])
+
+      setClassDetail(detail)
+      setLecturers(lecturerData as AdminLecturer[])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memuat detail kelas")
+    } finally {
+      setLoading(false)
+    }
+  }, [id])
+
+  const fetchCandidates = useCallback(async () => {
+    if (!id || !assignOpen) return
+
+    try {
+      const data = await getAdminStudentCandidates(id, {
+        keyword: query,
+        semester: studentSemester,
+      })
+      setStudentCandidates(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memuat kandidat mahasiswa")
+    }
+  }, [assignOpen, id, query, studentSemester])
+
+  useEffect(() => {
+    fetchClass()
+  }, [fetchClass])
+
+  useEffect(() => {
+    fetchCandidates()
+  }, [fetchCandidates])
+
+  const selectedClass = classDetail
+  const candidates = useMemo(() => studentCandidates, [studentCandidates])
+
+  const toggleStudent = (studentId: string) => {
+    setSelectedStudentIds((prev) =>
+      prev.includes(studentId)
+        ? prev.filter((id) => id !== studentId)
+        : [...prev, studentId],
     )
-  }, [query])
+  }
+
+  const handleAssign = async () => {
+    if (!id || !selectedStudentIds.length) {
+      setAssignOpen(false)
+      return
+    }
+
+    try {
+      await assignAdminStudentsToClass(id, selectedStudentIds)
+      setAssignOpen(false)
+      setSelectedStudentIds([])
+      fetchClass()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal assign mahasiswa")
+    }
+  }
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <EmptyState title="Memuat detail kelas..." />
+      </AdminLayout>
+    )
+  }
+
+  if (!selectedClass) {
+    return (
+      <AdminLayout>
+        <EmptyState title={error || "Kelas tidak ditemukan"} />
+      </AdminLayout>
+    )
+  }
 
   return (
     <AdminLayout>
@@ -55,6 +142,12 @@ export default function AdminClassDetailPage() {
         <ArrowLeft size={18} />
         Kembali
       </button>
+
+      {error && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
@@ -88,9 +181,9 @@ export default function AdminClassDetailPage() {
                 </AdminButton>
               </div>
 
-              {adminStudents.length ? (
+              {selectedClass.students.length ? (
                 <AdminTable headers={["NIM", "Nama", "Semester", "Status"]}>
-                  {adminStudents.map((student) => (
+                  {selectedClass.students.map((student) => (
                     <tr key={student.id}>
                       <td className="px-4 py-3 font-mono">{student.nim}</td>
                       <td className="px-4 py-3">{student.fullname}</td>
@@ -116,10 +209,10 @@ export default function AdminClassDetailPage() {
               <h2 className="text-lg font-semibold text-gray-900">Jobsheet Praktikum</h2>
               <p className="mb-5 text-sm text-gray-600">Daftar jobsheet yang digunakan pada kelas ini.</p>
 
-              {classJobsheets.length ? (
+              {selectedClass.jobsheets.length ? (
                 <AdminTable headers={["Judul Jobsheet", "Deadline", "Status", "Aksi"]}>
-                  {classJobsheets.map((jobsheet) => (
-                    <tr key={jobsheet.id}>
+                  {selectedClass.jobsheets.map((jobsheet) => (
+                    <tr key={jobsheet.classJobsheetId}>
                       <td className="px-4 py-3">{jobsheet.title}</td>
                       <td className="px-4 py-3">{jobsheet.deadline}</td>
                       <td className="px-4 py-3">{jobsheet.status}</td>
@@ -155,8 +248,8 @@ export default function AdminClassDetailPage() {
               <section className="border-b border-gray-200 py-5">
                 <h2 className="text-lg font-semibold text-gray-900">Dosen Pengampu</h2>
                 <FieldRow label="Pilih Dosen">
-                  <select className={`${inputClass} max-w-sm`} defaultValue={selectedClass.lecturer}>
-                    {adminLecturers.map((lecturer) => <option key={lecturer.id}>{lecturer.fullname}</option>)}
+                  <select className={`${inputClass} max-w-sm`} defaultValue={selectedClass.lecturerId}>
+                    {lecturers.map((lecturer) => <option key={lecturer.id} value={lecturer.id}>{lecturer.fullname}</option>)}
                   </select>
                 </FieldRow>
               </section>
@@ -171,8 +264,8 @@ export default function AdminClassDetailPage() {
                   ))}
                 </div>
                 <div className="mt-6 flex justify-end gap-3">
-                  <AdminButton variant="secondary">Batal</AdminButton>
-                  <AdminButton>Simpan Perubahan</AdminButton>
+                  <AdminButton variant="secondary" disabled>Batal</AdminButton>
+                  <AdminButton disabled>Simpan Perubahan</AdminButton>
                 </div>
               </section>
             </div>
@@ -187,28 +280,37 @@ export default function AdminClassDetailPage() {
           footer={
             <>
               <AdminButton variant="secondary" onClick={() => setAssignOpen(false)}>Batal</AdminButton>
-              <AdminButton onClick={() => setAssignOpen(false)}>Assign</AdminButton>
+              <AdminButton onClick={handleAssign}>Assign</AdminButton>
             </>
           }
         >
           <div className="space-y-4">
             <FieldRow label="Semester Mahasiswa">
-              <select className={inputClass} defaultValue="3">
-                <option>1</option>
-                <option>3</option>
-                <option>5</option>
+              <select className={inputClass} value={studentSemester} onChange={(event) => setStudentSemester(event.target.value)}>
+                <option value="all">Semua Semester</option>
+                <option value="1">1</option>
+                <option value="3">3</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
               </select>
             </FieldRow>
             <FieldRow label="Cari Mahasiswa">
               <AdminSearchInput value={query} onChange={setQuery} placeholder="NIM / Nama" />
             </FieldRow>
             <div className="space-y-3">
-              {studentCandidates.map((student) => (
+              {candidates.length ? candidates.map((student) => (
                 <label key={student.id} className="flex items-center gap-3 text-sm">
-                  <input type="checkbox" className="h-4 w-4" />
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={selectedStudentIds.includes(student.id)}
+                    onChange={() => toggleStudent(student.id)}
+                  />
                   <span>{student.nim} - {student.fullname}</span>
                 </label>
-              ))}
+              )) : (
+                <p className="text-sm text-gray-500">Tidak ada kandidat mahasiswa.</p>
+              )}
             </div>
           </div>
         </AdminModal>

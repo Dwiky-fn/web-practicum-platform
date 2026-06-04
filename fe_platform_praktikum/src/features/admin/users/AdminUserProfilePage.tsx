@@ -1,9 +1,11 @@
 import { ArrowLeft } from "lucide-react"
+import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import Avatar from "../../../components/Avatar"
 import AdminLayout from "../components/AdminLayout"
 import { AdminPanel, AdminSectionHeader, inputClass } from "../components/AdminUI"
-import { adminLecturers, adminStudents } from "../data/adminData"
+import { getAdminUserById } from "../../../services/admin/service"
+import type { AdminLecturer, AdminStudent } from "../../../services/admin/types"
 
 function ReadOnlyField({ label, value }: { label: string; value: string | number }) {
   return (
@@ -18,17 +20,39 @@ export default function AdminUserProfilePage() {
   const { role, id } = useParams<{ role: "students" | "lecturers"; id: string }>()
   const navigate = useNavigate()
   const isStudent = role !== "lecturers"
-  const student = adminStudents.find((item) => item.id === id)
-  const lecturer = adminLecturers.find((item) => item.id === id)
-  const data = isStudent ? student : lecturer
+  const [data, setData] = useState<AdminStudent | AdminLecturer | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
-  if (!data) {
+  useEffect(() => {
+    if (!id) return
+
+    setLoading(true)
+    setError("")
+    getAdminUserById(id)
+      .then(setData)
+      .catch((err) => setError(err instanceof Error ? err.message : "Profil tidak ditemukan"))
+      .finally(() => setLoading(false))
+  }, [id])
+
+  if (loading) {
     return (
       <AdminLayout>
-        <AdminSectionHeader title="Profil tidak ditemukan" />
+        <AdminSectionHeader title="Memuat profil..." />
       </AdminLayout>
     )
   }
+
+  if (!data || error) {
+    return (
+      <AdminLayout>
+        <AdminSectionHeader title="Profil tidak ditemukan" description={error} />
+      </AdminLayout>
+    )
+  }
+
+  const student = isStudent ? data as AdminStudent : null
+  const lecturer = !isStudent ? data as AdminLecturer : null
 
   return (
     <AdminLayout>
@@ -51,12 +75,12 @@ export default function AdminUserProfilePage() {
             <Avatar avatarUrl={data.avatarUrl} fullname={data.fullname} size={120} />
           </div>
 
-          {isStudent && student ? (
+          {student ? (
             <div className="grid gap-5 md:grid-cols-2">
               <ReadOnlyField label="Nama Lengkap" value={student.fullname} />
-              <ReadOnlyField label="Angkatan" value={student.angkatan} />
-              <ReadOnlyField label="Nomor Induk Mahasiswa (NIM)" value={student.nim} />
-              <ReadOnlyField label="Semester" value={student.semester} />
+              <ReadOnlyField label="Angkatan" value={student.angkatan || "-"} />
+              <ReadOnlyField label="Nomor Induk Mahasiswa (NIM)" value={student.nim || "-"} />
+              <ReadOnlyField label="Semester" value={student.semester || "-"} />
               <ReadOnlyField label="Program Studi" value={student.programStudi} />
               <ReadOnlyField label="Status" value={student.status} />
               <ReadOnlyField label="Jurusan" value={student.jurusan} />
@@ -65,13 +89,13 @@ export default function AdminUserProfilePage() {
           ) : lecturer ? (
             <div className="grid gap-5 md:grid-cols-2">
               <ReadOnlyField label="Nama Lengkap" value={lecturer.fullname} />
-              <ReadOnlyField label="No. Telpon" value={lecturer.phone} />
-              <ReadOnlyField label="Nomor Induk Pegawai (NIP)" value={lecturer.nip} />
-              <ReadOnlyField label="Tempat Tanggal Lahir" value={lecturer.birthInfo} />
+              <ReadOnlyField label="No. Telpon" value={lecturer.phone || "-"} />
+              <ReadOnlyField label="Nomor Induk Pegawai (NIP)" value={lecturer.nip || "-"} />
+              <ReadOnlyField label="Tempat Tanggal Lahir" value={lecturer.birthInfo || "-"} />
               <ReadOnlyField label="Email" value={lecturer.email} />
-              <ReadOnlyField label="Jenis Kelamin" value={lecturer.gender} />
+              <ReadOnlyField label="Jenis Kelamin" value={lecturer.gender || "-"} />
               <ReadOnlyField label="Status" value={lecturer.status} />
-              <ReadOnlyField label="Kota Domisili" value={lecturer.city} />
+              <ReadOnlyField label="Kota Domisili" value={lecturer.city || "-"} />
             </div>
           ) : null}
         </div>

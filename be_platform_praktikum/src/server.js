@@ -4,14 +4,10 @@ const express = require('express');
 const cors = require('cors');
 const http = require('http');
 
-const studentProgress = require('./api/studentProgress');
-const submissions = require('./api/submissions');
-const jobsheet = require('./api/jobsheets');
-const courses = require('./api/courses');
+const student = require('./api/student');
 const execution = require('./api/execution');
 const users = require('./api/users');
-const activities = require('./api/activities');
-const notifications = require('./api/notifications');
+const admin = require('./api/admin');
 
 const app = express();
 const server = http.createServer(app);
@@ -21,13 +17,9 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // register routes
-studentProgress(app);
-submissions(app);
-jobsheet(app);
-courses(app);
+student(app);
 users(app);
-activities(app);
-notifications(app);
+admin(app);
 execution(server);
 
 // test route

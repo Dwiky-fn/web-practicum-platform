@@ -1,15 +1,10 @@
 import { BookOpen, GraduationCap, Layers, Users } from "lucide-react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import AdminLayout from "../components/AdminLayout"
 import { AdminButton, AdminPanel, AdminSectionHeader } from "../components/AdminUI"
-import {
-  academicClasses,
-  academicCourses,
-  adminActivities,
-  adminLecturers,
-  adminStudents,
-  semesters,
-} from "../data/adminData"
+import { getAdminDashboard } from "../../../services/admin/service"
+import type { AdminDashboardSummary } from "../../../services/admin/types"
 
 function StatCard({
   title,
@@ -60,9 +55,17 @@ function SummaryPanel({
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
-  const activeSemester = semesters.find((semester) => semester.status === "Aktif")
-  const activeCourses = academicCourses.filter((course) => course.status === "Aktif")
-  const activeClasses = academicClasses.filter((item) => item.status === "Aktif")
+  const [dashboard, setDashboard] = useState<AdminDashboardSummary | null>(null)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    getAdminDashboard()
+      .then(setDashboard)
+      .catch((err) => setError(err instanceof Error ? err.message : "Gagal memuat dashboard admin"))
+  }, [])
+
+  const stats = dashboard?.stats
+  const activeSemester = dashboard?.activeSemester
 
   return (
     <AdminLayout>
@@ -71,33 +74,39 @@ export default function AdminDashboard() {
         description="Ringkasan kesiapan akademik dan aktivitas sistem praktikum."
         actions={
           <AdminButton variant="secondary">
-            Semester Aktif: {activeSemester?.year} - {activeSemester?.term}
+            Semester Aktif: {activeSemester ? `${activeSemester.year} - ${activeSemester.term}` : "Belum ada"}
           </AdminButton>
         }
       />
 
+      {error && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Mahasiswa"
-          value={String(adminStudents.length)}
-          caption={`${adminStudents.filter((item) => item.status === "Aktif").length} aktif`}
+          value={String(stats?.students.total ?? 0)}
+          caption={`${stats?.students.active ?? 0} aktif`}
           icon={<GraduationCap size={24} />}
         />
         <StatCard
           title="Dosen"
-          value={String(adminLecturers.length)}
-          caption={`${adminLecturers.filter((item) => item.status === "Aktif").length} aktif`}
+          value={String(stats?.lecturers.total ?? 0)}
+          caption={`${stats?.lecturers.active ?? 0} aktif`}
           icon={<Users size={24} />}
         />
         <StatCard
           title="Mata Kuliah"
-          value={String(activeCourses.length)}
+          value={String(stats?.courses.active ?? 0)}
           caption="Aktif semester ini"
           icon={<BookOpen size={24} />}
         />
         <StatCard
           title="Kelas"
-          value={String(activeClasses.length)}
+          value={String(stats?.classes.active ?? 0)}
           caption="Sedang berjalan"
           icon={<Layers size={24} />}
         />
@@ -115,26 +124,26 @@ export default function AdminDashboard() {
           <SummaryPanel
             title="Struktur Akademik"
             rows={[
-              ["Mata Kuliah", academicCourses.length],
-              ["Total Kelas", academicClasses.length],
-              ["Kelas Aktif", activeClasses.length],
-              ["Kelas Nonaktif", academicClasses.filter((item) => item.status === "Nonaktif").length],
+              ["Mata Kuliah", stats?.courses.total ?? 0],
+              ["Total Kelas", stats?.classes.total ?? 0],
+              ["Kelas Aktif", stats?.classes.active ?? 0],
+              ["Kelas Nonaktif", Math.max((stats?.classes.total ?? 0) - (stats?.classes.active ?? 0), 0)],
             ]}
           />
           <SummaryPanel
             title="Dosen Pengampu"
             rows={[
-              ["Total Dosen", adminLecturers.length],
-              ["Sudah Mengajar", activeClasses.length],
-              ["Belum Ter-assign", Math.max(adminLecturers.length - activeClasses.length, 0)],
+              ["Total Dosen", stats?.lecturers.total ?? 0],
+              ["Sudah Mengajar", stats?.classes.active ?? 0],
+              ["Belum Ter-assign", Math.max((stats?.lecturers.total ?? 0) - (stats?.classes.active ?? 0), 0)],
             ]}
           />
           <SummaryPanel
             title="Mahasiswa"
             rows={[
-              ["Total Mahasiswa", adminStudents.length],
-              ["Sudah Masuk Kelas", adminStudents.length],
-              ["Belum Masuk Kelas", 0],
+              ["Total Mahasiswa", stats?.students.total ?? 0],
+              ["Sudah Masuk Kelas", stats?.assignedStudents ?? 0],
+              ["Belum Masuk Kelas", stats?.unassignedStudents ?? 0],
             ]}
           />
         </div>
@@ -144,7 +153,7 @@ export default function AdminDashboard() {
         <AdminPanel className="p-5">
           <h2 className="text-lg font-semibold text-gray-900">Aktivitas Terbaru</h2>
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[520px] text-sm">
+            <table className="w-full min-w-130 text-sm">
               <thead>
                 <tr className="text-left text-gray-600">
                   <th className="pb-2 font-semibold">Waktu</th>
@@ -152,7 +161,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {adminActivities.map(([time, activity]) => (
+                {(dashboard?.activities ?? []).map(({ time, activity }) => (
                   <tr key={`${time}-${activity}`}>
                     <td className="py-2 text-gray-600">{time}</td>
                     <td className="py-2 text-gray-900">{activity}</td>

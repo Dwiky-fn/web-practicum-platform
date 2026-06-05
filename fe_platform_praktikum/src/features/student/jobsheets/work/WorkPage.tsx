@@ -38,6 +38,12 @@ export default function WorkPage() {
     }
   }, [completeCurrentProgressItem])
 
+  const handleWorkScrollRef = useRef(handleWorkScroll)
+  useEffect(() => {
+    handleWorkScrollRef.current = handleWorkScroll
+  }, [handleWorkScroll])
+
+  // Scroll ke atas hanya saat navigasi antar halaman
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current
     if (!scrollContainer) return
@@ -45,12 +51,13 @@ export default function WorkPage() {
     scrollContainer.scrollTo({ top: 0 })
 
     const timer = window.setTimeout(() => {
-      handleWorkScroll()
+      handleWorkScrollRef.current()
     }, 150)
 
     return () => window.clearTimeout(timer)
-  }, [handleWorkScroll, location.pathname])
+  }, [location.pathname])
 
+  // Cek scroll saat handleWorkScroll berubah (misal data baru dimuat)
   useEffect(() => {
     handleWorkScroll()
   }, [handleWorkScroll])

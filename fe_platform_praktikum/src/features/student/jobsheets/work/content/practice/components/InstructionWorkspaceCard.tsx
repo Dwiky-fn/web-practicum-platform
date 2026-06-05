@@ -395,7 +395,6 @@ export default function InstructionWorkspaceCard({
     }))
   }, [
     activeIndex,
-    codeMap,
     defaultFileName,
     templateCode
   ])

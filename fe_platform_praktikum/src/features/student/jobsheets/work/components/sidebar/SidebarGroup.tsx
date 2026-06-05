@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { useLocation } from "react-router-dom"
 import type { SidebarNode } from "../../utils/buildSidebarStructure"
@@ -22,13 +22,8 @@ export default function SidebarGroup({
     location.pathname.startsWith(child.path ?? "")
   )
 
-  const [open, setOpen] = useState(hasActiveChild)
-
-  useEffect(() => {
-    if (hasActiveChild) {
-      setOpen(true)
-    }
-  }, [hasActiveChild])
+  const [manuallyOpen, setManuallyOpen] = useState(false)
+  const open = hasActiveChild || manuallyOpen
 
   const total = group.children?.length ?? 0
   const completed = group.children?.filter(
@@ -45,7 +40,7 @@ export default function SidebarGroup({
       {/* GROUP HEADER */}
       {!collapsed && (
         <button
-          onClick={() => setOpen(!open)}
+          onClick={() => setManuallyOpen(!open)}
           className="w-full flex justify-between items-center text-sm font-semibold text-gray-700 hover:text-black transition"
         >
           <div className="flex items-center gap-2">

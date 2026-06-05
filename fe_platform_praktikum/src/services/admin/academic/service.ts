@@ -28,6 +28,12 @@ export const activateAdminSemester = async (id: string): Promise<void> => {
   })
 }
 
+export const deleteAdminSemester = async (id: string): Promise<void> => {
+  await apiFetch(`/admin/academic/semesters/${id}`, {
+    method: "DELETE",
+  })
+}
+
 export const getAdminCourses = async (
   filters: { keyword?: string; semester?: string } = {},
 ): Promise<AcademicCourse[]> => {
@@ -63,4 +69,10 @@ export const activateAdminCourse = async (
     method: "POST",
   })
   return res.data.course
+}
+
+export const deleteAdminCourse = async (id: string): Promise<void> => {
+  await apiFetch(`/admin/academic/courses/${id}`, {
+    method: "DELETE",
+  })
 }

@@ -19,6 +19,7 @@ import {
   getAdminClassById,
   getAdminStudentCandidates,
   getAdminUsers,
+  updateAdminClass,
 } from "../../../services/admin/service"
 import type {
   AdminClassDetail,
@@ -28,12 +29,19 @@ import type {
 import { getStudentSemesterOptions } from "./semesterOptions"
 
 type DetailTab = "students" | "jobsheets" | "settings"
+type EditableClassStatus = "Aktif" | "Nonaktif" | "Arsip"
 
 const tabs: Array<{ id: DetailTab; label: string }> = [
   { id: "students", label: "Mahasiswa" },
   { id: "jobsheets", label: "Jobsheet" },
   { id: "settings", label: "Pengaturan" },
 ]
+
+function toEditableClassStatus(status: AdminClassDetail["status"]): EditableClassStatus {
+  if (status === "Arsip") return "Arsip"
+  if (status === "Nonaktif" || status === "Draft" || status === "Selesai") return "Nonaktif"
+  return "Aktif"
+}
 
 export default function AdminClassDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -45,7 +53,14 @@ export default function AdminClassDetailPage() {
   const [studentSemester, setStudentSemester] = useState("all")
   const [studentCandidates, setStudentCandidates] = useState<AdminStudent[]>([])
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([])
+  const [classForm, setClassForm] = useState({
+    lecturerId: "",
+    status: "" as EditableClassStatus | "",
+  })
+  const [activationWarning, setActivationWarning] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [assigning, setAssigning] = useState(false)
   const [error, setError] = useState("")
   const navigate = useNavigate()
 
@@ -61,6 +76,10 @@ export default function AdminClassDetailPage() {
       ])
 
       setClassDetail(detail)
+      setClassForm({
+        lecturerId: detail.lecturerId,
+        status: toEditableClassStatus(detail.status),
+      })
       setLecturers(lecturerData as AdminLecturer[])
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat detail kelas")
@@ -119,12 +138,47 @@ export default function AdminClassDetailPage() {
     }
 
     try {
+      setAssigning(true)
       await assignAdminStudentsToClass(id, selectedStudentIds)
       setAssignOpen(false)
       setSelectedStudentIds([])
       fetchClass()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal assign mahasiswa")
+    } finally {
+      setAssigning(false)
+    }
+  }
+
+  const handleClassSettingsSubmit = async () => {
+    if (!id || !selectedClass || !classForm.lecturerId || !classForm.status) return
+
+    if (
+      classForm.status === "Aktif" &&
+      !getStudentSemesterOptions(selectedClass.semesterYear).includes(selectedClass.studentSemester)
+    ) {
+      setActivationWarning(true)
+      return
+    }
+
+    try {
+      setSaving(true)
+      setError("")
+      const updated = await updateAdminClass(id, {
+        courseId: selectedClass.courseId,
+        name: selectedClass.name,
+        lecturerId: classForm.lecturerId,
+        status: classForm.status,
+      })
+      setClassDetail(updated)
+      setClassForm({
+        lecturerId: updated.lecturerId,
+        status: toEditableClassStatus(updated.status),
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan pengaturan kelas")
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -262,8 +316,11 @@ export default function AdminClassDetailPage() {
                 <FieldRow label="Pilih Dosen">
                   <select
                     className={`${inputClass} max-w-sm`}
-                    value={selectedClass.lecturerId}
-                    onChange={() => undefined}
+                    value={classForm.lecturerId}
+                    onChange={(event) => setClassForm((form) => ({
+                      ...form,
+                      lecturerId: event.target.value,
+                    }))}
                   >
                     {lecturers.map((lecturer) => <option key={lecturer.id} value={lecturer.id}>{lecturer.fullname}</option>)}
                   </select>
@@ -272,21 +329,38 @@ export default function AdminClassDetailPage() {
               <section className="py-5">
                 <h2 className="text-lg font-semibold text-gray-900">Status Kelas</h2>
                 <div className="mt-3 grid gap-2 text-sm">
-                  {["Draft", "Aktif", "Arsip"].map((status) => (
+                  {(["Nonaktif", "Aktif", "Arsip"] as EditableClassStatus[]).map((status) => (
                     <label key={status} className="flex items-center gap-2">
                       <input
                         type="radio"
                         name="class-status"
-                        checked={selectedClass.status === status}
-                        onChange={() => undefined}
+                        checked={classForm.status === status}
+                        onChange={() => setClassForm((form) => ({
+                          ...form,
+                          status,
+                        }))}
                       />
                       {status}
                     </label>
                   ))}
                 </div>
                 <div className="mt-6 flex justify-end gap-3">
-                  <AdminButton variant="secondary" disabled>Batal</AdminButton>
-                  <AdminButton disabled>Simpan Perubahan</AdminButton>
+                  <AdminButton
+                    variant="secondary"
+                    disabled={saving}
+                    onClick={() => setClassForm({
+                      lecturerId: selectedClass.lecturerId,
+                      status: toEditableClassStatus(selectedClass.status),
+                    })}
+                  >
+                    Batal
+                  </AdminButton>
+                  <AdminButton
+                    disabled={saving || !classForm.lecturerId || !classForm.status}
+                    onClick={handleClassSettingsSubmit}
+                  >
+                    {saving ? "Menyimpan..." : "Simpan Perubahan"}
+                  </AdminButton>
                 </div>
               </section>
             </div>
@@ -301,7 +375,9 @@ export default function AdminClassDetailPage() {
           footer={
             <>
               <AdminButton variant="secondary" onClick={() => setAssignOpen(false)}>Batal</AdminButton>
-              <AdminButton onClick={handleAssign}>Assign</AdminButton>
+              <AdminButton onClick={handleAssign} disabled={assigning}>
+                {assigning ? "Mengassign..." : "Assign"}
+              </AdminButton>
             </>
           }
         >
@@ -333,6 +409,18 @@ export default function AdminClassDetailPage() {
               )}
             </div>
           </div>
+        </AdminModal>
+      )}
+
+      {activationWarning && (
+        <AdminModal
+          title="Kelas Tidak Bisa Diaktifkan"
+          onClose={() => setActivationWarning(false)}
+          footer={<AdminButton onClick={() => setActivationWarning(false)}>Mengerti</AdminButton>}
+        >
+          <p className="text-center text-sm text-gray-700">
+            Kelas hanya bisa diaktifkan jika semester mahasiswa sesuai dengan semester akademik aktif.
+          </p>
         </AdminModal>
       )}
     </AdminLayout>

@@ -28,6 +28,7 @@ export default function StudentDashboardPage() {
   const [submissions, setSubmissions] = useState<JobsheetSubmission[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const navigate = useNavigate();
 
@@ -39,6 +40,7 @@ export default function StudentDashboardPage() {
       }
 
       try {
+        setError("");
         const [courseData, activityResponse] = await Promise.all([
           getCoursesByStudentId(user.id),
           getRecentActivities(user.id),
@@ -73,6 +75,7 @@ export default function StudentDashboardPage() {
         setSubmissions(submissionResponses.filter(Boolean) as JobsheetSubmission[])
       } catch (error) {
         console.error(error);
+        setError(error instanceof Error ? error.message : "Gagal memuat dashboard mahasiswa.");
       } finally {
         setLoading(false);
       }
@@ -110,6 +113,11 @@ export default function StudentDashboardPage() {
       <TopProgressBar />
 
       <main className="max-w-7xl mx-auto px-10 py-8">
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
         {/* Welcome */}
         <section className="mb-8">

@@ -19,7 +19,7 @@ export default function ExperimentPage() {
   const { jobsheet, programmingLanguage, updateExperiment, submission } = useOutletContext<{
     jobsheet: Jobsheet
     programmingLanguage: string
-    updateExperiment: (experimentId: string, steps: StepData[]) => void
+    updateExperiment: (experimentId: string, steps: StepData[]) => Promise<void>
     submission: JobsheetSubmission
   }>()
 
@@ -56,9 +56,7 @@ export default function ExperimentPage() {
           templateCode={experiment.defaultTemplateCode}
           language={programmingLanguage}
           initialSteps={initialSteps}
-          onChange={(steps) => {
-            updateExperiment(experimentId, steps)
-          }}
+          onChange={(steps) => updateExperiment(experimentId, steps)}
         />
       </div> 
     </div>

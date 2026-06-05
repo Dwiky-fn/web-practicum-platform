@@ -33,6 +33,15 @@ class AcademicHandler {
     }
   }
 
+  async deleteSemesterHandler(req, res) {
+    try {
+      await this._service.deleteSemester(req.params.id);
+      return ok(res, {}, 'Semester berhasil dihapus');
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
+
   async getCoursesHandler(req, res) {
     try {
       return ok(res, { courses: await this._service.getCourses(req.query) });
@@ -65,6 +74,15 @@ class AcademicHandler {
         status: 'Aktif',
       });
       return ok(res, { course }, 'Mata kuliah berhasil diaktifkan');
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
+
+  async deleteCourseHandler(req, res) {
+    try {
+      await this._service.deleteCourse(req.params.id);
+      return ok(res, {}, 'Mata kuliah berhasil dihapus');
     } catch (error) {
       return handleAdminError(error, res);
     }

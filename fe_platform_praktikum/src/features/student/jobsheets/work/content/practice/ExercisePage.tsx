@@ -17,7 +17,7 @@ export default function ExercisePage() {
   const { jobsheet, programmingLanguage, updateExercise, submission } = useOutletContext<{
     jobsheet: Jobsheet
     programmingLanguage: string
-    updateExercise: (exerciseId: string, data: StepData) => void
+    updateExercise: (exerciseId: string, data: StepData) => Promise<void>
     submission: JobsheetSubmission
   }>()
 
@@ -52,9 +52,7 @@ export default function ExercisePage() {
           templateCode={exercise.defaultTemplateCode || ''}
           language={programmingLanguage}
           initialSteps={initialStep ? [initialStep] : undefined}
-          onChange={(steps) => {
-            updateExercise(exerciseId, steps[0])
-          }}
+          onChange={(steps) => updateExercise(exerciseId, steps[0])}
         />
       </div>
     </div>

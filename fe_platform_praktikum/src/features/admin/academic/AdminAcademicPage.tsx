@@ -5,6 +5,7 @@ import AdminLayout from "../components/AdminLayout"
 import {
   AdminActionCell,
   AdminButton,
+  AdminConfirmModal,
   AdminModal,
   AdminPanel,
   AdminSearchInput,
@@ -22,10 +23,14 @@ import {
   createAdminClass,
   createAdminCourse,
   createAdminSemester,
+  deleteAdminClass,
+  deleteAdminCourse,
+  deleteAdminSemester,
   getAdminClasses,
   getAdminCourses,
   getAdminSemesters,
   getAdminUsers,
+  updateAdminClass,
   updateAdminCourse,
 } from "../../../services/admin/service"
 import type {
@@ -40,7 +45,11 @@ import {
   getStudentSemesterOptions,
 } from "./semesterOptions"
 
-type ModalMode = "semester" | "course" | "course-edit" | "class" | "activate" | null
+type ModalMode = "semester" | "course" | "course-edit" | "class" | "class-edit" | "activate" | null
+type ConfirmTarget =
+  | { type: "semester"; item: AcademicSemester }
+  | { type: "course"; item: AcademicCourse }
+  | { type: "class"; item: AcademicClass }
 
 type CourseFormState = {
   code: string
@@ -48,6 +57,13 @@ type CourseFormState = {
   semester: string
   sks: string
   status: "Aktif" | "Nonaktif" | ""
+}
+
+type ClassFormState = {
+  courseId: string
+  name: string
+  lecturerId: string
+  status: "Aktif" | "Nonaktif" | "Arsip" | ""
 }
 
 const tabs: Array<{ id: AdminTab; label: string }> = [
@@ -63,11 +79,16 @@ export default function AdminAcademicPage() {
     queryTab === "courses" || queryTab === "classes" ? queryTab : "semester",
   )
   const [keyword, setKeyword] = useState("")
-  const [semesterFilter, setSemesterFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
+  const [semesterTermFilter, setSemesterTermFilter] = useState("all")
+  const [semesterNumberFilter, setSemesterNumberFilter] = useState("all")
+  const [classStatusFilter, setClassStatusFilter] = useState("Aktif")
+  const [classCourseFilter, setClassCourseFilter] = useState("all")
   const [modal, setModal] = useState<ModalMode>(null)
   const [selectedSemester, setSelectedSemester] = useState<AcademicSemester | null>(null)
   const [selectedCourse, setSelectedCourse] = useState<AcademicCourse | null>(null)
+  const [selectedClass, setSelectedClass] = useState<AcademicClass | null>(null)
+  const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(null)
+  const [classActivationWarning, setClassActivationWarning] = useState(false)
   const [courseForm, setCourseForm] = useState<CourseFormState>({
     code: "",
     name: "",
@@ -75,11 +96,19 @@ export default function AdminAcademicPage() {
     sks: "",
     status: "",
   })
+  const [classForm, setClassForm] = useState<ClassFormState>({
+    courseId: "",
+    name: "",
+    lecturerId: "",
+    status: "",
+  })
   const [semesters, setSemesters] = useState<AcademicSemester[]>([])
   const [courses, setCourses] = useState<AcademicCourse[]>([])
   const [classes, setClasses] = useState<AcademicClass[]>([])
   const [lecturers, setLecturers] = useState<AdminLecturer[]>([])
   const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [actionLoading, setActionLoading] = useState("")
   const [error, setError] = useState("")
   const navigate = useNavigate()
 
@@ -115,29 +144,49 @@ export default function AdminAcademicPage() {
     return courses.filter((course) => {
       const matchKeyword = !normalized ||
         [course.code, course.name].some((value) => value.toLowerCase().includes(normalized))
-      const matchSemester = semesterFilter === "all" || String(course.semester) === semesterFilter
-      const matchStatus = statusFilter === "all" || course.status === statusFilter
-      return matchKeyword && matchSemester && matchStatus
+      const matchSemesterTerm =
+        semesterTermFilter === "all" ||
+        (semesterTermFilter === "ganjil" && [1, 3, 5].includes(course.semester)) ||
+        (semesterTermFilter === "genap" && [2, 4, 6].includes(course.semester))
+      const matchSemesterNumber =
+        semesterNumberFilter === "all" || String(course.semester) === semesterNumberFilter
+      return matchKeyword && matchSemesterTerm && matchSemesterNumber
     })
-  }, [courses, keyword, semesterFilter, statusFilter])
+  }, [courses, keyword, semesterNumberFilter, semesterTermFilter])
 
   const filteredClasses = useMemo(() => {
     const normalized = keyword.trim().toLowerCase()
     return classes.filter((item) => {
       const matchKeyword = !normalized ||
         [item.name, item.courseName, item.lecturer].some((value) => value.toLowerCase().includes(normalized))
-      const matchStatus = statusFilter === "all" || item.status === statusFilter
-      return matchKeyword && matchStatus
+      const matchStatus = classStatusFilter === "all" || item.status === classStatusFilter
+      const matchCourse = classCourseFilter === "all" || item.courseId === classCourseFilter
+      return matchKeyword && matchStatus && matchCourse
     })
-  }, [classes, keyword, statusFilter])
+  }, [classes, classCourseFilter, classStatusFilter, keyword])
 
   const activeSemester = getActiveSemester(semesters)
+  const activeSemesterTerm = activeSemester?.term
+
+  useEffect(() => {
+    if (!activeSemesterTerm) return
+
+    if (activeSemesterTerm === "Ganjil") {
+      setSemesterTermFilter("ganjil")
+      return
+    }
+
+    setSemesterTermFilter("genap")
+  }, [activeSemesterTerm])
+
   const studentSemesterOptions = useMemo(
-    () => getStudentSemesterOptions(activeSemester?.term),
-    [activeSemester?.term],
+    () => getStudentSemesterOptions(activeSemesterTerm),
+    [activeSemesterTerm],
   )
   const classCourseOptions = useMemo(
-    () => courses.filter((course) => studentSemesterOptions.includes(course.semester)),
+    () => courses.filter((course) =>
+      course.status === "Aktif" && studentSemesterOptions.includes(course.semester)
+    ),
     [courses, studentSemesterOptions],
   )
   const addClassDisabledReason = !activeSemester
@@ -151,6 +200,8 @@ export default function AdminAcademicPage() {
     setModal(null)
     setSelectedSemester(null)
     setSelectedCourse(null)
+    setSelectedClass(null)
+    setClassActivationWarning(false)
     setCourseForm({
       code: "",
       name: "",
@@ -158,13 +209,13 @@ export default function AdminAcademicPage() {
       sks: "",
       status: "",
     })
+    setClassForm({
+      courseId: "",
+      name: "",
+      lecturerId: "",
+      status: "",
+    })
   }
-
-  useEffect(() => {
-    if (semesterFilter !== "all" && !studentSemesterOptions.includes(Number(semesterFilter))) {
-      setSemesterFilter("all")
-    }
-  }, [semesterFilter, studentSemesterOptions])
 
   const handleSemesterSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -173,6 +224,8 @@ export default function AdminAcademicPage() {
     const endYear = String(form.get("endYear") || "")
 
     try {
+      setSubmitting(true)
+      setError("")
       await createAdminSemester({
         year: `${startYear}/${endYear}`,
         term: String(form.get("term") || "") as "Ganjil" | "Genap",
@@ -182,6 +235,8 @@ export default function AdminAcademicPage() {
       fetchAcademicData()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan semester")
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -190,6 +245,8 @@ export default function AdminAcademicPage() {
     const form = new FormData(event.currentTarget)
 
     try {
+      setSubmitting(true)
+      setError("")
       await createAdminCourse({
         code: String(form.get("code") || ""),
         name: String(form.get("name") || ""),
@@ -201,6 +258,8 @@ export default function AdminAcademicPage() {
       fetchAcademicData()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan mata kuliah")
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -221,6 +280,8 @@ export default function AdminAcademicPage() {
     if (!selectedCourse) return
 
     try {
+      setSubmitting(true)
+      setError("")
       await updateAdminCourse(selectedCourse.id, {
         code: courseForm.code,
         name: courseForm.name,
@@ -232,15 +293,21 @@ export default function AdminAcademicPage() {
       fetchAcademicData()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memperbarui mata kuliah")
+    } finally {
+      setSubmitting(false)
     }
   }
 
   const handleActivateCourse = async (course: AcademicCourse) => {
     try {
+      setActionLoading(`course-${course.id}`)
+      setError("")
       await activateAdminCourse(course.id)
       fetchAcademicData()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal mengaktifkan mata kuliah")
+    } finally {
+      setActionLoading("")
     }
   }
 
@@ -249,6 +316,8 @@ export default function AdminAcademicPage() {
     const form = new FormData(event.currentTarget)
 
     try {
+      setSubmitting(true)
+      setError("")
       await createAdminClass({
         courseId: String(form.get("courseId") || ""),
         name: String(form.get("name") || ""),
@@ -260,6 +329,75 @@ export default function AdminAcademicPage() {
       fetchAcademicData()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan kelas")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const openEditClass = (classItem: AcademicClass) => {
+    setSelectedClass(classItem)
+    setClassForm({
+      courseId: classItem.courseId,
+      name: classItem.name,
+      lecturerId: classItem.lecturerId,
+      status: classItem.status === "Arsip" ? "Arsip" : classItem.status === "Aktif" ? "Aktif" : "Nonaktif",
+    })
+    setModal("class-edit")
+  }
+
+  const handleClassEditSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedClass) return
+    const selectedCourseForClass = courses.find((course) => course.id === classForm.courseId)
+
+    if (
+      classForm.status === "Aktif" &&
+      selectedCourseForClass &&
+      !studentSemesterOptions.includes(selectedCourseForClass.semester)
+    ) {
+      setClassActivationWarning(true)
+      return
+    }
+
+    try {
+      setSubmitting(true)
+      setError("")
+      await updateAdminClass(selectedClass.id, {
+        courseId: classForm.courseId,
+        name: classForm.name,
+        lecturerId: classForm.lecturerId,
+        status: classForm.status as "Aktif" | "Nonaktif" | "Arsip",
+      })
+      closeModal()
+      fetchAcademicData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memperbarui kelas")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!confirmTarget) return
+
+    try {
+      setActionLoading(`delete-${confirmTarget.type}-${confirmTarget.item.id}`)
+      setError("")
+
+      if (confirmTarget.type === "semester") {
+        await deleteAdminSemester(confirmTarget.item.id)
+      } else if (confirmTarget.type === "course") {
+        await deleteAdminCourse(confirmTarget.item.id)
+      } else {
+        await deleteAdminClass(confirmTarget.item.id)
+      }
+
+      setConfirmTarget(null)
+      fetchAcademicData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menghapus data")
+    } finally {
+      setActionLoading("")
     }
   }
 
@@ -267,11 +405,15 @@ export default function AdminAcademicPage() {
     if (!selectedSemester) return
 
     try {
+      setSubmitting(true)
+      setError("")
       await activateAdminSemester(selectedSemester.id)
       closeModal()
       fetchAcademicData()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal mengaktifkan semester")
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -285,8 +427,10 @@ export default function AdminAcademicPage() {
           onClose={closeModal}
           footer={
             <>
-              <AdminButton variant="secondary" onClick={closeModal}>Batal</AdminButton>
-              <AdminButton onClick={handleActivateSemester}>Aktifkan</AdminButton>
+              <AdminButton variant="secondary" onClick={closeModal} disabled={submitting}>Batal</AdminButton>
+              <AdminButton onClick={handleActivateSemester} disabled={submitting}>
+                {submitting ? "Mengaktifkan..." : "Aktifkan"}
+              </AdminButton>
             </>
           }
         >
@@ -305,8 +449,10 @@ export default function AdminAcademicPage() {
           onClose={closeModal}
           footer={
             <>
-              <AdminButton variant="secondary" onClick={closeModal}>Batal</AdminButton>
-              <AdminButton type="submit" form="admin-semester-form">Tambah</AdminButton>
+              <AdminButton variant="secondary" onClick={closeModal} disabled={submitting}>Batal</AdminButton>
+              <AdminButton type="submit" form="admin-semester-form" disabled={submitting}>
+                {submitting ? "Menyimpan..." : "Tambah"}
+              </AdminButton>
             </>
           }
         >
@@ -342,8 +488,10 @@ export default function AdminAcademicPage() {
           onClose={closeModal}
           footer={
             <>
-              <AdminButton variant="secondary" onClick={closeModal}>Batal</AdminButton>
-              <AdminButton type="submit" form="admin-course-form">Tambah</AdminButton>
+              <AdminButton variant="secondary" onClick={closeModal} disabled={submitting}>Batal</AdminButton>
+              <AdminButton type="submit" form="admin-course-form" disabled={submitting}>
+                {submitting ? "Menyimpan..." : "Tambah"}
+              </AdminButton>
             </>
           }
         >
@@ -353,7 +501,7 @@ export default function AdminAcademicPage() {
             <FieldRow label="Semester Mahasiswa">
               <select name="semester" className={inputClass} required>
                 <option value="" disabled>Pilih semester</option>
-                {studentSemesterOptions.map((option) => (
+                {[1, 2, 3, 4, 5, 6].map((option) => (
                   <option key={option}>{option}</option>
                 ))}
               </select>
@@ -377,8 +525,10 @@ export default function AdminAcademicPage() {
           onClose={closeModal}
           footer={
             <>
-              <AdminButton variant="secondary" onClick={closeModal}>Batal</AdminButton>
-              <AdminButton type="submit" form="admin-course-edit-form">Simpan</AdminButton>
+              <AdminButton variant="secondary" onClick={closeModal} disabled={submitting}>Batal</AdminButton>
+              <AdminButton type="submit" form="admin-course-edit-form" disabled={submitting}>
+                {submitting ? "Menyimpan..." : "Simpan"}
+              </AdminButton>
             </>
           }
         >
@@ -457,14 +607,94 @@ export default function AdminAcademicPage() {
       )
     }
 
+    if (modal === "class-edit") {
+      return (
+        <AdminModal
+          title="Edit Kelas"
+          onClose={closeModal}
+          footer={
+            <>
+              <AdminButton variant="secondary" onClick={closeModal} disabled={submitting}>Batal</AdminButton>
+              <AdminButton type="submit" form="admin-class-edit-form" disabled={submitting}>
+                {submitting ? "Menyimpan..." : "Simpan"}
+              </AdminButton>
+            </>
+          }
+        >
+          <form id="admin-class-edit-form" className="space-y-4" onSubmit={handleClassEditSubmit}>
+            <FieldRow label="Semester Akademik"><span className="text-sm font-semibold">{selectedClass?.semesterYear}</span></FieldRow>
+            <FieldRow label="Mata Kuliah">
+              <select
+                name="courseId"
+                className={inputClass}
+                value={classForm.courseId}
+                onChange={(event) => setClassForm((form) => ({ ...form, courseId: event.target.value }))}
+                required
+              >
+                <option value="" disabled>Pilih mata kuliah</option>
+                {classCourseOptions.map((course) => <option key={course.id} value={course.id}>{course.name}</option>)}
+              </select>
+            </FieldRow>
+            <FieldRow label="Kelas">
+              <select
+                name="name"
+                className={inputClass}
+                value={classForm.name}
+                onChange={(event) => setClassForm((form) => ({ ...form, name: event.target.value }))}
+                required
+              >
+                <option value="" disabled>Pilih kelas</option>
+                <option>A</option>
+                <option>B</option>
+                <option>C</option>
+                <option>D</option>
+                <option>E</option>
+              </select>
+            </FieldRow>
+            <FieldRow label="Dosen Pengampu">
+              <select
+                name="lecturerId"
+                className={inputClass}
+                value={classForm.lecturerId}
+                onChange={(event) => setClassForm((form) => ({ ...form, lecturerId: event.target.value }))}
+                required
+              >
+                <option value="" disabled>Pilih dosen pengampu</option>
+                {lecturers.map((lecturer) => <option key={lecturer.id} value={lecturer.id}>{lecturer.fullname}</option>)}
+              </select>
+            </FieldRow>
+            <FieldRow label="Status">
+              <div className="flex gap-5">
+                {(["Nonaktif", "Aktif", "Arsip"] as const).map((status) => (
+                  <label key={status} className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="status"
+                      value={status}
+                      checked={classForm.status === status}
+                      onChange={() => setClassForm((form) => ({ ...form, status }))}
+                      required
+                    />
+                    {status}
+                  </label>
+                ))}
+              </div>
+            </FieldRow>
+          </form>
+        </AdminModal>
+      )
+    }
+
     return (
       <AdminModal
         title="Tambah Kelas"
         onClose={closeModal}
         footer={
           <>
-            <AdminButton variant="secondary" onClick={closeModal}>Batal</AdminButton>
-            <AdminButton type="submit" form="admin-class-form">Tambah</AdminButton>
+            <AdminButton variant="secondary" onClick={closeModal} disabled={submitting}>Batal</AdminButton>
+            <AdminButton type="submit" form="admin-class-form" disabled={submitting}>
+              {submitting ? "Menyimpan..." : "Tambah"}
+            </AdminButton>
           </>
         }
       >
@@ -483,6 +713,7 @@ export default function AdminAcademicPage() {
               <option>B</option>
               <option>C</option>
               <option>D</option>
+              <option>E</option>
             </select>
           </FieldRow>
           <FieldRow label="Dosen Pengampu">
@@ -493,8 +724,9 @@ export default function AdminAcademicPage() {
           </FieldRow>
           <FieldRow label="Status">
             <div className="flex gap-5">
-              <label className="flex items-center gap-2"><input type="radio" name="status" value="Nonaktif" required /> Draft</label>
+              <label className="flex items-center gap-2"><input type="radio" name="status" value="Nonaktif" required /> Nonaktif</label>
               <label className="flex items-center gap-2"><input type="radio" name="status" value="Aktif" /> Aktif</label>
+              <label className="flex items-center gap-2"><input type="radio" name="status" value="Arsip" /> Arsip</label>
             </div>
           </FieldRow>
         </form>
@@ -552,12 +784,21 @@ export default function AdminAcademicPage() {
                       <AdminButton
                         variant="ghost"
                         className="h-8 px-2"
+                        disabled={submitting}
                         onClick={() => {
                           setSelectedSemester(semester)
                           setModal(semester.status === "Aktif" ? "semester" : "activate")
                         }}
                       >
                         {semester.status === "Aktif" ? "Edit" : "Aktifkan"}
+                      </AdminButton>
+                      <AdminButton
+                        variant="danger"
+                        className="h-8 px-2"
+                        disabled={Boolean(actionLoading) || semester.status === "Aktif"}
+                        onClick={() => setConfirmTarget({ type: "semester", item: semester })}
+                      >
+                        Hapus
                       </AdminButton>
                     </AdminActionCell>
                   </tr>
@@ -566,17 +807,37 @@ export default function AdminAcademicPage() {
             </div>
           ) : activeTab === "courses" ? (
             <div>
-              <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <h2 className="text-lg font-semibold">Daftar Mata Kuliah</h2>
-                <div className="flex flex-wrap gap-3">
-                  <AdminButton onClick={() => setModal("course")}><Plus size={16} />Tambah Mata Kuliah</AdminButton>
-                  <AdminSelect value={semesterFilter} onChange={setSemesterFilter} label="Semester">
+              <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <h2 className="shrink-0 text-lg font-semibold whitespace-nowrap">Daftar Mata Kuliah</h2>
+                <div className="flex w-full min-w-0 flex-wrap justify-start gap-3 xl:w-auto xl:flex-nowrap xl:justify-end">
+                  <AdminButton className="shrink-0 px-3" onClick={() => setModal("course")}><Plus size={16} />Tambah Mata Kuliah</AdminButton>
+                  <AdminSelect
+                    value={semesterTermFilter}
+                    onChange={setSemesterTermFilter}
+                    label="Jenis semester"
+                    className="w-full sm:w-40"
+                  >
+                    <option value="all">Semua Jenis</option>
+                    <option value="ganjil">Semester Ganjil</option>
+                    <option value="genap">Semester Genap</option>
+                  </AdminSelect>
+                  <AdminSelect
+                    value={semesterNumberFilter}
+                    onChange={setSemesterNumberFilter}
+                    label="Semester"
+                    className="w-full sm:w-44"
+                  >
                     <option value="all">Semua Semester</option>
-                    {studentSemesterOptions.map((option) => (
+                    {[1, 2, 3, 4, 5, 6].map((option) => (
                       <option key={option} value={option}>Semester {option}</option>
                     ))}
                   </AdminSelect>
-                  <AdminSearchInput value={keyword} onChange={setKeyword} placeholder="Cari Mata Kuliah" />
+                  <AdminSearchInput
+                    value={keyword}
+                    onChange={setKeyword}
+                    placeholder="Cari Mata Kuliah"
+                    className="sm:w-44 xl:w-40"
+                  />
                 </div>
               </div>
 
@@ -590,19 +851,31 @@ export default function AdminAcademicPage() {
                       <td className="px-4 py-3">{course.sks}</td>
                       <td className="px-4 py-3">{course.status}</td>
                       <AdminActionCell>
+                      <AdminButton
+                        variant="ghost"
+                        className="h-8 px-2"
+                        disabled={Boolean(actionLoading)}
+                        onClick={() => openEditCourse(course)}
+                      >
+                          Edit
+                        </AdminButton>
+                        {course.status !== "Aktif" && (
+                          <AdminButton
+                            variant="ghost"
+                            className="h-8 px-2"
+                            disabled={Boolean(actionLoading)}
+                            onClick={() => handleActivateCourse(course)}
+                          >
+                            {actionLoading === `course-${course.id}` ? "Memproses..." : "Aktifkan"}
+                          </AdminButton>
+                        )}
                         <AdminButton
-                          variant="ghost"
+                          variant="danger"
                           className="h-8 px-2"
-                          onClick={() => {
-                            if (course.status === "Aktif") {
-                              openEditCourse(course)
-                              return
-                            }
-
-                            handleActivateCourse(course)
-                          }}
+                          disabled={Boolean(actionLoading)}
+                          onClick={() => setConfirmTarget({ type: "course", item: course })}
                         >
-                          {course.status === "Aktif" ? "Edit" : "Aktifkan"}
+                          Hapus
                         </AdminButton>
                       </AdminActionCell>
                     </tr>
@@ -614,10 +887,11 @@ export default function AdminAcademicPage() {
             </div>
           ) : (
             <div>
-              <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <h2 className="text-lg font-semibold">Daftar Kelas</h2>
-                <div className="flex flex-wrap gap-3">
+              <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <h2 className="shrink-0 text-lg font-semibold whitespace-nowrap">Daftar Kelas</h2>
+                <div className="flex w-full min-w-0 flex-wrap justify-start gap-3 xl:w-auto xl:flex-nowrap xl:justify-end">
                   <AdminButton
+                    className="shrink-0 px-3"
                     onClick={() => setModal("class")}
                     disabled={Boolean(addClassDisabledReason)}
                     title={addClassDisabledReason || "Tambah Kelas"}
@@ -625,12 +899,34 @@ export default function AdminAcademicPage() {
                     <Plus size={16} />
                     Tambah Kelas
                   </AdminButton>
-                  <AdminSelect value={statusFilter} onChange={setStatusFilter} label="Status">
+                  <AdminSelect
+                    value={classStatusFilter}
+                    onChange={setClassStatusFilter}
+                    label="Status"
+                    className="w-full sm:w-40"
+                  >
                     <option value="all">Semua Status</option>
                     <option value="Aktif">Aktif</option>
                     <option value="Nonaktif">Nonaktif</option>
+                    <option value="Arsip">Arsip</option>
                   </AdminSelect>
-                  <AdminSearchInput value={keyword} onChange={setKeyword} placeholder="Cari Kelas" />
+                  <AdminSelect
+                    value={classCourseFilter}
+                    onChange={setClassCourseFilter}
+                    label="Mata kuliah"
+                    className="w-full sm:w-72 xl:w-64"
+                  >
+                    <option value="all">Semua Mata Kuliah</option>
+                    {courses.map((course) => (
+                      <option key={course.id} value={course.id}>{course.name}</option>
+                    ))}
+                  </AdminSelect>
+                  <AdminSearchInput
+                    value={keyword}
+                    onChange={setKeyword}
+                    placeholder="Cari Kelas"
+                    className="sm:w-44 xl:w-40"
+                  />
                 </div>
               </div>
               {addClassDisabledReason && (
@@ -650,6 +946,17 @@ export default function AdminAcademicPage() {
                       <AdminActionCell>
                         <AdminButton variant="ghost" className="h-8 px-2" onClick={() => navigate(`/admin/classes/${item.id}`)}>
                           Detail
+                        </AdminButton>
+                        <AdminButton variant="ghost" className="h-8 px-2" onClick={() => openEditClass(item)}>
+                          Edit
+                        </AdminButton>
+                        <AdminButton
+                          variant="danger"
+                          className="h-8 px-3"
+                          disabled={Boolean(actionLoading)}
+                          onClick={() => setConfirmTarget({ type: "class", item })}
+                        >
+                          Hapus
                         </AdminButton>
                       </AdminActionCell>
                     </tr>
@@ -676,6 +983,40 @@ export default function AdminAcademicPage() {
       </div>
 
       {renderModal()}
+      {classActivationWarning && (
+        <AdminModal
+          title="Kelas Tidak Bisa Diaktifkan"
+          onClose={() => setClassActivationWarning(false)}
+          footer={<AdminButton onClick={() => setClassActivationWarning(false)}>Mengerti</AdminButton>}
+        >
+          <p className="text-center text-sm text-gray-700">
+            Kelas hanya bisa diaktifkan jika mata kuliahnya berada pada semester mahasiswa yang sesuai dengan semester akademik aktif.
+          </p>
+        </AdminModal>
+      )}
+      {confirmTarget && (
+        <AdminConfirmModal
+          title={
+            confirmTarget.type === "semester"
+              ? "Hapus Semester?"
+              : confirmTarget.type === "course"
+              ? "Hapus Mata Kuliah?"
+              : "Hapus Kelas?"
+          }
+          message={
+            confirmTarget.type === "semester"
+              ? `Semester ${confirmTarget.item.year} - ${confirmTarget.item.term} akan dihapus.`
+              : confirmTarget.type === "course"
+              ? `Mata kuliah ${confirmTarget.item.name} akan dihapus.`
+              : `Kelas ${confirmTarget.item.name} - ${confirmTarget.item.courseName} akan dihapus.`
+          }
+          confirmLabel="Hapus"
+          variant="danger"
+          loading={actionLoading === `delete-${confirmTarget.type}-${confirmTarget.item.id}`}
+          onCancel={() => setConfirmTarget(null)}
+          onConfirm={handleDeleteConfirm}
+        />
+      )}
     </AdminLayout>
   )
 }

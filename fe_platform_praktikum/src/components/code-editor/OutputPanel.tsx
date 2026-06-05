@@ -4,19 +4,25 @@ import { useEffect, useRef } from "react"
 interface Props {
   output: string
   isRunning?: boolean
+  isSaving?: boolean
+  saveStatus?: string
+  saveError?: string
   runTime?: string
   currentInput?: string
   onCurrentInputChange?: (value: string) => void
   onSendInput?: () => void
   onReset?: () => void
   onRun?: () => void
-  onSave?: () => void
+  onSave?: () => void | Promise<void>
   onStop?: () => void
 }
 
 export default function OutputPanel({
   output,
   isRunning = false,
+  isSaving = false,
+  saveStatus,
+  saveError,
   runTime,
   currentInput,
   onCurrentInputChange,
@@ -83,11 +89,11 @@ export default function OutputPanel({
             <button
               type="button"
               onClick={onSave}
-              disabled={isRunning}
+              disabled={isRunning || isSaving}
               className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
             >
               <Save size={16} aria-hidden="true" />
-              Save
+              {isSaving ? "Saving" : "Save"}
             </button>
           )}
 
@@ -116,6 +122,18 @@ export default function OutputPanel({
 
         </div>
       </div>
+
+      {(saveStatus || saveError) && (
+        <div
+          className={`border-b px-4 py-2 text-xs font-medium ${
+            saveError
+              ? "border-red-100 bg-red-50 text-red-700"
+              : "border-emerald-100 bg-emerald-50 text-emerald-700"
+          }`}
+        >
+          {saveError || saveStatus}
+        </div>
+      )}
 
       <div>
         <div className="flex h-10 items-center justify-between border-b border-gray-200 px-4">

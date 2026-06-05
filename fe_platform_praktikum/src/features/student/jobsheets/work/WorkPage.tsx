@@ -19,6 +19,7 @@ export default function WorkPage() {
     completedItems,
     completeCurrentProgressItem,
     loading,
+    error,
     updateExperiment,
     updateExercise
   } = useWorkPage(courseId, jobsheetId)
@@ -48,13 +49,25 @@ export default function WorkPage() {
     }, 150)
 
     return () => window.clearTimeout(timer)
-  }, [location.pathname])
+  }, [handleWorkScroll, location.pathname])
 
   useEffect(() => {
     handleWorkScroll()
   }, [handleWorkScroll])
 
   if (loading) return <TopProgressBar />
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <WorkHeader title="Jobsheet" backTo={courseId ? `/courses/${courseId}` : "/courses"} />
+        <div className="mx-auto max-w-3xl px-6 py-10">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        </div>
+      </div>
+    )
+  }
   if (!courseId || !jobsheet || !submission) return <NotFoundPage />
 
   return (

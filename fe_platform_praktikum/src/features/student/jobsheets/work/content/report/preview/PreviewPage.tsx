@@ -27,17 +27,20 @@ export default function PreviewPage() {
   const [loading, setLoading] = useState(true)
   const [showSuccess, setShowSuccess] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState("")
 
   const handleSubmit = async () => {
     if (!courseId || !jobsheetId || !submission || !user) return
     try {
       setSubmitting(true)
+      setError("")
       await updateSubmission(courseId, jobsheetId, user.id, buildReport(submission))
 
       await submitSubmission(courseId, jobsheetId, user.id)
       setShowSuccess(true)
     } catch (err) {
       console.error("Submit error:", err)
+      setError(err instanceof Error ? err.message : "Gagal submit laporan.")
     } finally {
       setSubmitting(false)
     }
@@ -48,6 +51,7 @@ export default function PreviewPage() {
       if (!courseId || !jobsheetId || !user) return
 
       setLoading(true)
+      setError("")
 
       try {
         const jobsheets = await getJobsheetById(courseId, jobsheetId)
@@ -62,6 +66,8 @@ export default function PreviewPage() {
 
         setJobsheet(jobsheets || null)
         setSubmission(sub)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Gagal memuat preview laporan.")
       } finally {
         setLoading(false)
       }
@@ -70,8 +76,18 @@ export default function PreviewPage() {
     loadData()
   }, [courseId, jobsheetId, user])
 
-  if (loading || !jobsheet || !submission) {
+  if (loading) {
     return <TopProgressBar />
+  }
+
+  if (!jobsheet || !submission) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-6 py-8">
+        <div className="mx-auto max-w-3xl rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error || "Preview laporan tidak tersedia."}
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -109,6 +125,11 @@ export default function PreviewPage() {
 
       {/* CONTENT WRAPPER */}
       <div className="px-6 py-8 lg:px-16">
+        {error && (
+          <div className="mx-auto mb-6 max-w-6xl rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
         {/* CENTERED CONTAINER */}
         <div className="max-w-6xl mx-auto">

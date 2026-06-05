@@ -15,6 +15,7 @@ export default function StudentCoursePage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [keyword, setKeyword] = useState('');
+  const [error, setError] = useState("");
 
   const navigate = useNavigate();
 
@@ -26,10 +27,12 @@ export default function StudentCoursePage() {
       }
 
       try {
+        setError("")
         const courses = await getCoursesByStudentId(user.id)
         setCourses(courses)
       } catch (error) {
         console.error(error);
+        setError(error instanceof Error ? error.message : "Gagal memuat mata kuliah.")
       } finally {
         setLoading(false)
       }
@@ -58,6 +61,12 @@ export default function StudentCoursePage() {
       <TopProgressBar />
 
       <main className="max-w-7xl mx-auto px-10 py-8">
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           {/* Left */}

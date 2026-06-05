@@ -13,7 +13,7 @@ interface Props {
     files: Record<string, string>
     output: string
     analysis: JSONContent
-  }[]) => void
+  }[]) => void | Promise<void>
   initialSteps?: {
     files: Record<string, string>
     output: string
@@ -81,6 +81,9 @@ export default function InstructionWorkspaceCard({
   const [currentInputMap, setCurrentInputMap] = useState<Record<number, string>>({})
   const [runTimeMap, setRunTimeMap] = useState<Record<number, string>>({})
   const [runningMap, setRunningMap] = useState<Record<number, boolean>>({})
+  const [saving, setSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState("")
+  const [saveError, setSaveError] = useState("")
   const executionClientRef = useRef<ExecutionClient | null>(null)
   const terminalOutputRef = useRef<Record<number, string>>({})
 
@@ -199,8 +202,11 @@ export default function InstructionWorkspaceCard({
     }))
   }, [activeIndex])
 
-  const saveCurrentSteps = useCallback(() => {
+  const saveCurrentSteps = useCallback(async () => {
     if (!onChange) return
+    setSaving(true)
+    setSaveStatus("")
+    setSaveError("")
 
     const steps =
       instructions.length > 0
@@ -217,7 +223,14 @@ export default function InstructionWorkspaceCard({
             },
           ]
 
-    onChange(steps)
+    try {
+      await onChange(steps)
+      setSaveStatus("Perubahan berhasil disimpan.")
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Gagal menyimpan perubahan.")
+    } finally {
+      setSaving(false)
+    }
   }, [analysisMap, codeMap, instructions, onChange, outputMap])
 
   const finishRun = useCallback((stepIndex: number, runStartedAt: number) => {
@@ -267,7 +280,6 @@ export default function InstructionWorkspaceCard({
       ...prev,
       [runIndex]: "",
     }))
-    saveCurrentSteps()
 
     const appendAndBufferOutput = (chunk: string) => {
       appendOutput(runIndex, chunk)
@@ -275,7 +287,6 @@ export default function InstructionWorkspaceCard({
 
     const finishAndSaveRun = () => {
       finishRun(runIndex, runStartedAt)
-      saveCurrentSteps()
     }
 
     const client = new ExecutionClient({
@@ -345,7 +356,6 @@ export default function InstructionWorkspaceCard({
     runningMap,
     appendOutput,
     finishRun,
-    saveCurrentSteps,
   ])
 
   const handleSendInput = useCallback(() => {
@@ -395,7 +405,6 @@ export default function InstructionWorkspaceCard({
     }))
   }, [
     activeIndex,
-    codeMap,
     defaultFileName,
     templateCode
   ])
@@ -507,6 +516,9 @@ export default function InstructionWorkspaceCard({
           onRun={handleRun}
           onSave={saveCurrentSteps}
           onStop={handleStop}
+          isSaving={saving}
+          saveStatus={saveStatus}
+          saveError={saveError}
         />
       </div>
 

@@ -1,5 +1,5 @@
 import { ArrowLeft, Pencil } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import Avatar from "../../../components/Avatar"
 import AdminLayout from "../components/AdminLayout"
@@ -63,9 +63,10 @@ export default function AdminUserProfilePage() {
   const [editOpen, setEditOpen] = useState(false)
   const [userForm, setUserForm] = useState<UserFormState>(emptyUserForm)
   const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
 
-  useEffect(() => {
+  const fetchProfile = useCallback(() => {
     if (!id) return
 
     setLoading(true)
@@ -75,6 +76,10 @@ export default function AdminUserProfilePage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Profil tidak ditemukan"))
       .finally(() => setLoading(false))
   }, [id])
+
+  useEffect(() => {
+    fetchProfile()
+  }, [fetchProfile])
 
   useEffect(() => {
     getAdminSemesters()
@@ -143,6 +148,8 @@ export default function AdminUserProfilePage() {
     if (!id) return
 
     try {
+      setSubmitting(true)
+      setError("")
       const updated = await updateAdminUser(id, student ? {
         nim: userForm.identifier,
         fullname: userForm.fullname,
@@ -161,6 +168,8 @@ export default function AdminUserProfilePage() {
       closeEdit()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memperbarui pengguna")
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -223,8 +232,10 @@ export default function AdminUserProfilePage() {
           onClose={closeEdit}
           footer={
             <>
-              <AdminButton variant="secondary" onClick={closeEdit}>Batal</AdminButton>
-              <AdminButton type="submit" form="admin-user-profile-edit-form">Simpan</AdminButton>
+              <AdminButton variant="secondary" onClick={closeEdit} disabled={submitting}>Batal</AdminButton>
+              <AdminButton type="submit" form="admin-user-profile-edit-form" disabled={submitting}>
+                {submitting ? "Menyimpan..." : "Simpan"}
+              </AdminButton>
             </>
           }
         >

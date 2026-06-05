@@ -72,11 +72,15 @@ export function AdminSearchInput({
   value,
   onChange,
   placeholder,
+  className = "",
 }: {
   value: string
   onChange: (value: string) => void
   placeholder: string
+  className?: string
 }) {
+  const widthClass = className || "md:w-64"
+
   return (
     <label className="relative block">
       <span className="sr-only">{placeholder}</span>
@@ -85,7 +89,7 @@ export function AdminSearchInput({
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 pr-10 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 md:w-64"
+        className={`h-10 w-full rounded-md border border-gray-300 bg-white px-3 pr-10 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 ${widthClass}`}
       />
       <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
     </label>
@@ -97,11 +101,13 @@ export function AdminSelect({
   onChange,
   children,
   label,
+  className = "",
 }: {
   value: string
   onChange: (value: string) => void
   children: React.ReactNode
   label: string
+  className?: string
 }) {
   return (
     <label className="block">
@@ -109,7 +115,7 @@ export function AdminSelect({
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        className={`h-10 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 ${className}`}
       >
         {children}
       </select>
@@ -208,6 +214,7 @@ export function AdminConfirmModal({
   confirmLabel = "Konfirmasi",
   cancelLabel = "Batal",
   variant = "primary",
+  loading = false,
   onCancel,
   onConfirm,
 }: {
@@ -216,6 +223,7 @@ export function AdminConfirmModal({
   confirmLabel?: string
   cancelLabel?: string
   variant?: "primary" | "danger"
+  loading?: boolean
   onCancel: () => void
   onConfirm: () => void
 }) {
@@ -225,8 +233,10 @@ export function AdminConfirmModal({
       onClose={onCancel}
       footer={
         <>
-          <AdminButton variant="secondary" onClick={onCancel}>{cancelLabel}</AdminButton>
-          <AdminButton variant={variant} onClick={onConfirm}>{confirmLabel}</AdminButton>
+          <AdminButton variant="secondary" onClick={onCancel} disabled={loading}>{cancelLabel}</AdminButton>
+          <AdminButton variant={variant} onClick={onConfirm} disabled={loading}>
+            {loading ? "Memproses..." : confirmLabel}
+          </AdminButton>
         </>
       }
     >

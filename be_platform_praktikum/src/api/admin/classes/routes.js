@@ -6,6 +6,8 @@ const routes = (handler) => {
   router.get('/admin/academic/classes', handler.getClassesHandler);
   router.post('/admin/academic/classes', handler.createClassHandler);
   router.get('/admin/classes/:id', handler.getClassByIdHandler);
+  router.put('/admin/classes/:id', handler.updateClassHandler);
+  router.delete('/admin/classes/:id', handler.deleteClassHandler);
   router.get('/admin/classes/:id/student-candidates', handler.getStudentCandidatesHandler);
   router.post('/admin/classes/:id/students', handler.assignStudentsHandler);
 

@@ -39,6 +39,15 @@ import {
 type ModalMode = "add" | "import" | "menu" | null
 type ConfirmAction = "activate" | "deactivate" | "delete"
 
+function parseCsv(text: string) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.split(",").map((value) => value.trim()))
+    .filter((row) => row.length > 1)
+}
+
 export default function AdminUsersPage() {
   const params = useParams<{ role?: UserRoleTab }>()
   const role = params.role === "lecturers" ? "lecturers" : "students"
@@ -49,11 +58,14 @@ export default function AdminUsersPage() {
   const [semesters, setSemesters] = useState<AcademicSemester[]>([])
   const [students, setStudents] = useState<AdminStudent[]>([])
   const [lecturers, setLecturers] = useState<AdminLecturer[]>([])
+  const [importFile, setImportFile] = useState<File | null>(null)
   const [confirm, setConfirm] = useState<{
     action: ConfirmAction
     user: AdminStudent | AdminLecturer
   } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [actionLoading, setActionLoading] = useState("")
   const [error, setError] = useState("")
   const isStudent = role === "students"
   const activeSemester = getActiveSemester(semesters)
@@ -111,6 +123,8 @@ export default function AdminUsersPage() {
     const form = new FormData(event.currentTarget)
 
     try {
+      setSubmitting(true)
+      setError("")
       if (isStudent) {
         await createAdminStudent({
           nim: String(form.get("identifier") || ""),
@@ -133,6 +147,52 @@ export default function AdminUsersPage() {
       fetchUsers()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan pengguna")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleImportSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!importFile) return
+
+    try {
+      setSubmitting(true)
+      setError("")
+      const rows = parseCsv(await importFile.text())
+      const normalizedRows = rows[0]?.[0]?.toLowerCase().includes(isStudent ? "nim" : "nip")
+        ? rows.slice(1)
+        : rows
+
+      for (const row of normalizedRows) {
+        if (isStudent) {
+          const [nim, fullname, angkatan, semesterValue, email] = row
+          await createAdminStudent({
+            nim,
+            fullname,
+            angkatan: Number(angkatan || 0),
+            semester: Number(semesterValue || 0),
+            email,
+            status: "Aktif",
+          })
+        } else {
+          const [nip, fullname, email] = row
+          await createAdminLecturer({
+            nip,
+            fullname,
+            email,
+            status: "Aktif",
+          })
+        }
+      }
+
+      setImportFile(null)
+      setModal(null)
+      fetchUsers()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal mengimport pengguna")
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -143,6 +203,8 @@ export default function AdminUsersPage() {
   const handleConfirmAction = async () => {
     if (!confirm) return
     try {
+      setActionLoading(`${confirm.action}-${confirm.user.id}`)
+      setError("")
       if (confirm.action === "activate") {
         await activateAdminUser(confirm.user.id)
       } else if (confirm.action === "deactivate") {
@@ -155,6 +217,8 @@ export default function AdminUsersPage() {
       fetchUsers()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memproses pengguna")
+    } finally {
+      setActionLoading("")
     }
   }
 
@@ -172,27 +236,34 @@ export default function AdminUsersPage() {
           onClose={() => setModal(null)}
           footer={
             <>
-              <AdminButton variant="secondary" onClick={() => setModal(null)}>Batal</AdminButton>
-              <AdminButton onClick={() => setModal(null)} disabled>Import</AdminButton>
+              <AdminButton variant="secondary" onClick={() => setModal(null)} disabled={submitting}>Batal</AdminButton>
+              <AdminButton type="submit" form="admin-import-form" disabled={submitting || !importFile}>
+                {submitting ? "Mengimport..." : "Import"}
+              </AdminButton>
             </>
           }
         >
-          <div className="space-y-5">
+          <form id="admin-import-form" className="space-y-5" onSubmit={handleImportSubmit}>
             <div>
-              <p className="text-sm font-medium text-gray-700">Upload File (CSV / Excel)</p>
-              <AdminButton variant="secondary" className="mt-3" disabled>
+              <p className="text-sm font-medium text-gray-700">Upload File CSV</p>
+              <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-100">
                 <FileUp size={16} />
-                Pilih File
-              </AdminButton>
+                {importFile ? importFile.name : "Pilih File"}
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="sr-only"
+                  onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
+                />
+              </label>
             </div>
             <div className="rounded-md bg-blue-50 p-4 text-sm text-blue-900">
               <p className="font-semibold">Catatan:</p>
               <p>
                 Format: {isStudent ? "NIM, Nama, Angkatan, Semester, Email" : "NIP, Nama, Email"}
               </p>
-              <p>Import banyak belum diaktifkan.</p>
             </div>
-          </div>
+          </form>
         </AdminModal>
       )
     }
@@ -203,8 +274,10 @@ export default function AdminUsersPage() {
         onClose={closeUserModal}
         footer={
           <>
-            <AdminButton variant="secondary" onClick={closeUserModal}>Batal</AdminButton>
-            <AdminButton type="submit" form="admin-user-form">Tambah</AdminButton>
+              <AdminButton variant="secondary" onClick={closeUserModal} disabled={submitting}>Batal</AdminButton>
+              <AdminButton type="submit" form="admin-user-form" disabled={submitting}>
+                {submitting ? "Menyimpan..." : "Tambah"}
+              </AdminButton>
           </>
         }
       >
@@ -332,6 +405,7 @@ export default function AdminUsersPage() {
                   <AdminButton
                     variant="ghost"
                     className="h-8 px-2"
+                    disabled={Boolean(actionLoading)}
                     onClick={() => setConfirm({
                       action: student.status === "Aktif" ? "deactivate" : "activate",
                       user: student,
@@ -343,6 +417,7 @@ export default function AdminUsersPage() {
                   <AdminButton
                     variant="danger"
                     className="h-8 px-2"
+                    disabled={Boolean(actionLoading)}
                     onClick={() => setConfirm({ action: "delete", user: student })}
                   >
                     <Trash2 size={14} />
@@ -377,6 +452,7 @@ export default function AdminUsersPage() {
                 <AdminButton
                   variant="ghost"
                   className="h-8 px-2"
+                  disabled={Boolean(actionLoading)}
                   onClick={() => setConfirm({
                     action: lecturer.status === "Aktif" ? "deactivate" : "activate",
                     user: lecturer,
@@ -388,6 +464,7 @@ export default function AdminUsersPage() {
                 <AdminButton
                   variant="danger"
                   className="h-8 px-2"
+                  disabled={Boolean(actionLoading)}
                   onClick={() => setConfirm({ action: "delete", user: lecturer })}
                 >
                   <Trash2 size={14} />
@@ -431,6 +508,7 @@ export default function AdminUsersPage() {
           variant={confirm.action === "delete" ? "danger" : "primary"}
           onCancel={() => setConfirm(null)}
           onConfirm={handleConfirmAction}
+          loading={actionLoading === `${confirm.action}-${confirm.user.id}`}
         />
       )}
     </AdminLayout>

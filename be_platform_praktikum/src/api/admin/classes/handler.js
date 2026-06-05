@@ -33,6 +33,24 @@ class ClassesHandler {
     }
   }
 
+  async updateClassHandler(req, res) {
+    try {
+      const classItem = await this._service.updateClass(req.params.id, req.body);
+      return ok(res, { class: classItem }, 'Kelas berhasil diperbarui');
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
+
+  async deleteClassHandler(req, res) {
+    try {
+      await this._service.deleteClass(req.params.id);
+      return ok(res, {}, 'Kelas berhasil dihapus');
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
+
   async getStudentCandidatesHandler(req, res) {
     try {
       const students = await this._service.getStudentCandidates(req.params.id, req.query);

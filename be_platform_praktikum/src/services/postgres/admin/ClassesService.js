@@ -16,10 +16,16 @@ class ClassesService {
     const keyword = `%${(filters.keyword || '').toLowerCase()}%`;
     const params = [keyword];
     let statusClause = '';
+    let courseClause = '';
 
     if (filters.status && filters.status !== 'all') {
       params.push(normalizeStatus(filters.status));
       statusClause = `AND cl.status = $${params.length}`;
+    }
+
+    if (filters.courseId && filters.courseId !== 'all') {
+      params.push(filters.courseId);
+      courseClause = `AND cl.course_id = $${params.length}`;
     }
 
     const result = await this._pool.query(
@@ -35,6 +41,7 @@ class ClassesService {
       WHERE ($1 = '%%' OR LOWER(cl.name) LIKE $1 OR LOWER(c.name) LIKE $1 OR LOWER(u.fullname) LIKE $1)
         AND ap.is_active = true
         ${statusClause}
+        ${courseClause}
       ORDER BY ap.is_active DESC, c.name ASC, cl.name ASC
       `,
       params,
@@ -50,14 +57,24 @@ class ClassesService {
 
     if (!activeSemester) throw new Error('ACTIVE_SEMESTER_NOT_FOUND');
 
+    const courseId = payload.courseId || payload.course_id;
+    const name = payload.name;
+    const lecturerId = payload.lecturerId || payload.lecturer_id;
+    await this.ensureCourseAvailableForClass(courseId);
+    await this.ensureClassUnique({
+      courseId,
+      name,
+      academicPeriodId: activeSemester,
+    });
+
     await this._pool.query(
       `INSERT INTO classes (id, course_id, name, lecturer_id, academic_period_id, status)
        VALUES ($1, $2, $3, $4, $5, $6)`,
       [
         id,
-        payload.courseId || payload.course_id,
-        payload.name,
-        payload.lecturerId || payload.lecturer_id,
+        courseId,
+        name,
+        lecturerId,
         activeSemester,
         normalizeStatus(payload.status, 'AKTIF'),
       ],
@@ -80,6 +97,94 @@ class ClassesService {
       students,
       jobsheets,
     };
+  }
+
+  async updateClass(id, payload) {
+    const lecturerId = payload.lecturerId || payload.lecturer_id;
+    const status = payload.status;
+    const courseId = payload.courseId || payload.course_id;
+    const name = payload.name;
+
+    const existing = await this._pool.query(
+      'SELECT id, course_id, name, academic_period_id FROM classes WHERE id = $1',
+      [id],
+    );
+    if (!existing.rows.length) throw new Error('CLASS_NOT_FOUND');
+    if (!lecturerId) throw new Error('LECTURER_REQUIRED');
+    if (!status) throw new Error('STATUS_REQUIRED');
+
+    const normalizedStatus = normalizeStatus(status);
+    if (!['AKTIF', 'NONAKTIF', 'ARSIP'].includes(normalizedStatus)) {
+      throw new Error('CLASS_STATUS_INVALID');
+    }
+
+    const nextCourseId = courseId || existing.rows[0].course_id;
+    const nextName = name || existing.rows[0].name;
+    await this.ensureCourseAvailableForClass(nextCourseId);
+    await this.ensureClassUnique({
+      id,
+      courseId: nextCourseId,
+      name: nextName,
+      academicPeriodId: existing.rows[0].academic_period_id,
+    });
+
+    await this._pool.query(
+      `UPDATE classes
+       SET course_id = $1, name = $2, lecturer_id = $3, status = $4
+       WHERE id = $5`,
+      [nextCourseId, nextName, lecturerId, normalizedStatus, id],
+    );
+
+    return this.getClassDetail(id);
+  }
+
+  async deleteClass(id) {
+    const found = await this._pool.query('SELECT id FROM classes WHERE id = $1', [id]);
+    if (!found.rows.length) throw new Error('CLASS_NOT_FOUND');
+
+    await this._pool.query('DELETE FROM classes WHERE id = $1', [id]);
+  }
+
+  async ensureClassUnique({ id, courseId, name, academicPeriodId }) {
+    const duplicate = await this._pool.query(
+      `SELECT id FROM classes
+       WHERE id <> COALESCE($1, '')
+        AND course_id = $2
+        AND LOWER(name) = LOWER($3)
+        AND academic_period_id = $4
+       LIMIT 1`,
+      [id || '', courseId, name, academicPeriodId],
+    );
+
+    if (duplicate.rows.length) throw new Error('CLASS_DUPLICATE');
+  }
+
+  async ensureCourseAvailableForClass(courseId) {
+    const result = await this._pool.query(
+      `
+      SELECT c.id, c.status, c.semester, ap.semester_type
+      FROM courses c
+      CROSS JOIN LATERAL (
+        SELECT semester_type
+        FROM academic_periods
+        WHERE is_active = true
+        LIMIT 1
+      ) ap
+      WHERE c.id = $1
+      `,
+      [courseId],
+    );
+
+    if (!result.rows.length) throw new Error('COURSE_NOT_FOUND');
+
+    const course = result.rows[0];
+    const activeStudentSemesters = course.semester_type === 'GANJIL'
+      ? [1, 3, 5]
+      : [2, 4, 6];
+
+    if (course.status !== 'AKTIF' || !activeStudentSemesters.includes(Number(course.semester))) {
+      throw new Error('COURSE_INACTIVE');
+    }
   }
 
   async getClassStudents(classId) {

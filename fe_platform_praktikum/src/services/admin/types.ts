@@ -140,5 +140,12 @@ export interface CreateClassPayload {
   name: string
   lecturerId: string
   academicPeriodId?: string
-  status?: "Aktif" | "Nonaktif"
+  status?: "Aktif" | "Nonaktif" | "Arsip"
+}
+
+export interface UpdateClassPayload {
+  courseId: string
+  name: string
+  lecturerId: string
+  status: "Aktif" | "Nonaktif" | "Arsip"
 }

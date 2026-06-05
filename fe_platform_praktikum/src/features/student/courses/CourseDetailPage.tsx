@@ -20,6 +20,7 @@ export default function CourseDetailPage() {
   const [submissions, setSubmissions] = useState<JobsheetSubmission[]>([]);
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const navigate = useNavigate();
 
@@ -34,6 +35,7 @@ export default function CourseDetailPage() {
 
     async function loadData() {
       try {
+        setError("");
         const selectedCourse = await getCourseById(currentCourseId);
         setCourse(selectedCourse);
 
@@ -60,6 +62,7 @@ export default function CourseDetailPage() {
         );
       } catch (error) {
         console.error(error);
+        setError(error instanceof Error ? error.message : "Gagal memuat detail mata kuliah.");
       } finally {
         setLoading(false);
       }
@@ -74,6 +77,11 @@ export default function CourseDetailPage() {
       <TopProgressBar />
 
       <main className="max-w-7xl mx-auto px-6 py-8">
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
         {/* Header */}
         <div className="mb-8">

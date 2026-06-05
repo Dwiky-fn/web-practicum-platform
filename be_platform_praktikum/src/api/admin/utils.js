@@ -12,9 +12,19 @@ function handleAdminError(error, res) {
     USER_DUPLICATE: [409, 'Email, NIM, atau NIP sudah digunakan'],
     USER_HAS_CLASSES: [409, 'Dosen masih menjadi pengampu kelas'],
     CLASS_NOT_FOUND: [404, 'Kelas tidak ditemukan'],
+    CLASS_DUPLICATE: [409, 'Kelas pada mata kuliah dan semester aktif ini sudah ada'],
     COURSE_NOT_FOUND: [404, 'Mata kuliah tidak ditemukan'],
+    COURSE_DUPLICATE: [409, 'Kode atau nama mata kuliah pada semester tersebut sudah ada'],
+    COURSE_HAS_CLASSES: [409, 'Mata kuliah masih digunakan pada kelas'],
+    COURSE_INACTIVE: [409, 'Mata kuliah tidak aktif pada semester akademik aktif'],
     SEMESTER_NOT_FOUND: [404, 'Semester tidak ditemukan'],
+    SEMESTER_DUPLICATE: [409, 'Semester akademik tersebut sudah ada'],
+    SEMESTER_ACTIVE_DELETE: [409, 'Semester aktif tidak dapat dihapus'],
+    SEMESTER_HAS_CLASSES: [409, 'Semester masih digunakan pada kelas'],
     ACTIVE_SEMESTER_NOT_FOUND: [400, 'Belum ada semester aktif'],
+    LECTURER_REQUIRED: [400, 'Dosen pengampu wajib dipilih'],
+    STATUS_REQUIRED: [400, 'Status kelas wajib dipilih'],
+    CLASS_STATUS_INVALID: [400, 'Status kelas tidak valid'],
   };
   const detail = errors[error.message];
 

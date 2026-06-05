@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import type { JSONContent } from "@tiptap/core"
@@ -51,6 +50,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
   const [completedItems, setCompletedItems] = useState<StudentProgressItem[]>([])
   const [lastSavedPage, setLastSavedPage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
   const navigate = useNavigate()
   const location = useLocation()
@@ -99,6 +99,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
       setSavedProgress(0)
       setCompletedItems([])
       setLastSavedPage(null)
+      setError("")
 
       try {
         // 1. Jobsheet
@@ -127,6 +128,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
 
       } catch (err) {
         console.error("Error loading data:", err)
+        setError(err instanceof Error ? err.message : "Gagal memuat jobsheet.")
         setLastSavedPage("")
       } finally {
         if (isMountedRef.current) {
@@ -139,25 +141,30 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
   }, [courseId, jobsheetId, user])
 
   // MANUAL SAVE
-  const saveSubmission = async (updatedSubmission: JobsheetSubmission) => {
-    try {
-      await updateSubmission(
-        courseId!,
-        jobsheetIdRef.current!,
-        user!.id,
-        updatedSubmission.report
-      )
-    } catch (err) {
-      console.error("SAVE ERROR", err)
+  const saveSubmission = useCallback(async (updatedSubmission: JobsheetSubmission) => {
+    if (!courseId || !jobsheetIdRef.current || !user) {
+      throw new Error("Data sesi belum siap untuk menyimpan.")
     }
-  }
+
+    await updateSubmission(
+      courseId,
+      jobsheetIdRef.current,
+      user.id,
+      updatedSubmission.report
+    )
+  }, [courseId, user])
 
   // UPDATE STATE
-  const updateExperiment = useCallback((experimentId: string, steps: StepData[]) => {
+  const updateExperiment = useCallback(async (experimentId: string, steps: StepData[]) => {
+    return new Promise<void>((resolve, reject) => {
     setSubmission(prev => {
-      if (!prev) return prev
+      if (!prev) {
+        resolve()
+        return prev
+      }
 
       if (!steps || steps.length === 0) {
+        reject(new Error("Tidak ada langkah eksperimen untuk disimpan."))
         console.warn("⚠️ SKIP SAVE - EMPTY STEPS")
         return prev
       }
@@ -178,15 +185,20 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
         }
       }
 
-      saveSubmission(updated)
+      saveSubmission(updated).then(resolve).catch(reject)
 
       return updated
     })
-  }, [])
+    })
+  }, [saveSubmission])
 
   const updateExercise = useCallback(async (exerciseId: string, data: StepData) => {
+    return new Promise<void>((resolve, reject) => {
     setSubmission(prev => {
-      if (!prev) return prev
+      if (!prev) {
+        resolve()
+        return prev
+      }
       
       const updated = {
         ...prev,
@@ -199,11 +211,12 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
         }
       }
 
-      saveSubmission(updated)
+      saveSubmission(updated).then(resolve).catch(reject)
 
       return updated
     })
-  }, [])
+    })
+  }, [saveSubmission])
 
   // AUTO NAVIGATE TO LAST VISITED ITEM
   useEffect(() => {
@@ -330,6 +343,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
     completedItems,
     completeCurrentProgressItem,
     loading,
+    error,
     updateExperiment,
     updateExercise,
     saveSubmission // 🔥 expose ke UI

@@ -13,7 +13,7 @@ interface Props {
     files: Record<string, string>
     output: string
     analysis: JSONContent
-  }[]) => void | Promise<void>
+  }[]) => void
   initialSteps?: {
     files: Record<string, string>
     output: string
@@ -81,9 +81,6 @@ export default function InstructionWorkspaceCard({
   const [currentInputMap, setCurrentInputMap] = useState<Record<number, string>>({})
   const [runTimeMap, setRunTimeMap] = useState<Record<number, string>>({})
   const [runningMap, setRunningMap] = useState<Record<number, boolean>>({})
-  const [saving, setSaving] = useState(false)
-  const [saveStatus, setSaveStatus] = useState("")
-  const [saveError, setSaveError] = useState("")
   const executionClientRef = useRef<ExecutionClient | null>(null)
   const terminalOutputRef = useRef<Record<number, string>>({})
 
@@ -202,35 +199,25 @@ export default function InstructionWorkspaceCard({
     }))
   }, [activeIndex])
 
-  const saveCurrentSteps = useCallback(async () => {
+  const saveCurrentSteps = useCallback(() => {
     if (!onChange) return
-    setSaving(true)
-    setSaveStatus("")
-    setSaveError("")
 
     const steps =
       instructions.length > 0
         ? instructions.map((_, i) => ({
-            files: codeMap[i] || {},
-            output: terminalOutputRef.current[i] ?? outputMap[i] ?? "",
-            analysis: analysisMap[i] || { type: "doc", content: [] },
-          }))
+          files: codeMap[i] || {},
+          output: terminalOutputRef.current[i] ?? outputMap[i] ?? "",
+          analysis: analysisMap[i] || { type: "doc", content: [] },
+        }))
         : [
-            {
-              files: codeMap[0] || {},
-              output: terminalOutputRef.current[0] ?? outputMap[0] ?? "",
-              analysis: analysisMap[0] || { type: "doc", content: [] },
-            },
-          ]
+          {
+            files: codeMap[0] || {},
+            output: terminalOutputRef.current[0] ?? outputMap[0] ?? "",
+            analysis: analysisMap[0] || { type: "doc", content: [] },
+          },
+        ]
 
-    try {
-      await onChange(steps)
-      setSaveStatus("Perubahan berhasil disimpan.")
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Gagal menyimpan perubahan.")
-    } finally {
-      setSaving(false)
-    }
+    onChange(steps)
   }, [analysisMap, codeMap, instructions, onChange, outputMap])
 
   const finishRun = useCallback((stepIndex: number, runStartedAt: number) => {
@@ -280,6 +267,7 @@ export default function InstructionWorkspaceCard({
       ...prev,
       [runIndex]: "",
     }))
+    saveCurrentSteps()
 
     const appendAndBufferOutput = (chunk: string) => {
       appendOutput(runIndex, chunk)
@@ -287,6 +275,7 @@ export default function InstructionWorkspaceCard({
 
     const finishAndSaveRun = () => {
       finishRun(runIndex, runStartedAt)
+      saveCurrentSteps()
     }
 
     const client = new ExecutionClient({
@@ -356,6 +345,7 @@ export default function InstructionWorkspaceCard({
     runningMap,
     appendOutput,
     finishRun,
+    saveCurrentSteps,
   ])
 
   const handleSendInput = useCallback(() => {
@@ -405,6 +395,7 @@ export default function InstructionWorkspaceCard({
     }))
   }, [
     activeIndex,
+    codeMap,
     defaultFileName,
     templateCode
   ])
@@ -516,9 +507,6 @@ export default function InstructionWorkspaceCard({
           onRun={handleRun}
           onSave={saveCurrentSteps}
           onStop={handleStop}
-          isSaving={saving}
-          saveStatus={saveStatus}
-          saveError={saveError}
         />
       </div>
 

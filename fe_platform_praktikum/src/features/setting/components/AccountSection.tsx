@@ -14,6 +14,7 @@ interface Props {
     email: string;
     currentPassword: string;
   }) => Promise<void>;
+  onSendEmailOtp?: () => Promise<void>;
   onVerifyEmailChange: (payload: {
     email: string;
     currentPassword: string;
@@ -33,6 +34,7 @@ export default function AccountSection({
   emailMessage,
   passwordMessage,
   onRequestEmailChange,
+  onSendEmailOtp,
   onVerifyEmailChange,
   onChangePassword,
 }: Props) {
@@ -99,21 +101,38 @@ export default function AccountSection({
       return;
     }
 
-    setOtpSent(true);
-    setOtpMessage(`OTP telah dikirim ke ${pendingEmail}.`);
-    setOtpCountdown(OTP_RESEND_INTERVAL);
+    try {
+      await onSendEmailOtp?.();
+
+      setOtpSent(true);
+      setOtpMessage(
+        otpSent
+          ? `OTP baru telah dikirim ke ${pendingEmail}.`
+          : `OTP telah dikirim ke ${pendingEmail}.`,
+      );
+      setOtpCountdown(OTP_RESEND_INTERVAL);
+    } catch {
+      return;
+    }
   };
 
   const handleVerifyOtp = async () => {
-    await onVerifyEmailChange({
-      email: pendingEmail,
-      currentPassword: emailPassword,
-      otp: otpInput.trim(),
-    });
+    try {
+      await onVerifyEmailChange({
+        email: pendingEmail,
+        currentPassword: emailPassword,
+        otp: otpInput.trim(),
+      });
 
-    setOtpModalOpen(false);
-    setSuccessModalOpen(true);
-    setEmailPassword("");
+      setOtpModalOpen(false);
+      setSuccessModalOpen(true);
+      setEmailPassword("");
+      setOtpInput("");
+      setOtpSent(false);
+      setOtpCountdown(0);
+    } catch {
+      return;
+    }
   };
 
   const handlePasswordSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -123,14 +142,18 @@ export default function AccountSection({
       return;
     }
 
-    await onChangePassword({
-      currentPassword: oldPassword,
-      newPassword: password,
-      confirmPassword,
-    });
-    setOldPassword("");
-    setPassword("");
-    setConfirmPassword("");
+    try {
+      await onChangePassword({
+        currentPassword: oldPassword,
+        newPassword: password,
+        confirmPassword,
+      });
+      setOldPassword("");
+      setPassword("");
+      setConfirmPassword("");
+    } catch {
+      return;
+    }
   };
 
   const emailChanged = emailInput.trim().toLowerCase() !== email.toLowerCase();
@@ -144,7 +167,7 @@ export default function AccountSection({
     oldPassword.length > 0 &&
     password.length >= 8 &&
     password === confirmPassword;
-  const canVerifyOtp = otpSent && otpInput.trim().length > 0;
+  const canVerifyOtp = otpSent && otpInput.trim().length === 6;
   const otpCountdownLabel =
     otpCountdown > 0
       ? `Kirim ulang dalam ${otpCountdown} detik`
@@ -303,16 +326,18 @@ export default function AccountSection({
                 inputMode="numeric"
                 placeholder="Contoh: 123456"
                 value={otpInput}
-                onChange={(event) => setOtpInput(event.target.value)}
+                onChange={(event) =>
+                  setOtpInput(event.target.value.replace(/\D/g, "").slice(0, 6))
+                }
                 className="w-full rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
               <AdminButton
                 variant="secondary"
                 onClick={handleSendOtp}
                 disabled={emailSaving || otpCountdown > 0}
-                className="w-full sm:w-auto sm:min-w-[120px]"
+                className="w-full sm:w-auto sm:min-w-30"
               >
-                Kirim OTP
+                {otpSent ? "Kirim Ulang OTP" : "Kirim OTP"}
               </AdminButton>
             </div>
             <p className="text-xs text-gray-500">{otpCountdownLabel}</p>

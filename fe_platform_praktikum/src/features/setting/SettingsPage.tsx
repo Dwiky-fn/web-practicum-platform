@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useCurrentUser } from "../../services/user/useCurrentUser";
 import {
   updateUser,
-  updateUserEmail,
   updateUserPassword,
   uploadUserAvatar,
+  requestUserEmailChangeOtp,
+  verifyUserEmailChangeOtp,
   verifyUserPassword,
 } from "../../services/user/service";
 import type { PersonalData, UpdateUserPayload } from "../../services/user/types";
@@ -96,10 +97,30 @@ export default function SettingsPage() {
     } catch (error) {
       console.error(error);
       setEmailMessage(
-        error instanceof Error &&
-        error.message.toLowerCase().includes("password")
-          ? "Password tidak sesuai."
-          : "Gagal memverifikasi password.",
+        error instanceof Error ? error.message : "Gagal memverifikasi password.",
+      );
+      throw error;
+    } finally {
+      setEmailSaving(false);
+    }
+  };
+
+  const handleSendEmailOtp = async () => {
+    if (!pendingEmailChange) {
+      throw new Error("Data perubahan email belum siap.");
+    }
+
+    setEmailSaving(true);
+    setEmailMessage("");
+    setPasswordMessage("");
+
+    try {
+      await requestUserEmailChangeOtp(user.id, pendingEmailChange);
+      setEmailMessage("Kode OTP telah dikirim ke email baru.");
+    } catch (error) {
+      console.error(error);
+      setEmailMessage(
+        error instanceof Error ? error.message : "Gagal mengirim OTP.",
       );
       throw error;
     } finally {
@@ -118,14 +139,15 @@ export default function SettingsPage() {
 
     try {
       const otpCode = payload.otp.trim();
+
       if (!otpCode) {
         throw new Error("OTP wajib diisi.");
       }
-      const emailPayload = pendingEmailChange ?? {
-        email: payload.email,
-        currentPassword: payload.currentPassword,
-      };
-      const updatedUser = await updateUserEmail(user.id, emailPayload);
+
+      const updatedUser = await verifyUserEmailChangeOtp(user.id, {
+        otp: otpCode,
+      });
+
       setUser(updatedUser);
       setPendingEmailChange(null);
       setEmailMessage("Email berhasil diperbarui.");
@@ -134,6 +156,7 @@ export default function SettingsPage() {
       setEmailMessage(
         error instanceof Error ? error.message : "Gagal memperbarui email.",
       );
+      throw error;
     } finally {
       setEmailSaving(false);
     }
@@ -156,6 +179,7 @@ export default function SettingsPage() {
       setPasswordMessage(
         error instanceof Error ? error.message : "Gagal memperbarui password.",
       );
+      throw error;
     } finally {
       setPasswordSaving(false);
     }
@@ -195,6 +219,7 @@ export default function SettingsPage() {
             emailMessage={emailMessage}
             passwordMessage={passwordMessage}
             onRequestEmailChange={handleRequestEmailChange}
+            onSendEmailOtp={handleSendEmailOtp}
             onVerifyEmailChange={handleVerifyEmailChange}
             onChangePassword={handleChangePassword}
           />

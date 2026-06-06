@@ -95,6 +95,37 @@ class UsersHandler {
     }
   }
 
+  async requestUpdateEmailOtpHandler(req, res) {
+    try {
+      const userId = this._getRequestUserId(req);
+
+      await this._service.requestUpdateEmailOtp(userId, req.body);
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'Kode OTP telah dikirim ke email baru',
+      });
+    } catch (error) {
+      return this._handleAccountError(error, res);
+    }
+  }
+
+  async verifyUpdateEmailOtpHandler(req, res) {
+    try {
+      const userId = this._getRequestUserId(req);
+
+      const user = await this._service.verifyUpdateEmailOtp(userId, req.body);
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'Email berhasil diperbarui',
+        data: { user },
+      });
+    } catch (error) {
+      return this._handleAccountError(error, res);
+    }
+  }
+
   async getUserByIdHandler(req, res) {
     try {
       const { id } = req.params;
@@ -171,6 +202,12 @@ class UsersHandler {
       PASSWORD_INVALID: [401, 'Password tidak sesuai'],
       NEW_PASSWORD_INVALID: [400, 'Password baru minimal 8 karakter'],
       PASSWORD_CONFIRM_MISMATCH: [400, 'Konfirmasi password baru tidak sama'],
+
+      OTP_REQUIRED: [400, 'OTP wajib diisi'],
+      OTP_NOT_FOUND: [404, 'OTP tidak ditemukan, silakan minta OTP baru'],
+      OTP_EXPIRED: [400, 'OTP sudah kedaluwarsa'],
+      OTP_INVALID: [400, 'OTP tidak valid'],
+      OTP_TOO_MANY_ATTEMPTS: [429, 'Terlalu banyak percobaan OTP'],
     };
 
     const detail = errors[error.message];

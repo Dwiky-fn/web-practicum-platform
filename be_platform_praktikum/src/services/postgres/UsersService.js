@@ -1,9 +1,18 @@
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const pool = require('.');
-const GoogleService = require('../auth/GoogleService')
+const GoogleService = require('../auth/GoogleService');
+const MailService = require('../mail/MailService');
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function generateOtp() {
+  return crypto.randomInt(100000, 1000000).toString();
+}
+
+function hashOtp(otp) {
+  return crypto.createHash('sha256').update(otp).digest('hex');
+}
 
 function compareBcrypt(password, hash) {
   return new Promise((resolve, reject) => {
@@ -43,6 +52,7 @@ class UsersService {
   constructor() {
     this._pool = pool;
     this._googleService = new GoogleService();
+    this._mailService = new MailService();
   }
 
   _generateToken() {
@@ -159,6 +169,148 @@ class UsersService {
         [userId, avatarUrl],
       );
     }
+  }
+
+  async requestUpdateEmailOtp(userId, payload) {
+    const newEmail = payload.email?.trim().toLowerCase();
+    const currentPassword = payload.currentPassword || payload.current_password;
+
+    if (!newEmail) {
+      throw new Error('EMAIL_REQUIRED');
+    }
+
+    if (!EMAIL_PATTERN.test(newEmail)) {
+      throw new Error('EMAIL_INVALID');
+    }
+
+    if (!currentPassword) {
+      throw new Error('CURRENT_PASSWORD_REQUIRED');
+    }
+
+    const userResult = await this._pool.query(
+      'SELECT id, email, password FROM users WHERE id = $1',
+      [userId],
+    );
+
+    if (!userResult.rows.length) {
+      throw new Error('USER_NOT_FOUND');
+    }
+
+    const user = userResult.rows[0];
+
+    if (user.email.toLowerCase() === newEmail) {
+      throw new Error('EMAIL_SAME');
+    }
+
+    const validPassword = await verifyPassword(currentPassword, user.password);
+
+    if (!validPassword) {
+      throw new Error('PASSWORD_INVALID');
+    }
+
+    const duplicateResult = await this._pool.query(
+      'SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND id <> $2 LIMIT 1',
+      [newEmail, userId],
+    );
+
+    if (duplicateResult.rows.length) {
+      throw new Error('EMAIL_DUPLICATE');
+    }
+
+    const otp = generateOtp();
+    const otpHash = hashOtp(otp);
+
+    await this._pool.query('DELETE FROM email_change_otps WHERE user_id = $1', [
+      userId,
+    ]);
+
+    await this._pool.query(
+      `INSERT INTO email_change_otps
+      (user_id, new_email, otp_hash, expires_at)
+     VALUES
+      ($1, $2, $3, NOW() + INTERVAL '5 minutes')`,
+      [userId, newEmail, otpHash],
+    );
+
+    await this._mailService.sendEmailChangeOtp(newEmail, otp);
+  }
+
+  async verifyUpdateEmailOtp(userId, payload) {
+    const otp = payload.otp?.trim();
+
+    if (!otp) {
+      throw new Error('OTP_REQUIRED');
+    }
+
+    const otpResult = await this._pool.query(
+      `SELECT id, new_email, otp_hash, expires_at, attempts
+     FROM email_change_otps
+     WHERE user_id = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+      [userId],
+    );
+
+    if (!otpResult.rows.length) {
+      throw new Error('OTP_NOT_FOUND');
+    }
+
+    const otpData = otpResult.rows[0];
+
+    if (Number(otpData.attempts) >= 5) {
+      throw new Error('OTP_TOO_MANY_ATTEMPTS');
+    }
+
+    if (new Date(otpData.expires_at) < new Date()) {
+      throw new Error('OTP_EXPIRED');
+    }
+
+    const inputOtpHash = hashOtp(otp);
+
+    if (inputOtpHash !== otpData.otp_hash) {
+      await this._pool.query(
+        `UPDATE email_change_otps
+       SET attempts = attempts + 1
+       WHERE id = $1`,
+        [otpData.id],
+      );
+
+      throw new Error('OTP_INVALID');
+    }
+
+    const userResult = await this._pool.query(
+      'SELECT id, email FROM users WHERE id = $1',
+      [userId],
+    );
+
+    if (!userResult.rows.length) {
+      throw new Error('USER_NOT_FOUND');
+    }
+
+    const oldEmail = userResult.rows[0].email;
+    const newEmail = otpData.new_email;
+
+    const duplicateResult = await this._pool.query(
+      'SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND id <> $2 LIMIT 1',
+      [newEmail, userId],
+    );
+
+    if (duplicateResult.rows.length) {
+      throw new Error('EMAIL_DUPLICATE');
+    }
+
+    await this._pool.query('UPDATE users SET email = $2 WHERE id = $1', [
+      userId,
+      newEmail,
+    ]);
+
+    await this._pool.query('DELETE FROM email_change_otps WHERE user_id = $1', [
+      userId,
+    ]);
+
+    await this._mailService.sendEmailChangedNotification(oldEmail, newEmail);
+
+    return this.getUserById(userId);
   }
 
   async getUserById(userId) {

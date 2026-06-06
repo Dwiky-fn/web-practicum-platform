@@ -1,7 +1,6 @@
 import { apiFetch } from "../api"
 import { mapUserResponse } from "./mapper"
 import type {
-  UpdateEmailPayload,
   UpdatePasswordPayload,
   UpdateUserPayload,
   User,
@@ -19,18 +18,6 @@ export const updateUser = async (
 ): Promise<User> => {
   const res = await apiFetch(`/users/${userId}`, {
     method: "PUT",
-    body: JSON.stringify(payload),
-  })
-
-  return mapUserResponse(res.data.user)
-}
-
-export const updateUserEmail = async (
-  userId: string,
-  payload: UpdateEmailPayload,
-): Promise<User> => {
-  const res = await apiFetch(`/users/${userId}/email`, {
-    method: "PATCH",
     body: JSON.stringify(payload),
   })
 
@@ -81,6 +68,33 @@ export const uploadUserAvatar = async (
   const res = await apiFetch(`/users/${userId}/avatar`, {
     method: "POST",
     body: JSON.stringify({ image }),
+  })
+
+  return mapUserResponse(res.data.user)
+}
+
+export const requestUserEmailChangeOtp = async (
+  userId: string,
+  payload: {
+    email: string
+    currentPassword: string
+  },
+): Promise<void> => {
+  await apiFetch(`/users/${userId}/email/request-otp`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+}
+
+export const verifyUserEmailChangeOtp = async (
+  userId: string,
+  payload: {
+    otp: string
+  },
+) => {
+  const res = await apiFetch(`/users/${userId}/email/verify-otp`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
   })
 
   return mapUserResponse(res.data.user)

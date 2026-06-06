@@ -1,15 +1,30 @@
-import { useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { login } from "../../../services/auth/service"
+import { login, loginWithGoogle } from "../../../services/auth/service"
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
+import type { LoginResponse } from "../../../services/auth/types"
 
 export default function LoginForm() {
   const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [errorMessage, setErrorMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const googleButtonRef = useRef<HTMLDivElement | null>(null)
+
   const navigate = useNavigate()
   const { setUser } = useCurrentUser()
+
+  const saveLoginSession = useCallback(
+    (response: LoginResponse) => {
+      localStorage.setItem("authToken", response.token)
+      localStorage.setItem("authUser", JSON.stringify(response.user))
+      setUser(response.user)
+      console.log("Login SUCCESS,", response)
+      navigate("/dashboard")
+    },
+    [navigate, setUser],
+  )
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -18,11 +33,7 @@ export default function LoginForm() {
 
     try {
       const response = await login({ identifier, password })
-      localStorage.setItem("authToken", response.token)
-      localStorage.setItem("authUser", JSON.stringify(response.user))
-      setUser(response.user)
-      console.log("Login SUCCESS,", response)
-      navigate("/dashboard")
+      saveLoginSession(response)
     } catch (err) {
       console.error(err);
       setErrorMessage(
@@ -33,13 +44,75 @@ export default function LoginForm() {
     }
   }
 
-  const handleGoogleLogin = async () => {
-    try {
-      setErrorMessage("Login Google belum tersedia. Gunakan Email/NIM terlebih dahulu.")
-    } catch (err) {
-      console.error(err);
+  const handleGoogleCredential = useCallback(
+    async (credential: string) => {
+      setErrorMessage("")
+      setIsSubmitting(true)
+
+      try {
+        const response = await loginWithGoogle({ credential })
+        saveLoginSession(response)
+      } catch (err) {
+        console.error(err)
+        setErrorMessage(
+          err instanceof Error
+            ? err.message
+            : "Login Google gagal, silakan coba lagi",
+        )
+      } finally {
+        setIsSubmitting(false)
+      }
+    },
+    [saveLoginSession],
+  )
+
+  useEffect(() => {
+    const scriptId = "google-identity-script"
+
+    const initializeGoogleButton = () => {
+      const google = window.google
+
+      if (!google || !googleButtonRef.current) {
+        return
+      }
+
+      google.accounts.id.initialize({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        callback: (response: { credential?: string }) => {
+          if (!response.credential) {
+            setErrorMessage("Credential Google tidak ditemukan")
+            return
+          }
+
+          handleGoogleCredential(response.credential)
+        },
+      })
+
+      google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+        shape: "rectangular",
+        width: 360,
+      })
     }
-  }
+
+    const existingScript = document.getElementById(scriptId)
+
+    if (existingScript) {
+      initializeGoogleButton()
+      return
+    }
+
+    const script = document.createElement("script")
+    script.id = scriptId
+    script.src = "https://accounts.google.com/gsi/client"
+    script.async = true
+    script.defer = true
+    script.onload = initializeGoogleButton
+
+    document.body.appendChild(script)
+  }, [handleGoogleCredential])
 
   return (
     <div>
@@ -120,20 +193,9 @@ export default function LoginForm() {
         </div>
 
         {/* Google Login */}
-        <button
-          type="button"
-          onClick={handleGoogleLogin}
-          className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg py-3 mb-6 hover:bg-gray-100 transition cursor-pointer"
-        >
-          <img
-            src="https://www.svgrepo.com/show/475656/google-color.svg"
-            alt=""
-            className="h-5 w-5"
-          />
-          <span className="font-medium text-gray-700">
-            Google
-          </span>
-        </button>
+        <div className="flex justify-center mb-6">
+          <div ref={googleButtonRef}></div>
+        </div>
     </div>
   )
 }

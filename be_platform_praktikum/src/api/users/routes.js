@@ -4,6 +4,8 @@ const routes = (handler) => {
   const router = express.Router();
 
   router.post('/login', handler.loginHandler);
+  router.post('/login/google', handler.googleLoginHandler);
+
   router.get('/users/:id', handler.getUserByIdHandler);
   router.put('/users/:id', handler.updateUserByIdHandler);
   router.patch('/users/:id/email', handler.updateUserEmailHandler);

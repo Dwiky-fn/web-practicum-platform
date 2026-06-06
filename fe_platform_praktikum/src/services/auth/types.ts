@@ -5,6 +5,10 @@ export interface LoginPayload {
   password: string
 }
 
+export type GoogleLoginPayload = {
+  credential: string
+}
+
 export interface LoginResponse {
   token: string
   user: User

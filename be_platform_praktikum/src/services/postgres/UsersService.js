@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const pool = require('.');
+const GoogleService = require('../auth/GoogleService')
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -41,6 +42,11 @@ async function verifyPassword(password, storedPassword) {
 class UsersService {
   constructor() {
     this._pool = pool;
+    this._googleService = new GoogleService();
+  }
+
+  _generateToken() {
+    return crypto.randomBytes(32).toString('hex');
   }
 
   async login(payload) {
@@ -91,9 +97,68 @@ class UsersService {
     }
 
     return {
-      token: crypto.randomBytes(32).toString('hex'),
+      token: this._generateToken(),
       user: await this.getUserById(account.id),
     };
+  }
+
+  async loginWithGoogle(payload) {
+    const googleUser = await this._googleService.verifyCredential(
+      payload.credential,
+    );
+
+    const result = await this._pool.query(
+      `SELECT id, role, is_active
+     FROM users
+     WHERE LOWER(email) = LOWER($1)
+     LIMIT 1`,
+      [googleUser.email],
+    );
+
+    if (!result.rows.length) {
+      throw new Error('GOOGLE_ACCOUNT_NOT_REGISTERED');
+    }
+
+    const account = result.rows[0];
+
+    if (!account.is_active) {
+      throw new Error('USER_INACTIVE');
+    }
+
+    await this._updateAvatarFromGoogleIfEmpty(
+      account.id,
+      account.role,
+      googleUser.avatarUrl,
+    );
+
+    return {
+      token: this._generateToken(),
+      user: await this.getUserById(account.id),
+    };
+  }
+
+  async _updateAvatarFromGoogleIfEmpty(userId, role, avatarUrl) {
+    if (!avatarUrl) {
+      return;
+    }
+
+    if (role === 'MAHASISWA') {
+      await this._pool.query(
+        `UPDATE student_profiles
+       SET avatar_url = COALESCE(avatar_url, $2)
+       WHERE user_id = $1`,
+        [userId, avatarUrl],
+      );
+    }
+
+    if (role === 'DOSEN') {
+      await this._pool.query(
+        `UPDATE lecturer_profiles
+       SET avatar_url = COALESCE(avatar_url, $2)
+       WHERE user_id = $1`,
+        [userId, avatarUrl],
+      );
+    }
   }
 
   async getUserById(userId) {
@@ -277,10 +342,10 @@ class UsersService {
 
     try {
       // TODO: Tambahkan OTP verifikasi email baru sebelum update email.
-      await this._pool.query(
-        'UPDATE users SET email = $2 WHERE id = $1',
-        [userId, newEmail],
-      );
+      await this._pool.query('UPDATE users SET email = $2 WHERE id = $1', [
+        userId,
+        newEmail,
+      ]);
     } catch (error) {
       if (error.code === '23505') {
         throw new Error('EMAIL_DUPLICATE');
@@ -329,10 +394,10 @@ class UsersService {
 
     const hashedPassword = await hashBcrypt(newPassword, 10);
 
-    await this._pool.query(
-      'UPDATE users SET password = $2 WHERE id = $1',
-      [userId, hashedPassword],
-    );
+    await this._pool.query('UPDATE users SET password = $2 WHERE id = $1', [
+      userId,
+      hashedPassword,
+    ]);
 
     return this.getUserById(userId);
   }

@@ -47,6 +47,54 @@ class UsersHandler {
     }
   }
 
+  async googleLoginHandler(req, res) {
+    try {
+      const { token, user } = await this._service.loginWithGoogle(req.body);
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'Login Google berhasil',
+        data: {
+          token,
+          user,
+        },
+      });
+    } catch (error) {
+      const errors = {
+        GOOGLE_CREDENTIAL_REQUIRED: [400, 'Credential Google wajib diisi'],
+        GOOGLE_INVALID: [401, 'Login Google tidak valid'],
+        GOOGLE_EMAIL_NOT_VERIFIED: [403, 'Email Google belum terverifikasi'],
+        GOOGLE_ACCOUNT_NOT_REGISTERED: [
+          404,
+          'Email Google belum terdaftar di sistem',
+        ],
+        GOOGLE_CLIENT_ID_NOT_CONFIGURED: [
+          500,
+          'Google Client ID belum dikonfigurasi',
+        ],
+        USER_INACTIVE: [403, 'Akun sudah dinonaktifkan'],
+      };
+
+      const detail = errors[error.message];
+
+      if (detail) {
+        const [statusCode, message] = detail;
+
+        return res.status(statusCode).json({
+          status: 'fail',
+          message,
+        });
+      }
+
+      console.error(error);
+
+      return res.status(500).json({
+        status: 'error',
+        message: 'Terjadi kesalahan server',
+      });
+    }
+  }
+
   async getUserByIdHandler(req, res) {
     try {
       const { id } = req.params;

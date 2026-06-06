@@ -286,7 +286,7 @@ export default function AdminClassDetailPage() {
                         <AdminButton
                           variant="ghost"
                           className="h-8 px-2"
-                          onClick={() => navigate(`/admin/jobsheets/${jobsheet.id}/preview`)}
+                          onClick={() => navigate(`/admin/jobsheets/${jobsheet.id}/preview?courseId=${selectedClass.courseId}`)}
                         >
                           Preview
                         </AdminButton>

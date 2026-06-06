@@ -165,8 +165,7 @@ export default function LoginForm() {
             <button
               type="button"
               className="text-gray-500 hover:text-blue-600 transition cursor-pointer"
-              onClick={() => console.log("Redirect ke reset password")
-              }
+              onClick={() => navigate("/forgot-password")}
             >
               Lupa kata sandi?
             </button>

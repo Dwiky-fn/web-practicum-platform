@@ -319,6 +319,135 @@ class UsersService {
     return this.getUserById(userId);
   }
 
+  async requestPasswordResetOtp(payload) {
+    const email = payload.email?.trim().toLowerCase();
+
+    if (!email) {
+      throw new Error('EMAIL_REQUIRED');
+    }
+
+    if (!EMAIL_PATTERN.test(email)) {
+      throw new Error('EMAIL_INVALID');
+    }
+
+    const userResult = await this._pool.query(
+      `SELECT id, email, is_active
+       FROM users
+       WHERE LOWER(email) = LOWER($1)
+       LIMIT 1`,
+      [email],
+    );
+
+    if (!userResult.rows.length || !userResult.rows[0].is_active) {
+      return;
+    }
+
+    const user = userResult.rows[0];
+    const otp = generateOtp();
+    const otpHash = hashOtp(otp);
+
+    await this._pool.query('DELETE FROM password_reset_otps WHERE user_id = $1', [
+      user.id,
+    ]);
+
+    await this._pool.query(
+      `INSERT INTO password_reset_otps
+      (user_id, otp_hash, expires_at)
+     VALUES
+      ($1, $2, NOW() + INTERVAL '5 minutes')`,
+      [user.id, otpHash],
+    );
+
+    await this._mailService.sendPasswordResetOtp(user.email, otp);
+  }
+
+  async resetPasswordWithOtp(payload) {
+    const email = payload.email?.trim().toLowerCase();
+    const otp = payload.otp?.trim();
+    const newPassword = payload.newPassword || payload.new_password;
+    const confirmPassword = payload.confirmPassword || payload.confirm_password;
+
+    if (!email) {
+      throw new Error('EMAIL_REQUIRED');
+    }
+
+    if (!EMAIL_PATTERN.test(email)) {
+      throw new Error('EMAIL_INVALID');
+    }
+
+    if (!otp) {
+      throw new Error('OTP_REQUIRED');
+    }
+
+    if (!newPassword || newPassword.length < 8) {
+      throw new Error('NEW_PASSWORD_INVALID');
+    }
+
+    if (newPassword !== confirmPassword) {
+      throw new Error('PASSWORD_CONFIRM_MISMATCH');
+    }
+
+    const userResult = await this._pool.query(
+      `SELECT id, email, is_active
+       FROM users
+       WHERE LOWER(email) = LOWER($1)
+       LIMIT 1`,
+      [email],
+    );
+
+    if (!userResult.rows.length || !userResult.rows[0].is_active) {
+      throw new Error('OTP_INVALID');
+    }
+
+    const user = userResult.rows[0];
+    const otpResult = await this._pool.query(
+      `SELECT id, otp_hash, expires_at, attempts
+       FROM password_reset_otps
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [user.id],
+    );
+
+    if (!otpResult.rows.length) {
+      throw new Error('OTP_NOT_FOUND');
+    }
+
+    const otpData = otpResult.rows[0];
+
+    if (Number(otpData.attempts) >= 5) {
+      throw new Error('OTP_TOO_MANY_ATTEMPTS');
+    }
+
+    if (new Date(otpData.expires_at) < new Date()) {
+      throw new Error('OTP_EXPIRED');
+    }
+
+    if (hashOtp(otp) !== otpData.otp_hash) {
+      await this._pool.query(
+        `UPDATE password_reset_otps
+         SET attempts = attempts + 1
+         WHERE id = $1`,
+        [otpData.id],
+      );
+
+      throw new Error('OTP_INVALID');
+    }
+
+    const hashedPassword = await hashBcrypt(newPassword, 10);
+
+    await this._pool.query('UPDATE users SET password = $2 WHERE id = $1', [
+      user.id,
+      hashedPassword,
+    ]);
+
+    await this._pool.query('DELETE FROM password_reset_otps WHERE user_id = $1', [
+      user.id,
+    ]);
+
+    await this._mailService.sendPasswordChangedNotification(user.email);
+  }
+
   async getUserById(userId) {
     const result = await this._pool.query(
       `SELECT 
@@ -523,7 +652,7 @@ class UsersService {
     }
 
     const userResult = await this._pool.query(
-      'SELECT id, password FROM users WHERE id = $1',
+      'SELECT id, email, password FROM users WHERE id = $1',
       [userId],
     );
 
@@ -584,6 +713,10 @@ class UsersService {
       userId,
       hashedPassword,
     ]);
+
+    await this._mailService.sendPasswordChangedNotification(
+      userResult.rows[0].email,
+    );
 
     return this.getUserById(userId);
   }

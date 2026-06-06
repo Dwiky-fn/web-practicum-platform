@@ -2,6 +2,29 @@ const nodemailer = require('nodemailer');
 const {
   emailChangeOtpTemplate,
 } = require('./templates/emailChangeOtpTemplate');
+const {
+  passwordResetOtpTemplate,
+} = require('./templates/passwordResetOtpTemplate');
+const {
+  emailChangedNotificationTemplate,
+} = require('./templates/emailChangedNotificationTemplate');
+const {
+  passwordChangedNotificationTemplate,
+} = require('./templates/passwordChangedNotificationTemplate');
+
+const APP_NAME = 'Platform Praktikum Pemrograman';
+
+function formatChangedAt(date = new Date()) {
+  return new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Jakarta',
+    timeZoneName: 'short',
+  }).format(date);
+}
 
 class MailService {
   constructor() {
@@ -21,7 +44,20 @@ class MailService {
       subject: 'Kode OTP Perubahan Email',
       html: emailChangeOtpTemplate({
         otp,
-        appName: 'Platform Praktikum Pemrograman',
+        appName: APP_NAME,
+        expiresIn: '5 menit',
+      }),
+    });
+  }
+
+  async sendPasswordResetOtp(to, otp) {
+    await this._transporter.sendMail({
+      from: process.env.MAIL_FROM,
+      to,
+      subject: 'Kode OTP Reset Password',
+      html: passwordResetOtpTemplate({
+        otp,
+        appName: APP_NAME,
         expiresIn: '5 menit',
       }),
     });
@@ -32,14 +68,24 @@ class MailService {
       from: process.env.MAIL_FROM,
       to,
       subject: 'Email Akun Berhasil Diubah',
-      html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-          <h2>Email Akun Berhasil Diubah</h2>
-          <p>Email akun Anda telah berhasil diubah menjadi:</p>
-          <p><strong>${newEmail}</strong></p>
-          <p>Jika Anda tidak merasa melakukan perubahan ini, segera hubungi administrator.</p>
-        </div>
-      `,
+      html: emailChangedNotificationTemplate({
+        appName: APP_NAME,
+        oldEmail: to,
+        newEmail,
+        changedAt: formatChangedAt(),
+      }),
+    });
+  }
+
+  async sendPasswordChangedNotification(to) {
+    await this._transporter.sendMail({
+      from: process.env.MAIL_FROM,
+      to,
+      subject: 'Password Akun Berhasil Diubah',
+      html: passwordChangedNotificationTemplate({
+        appName: APP_NAME,
+        changedAt: formatChangedAt(),
+      }),
     });
   }
 }

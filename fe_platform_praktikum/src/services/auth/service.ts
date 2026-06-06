@@ -29,3 +29,26 @@ export const loginWithGoogle = async (
     user: mapUserResponse(res.data.user),
   }
 }
+
+export const requestPasswordResetOtp = async (
+  payload: { email: string },
+): Promise<void> => {
+  await apiFetch("/password-reset/request-otp", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+}
+
+export const resetPasswordWithOtp = async (
+  payload: {
+    email: string
+    otp: string
+    newPassword: string
+    confirmPassword: string
+  },
+): Promise<void> => {
+  await apiFetch("/password-reset/verify-otp", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+}

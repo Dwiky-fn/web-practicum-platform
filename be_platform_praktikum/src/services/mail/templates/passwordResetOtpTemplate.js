@@ -1,11 +1,11 @@
-function emailChangeOtpTemplate({ otp, appName, expiresIn }) {
+function passwordResetOtpTemplate({ otp, appName, expiresIn }) {
   return `<!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <title>Kode OTP Perubahan Email - ${appName}</title>
+  <title>Kode OTP Reset Password - ${appName}</title>
   <style>
     @media only screen and (max-width: 520px) {
       .email-wrapper { padding: 16px 0 !important; }
@@ -55,16 +55,16 @@ function emailChangeOtpTemplate({ otp, appName, expiresIn }) {
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
               <tr><td class="icon-wrap" style="text-align:center;padding-bottom:20px;">
                 <div class="icon-circle" style="display:inline-block;width:56px;height:56px;background-color:#EFF6FF;border-radius:50%;border:2px solid #BFDBFE;text-align:center;line-height:56px;font-size:26px;">
-                  &#9993;
+                  &#128274;
                 </div>
               </td></tr>
             </table>
 
             <p class="title" style="margin:0 0 6px;font-size:22px;font-weight:700;color:#1E293B;text-align:center;line-height:1.3;">
-              Verifikasi Perubahan Email
+              Verifikasi Reset Password
             </p>
             <p class="subtitle" style="margin:0 0 28px;font-size:14px;color:#64748B;text-align:center;line-height:1.6;">
-              Gunakan kode berikut untuk memverifikasi perubahan alamat email akun Anda di
+              Gunakan kode berikut untuk memverifikasi permintaan reset password akun Anda di
               <span style="color:#1D4ED8;font-weight:600;">${appName}</span>.
             </p>
 
@@ -87,7 +87,7 @@ function emailChangeOtpTemplate({ otp, appName, expiresIn }) {
             </table>
 
             <p class="instruction" style="margin:28px 0 0;font-size:14px;color:#1E293B;line-height:1.7;">
-              Masukkan kode tersebut pada halaman verifikasi yang terbuka di browser Anda.
+              Masukkan kode tersebut pada halaman reset password yang terbuka di browser Anda.
               Jangan tutup tab atau halaman sebelum proses selesai.
             </p>
             <p class="security-note" style="margin:10px 0 0;font-size:13px;color:#64748B;line-height:1.6;">
@@ -103,10 +103,10 @@ function emailChangeOtpTemplate({ otp, appName, expiresIn }) {
               <tr>
                 <td style="border-left:4px solid #F97316;padding:12px 16px;background-color:#ffffff;">
                   <p class="warning-title" style="margin:0 0 4px;font-size:13px;font-weight:700;color:#92400E;">
-                    &#9888;&#65039; <span class="desktop-warning-text">Bukan Anda yang Meminta Perubahan Ini?</span><span class="mobile-warning-text" style="display:none;">Bukan Anda?</span>
+                    &#9888;&#65039; <span class="desktop-warning-text">Bukan Anda yang Meminta Reset Password?</span><span class="mobile-warning-text" style="display:none;">Bukan Anda?</span>
                   </p>
                   <p class="warning-copy desktop-warning-text" style="margin:0;font-size:13px;color:#92400E;line-height:1.6;">
-                    Jika Anda tidak pernah mengajukan perubahan email,
+                    Jika Anda tidak pernah meminta reset password,
                     <strong>abaikan email ini</strong> dan segera hubungi administrator
                     atau dosen penanggung jawab untuk mengamankan akun Anda.
                   </p>
@@ -138,4 +138,4 @@ function emailChangeOtpTemplate({ otp, appName, expiresIn }) {
 </html>`;
 }
 
-module.exports = { emailChangeOtpTemplate };
+module.exports = { passwordResetOtpTemplate };

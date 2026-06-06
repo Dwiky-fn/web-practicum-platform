@@ -6,6 +6,8 @@ const routes = (handler) => {
 
   router.post('/login', handler.loginHandler);
   router.post('/login/google', handler.googleLoginHandler);
+  router.post('/password-reset/request-otp', handler.requestPasswordResetOtpHandler);
+  router.post('/password-reset/verify-otp', handler.resetPasswordWithOtpHandler);
 
   router.get('/users/:id', requireSelfOrRoles('ADMIN'), handler.getUserByIdHandler);
   router.put('/users/:id', requireSelfOrRoles('ADMIN'), handler.updateUserByIdHandler);

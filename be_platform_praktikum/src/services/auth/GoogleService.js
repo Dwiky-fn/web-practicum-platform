@@ -23,6 +23,7 @@ class GoogleService {
         audience: this._clientId,
       });
     } catch (error) {
+      console.error('Google ID token verification failed:', error.message);
       throw new Error('GOOGLE_INVALID');
     }
 

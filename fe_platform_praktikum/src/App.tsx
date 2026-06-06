@@ -2,6 +2,7 @@ import { Navigate, Routes, Route, useLocation } from "react-router-dom"
 import { CurrentUserProvider } from "./services/user/CurrentUserProvider"
 import { useCurrentUser } from "./services/user/useCurrentUser"
 import LoginPage from "./features/auth/LoginPage"
+import ForgotPasswordPage from "./features/auth/ForgotPasswordPage"
 import DashboardPage from "./features/dashboard"
 import SettingsPage from "./features/setting/SettingsPage"
 import FullScreenLoader from "./components/loading/FullScreenLoader"
@@ -60,6 +61,7 @@ function AppContent() {
   return (
     <Routes>
       <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/dashboard" element={requireUser(<DashboardPage />)} />
       <Route path="/settings" element={requireUser(<SettingsPage />)} />
       <Route

@@ -95,6 +95,32 @@ class UsersHandler {
     }
   }
 
+  async requestPasswordResetOtpHandler(req, res) {
+    try {
+      await this._service.requestPasswordResetOtp(req.body);
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'Jika email terdaftar, kode OTP akan dikirim ke email tersebut',
+      });
+    } catch (error) {
+      return this._handleAccountError(error, res);
+    }
+  }
+
+  async resetPasswordWithOtpHandler(req, res) {
+    try {
+      await this._service.resetPasswordWithOtp(req.body);
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'Password berhasil diperbarui',
+      });
+    } catch (error) {
+      return this._handleAccountError(error, res);
+    }
+  }
+
   async requestUpdateEmailOtpHandler(req, res) {
     try {
       const userId = this._getRequestUserId(req);

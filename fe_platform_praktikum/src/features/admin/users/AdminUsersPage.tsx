@@ -398,7 +398,7 @@ export default function AdminUsersPage() {
                   <AdminButton
                     variant="ghost"
                     className="h-8 px-2"
-                    onClick={() => navigate(`/admin/users/students/${student.id}`)}
+                    onClick={() => navigate(`/users/students/${student.id}`)}
                   >
                     Detail
                   </AdminButton>
@@ -445,7 +445,7 @@ export default function AdminUsersPage() {
                 <AdminButton
                   variant="ghost"
                   className="h-8 px-2"
-                  onClick={() => navigate(`/admin/users/lecturers/${lecturer.id}`)}
+                  onClick={() => navigate(`/users/lecturers/${lecturer.id}`)}
                 >
                   Detail
                 </AdminButton>

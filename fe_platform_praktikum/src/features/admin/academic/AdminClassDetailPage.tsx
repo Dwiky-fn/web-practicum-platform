@@ -202,7 +202,7 @@ export default function AdminClassDetailPage() {
     <AdminLayout>
       <button
         type="button"
-        onClick={() => navigate("/admin/academic?tab=classes")}
+        onClick={() => navigate("/courses?tab=classes")}
         className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
       >
         <ArrowLeft size={18} />
@@ -286,7 +286,7 @@ export default function AdminClassDetailPage() {
                         <AdminButton
                           variant="ghost"
                           className="h-8 px-2"
-                          onClick={() => navigate(`/admin/jobsheets/${jobsheet.id}/preview?courseId=${selectedClass.courseId}`)}
+                          onClick={() => navigate(`/jobsheets/${jobsheet.id}/preview?courseId=${selectedClass.courseId}`)}
                         >
                           Preview
                         </AdminButton>

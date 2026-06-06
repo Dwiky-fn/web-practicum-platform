@@ -175,16 +175,16 @@ export default function AdminDashboard() {
         <AdminPanel className="p-5">
           <h2 className="text-lg font-semibold text-gray-900">Quick Access</h2>
           <div className="mt-4 grid gap-3">
-            <AdminButton onClick={() => navigate("/admin/academic?tab=courses")}>
+            <AdminButton onClick={() => navigate("/courses?tab=courses")}>
               Tambah Mata Kuliah
             </AdminButton>
-            <AdminButton variant="secondary" onClick={() => navigate("/admin/academic?tab=classes")}>
+            <AdminButton variant="secondary" onClick={() => navigate("/courses?tab=classes")}>
               Tambah Kelas
             </AdminButton>
-            <AdminButton variant="secondary" onClick={() => navigate("/admin/users/lecturers")}>
+            <AdminButton variant="secondary" onClick={() => navigate("/users/lecturers")}>
               Kelola Dosen
             </AdminButton>
-            <AdminButton variant="secondary" onClick={() => navigate("/admin/users/students")}>
+            <AdminButton variant="secondary" onClick={() => navigate("/users/students")}>
               Kelola Mahasiswa
             </AdminButton>
           </div>

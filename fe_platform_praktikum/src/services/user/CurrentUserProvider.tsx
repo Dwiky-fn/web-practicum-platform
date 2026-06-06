@@ -17,14 +17,19 @@ export function CurrentUserProvider({ children }: Props) {
         const storedUser = localStorage.getItem("authUser")
 
         if (storedUser) {
-          setUser(JSON.parse(storedUser) as User)
+          const parsedUser = JSON.parse(storedUser) as User
+          setUser(parsedUser)
+
+          const freshUser = await getUserById(parsedUser.id)
+          setUser(freshUser)
+          localStorage.setItem("authUser", JSON.stringify(freshUser))
           return
         }
-
-        const userData = await getUserById("mhs-1")
-        setUser(userData)
       } catch (error) {
         console.error(error)
+        localStorage.removeItem("authToken")
+        localStorage.removeItem("authUser")
+        setUser(null)
       } finally {
         setLoading(false)
       }

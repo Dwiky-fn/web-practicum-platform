@@ -22,7 +22,7 @@ export default function LoginForm() {
       localStorage.setItem("authUser", JSON.stringify(response.user))
       setUser(response.user)
       console.log("Login SUCCESS,", response)
-      navigate(response.user.role === "ADMIN" ? "/admin" : "/dashboard")
+      navigate("/dashboard")
     } catch (err) {
       console.error(err);
       setErrorMessage(
@@ -35,8 +35,7 @@ export default function LoginForm() {
 
   const handleGoogleLogin = async () => {
     try {
-      console.log("Login dengan Google Berhasil");
-      navigate('/dashboard')
+      setErrorMessage("Login Google belum tersedia. Gunakan Email/NIM/NIP terlebih dahulu.")
     } catch (err) {
       console.error(err);
     }

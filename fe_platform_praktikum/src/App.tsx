@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom"
+import { Navigate, Routes, Route } from "react-router-dom"
 import { CurrentUserProvider } from "./services/user/CurrentUserProvider"
 import { useCurrentUser } from "./services/user/useCurrentUser"
 import LoginPage from "./features/auth/LoginPage"
@@ -16,37 +16,122 @@ import ExercisePage from "./features/student/jobsheets/work/content/practice/Exe
 import TaskPage from "./features/student/jobsheets/work/content/task/TaskPage"
 import PreviewPage from "./features/student/jobsheets/work/content/report/preview/PreviewPage"
 import ReviewPage from "./features/student/jobsheets/work/content/report/review/ReviewPage"
-import AdminDashboard from "./features/admin/dashboard/AdminDashboard"
 import AdminUsersPage from "./features/admin/users/AdminUsersPage"
 import AdminAcademicPage from "./features/admin/academic/AdminAcademicPage"
 import AdminUserProfilePage from "./features/admin/users/AdminUserProfilePage"
 import AdminClassDetailPage from "./features/admin/academic/AdminClassDetailPage"
 import AdminJobsheetPreviewPage from "./features/admin/academic/AdminJobsheetPreviewPage"
+import LecturerCoursesPage from "./features/lecturer/pages/LecturerCoursesPage"
+import LecturerClassDetailPage from "./features/lecturer/pages/LecturerClassDetailPage"
+import LecturerJobsheetManagePage from "./features/lecturer/pages/LecturerJobsheetManagePage"
+import LecturerJobsheetEditorPage from "./features/lecturer/pages/LecturerJobsheetEditorPage"
+import LecturerJobsheetDetailPage from "./features/lecturer/pages/LecturerJobsheetDetailPage"
+import LecturerMonitoringPage from "./features/lecturer/pages/LecturerMonitoringPage"
+import LecturerReviewPage from "./features/lecturer/pages/LecturerReviewPage"
 
 function AppContent() {
-  const { loading } = useCurrentUser()
+  const { user, loading } = useCurrentUser()
 
   if (loading) {
     return <FullScreenLoader text="Memeriksa sesi..." />
+  }
+
+  const requireUser = (element: React.ReactNode) => (
+    user ? element : <Navigate to="/" replace />
+  )
+
+  const byRole = ({
+    mahasiswa,
+    dosen,
+    admin,
+  }: {
+    mahasiswa?: React.ReactNode
+    dosen?: React.ReactNode
+    admin?: React.ReactNode
+  }) => {
+    if (!user) return <Navigate to="/" replace />
+    if (user.role === "MAHASISWA") return mahasiswa ?? <NotFoundPage />
+    if (user.role === "DOSEN") return dosen ?? <NotFoundPage />
+    if (user.role === "ADMIN") return admin ?? <NotFoundPage />
+    return <Navigate to="/" replace />
   }
 
   return (
     <Routes>
       <Route path="/" element={<LoginPage />} />
       <Route path="/dashboard" element={<DashboardPage />} />
-      <Route path="/settings" element={<SettingsPage />} />
-      <Route path="/admin" element={<AdminDashboard />} />
-      <Route path="/admin/users/:role" element={<AdminUsersPage />} />
-      <Route path="/admin/users/:role/:id" element={<AdminUserProfilePage />} />
-      <Route path="/admin/academic" element={<AdminAcademicPage />} />
-      <Route path="/admin/classes/:id" element={<AdminClassDetailPage />} />
-      <Route path="/admin/jobsheets/:id/preview" element={<AdminJobsheetPreviewPage />} />
-      <Route path="/courses" element={<StudentCoursePage />} />
-      <Route path="/courses/:courseId" element={<CourseDetailPage />} />
-      <Route path="/courses/:courseId/jobsheets/:jobsheetId" element={<JobsheetOverviewPage />} />
+      <Route path="/settings" element={requireUser(<SettingsPage />)} />
+      <Route
+        path="/courses"
+        element={byRole({
+          mahasiswa: <StudentCoursePage />,
+          dosen: <LecturerCoursesPage />,
+          admin: <AdminAcademicPage />,
+        })}
+      />
+      <Route
+        path="/academic"
+        element={byRole({ admin: <AdminAcademicPage /> })}
+      />
+      <Route
+        path="/users/:role"
+        element={byRole({ admin: <AdminUsersPage /> })}
+      />
+      <Route
+        path="/users/:role/:id"
+        element={byRole({ admin: <AdminUserProfilePage /> })}
+      />
+      <Route
+        path="/classes/:id"
+        element={byRole({ admin: <AdminClassDetailPage /> })}
+      />
+      <Route
+        path="/classes/:courseId/:classId"
+        element={byRole({ dosen: <LecturerClassDetailPage /> })}
+      />
+      <Route
+        path="/courses/:courseId"
+        element={byRole({
+          mahasiswa: <CourseDetailPage />,
+          dosen: <LecturerJobsheetManagePage />,
+          admin: <AdminAcademicPage />,
+        })}
+      />
+      <Route
+        path="/courses/:courseId/jobsheets"
+        element={byRole({ dosen: <LecturerJobsheetManagePage /> })}
+      />
+      <Route
+        path="/courses/:courseId/jobsheets/create"
+        element={byRole({ dosen: <LecturerJobsheetEditorPage /> })}
+      />
+      <Route
+        path="/courses/:courseId/jobsheets/:jobsheetId/edit"
+        element={byRole({ dosen: <LecturerJobsheetEditorPage /> })}
+      />
+      <Route
+        path="/jobsheets/:id/preview"
+        element={byRole({ admin: <AdminJobsheetPreviewPage /> })}
+      />
+      <Route
+        path="/jobsheets/:jobsheetId"
+        element={byRole({ dosen: <LecturerJobsheetDetailPage /> })}
+      />
+      <Route
+        path="/monitoring"
+        element={byRole({ dosen: <LecturerMonitoringPage /> })}
+      />
+      <Route
+        path="/reviews/:studentId"
+        element={byRole({ dosen: <LecturerReviewPage /> })}
+      />
+      <Route
+        path="/courses/:courseId/jobsheets/:jobsheetId"
+        element={byRole({ mahasiswa: <JobsheetOverviewPage /> })}
+      />
       <Route
         path="/courses/:courseId/jobsheets/:jobsheetId/works"
-        element={<WorkPage />}
+        element={byRole({ mahasiswa: <WorkPage /> })}
       >
         <Route path="theory/:theoryId" element={<TheoryPage />} />
         <Route path="experiments/:experimentId" element={<ExperimentPage />} />
@@ -55,11 +140,11 @@ function AppContent() {
       </Route>
       <Route
         path="/courses/:courseId/jobsheets/:jobsheetId/preview"
-        element={<PreviewPage />}
+        element={byRole({ mahasiswa: <PreviewPage /> })}
       />
       <Route
         path="/courses/:courseId/jobsheets/:jobsheetId/review"
-        element={<ReviewPage />}
+        element={byRole({ mahasiswa: <ReviewPage /> })}
       />
 
       <Route path="*" element={<NotFoundPage />} />

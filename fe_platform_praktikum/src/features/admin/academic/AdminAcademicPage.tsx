@@ -1,6 +1,6 @@
 import { Plus } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import AdminLayout from "../components/AdminLayout"
 import {
   AdminActionCell,
@@ -74,9 +74,14 @@ const tabs: Array<{ id: AdminTab; label: string }> = [
 
 export default function AdminAcademicPage() {
   const [searchParams] = useSearchParams()
+  const location = useLocation()
   const queryTab = searchParams.get("tab")
   const [activeTab, setActiveTab] = useState<AdminTab>(
-    queryTab === "courses" || queryTab === "classes" ? queryTab : "semester",
+    queryTab === "courses" || queryTab === "classes"
+      ? queryTab
+      : location.pathname === "/courses"
+      ? "courses"
+      : "semester",
   )
   const [keyword, setKeyword] = useState("")
   const [semesterTermFilter, setSemesterTermFilter] = useState("all")
@@ -944,7 +949,7 @@ export default function AdminAcademicPage() {
                       <td className="px-4 py-3">{item.lecturer}</td>
                       <td className="px-4 py-3">{item.status}</td>
                       <AdminActionCell>
-                        <AdminButton variant="ghost" className="h-8 px-2" onClick={() => navigate(`/admin/classes/${item.id}`)}>
+                        <AdminButton variant="ghost" className="h-8 px-2" onClick={() => navigate(`/classes/${item.id}`)}>
                           Detail
                         </AdminButton>
                         <AdminButton variant="ghost" className="h-8 px-2" onClick={() => openEditClass(item)}>

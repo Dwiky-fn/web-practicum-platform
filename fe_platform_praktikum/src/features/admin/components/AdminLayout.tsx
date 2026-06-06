@@ -21,7 +21,7 @@ export default function AdminLayout({ children }: Props) {
     localStorage.getItem("adminSidebarCollapsed") === "true"
   ))
 
-  const isUsers = location.pathname.startsWith("/admin/users")
+  const isUsers = location.pathname.startsWith("/users")
 
   useEffect(() => {
     localStorage.setItem("adminSidebarCollapsed", String(collapsed))
@@ -53,7 +53,7 @@ export default function AdminLayout({ children }: Props) {
 
       <nav className="space-y-1">
         <NavLink
-          to="/admin"
+          to="/dashboard"
           end
           className={({ isActive }) => linkClass({ isActive, collapsed })}
           title="Dashboard Admin"
@@ -62,7 +62,7 @@ export default function AdminLayout({ children }: Props) {
           {!collapsed && <span>Dashboard Admin</span>}
         </NavLink>
         <NavLink
-          to="/admin/academic"
+          to="/courses"
           className={({ isActive }) => linkClass({ isActive, collapsed })}
           title="Manajemen Akademik"
         >
@@ -70,7 +70,7 @@ export default function AdminLayout({ children }: Props) {
           {!collapsed && <span>Manajemen Akademik</span>}
         </NavLink>
         <NavLink
-          to="/admin/users/students"
+          to="/users/students"
           className={() => linkClass({ isActive: isUsers, collapsed })}
           title="Data Pengguna"
         >
@@ -81,14 +81,14 @@ export default function AdminLayout({ children }: Props) {
         {isUsers && !collapsed && (
           <div className="ml-4 mt-2 space-y-1 border-l border-gray-200 pl-3">
             <NavLink
-              to="/admin/users/students"
+              to="/users/students"
               className={({ isActive }) => linkClass({ isActive, collapsed: false })}
             >
               <GraduationCap size={18} />
               <span>Mahasiswa</span>
             </NavLink>
             <NavLink
-              to="/admin/users/lecturers"
+              to="/users/lecturers"
               className={({ isActive }) => linkClass({ isActive, collapsed: false })}
             >
               <Users size={18} />

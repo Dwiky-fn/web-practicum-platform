@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { ArrowLeft } from "lucide-react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
@@ -100,6 +101,15 @@ export default function LecturerJobsheetDetailPage() {
 
   return (
     <LecturerLayout>
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
+      >
+        <ArrowLeft size={18} />
+        Kembali
+      </button>
+
       <PageHeader
         title={jobsheet ? `Detail Jobsheet ${jobsheet.title}` : "Detail Jobsheet"}
         subtitle={jobsheet ? `${jobsheet.programmingLanguageDisplayName} - Status: ${jobsheet.status}` : undefined}

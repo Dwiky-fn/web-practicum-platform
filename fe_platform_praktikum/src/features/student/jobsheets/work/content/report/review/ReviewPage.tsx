@@ -15,6 +15,7 @@ import ReviewCommentPanel from "./components/ReviewCommentPanel"
 import TopProgressBar from "../../../../../../../components/loading/TopProgressBar"
 import ConclusionEditor from "../components/ConclusionEditor"
 import { useCurrentUser } from "../../../../../../../services/user/useCurrentUser"
+import Navbar from "../../../../../../../components/navbar/Navbar"
 
 export default function ReviewPage() {
   const { courseId, jobsheetId } = useParams()
@@ -23,12 +24,14 @@ export default function ReviewPage() {
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null)
   const [submission, setSubmission] = useState<JobsheetSubmission | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
   useEffect(() => {
     async function loadData() {
       if (!courseId || !jobsheetId || !user) return
 
       setLoading(true)
+      setError("")
 
       try {
         const selected = await getJobsheetById(courseId, jobsheetId)
@@ -36,6 +39,8 @@ export default function ReviewPage() {
 
         setJobsheet(selected || null)
         setSubmission(sub)
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : "Gagal memuat hasil review.")
       } finally {
         setLoading(false)
       }
@@ -44,8 +49,21 @@ export default function ReviewPage() {
     loadData()
   }, [courseId, jobsheetId, user])
 
-  if (loading || !jobsheet || !submission) {
+  if (loading) {
     return <TopProgressBar />
+  }
+
+  if (!jobsheet || !submission) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <div className="mx-auto max-w-3xl px-6 py-10">
+          <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+            {error || "Hasil review belum tersedia untuk jobsheet ini."}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

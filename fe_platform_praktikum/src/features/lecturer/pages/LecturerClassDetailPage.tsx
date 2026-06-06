@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { ArrowLeft } from "lucide-react"
 import { Plus } from "lucide-react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
@@ -164,6 +165,15 @@ export default function LecturerClassDetailPage() {
 
   return (
     <LecturerLayout>
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
+      >
+        <ArrowLeft size={18} />
+        Kembali
+      </button>
+
       <PageHeader
         title={header.courseName || "Detail Kelas"}
         subtitle={`Kelas ${header.className || "-"} - Semester ${header.semester || "-"} - ${header.period || "-"}`}
@@ -225,7 +235,7 @@ export default function LecturerClassDetailPage() {
                     <Plus size={16} />
                     Tambah Jobsheet
                   </LecturerButton>
-                  <NativeSelect value={statusFilter} onChange={setStatusFilter} label="Status">
+                  <NativeSelect value={statusFilter} onChange={setStatusFilter} label="">
                     <option value="all">Semua Status</option>
                     <option value="Published">Published</option>
                     <option value="Draft">Draft</option>
@@ -266,7 +276,7 @@ export default function LecturerClassDetailPage() {
             {activeTab === "students" && (
               <div>
                 <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
-                  <NativeSelect value={jobsheetFilter} onChange={setJobsheetFilter} label="Jobsheet">
+                  <NativeSelect value={jobsheetFilter} onChange={setJobsheetFilter} label="">
                     <option value="all">Semua Jobsheet</option>
                     {jobsheets.map((jobsheet) => (
                       <option key={jobsheet.id} value={jobsheet.id}>Jobsheet {jobsheet.number}</option>
@@ -311,13 +321,13 @@ export default function LecturerClassDetailPage() {
             {activeTab === "evaluation" && (
               <div>
                 <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
-                  <NativeSelect value={jobsheetFilter} onChange={setJobsheetFilter} label="Jobsheet">
+                  <NativeSelect value={jobsheetFilter} onChange={setJobsheetFilter} label="">
                     <option value="all">Semua Jobsheet</option>
                     {jobsheets.map((jobsheet) => (
                       <option key={jobsheet.id} value={jobsheet.id}>Jobsheet {jobsheet.number}</option>
                     ))}
                   </NativeSelect>
-                  <NativeSelect value={statusFilter} onChange={setStatusFilter} label="Status evaluasi">
+                  <NativeSelect value={statusFilter} onChange={setStatusFilter} label="">
                     <option value="all">Semua Status</option>
                     <option value="Terkumpul">Terkumpul</option>
                     <option value="Dinilai">Dinilai</option>

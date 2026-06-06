@@ -58,6 +58,21 @@ export type LecturerCourseDataset = {
   jobsheets: LecturerJobsheetSummary[]
 }
 
+function compareAlphaNumeric(left: string, right: string) {
+  return left.localeCompare(right, "id-ID", { numeric: true, sensitivity: "base" })
+}
+
+function sortClassSummaries<T extends { name: string }>(items: T[]) {
+  return [...items].sort((left, right) => compareAlphaNumeric(left.name, right.name))
+}
+
+function sortCourseGroups(items: LecturerCourseGroup[]) {
+  return [...items].sort((left, right) => {
+    if (left.semester !== right.semester) return left.semester - right.semester
+    return compareAlphaNumeric(left.name, right.name)
+  })
+}
+
 export type LecturerPracticeInput = {
   id?: string
   title: string
@@ -174,7 +189,12 @@ export async function getLecturerCourseGroups(lecturerId: string): Promise<Lectu
     })
   }
 
-  return Array.from(grouped.values())
+  return sortCourseGroups(
+    Array.from(grouped.values()).map((group) => ({
+      ...group,
+      classes: sortClassSummaries(group.classes),
+    })),
+  )
 }
 
 export async function getLecturerCourseGroup(
@@ -293,7 +313,7 @@ export async function getLecturerCourseDataset(
 
   return {
     course,
-    classDetails,
+    classDetails: [...classDetails].sort((left, right) => compareAlphaNumeric(left.name, right.name)),
     jobsheets,
   }
 }

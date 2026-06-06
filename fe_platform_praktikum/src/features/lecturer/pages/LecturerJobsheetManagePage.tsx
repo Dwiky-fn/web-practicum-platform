@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Plus } from "lucide-react"
+import { ArrowLeft, Plus } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
@@ -124,6 +124,15 @@ export default function LecturerJobsheetManagePage() {
 
   return (
     <LecturerLayout>
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
+      >
+        <ArrowLeft size={18} />
+        Kembali
+      </button>
+
       <PageHeader
         title="Kelola Jobsheet"
         subtitle={`Mata Kuliah: ${dataset?.course.name ?? "-"}`}
@@ -183,7 +192,7 @@ export default function LecturerJobsheetManagePage() {
                   </h2>
                   <p className="mt-2 text-sm text-gray-700">Status: {jobsheet.status}</p>
                   <p className="text-sm text-gray-700">
-                    Digunakan di: {jobsheet.usedIn.length ? jobsheet.usedIn.map((item) => `Kelas ${item}`).join(", ") : "-"}
+                    Digunakan di: {jobsheet.usedIn.length ? [...jobsheet.usedIn].sort((left, right) => left.localeCompare(right, "id-ID", { numeric: true, sensitivity: "base" })).map((item) => `Kelas ${item}`).join(", ") : "-"}
                   </p>
                   <p className="text-sm text-gray-700">Submit: {jobsheet.submitted}/{jobsheet.total} mahasiswa</p>
                   <p className="text-sm text-gray-700">Deadline: {jobsheet.deadline}</p>

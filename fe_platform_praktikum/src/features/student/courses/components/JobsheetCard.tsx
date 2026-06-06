@@ -101,7 +101,7 @@ export default function JobsheetCard({
   const deadlineState = getDeadlineState(jobsheet.deadline, now);
 
   const status = submission?.status;
-  const score = submission?.score;
+  const score = submission?.review?.finalScore ?? submission?.score;
 
   const isUnpublished = jobsheet.status === "UNPUBLISHED";
 
@@ -245,7 +245,7 @@ export default function JobsheetCard({
       {/* BOTTOM  */}
       <div className="mt-4 flex items-center justify-between">
         {/* NILAI */}
-        {status === "ACCEPTED" && score != null ? (
+        {(status === "ACCEPTED" || status === "REVISION") && score != null ? (
           <p className="text-sm text-green-600 font-medium">
             Nilai: {score}
           </p>

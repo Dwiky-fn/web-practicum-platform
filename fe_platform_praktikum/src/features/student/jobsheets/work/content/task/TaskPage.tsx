@@ -16,7 +16,8 @@ export default function TaskPage() {
   
   const canViewReview =
     submissionStatus === "ACCEPTED" ||
-    submissionStatus === "REVISION"
+    submissionStatus === "REVISION" ||
+    Boolean(submission.review)
 
   const canSubmit =
     submissionStatus === "DRAFT"
@@ -50,7 +51,9 @@ export default function TaskPage() {
           <div className="px-6 py-4 flex justify-end">
             {canViewReview && (
               <button
-                onClick={() => navigate("review")}
+                onClick={() =>
+                  navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/review`)
+                }
                 className="bg-blue-600 hover:bg-teal-600 transition text-white px-6 py-2 rounded-xl font-medium shadow-sm"
               >
                 Lihat Detail Review

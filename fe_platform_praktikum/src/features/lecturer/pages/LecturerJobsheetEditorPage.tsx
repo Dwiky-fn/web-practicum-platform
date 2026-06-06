@@ -1,5 +1,5 @@
 import type { JSONContent } from "@tiptap/react"
-import { Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, Plus, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import RichTextEditor from "../../../components/editor/RichTextEditor"
@@ -337,6 +337,15 @@ export default function LecturerJobsheetEditorPage() {
 
   return (
     <LecturerLayout>
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
+      >
+        <ArrowLeft size={18} />
+        Kembali
+      </button>
+
       <PageHeader
         title={isCreate ? "Buat Jobsheet Praktikum" : `Edit Jobsheet ${title || ""}`}
         subtitle={`Mata Kuliah: ${courseName || "-"}`}

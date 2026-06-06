@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import type { JSONContent } from "@tiptap/react"
+import { ArrowLeft } from "lucide-react"
 import RichTextEditor from "../../../components/editor/RichTextEditor"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
@@ -8,7 +9,7 @@ import type { Jobsheet } from "../../../services/jobsheet/types"
 import type { JobsheetSubmission } from "../../../services/submission/types"
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
 import LecturerLayout from "../components/LecturerLayout"
-import { LecturerButton, LecturerEmptyState, LecturerPanel, PageHeader } from "../components/LecturerUI"
+import { LecturerButton, LecturerEmptyState, LecturerModal, LecturerPanel, PageHeader } from "../components/LecturerUI"
 import {
   getLecturerClassDetail,
   getLecturerJobsheetById,
@@ -45,6 +46,7 @@ export default function LecturerReviewPage() {
   const [student, setStudent] = useState<{ fullname: string; nim: string } | null>(null)
   const [saving, setSaving] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
+  const [successDecision, setSuccessDecision] = useState<"ACCEPTED" | "REVISION" | null>(null)
 
   useEffect(() => {
     async function loadData() {
@@ -148,6 +150,7 @@ export default function LecturerReviewPage() {
       const refreshedSubmission = await getLecturerSubmission(courseId, jobsheetId, studentId)
       setSubmission(refreshedSubmission)
       setDecision(nextDecision)
+      setSuccessDecision(nextDecision)
       setSuccessMessage(
         nextDecision === "ACCEPTED"
           ? "Review berhasil disimpan dan submission diterima."
@@ -162,6 +165,15 @@ export default function LecturerReviewPage() {
 
   return (
     <LecturerLayout>
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
+      >
+        <ArrowLeft size={18} />
+        Kembali
+      </button>
+
       <PageHeader
         title="Review Laporan Praktikum"
         subtitle={jobsheet ? `${jobsheet.title} - ${getSubmissionReviewStatus(submission)}` : undefined}
@@ -345,6 +357,34 @@ export default function LecturerReviewPage() {
             </aside>
           </div>
         </>
+      )}
+
+      {successDecision && (
+        <LecturerModal
+          title="Penilaian Berhasil"
+          onClose={() => setSuccessDecision(null)}
+          footer={
+            <>
+              <LecturerButton variant="secondary" onClick={() => setSuccessDecision(null)}>
+                Tetap di Halaman Ini
+              </LecturerButton>
+              <LecturerButton
+                onClick={() => {
+                  setSuccessDecision(null)
+                  navigate(-1)
+                }}
+              >
+                Kembali ke Daftar
+              </LecturerButton>
+            </>
+          }
+        >
+          <p className="text-sm text-gray-700">
+            {successDecision === "ACCEPTED"
+              ? "Jobsheet sudah berhasil dinilai dan diterima."
+              : "Jobsheet sudah berhasil dinilai dan dikembalikan untuk revisi."}
+          </p>
+        </LecturerModal>
       )}
     </LecturerLayout>
   )

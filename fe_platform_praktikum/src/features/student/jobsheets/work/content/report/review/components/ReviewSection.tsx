@@ -6,6 +6,12 @@ interface Props {
 
 export default function ReviewSection({ submission }: Props) {
   const review = submission.review
+  const decisionLabel =
+    review?.decision === "ACCEPTED"
+      ? "Diterima"
+      : review?.decision === "REVISION"
+        ? "Perlu Revisi"
+        : "Menunggu"
 
   if (!review) {
     return (
@@ -46,7 +52,7 @@ export default function ReviewSection({ submission }: Props) {
                 : "text-yellow-600"
             }`}
           >
-            {review.decision}
+            {decisionLabel}
           </span>
         </div>
 

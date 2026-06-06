@@ -23,6 +23,7 @@ export default function SidebarCard({
   const deadlineState = getDeadlineState(jobsheet.deadline, now);
   const isOverdue = deadlineState.isOverdue;
   const status = submission?.status;
+  const displayScore = submission?.review?.finalScore ?? submission?.score;
 
   function goTo() {
     navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/works`)
@@ -134,7 +135,7 @@ export default function SidebarCard({
       <div className="flex justify-between">
         <p className="text-sm text-gray-500">Nilai</p>
         <p className="text-sm font-semibold text-green-600">
-          {submission?.score ?? "-"}
+          {displayScore ?? "-"}
         </p>
       </div>
 

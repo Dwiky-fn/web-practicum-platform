@@ -1,7 +1,10 @@
 const express = require('express');
+const { requireRoles } = require('../../../middlewares/auth');
 
 const routes = (handler) => {
   const router = express.Router();
+
+  router.use(requireRoles('ADMIN'));
 
   router.get('/admin/users', handler.getUsersHandler);
   router.get('/admin/users/:id', handler.getUserByIdHandler);

@@ -19,6 +19,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "google-auth-library": "^10.7.0",
+    "jsonwebtoken": "^9.0.3",
     "nanoid": "^5.1.9",
     "node-pg-migrate": "^8.0.4",
     "nodemailer": "^8.0.10",

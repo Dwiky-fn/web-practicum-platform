@@ -9,7 +9,12 @@ class ClassesHandler {
 
   async getClassesHandler(req, res) {
     try {
-      return ok(res, { classes: await this._service.getClasses(req.query) });
+      const filters = {
+        ...req.query,
+        lecturerId: req.user.role === 'DOSEN' ? req.user.id : req.query.lecturerId,
+      };
+
+      return ok(res, { classes: await this._service.getClasses(filters) });
     } catch (error) {
       return handleAdminError(error, res);
     }
@@ -27,6 +32,14 @@ class ClassesHandler {
   async getClassByIdHandler(req, res) {
     try {
       const classItem = await this._service.getClassDetail(req.params.id);
+
+      if (req.user.role === 'DOSEN' && classItem.lecturerId !== req.user.id) {
+        return res.status(403).json({
+          status: 'fail',
+          message: 'Anda hanya dapat mengakses kelas yang diampu',
+        });
+      }
+
       return ok(res, { class: classItem });
     } catch (error) {
       return handleAdminError(error, res);

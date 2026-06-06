@@ -14,9 +14,10 @@ export function CurrentUserProvider({ children }: Props) {
   useEffect(() => {
     async function fetchUser() {
       try {
+        const token = localStorage.getItem("authToken")
         const storedUser = localStorage.getItem("authUser")
 
-        if (storedUser) {
+        if (token && storedUser) {
           const parsedUser = JSON.parse(storedUser) as User
           setUser(parsedUser)
 
@@ -25,6 +26,8 @@ export function CurrentUserProvider({ children }: Props) {
           localStorage.setItem("authUser", JSON.stringify(freshUser))
           return
         }
+
+        localStorage.removeItem("authUser")
       } catch (error) {
         console.error(error)
         localStorage.removeItem("authToken")
@@ -36,6 +39,13 @@ export function CurrentUserProvider({ children }: Props) {
     }
 
     fetchUser()
+  }, [])
+
+  useEffect(() => {
+    const handleLogout = () => setUser(null)
+
+    window.addEventListener("auth:logout", handleLogout)
+    return () => window.removeEventListener("auth:logout", handleLogout)
   }, [])
 
   return (

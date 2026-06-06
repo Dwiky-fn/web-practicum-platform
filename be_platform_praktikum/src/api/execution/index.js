@@ -1,16 +1,31 @@
 const WebSocket = require('ws');
 const InteractiveRunnerClient = require('../../services/execution/InteractiveRunnerClient');
 const ExecutionGatewayService = require('../../services/execution/ExecutionGatewayService');
+const { authenticateToken } = require('../../middlewares/auth');
 
 const EXECUTION_PATH = '/execution';
 
 const execution = (server) => {
   const wss = new WebSocket.Server({ noServer: true });
 
-  server.on('upgrade', (request, socket, head) => {
-    const { pathname } = new URL(request.url, `http://${request.headers.host}`);
+  server.on('upgrade', async (request, socket, head) => {
+    const { pathname, searchParams } = new URL(
+      request.url,
+      `http://${request.headers.host}`,
+    );
 
     if (pathname !== EXECUTION_PATH) return;
+
+    const token = searchParams.get('token');
+    const user = token ? await authenticateToken(token).catch(() => null) : null;
+
+    if (!user) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
+    request.user = user;
 
     wss.handleUpgrade(request, socket, head, (ws) => {
       wss.emit('connection', ws, request);

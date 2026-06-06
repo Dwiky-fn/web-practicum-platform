@@ -1,4 +1,4 @@
-import { Navigate, Routes, Route } from "react-router-dom"
+import { Navigate, Routes, Route, useLocation } from "react-router-dom"
 import { CurrentUserProvider } from "./services/user/CurrentUserProvider"
 import { useCurrentUser } from "./services/user/useCurrentUser"
 import LoginPage from "./features/auth/LoginPage"
@@ -31,13 +31,14 @@ import LecturerReviewPage from "./features/lecturer/pages/LecturerReviewPage"
 
 function AppContent() {
   const { user, loading } = useCurrentUser()
+  const location = useLocation()
 
   if (loading) {
     return <FullScreenLoader text="Memeriksa sesi..." />
   }
 
   const requireUser = (element: React.ReactNode) => (
-    user ? element : <Navigate to="/" replace />
+    user ? element : <Navigate to="/" replace state={{ from: location }} />
   )
 
   const byRole = ({
@@ -49,7 +50,7 @@ function AppContent() {
     dosen?: React.ReactNode
     admin?: React.ReactNode
   }) => {
-    if (!user) return <Navigate to="/" replace />
+    if (!user) return <Navigate to="/" replace state={{ from: location }} />
     if (user.role === "MAHASISWA") return mahasiswa ?? <NotFoundPage />
     if (user.role === "DOSEN") return dosen ?? <NotFoundPage />
     if (user.role === "ADMIN") return admin ?? <NotFoundPage />
@@ -58,8 +59,8 @@ function AppContent() {
 
   return (
     <Routes>
-      <Route path="/" element={<LoginPage />} />
-      <Route path="/dashboard" element={<DashboardPage />} />
+      <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+      <Route path="/dashboard" element={requireUser(<DashboardPage />)} />
       <Route path="/settings" element={requireUser(<SettingsPage />)} />
       <Route
         path="/courses"

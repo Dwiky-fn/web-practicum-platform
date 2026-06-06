@@ -22,7 +22,7 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // register routes
-app.use('/admin', requireAuth, requireRoles('ADMIN'));
+app.use('/admin', requireAuth);
 app.use('/lecturer', requireAuth, requireRoles('DOSEN'));
 app.use('/students', requireAuth, requireRoles('MAHASISWA', 'ADMIN'));
 app.use('/student-progress', requireAuth, requireRoles('MAHASISWA'));

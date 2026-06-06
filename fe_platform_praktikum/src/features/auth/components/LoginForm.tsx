@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { login, loginWithGoogle } from "../../../services/auth/service"
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
 import type { LoginResponse } from "../../../services/auth/types"
+import logoPolnep from "../../../assets/logopolnep.jpg"
 
 export default function LoginForm() {
   const [identifier, setIdentifier] = useState("")
@@ -13,17 +14,20 @@ export default function LoginForm() {
   const googleButtonRef = useRef<HTMLDivElement | null>(null)
 
   const navigate = useNavigate()
+  const location = useLocation()
   const { setUser } = useCurrentUser()
+  const redirectTo =
+    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ||
+    "/dashboard"
 
   const saveLoginSession = useCallback(
     (response: LoginResponse) => {
       localStorage.setItem("authToken", response.token)
       localStorage.setItem("authUser", JSON.stringify(response.user))
       setUser(response.user)
-      console.log("Login SUCCESS,", response)
-      navigate("/dashboard")
+      navigate(redirectTo, { replace: true })
     },
-    [navigate, setUser],
+    [navigate, redirectTo, setUser],
   )
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -118,7 +122,7 @@ export default function LoginForm() {
     <div>
       <div className="flex justify-center mb-4">
         <img
-          src="src/assets/logopolnep.jpg"
+          src={logoPolnep}
           alt="Logo"
           className="h-12"
         />

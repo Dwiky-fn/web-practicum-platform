@@ -1,6 +1,7 @@
 import type { ExecutionClientMessage, ExecutionServerMessage } from "./types"
 
-const DEFAULT_WS_URL = "ws://localhost:3000/execution"
+const DEFAULT_WS_URL =
+  import.meta.env.VITE_EXECUTION_WS_URL ?? "ws://localhost:3000/execution"
 
 export interface RunExecutionPayload {
   language: string
@@ -11,7 +12,16 @@ export interface RunExecutionPayload {
 }
 
 export function getExecutionWsUrl() {
-  return DEFAULT_WS_URL
+  const token = localStorage.getItem("authToken")
+
+  if (!token) {
+    return DEFAULT_WS_URL
+  }
+
+  const url = new URL(DEFAULT_WS_URL)
+  url.searchParams.set("token", token)
+
+  return url.toString()
 }
 
 export class ExecutionClient {

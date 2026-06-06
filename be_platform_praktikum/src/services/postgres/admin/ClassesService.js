@@ -17,6 +17,7 @@ class ClassesService {
     const params = [keyword];
     let statusClause = '';
     let courseClause = '';
+    let lecturerClause = '';
 
     if (filters.status && filters.status !== 'all') {
       params.push(normalizeStatus(filters.status));
@@ -26,6 +27,11 @@ class ClassesService {
     if (filters.courseId && filters.courseId !== 'all') {
       params.push(filters.courseId);
       courseClause = `AND cl.course_id = $${params.length}`;
+    }
+
+    if (filters.lecturerId) {
+      params.push(filters.lecturerId);
+      lecturerClause = `AND cl.lecturer_id = $${params.length}`;
     }
 
     const result = await this._pool.query(
@@ -42,6 +48,7 @@ class ClassesService {
         AND ap.is_active = true
         ${statusClause}
         ${courseClause}
+        ${lecturerClause}
       ORDER BY ap.is_active DESC, c.name ASC, cl.name ASC
       `,
       params,

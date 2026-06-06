@@ -29,20 +29,13 @@ async function requireAuth(req, res, next) {
       return sendUnauthorized(res);
     }
 
-    const payload = tokenService.verify(token);
-    const result = await pool.query(
-      'SELECT id, role, is_active FROM users WHERE id = $1 LIMIT 1',
-      [payload.sub],
-    );
+    const user = await authenticateToken(token);
 
-    if (!result.rows.length || !result.rows[0].is_active) {
+    if (!user) {
       return sendUnauthorized(res);
     }
 
-    req.user = {
-      id: result.rows[0].id,
-      role: result.rows[0].role,
-    };
+    req.user = user;
 
     return next();
   } catch (error) {
@@ -60,6 +53,23 @@ async function requireAuth(req, res, next) {
       message: 'Terjadi kesalahan server',
     });
   }
+}
+
+async function authenticateToken(token) {
+  const payload = tokenService.verify(token);
+  const result = await pool.query(
+    'SELECT id, role, is_active FROM users WHERE id = $1 LIMIT 1',
+    [payload.sub],
+  );
+
+  if (!result.rows.length || !result.rows[0].is_active) {
+    return null;
+  }
+
+  return {
+    id: result.rows[0].id,
+    role: result.rows[0].role,
+  };
 }
 
 function requireRoles(...roles) {
@@ -100,8 +110,36 @@ function requireSelfOrRoles(...roles) {
   };
 }
 
+function requireTargetUserOrRoles(targetKeys, ...roles) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return sendUnauthorized(res);
+    }
+
+    if (roles.includes(req.user.role)) {
+      return next();
+    }
+
+    const keys = Array.isArray(targetKeys) ? targetKeys : [targetKeys];
+    const targetUserId = keys
+      .map((key) => req.params[key] || req.query[key] || req.body?.[key])
+      .find(Boolean);
+
+    if (targetUserId && targetUserId === req.user.id) {
+      return next();
+    }
+
+    return res.status(403).json({
+      status: 'fail',
+      message: 'Anda hanya dapat mengakses data sendiri',
+    });
+  };
+}
+
 module.exports = {
   requireAuth,
+  authenticateToken,
   requireRoles,
   requireSelfOrRoles,
+  requireTargetUserOrRoles,
 };

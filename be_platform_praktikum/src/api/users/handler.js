@@ -21,9 +21,9 @@ class UsersHandler {
       });
     } catch (error) {
       const errors = {
-        LOGIN_IDENTIFIER_REQUIRED: [400, 'Email, NIM, atau NIP wajib diisi'],
+        LOGIN_IDENTIFIER_REQUIRED: [400, 'Email atau NIM wajib diisi'],
         LOGIN_PASSWORD_REQUIRED: [400, 'Password wajib diisi'],
-        LOGIN_INVALID: [401, 'Email/NIM/NIP atau password salah'],
+        LOGIN_INVALID: [401, 'Email/NIM atau password salah'],
         USER_INACTIVE: [403, 'Akun sudah dinonaktifkan'],
       };
 

@@ -35,7 +35,7 @@ export default function LoginForm() {
 
   const handleGoogleLogin = async () => {
     try {
-      setErrorMessage("Login Google belum tersedia. Gunakan Email/NIM/NIP terlebih dahulu.")
+      setErrorMessage("Login Google belum tersedia. Gunakan Email/NIM terlebih dahulu.")
     } catch (err) {
       console.error(err);
     }
@@ -55,14 +55,14 @@ export default function LoginForm() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         
-        {/* Email / NIM / NIP */}
+        {/* Email / NIM */}
         <div>
           <label className="block text-sm font-medium mb-2">
-            Email/NIM/NIP
+            Email/NIM
           </label>
           <input
             type="text"
-            placeholder="Masukkan email, NIM, atau NIP yang terdaftar"
+            placeholder="Masukkan email atau NIM yang terdaftar"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             className="w-full bg-gray-100 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"

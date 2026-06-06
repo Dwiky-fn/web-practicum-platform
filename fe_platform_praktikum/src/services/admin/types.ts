@@ -21,6 +21,7 @@ export interface AdminLecturer {
   nip: string
   fullname: string
   email: string
+  initialPassword?: string
   status: AdminUserStatus
   programStudi: string
   jurusan: string

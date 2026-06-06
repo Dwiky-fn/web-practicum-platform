@@ -67,6 +67,7 @@ export default function AdminUsersPage() {
   const [submitting, setSubmitting] = useState(false)
   const [actionLoading, setActionLoading] = useState("")
   const [error, setError] = useState("")
+  const [successMessage, setSuccessMessage] = useState("")
   const isStudent = role === "students"
   const activeSemester = getActiveSemester(semesters)
   const studentSemesterOptions = getStudentSemesterOptions(activeSemester?.term)
@@ -125,6 +126,7 @@ export default function AdminUsersPage() {
     try {
       setSubmitting(true)
       setError("")
+      setSuccessMessage("")
       if (isStudent) {
         await createAdminStudent({
           nim: String(form.get("identifier") || ""),
@@ -135,12 +137,15 @@ export default function AdminUsersPage() {
           status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
         })
       } else {
-        await createAdminLecturer({
+        const lecturer = await createAdminLecturer({
           nip: String(form.get("identifier") || ""),
           fullname: String(form.get("fullname") || ""),
           email: String(form.get("email") || ""),
           status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
         })
+        if (lecturer.initialPassword) {
+          setSuccessMessage(`Dosen berhasil ditambahkan. Password awal: ${lecturer.initialPassword}`)
+        }
       }
 
       setModal(null)
@@ -159,6 +164,7 @@ export default function AdminUsersPage() {
     try {
       setSubmitting(true)
       setError("")
+      setSuccessMessage("")
       const rows = parseCsv(await importFile.text())
       const normalizedRows = rows[0]?.[0]?.toLowerCase().includes(isStudent ? "nim" : "nip")
         ? rows.slice(1)
@@ -380,6 +386,11 @@ export default function AdminUsersPage() {
       {error && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
+        </div>
+      )}
+      {successMessage && (
+        <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          {successMessage}
         </div>
       )}
 

@@ -64,10 +64,8 @@ class UsersService {
       `SELECT u.id, u.password, u.is_active
        FROM users u
        LEFT JOIN student_profiles sp ON sp.user_id = u.id
-       LEFT JOIN lecturer_profiles lp ON lp.user_id = u.id
        WHERE LOWER(u.email) = LOWER($1)
-        OR sp.nim = $1
-        OR lp.nip = $1
+        OR (u.role = 'MAHASISWA' AND sp.nim = $1)
        LIMIT 1`,
       [identifier],
     );

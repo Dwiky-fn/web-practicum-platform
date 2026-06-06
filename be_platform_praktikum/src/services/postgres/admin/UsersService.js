@@ -10,6 +10,23 @@ const {
 
 const DEFAULT_PASSWORD = 'password123';
 
+function normalizePasswordName(fullname = '') {
+  const [firstName = 'dosen'] = fullname.trim().split(/\s+/);
+  return firstName
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '') || 'dosen';
+}
+
+function randomFourDigits() {
+  return String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+}
+
+function createLecturerDefaultPassword(fullname) {
+  return `${normalizePasswordName(fullname)}@${randomFourDigits()}`;
+}
+
 class AdminUsersService {
   constructor() {
     this._pool = pool;
@@ -82,7 +99,7 @@ class AdminUsersService {
     const id = payload.id || createId(prefix);
     const defaultPassword = normalizedRole === 'MAHASISWA'
       ? payload.nim || DEFAULT_PASSWORD
-      : DEFAULT_PASSWORD;
+      : createLecturerDefaultPassword(payload.fullname);
     const password = await bcrypt.hash(payload.password || defaultPassword, 10);
 
     try {
@@ -129,7 +146,11 @@ class AdminUsersService {
       }
 
       await client.query('COMMIT');
-      return this.getUserById(id);
+      const user = await this.getUserById(id);
+      if (normalizedRole === 'DOSEN' && !payload.password) {
+        user.initialPassword = defaultPassword;
+      }
+      return user;
     } catch (error) {
       await client.query('ROLLBACK');
       if (error.code === '23505') throw new Error('USER_DUPLICATE');

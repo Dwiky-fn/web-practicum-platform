@@ -168,7 +168,7 @@ class UsersHandler {
       EMAIL_SAME: [400, 'Email baru tidak boleh sama dengan email lama'],
       EMAIL_DUPLICATE: [409, 'Email sudah digunakan user lain'],
       CURRENT_PASSWORD_REQUIRED: [400, 'Password saat ini wajib diisi'],
-      PASSWORD_INVALID: [401, 'Password saat ini salah'],
+      PASSWORD_INVALID: [401, 'Password tidak sesuai'],
       NEW_PASSWORD_INVALID: [400, 'Password baru minimal 8 karakter'],
       PASSWORD_CONFIRM_MISMATCH: [400, 'Konfirmasi password baru tidak sama'],
     };
@@ -201,6 +201,20 @@ class UsersHandler {
         status: 'success',
         message: 'Email berhasil diperbarui',
         data: { user },
+      });
+    } catch (error) {
+      return this._handleAccountError(error, res);
+    }
+  }
+
+  async verifyCurrentPasswordHandler(req, res) {
+    try {
+      const userId = this._getRequestUserId(req);
+      await this._service.verifyCurrentPassword(userId, req.body);
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'Password valid',
       });
     } catch (error) {
       return this._handleAccountError(error, res);

@@ -5,6 +5,7 @@ import {
   updateUserEmail,
   updateUserPassword,
   uploadUserAvatar,
+  verifyUserPassword,
 } from "../../services/user/service";
 import type { PersonalData, UpdateUserPayload } from "../../services/user/types";
 import Navbar from "../../components/navbar/Navbar";
@@ -18,8 +19,16 @@ import AdminLayout from "../admin/components/AdminLayout";
 export default function SettingsPage() {
   const { user, setUser } = useCurrentUser();
   const [activeTab, setActiveTab] = useState("Profil");
-  const [saving, setSaving] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [pendingEmailChange, setPendingEmailChange] = useState<{
+    email: string;
+    currentPassword: string;
+  } | null>(null);
 
   if (!user) {
     return <div className="p-10">Loading...</div>
@@ -34,7 +43,7 @@ export default function SettingsPage() {
   const isAdmin = user.role === "ADMIN";
 
   const saveUser = async (payload: UpdateUserPayload, successMessage: string) => {
-    setSaving(true);
+    setProfileSaving(true);
     setMessage("");
 
     try {
@@ -45,12 +54,12 @@ export default function SettingsPage() {
       console.error(error);
       setMessage("Gagal menyimpan perubahan.");
     } finally {
-      setSaving(false);
+      setProfileSaving(false);
     }
   };
 
   const handleUploadAvatar = async (file: File) => {
-    setSaving(true);
+    setProfileSaving(true);
     setMessage("");
 
     try {
@@ -61,7 +70,7 @@ export default function SettingsPage() {
       console.error(error);
       setMessage("Gagal mengupload foto profil.");
     } finally {
-      setSaving(false);
+      setProfileSaving(false);
     }
   };
 
@@ -72,22 +81,61 @@ export default function SettingsPage() {
     );
   };
 
-  const handleChangeEmail = async (payload: {
+  const handleRequestEmailChange = async (payload: {
     email: string;
     currentPassword: string;
   }) => {
-    setSaving(true);
-    setMessage("");
+    setEmailSaving(true);
+    setEmailMessage("");
+    setPasswordMessage("");
 
     try {
-      const updatedUser = await updateUserEmail(user.id, payload);
-      setUser(updatedUser);
-      setMessage("Email berhasil diperbarui.");
+      await verifyUserPassword(user.id, payload.currentPassword);
+      setPendingEmailChange(payload);
+      setEmailMessage("");
     } catch (error) {
       console.error(error);
-      setMessage(error instanceof Error ? error.message : "Gagal memperbarui email.");
+      setEmailMessage(
+        error instanceof Error &&
+        error.message.toLowerCase().includes("password")
+          ? "Password tidak sesuai."
+          : "Gagal memverifikasi password.",
+      );
+      throw error;
     } finally {
-      setSaving(false);
+      setEmailSaving(false);
+    }
+  };
+
+  const handleVerifyEmailChange = async (payload: {
+    email: string;
+    currentPassword: string;
+    otp: string;
+  }) => {
+    setEmailSaving(true);
+    setEmailMessage("");
+    setPasswordMessage("");
+
+    try {
+      const otpCode = payload.otp.trim();
+      if (!otpCode) {
+        throw new Error("OTP wajib diisi.");
+      }
+      const emailPayload = pendingEmailChange ?? {
+        email: payload.email,
+        currentPassword: payload.currentPassword,
+      };
+      const updatedUser = await updateUserEmail(user.id, emailPayload);
+      setUser(updatedUser);
+      setPendingEmailChange(null);
+      setEmailMessage("Email berhasil diperbarui.");
+    } catch (error) {
+      console.error(error);
+      setEmailMessage(
+        error instanceof Error ? error.message : "Gagal memperbarui email.",
+      );
+    } finally {
+      setEmailSaving(false);
     }
   };
 
@@ -96,17 +144,20 @@ export default function SettingsPage() {
     newPassword: string;
     confirmPassword: string;
   }) => {
-    setSaving(true);
-    setMessage("");
+    setPasswordSaving(true);
+    setPasswordMessage("");
+    setEmailMessage("");
 
     try {
       await updateUserPassword(user.id, payload);
-      setMessage("Password berhasil diperbarui.");
+      setPasswordMessage("Password berhasil diperbarui.");
     } catch (error) {
       console.error(error);
-      setMessage(error instanceof Error ? error.message : "Gagal memperbarui password.");
+      setPasswordMessage(
+        error instanceof Error ? error.message : "Gagal memperbarui password.",
+      );
     } finally {
-      setSaving(false);
+      setPasswordSaving(false);
     }
   };
 
@@ -121,7 +172,7 @@ export default function SettingsPage() {
             role={user.role}
             avatarUrl={user.avatarUrl}
             data={profileData}
-            saving={saving}
+            saving={profileSaving}
             message={message}
             onUploadAvatar={handleUploadAvatar}
           />
@@ -130,7 +181,7 @@ export default function SettingsPage() {
         {activeTab === "Data Pribadi" && (
           <PersonalDataSection
             data={user.personalData}
-            saving={saving}
+            saving={profileSaving}
             message={message}
             onSave={handleSavePersonalData}
           />
@@ -139,9 +190,12 @@ export default function SettingsPage() {
         {activeTab === "Akun" && (
           <AccountSection
             email={user.email}
-            saving={saving}
-            message={message}
-            onChangeEmail={handleChangeEmail}
+            emailSaving={emailSaving}
+            passwordSaving={passwordSaving}
+            emailMessage={emailMessage}
+            passwordMessage={passwordMessage}
+            onRequestEmailChange={handleRequestEmailChange}
+            onVerifyEmailChange={handleVerifyEmailChange}
             onChangePassword={handleChangePassword}
           />
         )}

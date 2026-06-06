@@ -357,6 +357,34 @@ class UsersService {
     return this.getUserById(userId);
   }
 
+  async verifyCurrentPassword(userId, payload) {
+    const currentPassword = payload.currentPassword || payload.current_password;
+
+    if (!currentPassword) {
+      throw new Error('CURRENT_PASSWORD_REQUIRED');
+    }
+
+    const userResult = await this._pool.query(
+      'SELECT id, password FROM users WHERE id = $1',
+      [userId],
+    );
+
+    if (!userResult.rows.length) {
+      throw new Error('USER_NOT_FOUND');
+    }
+
+    const validPassword = await verifyPassword(
+      currentPassword,
+      userResult.rows[0].password,
+    );
+
+    if (!validPassword) {
+      throw new Error('PASSWORD_INVALID');
+    }
+
+    return true;
+  }
+
   async updatePassword(userId, payload) {
     const currentPassword = payload.currentPassword || payload.current_password;
     const newPassword = payload.newPassword || payload.new_password;

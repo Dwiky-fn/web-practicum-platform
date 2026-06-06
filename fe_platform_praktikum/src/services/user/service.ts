@@ -37,6 +37,16 @@ export const updateUserEmail = async (
   return mapUserResponse(res.data.user)
 }
 
+export const verifyUserPassword = async (
+  userId: string,
+  currentPassword: string,
+): Promise<void> => {
+  await apiFetch(`/users/${userId}/verify-password`, {
+    method: "POST",
+    body: JSON.stringify({ currentPassword }),
+  })
+}
+
 export const updateUserPassword = async (
   userId: string,
   payload: UpdatePasswordPayload,

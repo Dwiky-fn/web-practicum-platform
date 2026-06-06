@@ -2,6 +2,7 @@ import { BookOpen, GraduationCap, LayoutDashboard, PanelLeftClose, PanelLeftOpen
 import { NavLink, useLocation } from "react-router-dom"
 import { useEffect, useState } from "react"
 import Navbar from "../../../components/navbar/Navbar"
+import TopProgressBar from "../../../components/loading/TopProgressBar"
 
 interface Props {
   children: React.ReactNode
@@ -102,6 +103,7 @@ export default function AdminLayout({ children }: Props) {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <Navbar navItems={[]} mobileEnabled={false} />
+      <TopProgressBar />
 
       <div className="flex">
         <div className="sticky top-0 h-screen shrink-0">

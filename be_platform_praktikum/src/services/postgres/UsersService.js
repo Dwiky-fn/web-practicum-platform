@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const pool = require('.');
 const GoogleService = require('../auth/GoogleService');
 const MailService = require('../mail/MailService');
+const TokenService = require('../auth/TokenService');
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -53,10 +54,11 @@ class UsersService {
     this._pool = pool;
     this._googleService = new GoogleService();
     this._mailService = new MailService();
+    this._tokenService = new TokenService();
   }
 
-  _generateToken() {
-    return crypto.randomBytes(32).toString('hex');
+  _generateToken(user) {
+    return this._tokenService.sign(user);
   }
 
   async login(payload) {
@@ -106,9 +108,11 @@ class UsersService {
       throw new Error('LOGIN_INVALID');
     }
 
+    const user = await this.getUserById(account.id);
+
     return {
-      token: this._generateToken(),
-      user: await this.getUserById(account.id),
+      token: this._generateToken(user),
+      user,
     };
   }
 
@@ -141,9 +145,11 @@ class UsersService {
       googleUser.avatarUrl,
     );
 
+    const user = await this.getUserById(account.id);
+
     return {
-      token: this._generateToken(),
-      user: await this.getUserById(account.id),
+      token: this._generateToken(user),
+      user,
     };
   }
 

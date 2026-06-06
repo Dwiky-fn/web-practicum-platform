@@ -9,6 +9,10 @@ const execution = require('./api/execution');
 const users = require('./api/users');
 const admin = require('./api/admin');
 const lecturer = require('./api/lecturer');
+const {
+  requireAuth,
+  requireRoles,
+} = require('./middlewares/auth');
 
 const app = express();
 const server = http.createServer(app);
@@ -18,6 +22,13 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // register routes
+app.use('/admin', requireAuth, requireRoles('ADMIN'));
+app.use('/lecturer', requireAuth, requireRoles('DOSEN'));
+app.use('/students', requireAuth, requireRoles('MAHASISWA', 'ADMIN'));
+app.use('/student-progress', requireAuth, requireRoles('MAHASISWA'));
+app.use('/courses', requireAuth, requireRoles('MAHASISWA', 'DOSEN', 'ADMIN'));
+app.use('/users', requireAuth);
+
 student(app);
 users(app);
 admin(app);

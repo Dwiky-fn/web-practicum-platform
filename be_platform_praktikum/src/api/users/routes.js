@@ -1,4 +1,5 @@
 const express = require('express');
+const { requireSelfOrRoles } = require('../../middlewares/auth');
 
 const routes = (handler) => {
   const router = express.Router();
@@ -6,22 +7,28 @@ const routes = (handler) => {
   router.post('/login', handler.loginHandler);
   router.post('/login/google', handler.googleLoginHandler);
 
-  router.get('/users/:id', handler.getUserByIdHandler);
-  router.put('/users/:id', handler.updateUserByIdHandler);
-  router.post('/users/:id/verify-password', handler.verifyCurrentPasswordHandler);
+  router.get('/users/:id', requireSelfOrRoles('ADMIN'), handler.getUserByIdHandler);
+  router.put('/users/:id', requireSelfOrRoles('ADMIN'), handler.updateUserByIdHandler);
+  router.post(
+    '/users/:id/verify-password',
+    requireSelfOrRoles('ADMIN'),
+    handler.verifyCurrentPasswordHandler,
+  );
   
   router.post(
     '/users/:id/email/request-otp',
+    requireSelfOrRoles('ADMIN'),
     handler.requestUpdateEmailOtpHandler,
   );
   router.patch(
     '/users/:id/email/verify-otp',
+    requireSelfOrRoles('ADMIN'),
     handler.verifyUpdateEmailOtpHandler,
   );  
 
-  router.patch('/users/:id/password', handler.updateUserPasswordHandler);
-  router.post('/users/:id/avatar', handler.uploadUserAvatarHandler);
-  router.delete('/users/:id', handler.deleteUserByIdHandler);
+  router.patch('/users/:id/password', requireSelfOrRoles('ADMIN'), handler.updateUserPasswordHandler);
+  router.post('/users/:id/avatar', requireSelfOrRoles('ADMIN'), handler.uploadUserAvatarHandler);
+  router.delete('/users/:id', requireSelfOrRoles('ADMIN'), handler.deleteUserByIdHandler);
 
   return router;
 };

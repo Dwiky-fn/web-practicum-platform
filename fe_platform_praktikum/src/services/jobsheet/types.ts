@@ -21,6 +21,7 @@ export interface Experiment {
   id: string;
   order: number;
   title: string;
+  isReported: boolean;
   instructionContent?: JSONContent;
   defaultTemplateCode: string;
 }
@@ -30,14 +31,22 @@ export interface Exercise {
   id: string;
   order: number;
   title: string;
+  isReported: boolean;
   instructionContent: JSONContent;
   defaultTemplateCode?: string;
+}
+
+export interface ReportableItemConfig {
+  id: string;
+  isReported: boolean;
 }
 
 // ================= TASK =================
 export interface TaskConfig {
   experimentIds: string[];
   exerciseIds: string[];
+  experimentItems?: ReportableItemConfig[];
+  exerciseItems?: ReportableItemConfig[];
 
   instructionContent: JSONContent;
   additionalNoteContent?: JSONContent;

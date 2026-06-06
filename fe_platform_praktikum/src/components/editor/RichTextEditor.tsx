@@ -3,8 +3,8 @@ import { useEffect } from "react";
 import { useCurrentUser } from "../../services/user/useCurrentUser";
 import { getEditorExtensions, type EditorRole, type EditorMode } from "./utils/editorExtensions";
 import type { JSONContent } from "@tiptap/react";
-import type { Role } from "../../services/user/types";
 import EditorToolbar from "./EditorToolbar";
+import { toEditorRole } from "./utils/toEditorRole";
 
 interface Props {
   value: JSONContent;
@@ -12,11 +12,6 @@ interface Props {
   editable?: boolean;
   placeholder?: string;
   role?: EditorRole;
-}
-
-function toEditorRole(role: Role | undefined): EditorRole {
-  if (role === "DOSEN" || role === "ADMIN") return "DOSEN";
-  return "MAHASISWA";
 }
 
 export default function RichTextEditor({
@@ -34,6 +29,7 @@ export default function RichTextEditor({
     extensions: getEditorExtensions(resolvedRole, mode, placeholder),
     content: value,
     editable,
+    immediatelyRender: false,
     editorProps: {
       attributes: {
         class: "prose max-w-none focus:outline-none min-h-[200px]",

@@ -138,6 +138,31 @@ export default function SidebarCard({
         </p>
       </div>
 
+      <div className="space-y-3">
+        <div>
+          <p className="text-sm font-medium text-gray-700">Percobaan untuk laporan</p>
+          <div className="mt-2 space-y-1">
+            {jobsheet.experiments.map((item) => (
+              <label key={item.id} className="flex items-center gap-2 text-sm text-gray-600">
+                <input type="checkbox" checked={item.isReported} readOnly />
+                <span>{item.title}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="text-sm font-medium text-gray-700">Latihan untuk laporan</p>
+          <div className="mt-2 space-y-1">
+            {jobsheet.exercises.map((item) => (
+              <label key={item.id} className="flex items-center gap-2 text-sm text-gray-600">
+                <input type="checkbox" checked={item.isReported} readOnly />
+                <span>{item.title}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {latestReviewComment && status === "REVISION" && (
         <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3">
           <p className="text-xs font-semibold text-red-700">

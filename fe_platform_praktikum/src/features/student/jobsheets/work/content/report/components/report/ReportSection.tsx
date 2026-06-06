@@ -14,19 +14,24 @@ export default function ReportSection({
   jobsheet,
   submission,
 }: Props) {
+  const reportedJobsheet = {
+    ...jobsheet,
+    experiments: jobsheet.experiments.filter((item) => item.isReported),
+    exercises: jobsheet.exercises.filter((item) => item.isReported),
+  }
 
   return (
     <div className="space-y-8">
 
       {/* ===== Percobaan ===== */}
       <ExperimentReport
-        jobsheet={jobsheet}
+        jobsheet={reportedJobsheet}
         submission={submission}
       />
 
       {/* ===== Latihan ===== */}
       <ExerciseReport
-        jobsheet={jobsheet}
+        jobsheet={reportedJobsheet}
         submission={submission}
       />
 

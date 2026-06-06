@@ -33,11 +33,27 @@ type RawSubmission = {
   jobsheet_id: string
   student_id: string
   status: string
+  score?: number | null
   created_at?: string
   updated_at: string
   submitted_at?: string | null
   report?: RawReport
   report_html?: string | null
+  review?: {
+    id?: string
+    ai_score?: number | null
+    final_score?: number | null
+    feedback?: string | null
+    decision?: "PENDING" | "ACCEPTED" | "REVISION"
+    ai_feedback?: {
+      comments?: Array<{
+        experimentId?: string
+        exerciseId?: string
+        step?: number
+        comment?: string
+      }>
+    }
+  } | null
 }
 
 /* ================= HELPER ================= */
@@ -62,7 +78,8 @@ export function mapSubmission(data: RawSubmission): JobsheetSubmission {
     id: data.id,
     jobsheetId: data.jobsheet_id,
     studentId: data.student_id,
-    status: mapStatus(data.status),
+    status: mapStatus(data.status, data.review?.decision),
+    score: data.score ?? data.review?.ai_score ?? undefined,
     report,
     createdAt: data.created_at,
     updatedAt: timestamp,
@@ -88,7 +105,22 @@ export function mapSubmission(data: RawSubmission): JobsheetSubmission {
       })
     ),
 
-    conclusion: report.conclusion ?? null
+    conclusion: report.conclusion ?? null,
+    review: data.review
+      ? {
+          finalScore: data.review.final_score ?? undefined,
+          lecturerFeedback: data.review.feedback ?? "",
+          decision: data.review.decision ?? "PENDING",
+          comments: (data.review.ai_feedback?.comments ?? [])
+            .filter((item) => item.comment)
+            .map((item) => ({
+              experimentId: item.experimentId,
+              exerciseId: item.exerciseId,
+              step: item.step,
+              comment: item.comment ?? "",
+            })),
+        }
+      : undefined,
   }
 }
 
@@ -134,8 +166,13 @@ function parseRawReport(data: RawSubmission): RawReport {
   }
 }
 
-function mapStatus(status: string): JobsheetSubmission["status"] {
-  if (status === "REVIEWED") return "ACCEPTED"
+function mapStatus(
+  status: string,
+  reviewDecision?: "PENDING" | "ACCEPTED" | "REVISION",
+): JobsheetSubmission["status"] {
+  if (reviewDecision === "REVISION") return "REVISION"
+  if (reviewDecision === "ACCEPTED") return "ACCEPTED"
+  if (status === "REVIEWED") return "SUBMITTED"
 
   const validStatuses: JobsheetSubmission["status"][] = [
     "DRAFT",

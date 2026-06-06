@@ -66,23 +66,27 @@ export function NativeSelect({
   onChange,
   children,
   label,
+  className = "",
 }: {
   value: string
   onChange: (value: string) => void
   children: React.ReactNode
   label: string
+  className?: string
 }) {
   return (
-    <label className="relative block">
-      <span className="sr-only">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-10 appearance-none rounded-md border border-gray-300 bg-white px-3 pr-9 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-      >
-        {children}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+    <label className={`block min-w-0 ${className}`}>
+      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</span>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-11 w-full appearance-none rounded-md border border-gray-300 bg-white px-3 pr-9 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        >
+          {children}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+      </div>
     </label>
   )
 }
@@ -91,20 +95,22 @@ export function SearchBox({
   value,
   onChange,
   placeholder,
+  className = "",
 }: {
   value: string
   onChange: (value: string) => void
   placeholder: string
+  className?: string
 }) {
   return (
-    <label className="relative block">
+    <label className={`relative block min-w-0 ${className}`}>
       <span className="sr-only">{placeholder}</span>
       <input
         type="search"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 pr-10 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 md:w-64"
+        className="h-11 w-full rounded-md border border-gray-300 bg-white px-3 pr-10 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 md:min-w-[240px]"
       />
       <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
     </label>

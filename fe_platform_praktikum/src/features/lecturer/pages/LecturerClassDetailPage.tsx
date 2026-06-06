@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Plus } from "lucide-react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
+import TopProgressBar from "../../../components/loading/TopProgressBar"
 import LecturerLayout from "../components/LecturerLayout"
 import {
   LecturerButton,
+  LecturerEmptyState,
   LecturerPanel,
   LecturerTable,
   NativeSelect,
@@ -13,7 +15,17 @@ import {
   StatCard,
   TabButton,
 } from "../components/LecturerUI"
-import { getClass, getCourse, lecturerJobsheets, studentProgress } from "../data/dummy"
+import {
+  buildLecturerJobsheetSummaries,
+  getLatestSubmissionForStudent,
+  getLecturerClassDetail,
+  getLecturerSubmissionMatrix,
+  getStudentReportCount,
+  getSubmissionReviewStatus,
+  isSubmittedSubmission,
+  type LecturerJobsheetSummary,
+  type LecturerSubmissionMatrixItem,
+} from "../service"
 
 type ClassTab = "summary" | "modules" | "students" | "evaluation"
 
@@ -25,161 +37,341 @@ const tabs: Array<{ id: ClassTab; label: string }> = [
 ]
 
 export default function LecturerClassDetailPage() {
-  const { courseId = "pbo", classId = "pbo-a" } = useParams()
+  const navigate = useNavigate()
+  const { courseId = "", classId = "" } = useParams()
   const [searchParams] = useSearchParams()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
   const [activeTab, setActiveTab] = useState<ClassTab>((searchParams.get("tab") as ClassTab) || "summary")
   const [keyword, setKeyword] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [jobsheetFilter, setJobsheetFilter] = useState("all")
-  const navigate = useNavigate()
-  const course = getCourse(courseId)
-  const selectedClass = getClass(courseId, classId)
-  const jobsheets = lecturerJobsheets.filter((jobsheet) => jobsheet.courseId === course.id)
+  const [header, setHeader] = useState({
+    courseName: "",
+    className: "",
+    semester: 0,
+    period: "",
+    studentCount: 0,
+  })
+  const [jobsheets, setJobsheets] = useState<LecturerJobsheetSummary[]>([])
+  const [matrix, setMatrix] = useState<LecturerSubmissionMatrixItem[]>([])
 
-  const filteredStudents = useMemo(() => {
+  useEffect(() => {
+    async function loadClassData() {
+      if (!classId) return
+
+      setLoading(true)
+      setError("")
+
+      try {
+        const classDetail = await getLecturerClassDetail(classId)
+        const submissionMatrix = await getLecturerSubmissionMatrix(
+          classDetail.courseId,
+          classDetail.jobsheets,
+          classDetail.students,
+        )
+        const summaries = buildLecturerJobsheetSummaries(
+          classDetail.jobsheets,
+          classDetail.students,
+          submissionMatrix,
+          classDetail.name,
+        ).map((item) => ({ ...item, courseId: classDetail.courseId }))
+
+        setHeader({
+          courseName: classDetail.courseName,
+          className: classDetail.name,
+          semester: classDetail.studentSemester,
+          period: classDetail.semesterYear,
+          studentCount: classDetail.students.length,
+        })
+        setJobsheets(summaries)
+        setMatrix(submissionMatrix)
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : "Gagal memuat detail kelas.")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadClassData()
+  }, [classId])
+
+  const filteredJobsheets = useMemo(() => {
     const normalized = keyword.trim().toLowerCase()
-    return studentProgress.filter((student) => {
-      const matchKeyword = !normalized || [student.nim, student.name].some((value) => value.toLowerCase().includes(normalized))
-      const matchStatus = statusFilter === "all" || student.status === statusFilter
-      const matchJobsheet = jobsheetFilter === "all" || String(student.jobsheet) === jobsheetFilter
-      return matchKeyword && matchStatus && matchJobsheet
+
+    return jobsheets
+      .filter((item) => statusFilter === "all" || item.status === statusFilter)
+      .filter((item) => !normalized || item.title.toLowerCase().includes(normalized))
+  }, [jobsheets, keyword, statusFilter])
+
+  const studentRows = useMemo(() => {
+    const normalized = keyword.trim().toLowerCase()
+    const students = Array.from(
+      new Map(matrix.map((item) => [item.student.id, item.student])).values(),
+    )
+
+    return students.filter((student) => {
+      const matchKeyword =
+        !normalized ||
+        [student.nim, student.fullname].some((value) => value.toLowerCase().includes(normalized))
+
+      if (!matchKeyword) return false
+
+      if (jobsheetFilter === "all") return true
+
+      return matrix.some(
+        (item) =>
+          item.student.id === student.id &&
+          item.jobsheet.id === jobsheetFilter,
+      )
     })
-  }, [jobsheetFilter, keyword, statusFilter])
+  }, [jobsheetFilter, keyword, matrix])
+
+  const evaluationRows = useMemo(() => {
+    return studentRows.filter((student) => {
+      const submissionItem =
+        jobsheetFilter === "all"
+          ? getLatestSubmissionForStudent(student.id, matrix)
+          : matrix.find(
+              (item) => item.student.id === student.id && item.jobsheet.id === jobsheetFilter,
+            ) ?? null
+
+      const status = getSubmissionReviewStatus(submissionItem?.submission ?? null)
+      return statusFilter === "all" || status === statusFilter
+    })
+  }, [jobsheetFilter, matrix, statusFilter, studentRows])
+
+  const submittedCount = matrix.filter((item) => isSubmittedSubmission(item.submission)).length
+  const acceptedCount = matrix.filter(
+    (item) => getSubmissionReviewStatus(item.submission) === "Dinilai",
+  ).length
+  const latestActivities = useMemo(
+    () =>
+      matrix
+        .filter((item) => isSubmittedSubmission(item.submission))
+        .sort((left, right) => {
+          const leftTime = new Date(left.submission?.updatedAt ?? 0).getTime()
+          const rightTime = new Date(right.submission?.updatedAt ?? 0).getTime()
+          return rightTime - leftTime
+        })
+        .slice(0, 5),
+    [matrix],
+  )
+
+  if (loading) {
+    return <TopProgressBar />
+  }
 
   return (
     <LecturerLayout>
       <PageHeader
-        title={course.name}
-        subtitle={`Kelas ${selectedClass.name} - Semester ${course.semester} - ${course.period}`}
+        title={header.courseName || "Detail Kelas"}
+        subtitle={`Kelas ${header.className || "-"} - Semester ${header.semester || "-"} - ${header.period || "-"}`}
       />
 
-      <TabButton tabs={tabs} active={activeTab} onChange={setActiveTab} />
-      <LecturerPanel className="rounded-t-none p-5">
-        {activeTab === "summary" && (
-          <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-3">
-              <StatCard label="Total Mahasiswa" value={selectedClass.studentCount} />
-              <StatCard label="Jobsheet Aktif" value={jobsheets.filter((item) => item.status === "Published").length} />
-              <StatCard label="Belum Direview" value={8} caption="Laporan" />
-            </div>
-            <LecturerPanel className="p-5">
-              <h2 className="mb-4 text-lg font-semibold">Progress Evaluasi Laporan</h2>
-              <ProgressBar value={70} />
-            </LecturerPanel>
-            <LecturerPanel className="p-5">
-              <h2 className="mb-3 text-lg font-semibold">Aktivitas Mahasiswa Terbaru</h2>
-              <ul className="space-y-2 text-sm text-gray-700">
-                <li>Andi mengumpulkan Jobsheet 3</li>
-                <li>AI selesai mengevaluasi 5 laporan</li>
-                <li>2 laporan terdeteksi kemiripan tinggi</li>
-              </ul>
-            </LecturerPanel>
-          </div>
-        )}
+      {error && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
-        {activeTab === "modules" && (
-          <div>
-            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
-              <LecturerButton onClick={() => navigate(`/courses/${course.id}/jobsheets/create`)}>
-                <Plus size={16} />
-                Tambah Jobsheet
-              </LecturerButton>
-              <NativeSelect value={statusFilter} onChange={setStatusFilter} label="Status">
-                <option value="all">Semua Status</option>
-                <option value="Published">Published</option>
-                <option value="Draft">Draft</option>
-                <option value="Nonaktif">Nonaktif</option>
-              </NativeSelect>
-              <SearchBox value={keyword} onChange={setKeyword} placeholder="Cari Jobsheet" />
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              {jobsheets
-                .filter((jobsheet) => statusFilter === "all" || jobsheet.status === statusFilter)
-                .filter((jobsheet) => jobsheet.title.toLowerCase().includes(keyword.toLowerCase()))
-                .map((jobsheet) => (
-                  <LecturerPanel key={jobsheet.id} className="p-5">
-                    <h2 className="text-lg font-semibold">Jobsheet {jobsheet.number} - {jobsheet.title}</h2>
-                    <p className="mt-1 text-sm text-gray-600">Status: {jobsheet.status}</p>
-                    <p className="mt-4 text-sm text-gray-700">Submit: {jobsheet.submitted}/{jobsheet.total} Mahasiswa</p>
-                    <p className="text-sm text-gray-700">Deadline: {jobsheet.deadline}</p>
-                    <div className="mt-5 flex flex-wrap gap-3">
-                      <LecturerButton variant="secondary" onClick={() => navigate(`/jobsheets/${jobsheet.id}`)}>Lihat Detail</LecturerButton>
-                      <LecturerButton variant="secondary" onClick={() => navigate(`/courses/${course.id}/jobsheets/${jobsheet.id}/edit`)}>Edit</LecturerButton>
-                    </div>
-                  </LecturerPanel>
-                ))}
-            </div>
-          </div>
-        )}
+      {!matrix.length && !jobsheets.length ? (
+        <LecturerEmptyState title="Kelas ini belum memiliki data mahasiswa atau jobsheet." />
+      ) : (
+        <>
+          <TabButton tabs={tabs} active={activeTab} onChange={setActiveTab} />
+          <LecturerPanel className="rounded-t-none p-5">
+            {activeTab === "summary" && (
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <StatCard label="Total Mahasiswa" value={header.studentCount} />
+                  <StatCard label="Jobsheet Aktif" value={jobsheets.filter((item) => item.status === "Published").length} />
+                  <StatCard
+                    label="Belum Direview"
+                    value={matrix.filter((item) => getSubmissionReviewStatus(item.submission) === "Terkumpul").length}
+                    caption="Laporan"
+                  />
+                </div>
 
-        {activeTab === "students" && (
-          <div>
-            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
-              <NativeSelect value={jobsheetFilter} onChange={setJobsheetFilter} label="Jobsheet">
-                <option value="all">Semua Jobsheet</option>
-                {jobsheets.map((jobsheet) => (
-                  <option key={jobsheet.id} value={jobsheet.number}>Jobsheet {jobsheet.number}</option>
-                ))}
-              </NativeSelect>
-              <SearchBox value={keyword} onChange={setKeyword} placeholder="Cari Mahasiswa" />
-            </div>
-            <LecturerTable headers={["NIM", "Nama", "Laporan", "Aksi"]}>
-              {filteredStudents.map((student) => (
-                <tr key={student.id}>
-                  <td className="px-4 py-3 font-mono">{student.nim}</td>
-                  <td className="px-4 py-3">{student.name}</td>
-                  <td className="px-4 py-3 text-center">{student.reportCount}</td>
-                  <td className="px-4 py-3 text-center">
-                    <button type="button" className="font-semibold text-blue-700 hover:text-blue-900">
-                      Profile
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </LecturerTable>
-          </div>
-        )}
+                <LecturerPanel className="p-5">
+                  <h2 className="mb-4 text-lg font-semibold">Progress Evaluasi Laporan</h2>
+                  <ProgressBar value={submittedCount ? Math.round((acceptedCount / submittedCount) * 100) : 0} />
+                </LecturerPanel>
 
-        {activeTab === "evaluation" && (
-          <div>
-            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
-              <NativeSelect value={jobsheetFilter} onChange={setJobsheetFilter} label="Jobsheet">
-                <option value="all">Semua Jobsheet</option>
-                {jobsheets.map((jobsheet) => (
-                  <option key={jobsheet.id} value={jobsheet.number}>Jobsheet {jobsheet.number}</option>
-                ))}
-              </NativeSelect>
-              <NativeSelect value={statusFilter} onChange={setStatusFilter} label="Status evaluasi">
-                <option value="all">Semua Status</option>
-                <option value="Terkumpul">Terkumpul</option>
-                <option value="Dinilai">Dinilai</option>
-                <option value="Revisi">Revisi</option>
-              </NativeSelect>
-              <SearchBox value={keyword} onChange={setKeyword} placeholder="Cari Mahasiswa" />
-            </div>
-            <LecturerTable headers={["NIM", "Nama", "Jobsheet", "Nilai AI", "Nilai Akhir", "Aksi"]}>
-              {filteredStudents.map((student) => (
-                <tr key={student.id}>
-                  <td className="px-4 py-3 font-mono">{student.nim}</td>
-                  <td className="px-4 py-3">{student.name}</td>
-                  <td className="px-4 py-3 text-center">{student.jobsheet}</td>
-                  <td className="px-4 py-3 text-center">{student.aiScore ?? "-"}</td>
-                  <td className="px-4 py-3 text-center">{student.finalScore ?? "-"}</td>
-                  <td className="px-4 py-3 text-center">
-                    <button
-                      type="button"
-                      className="font-semibold text-blue-700 hover:text-blue-900"
-                      onClick={() => navigate(`/reviews/${student.id}`)}
-                    >
-                      Review
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </LecturerTable>
-          </div>
-        )}
-      </LecturerPanel>
+                <LecturerPanel className="p-5">
+                  <h2 className="mb-3 text-lg font-semibold">Aktivitas Mahasiswa Terbaru</h2>
+                  {!latestActivities.length ? (
+                    <p className="text-sm text-gray-500">Belum ada aktivitas submission pada kelas ini.</p>
+                  ) : (
+                    <ul className="space-y-2 text-sm text-gray-700">
+                      {latestActivities.map((item) => {
+                        const jobsheet = jobsheets.find((current) => current.id === item.jobsheet.id)
+                        return (
+                          <li key={`${item.student.id}-${item.jobsheet.id}`}>
+                            {item.student.fullname} memperbarui Jobsheet {jobsheet?.number ?? "-"} pada {new Date(item.submission?.updatedAt ?? "").toLocaleString("id-ID")}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </LecturerPanel>
+              </div>
+            )}
+
+            {activeTab === "modules" && (
+              <div>
+                <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
+                  <LecturerButton onClick={() => navigate(`/courses/${courseId}/jobsheets/create`)}>
+                    <Plus size={16} />
+                    Tambah Jobsheet
+                  </LecturerButton>
+                  <NativeSelect value={statusFilter} onChange={setStatusFilter} label="Status">
+                    <option value="all">Semua Status</option>
+                    <option value="Published">Published</option>
+                    <option value="Draft">Draft</option>
+                    <option value="Nonaktif">Nonaktif</option>
+                    <option value="Arsip">Arsip</option>
+                  </NativeSelect>
+                  <SearchBox value={keyword} onChange={setKeyword} placeholder="Cari Jobsheet" />
+                </div>
+
+                {!filteredJobsheets.length ? (
+                  <LecturerEmptyState title="Belum ada jobsheet yang cocok dengan filter." />
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {filteredJobsheets.map((jobsheet) => (
+                      <LecturerPanel key={jobsheet.id} className="p-5">
+                        <h2 className="text-lg font-semibold">Jobsheet {jobsheet.number} - {jobsheet.title}</h2>
+                        <p className="mt-1 text-sm text-gray-600">Status: {jobsheet.status}</p>
+                        <p className="mt-4 text-sm text-gray-700">Submit: {jobsheet.submitted}/{jobsheet.total} Mahasiswa</p>
+                        <p className="text-sm text-gray-700">Deadline: {jobsheet.deadline}</p>
+                        <div className="mt-5 flex flex-wrap gap-3">
+                          <LecturerButton
+                            variant="secondary"
+                            onClick={() => navigate(`/jobsheets/${jobsheet.id}?courseId=${courseId}&classId=${classId}`)}
+                          >
+                            Lihat Detail
+                          </LecturerButton>
+                          <LecturerButton variant="secondary" onClick={() => navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}/edit`)}>
+                            Edit
+                          </LecturerButton>
+                        </div>
+                      </LecturerPanel>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "students" && (
+              <div>
+                <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
+                  <NativeSelect value={jobsheetFilter} onChange={setJobsheetFilter} label="Jobsheet">
+                    <option value="all">Semua Jobsheet</option>
+                    {jobsheets.map((jobsheet) => (
+                      <option key={jobsheet.id} value={jobsheet.id}>Jobsheet {jobsheet.number}</option>
+                    ))}
+                  </NativeSelect>
+                  <SearchBox value={keyword} onChange={setKeyword} placeholder="Cari Mahasiswa" />
+                </div>
+
+                <LecturerTable headers={["NIM", "Nama", "Laporan", "Aksi"]}>
+                  {studentRows.map((student) => {
+                    const reportCount =
+                      jobsheetFilter === "all"
+                        ? `${getStudentReportCount(student.id, matrix)}/${jobsheets.length || 0}`
+                        : `${
+                            matrix.some(
+                              (item) =>
+                                item.student.id === student.id &&
+                                item.jobsheet.id === jobsheetFilter &&
+                                isSubmittedSubmission(item.submission),
+                            )
+                              ? 1
+                              : 0
+                          }/1`
+
+                    return (
+                      <tr key={student.id}>
+                        <td className="px-4 py-3 font-mono">{student.nim}</td>
+                        <td className="px-4 py-3">{student.fullname}</td>
+                        <td className="px-4 py-3 text-center">{reportCount}</td>
+                        <td className="px-4 py-3 text-center">
+                          <button type="button" className="font-semibold text-blue-700 hover:text-blue-900">
+                            Profile
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </LecturerTable>
+              </div>
+            )}
+
+            {activeTab === "evaluation" && (
+              <div>
+                <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
+                  <NativeSelect value={jobsheetFilter} onChange={setJobsheetFilter} label="Jobsheet">
+                    <option value="all">Semua Jobsheet</option>
+                    {jobsheets.map((jobsheet) => (
+                      <option key={jobsheet.id} value={jobsheet.id}>Jobsheet {jobsheet.number}</option>
+                    ))}
+                  </NativeSelect>
+                  <NativeSelect value={statusFilter} onChange={setStatusFilter} label="Status evaluasi">
+                    <option value="all">Semua Status</option>
+                    <option value="Terkumpul">Terkumpul</option>
+                    <option value="Dinilai">Dinilai</option>
+                    <option value="Revisi">Revisi</option>
+                    <option value="Belum">Belum</option>
+                  </NativeSelect>
+                  <SearchBox value={keyword} onChange={setKeyword} placeholder="Cari Mahasiswa" />
+                </div>
+
+                <LecturerTable headers={["NIM", "Nama", "Jobsheet", "Nilai AI", "Nilai Akhir", "Aksi"]}>
+                  {evaluationRows.map((student) => {
+                    const selectedSubmission =
+                      jobsheetFilter === "all"
+                        ? getLatestSubmissionForStudent(student.id, matrix)
+                        : matrix.find(
+                            (item) => item.student.id === student.id && item.jobsheet.id === jobsheetFilter,
+                          ) ?? null
+                    const selectedJobsheet = jobsheets.find((item) => item.id === selectedSubmission?.jobsheet.id)
+
+                    return (
+                      <tr key={student.id}>
+                        <td className="px-4 py-3 font-mono">{student.nim}</td>
+                        <td className="px-4 py-3">{student.fullname}</td>
+                        <td className="px-4 py-3 text-center">
+                          {selectedJobsheet ? selectedJobsheet.number : "-"}
+                        </td>
+                        <td className="px-4 py-3 text-center">{selectedSubmission?.submission?.score ?? "-"}</td>
+                        <td className="px-4 py-3 text-center">{selectedSubmission?.submission?.review?.finalScore ?? "-"}</td>
+                        <td className="px-4 py-3 text-center">
+                          {selectedSubmission ? (
+                            <button
+                              type="button"
+                              className="font-semibold text-blue-700 hover:text-blue-900"
+                              onClick={() =>
+                                navigate(
+                                  `/reviews/${student.id}?courseId=${courseId}&classId=${classId}&jobsheetId=${selectedSubmission.jobsheet.id}`,
+                                )
+                              }
+                            >
+                              Review
+                            </button>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </LecturerTable>
+              </div>
+            )}
+          </LecturerPanel>
+        </>
+      )}
     </LecturerLayout>
   )
 }

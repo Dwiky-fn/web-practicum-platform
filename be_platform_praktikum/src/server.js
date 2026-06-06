@@ -8,6 +8,7 @@ const student = require('./api/student');
 const execution = require('./api/execution');
 const users = require('./api/users');
 const admin = require('./api/admin');
+const lecturer = require('./api/lecturer');
 
 const app = express();
 const server = http.createServer(app);
@@ -20,6 +21,7 @@ app.use(express.json({ limit: '10mb' }));
 student(app);
 users(app);
 admin(app);
+lecturer(app);
 execution(server);
 
 // test route

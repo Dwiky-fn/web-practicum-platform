@@ -1,50 +1,60 @@
-import { Table } from "@tiptap/extension-table";
-import { CodeBlockWithLineNumber } from "../CodeBlockWithLineNumber";
-import StarterKit from "@tiptap/starter-kit";
-import Superscript from "@tiptap/extension-superscript";
-import TableRow from "@tiptap/extension-table-row";
-import TableHeader from "@tiptap/extension-table-header";
-import TableCell from "@tiptap/extension-table-cell";
-import Placeholder from "@tiptap/extension-placeholder";
+import Highlight from "@tiptap/extension-highlight"
+import HorizontalRule from "@tiptap/extension-horizontal-rule"
+import Placeholder from "@tiptap/extension-placeholder"
+import Subscript from "@tiptap/extension-subscript"
+import Superscript from "@tiptap/extension-superscript"
+import { Table } from "@tiptap/extension-table"
+import TableCell from "@tiptap/extension-table-cell"
+import TableHeader from "@tiptap/extension-table-header"
+import TableRow from "@tiptap/extension-table-row"
+import TextAlign from "@tiptap/extension-text-align"
+import Typography from "@tiptap/extension-typography"
+import StarterKit from "@tiptap/starter-kit"
+import { CodeBlockWithLineNumber } from "../CodeBlockWithLineNumber"
 
-export type EditorRole = "DOSEN" | "MAHASISWA";
-export type EditorMode = "editor" | "viewer-theory" | "viewer-default";
+export type EditorRole = "DOSEN" | "MAHASISWA"
+export type EditorMode = "editor" | "viewer-theory" | "viewer-default"
 
 export function getEditorExtensions(
-  _role: EditorRole,  // ← tetap ada untuk konsistensi API, tapi tidak dipakai di schema
+  _role: EditorRole,
   mode: EditorMode,
   placeholder?: string
 ) {
-  const isViewer = mode !== "editor";
+  const isViewer = mode !== "editor"
 
   const base = [
     StarterKit.configure({
       codeBlock: false,
-      // ← TIDAK batasi heading/blockquote di sini
-      // schema harus selalu lengkap agar viewer bisa render konten apapun
     }),
+    Highlight,
+    HorizontalRule,
+    Subscript,
     Superscript,
-  ];
+    Typography,
+    TextAlign.configure({
+      types: ["heading", "paragraph"],
+    }),
+  ]
 
   const table = [
     Table.configure({ resizable: !isViewer }),
     TableRow,
     TableHeader,
     TableCell,
-  ];
+  ]
 
-  const codeBlock = [CodeBlockWithLineNumber];
+  const codeBlock = [CodeBlockWithLineNumber]
 
   const editorOnly = [
     Placeholder.configure({
       placeholder: placeholder || "",
     }),
-  ];
+  ]
 
   return [
     ...base,
     ...table,
     ...codeBlock,
     ...(mode === "editor" ? editorOnly : []),
-  ];
+  ]
 }

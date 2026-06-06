@@ -90,6 +90,30 @@ function PracticeItem({
   )
 }
 
+function ReportChecklist({
+  title,
+  items,
+}: {
+  title: string
+  items: Array<{ id: string; title: string; isReported: boolean }>
+}) {
+  return (
+    <div className="rounded-md border border-gray-200 bg-white p-4">
+      <p className="mb-3 text-xs font-semibold uppercase text-gray-500">{title}</p>
+      <div className="space-y-2">
+        {items.length ? items.map((item) => (
+          <label key={item.id} className="flex items-center gap-3 text-sm text-gray-700">
+            <input type="checkbox" checked={item.isReported} readOnly />
+            <span>{item.title}</span>
+          </label>
+        )) : (
+          <p className="text-sm text-gray-500">Belum ada item.</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function AdminJobsheetPreviewPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
@@ -113,14 +137,6 @@ export default function AdminJobsheetPreviewPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Gagal memuat jobsheet."))
       .finally(() => setLoading(false))
   }, [courseId, id])
-
-  const taskExperimentTitles = jobsheet?.experiments
-    .filter((experiment) => jobsheet.task.experimentIds.includes(experiment.id))
-    .map((experiment) => experiment.title) ?? []
-
-  const taskExerciseTitles = jobsheet?.exercises
-    .filter((exercise) => jobsheet.task.exerciseIds.includes(exercise.id))
-    .map((exercise) => exercise.title) ?? []
 
   return (
     <AdminLayout>
@@ -222,14 +238,8 @@ export default function AdminJobsheetPreviewPage() {
             <PreviewSection title="Tugas Praktikum" icon={<FileText size={18} />}>
               <div className="space-y-5">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <ReadOnlyInfo
-                    label="Percobaan untuk laporan"
-                    value={taskExperimentTitles.length ? taskExperimentTitles.join(", ") : "Tidak ada"}
-                  />
-                  <ReadOnlyInfo
-                    label="Latihan untuk laporan"
-                    value={taskExerciseTitles.length ? taskExerciseTitles.join(", ") : "Tidak ada"}
-                  />
+                  <ReportChecklist title="Percobaan untuk laporan" items={jobsheet.experiments} />
+                  <ReportChecklist title="Latihan untuk laporan" items={jobsheet.exercises} />
                 </div>
 
                 <div>

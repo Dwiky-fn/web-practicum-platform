@@ -642,6 +642,7 @@ export const jobsheetMocks: Jobsheet[] = [
         id: "percobaan-1",
         order: 1,
         title: "Percobaan 1: Tipe Data Bilangan Bulat",
+        isReported: true,
 
         instructionContent: {
           type: "doc",
@@ -728,6 +729,7 @@ public class BilanganBulat {
         id: "percobaan-2",
         order: 2,
         title: "Percobaan 2: Tipe Data Bilangan Pecahan",
+        isReported: true,
 
         instructionContent: {
           type: "doc",
@@ -814,6 +816,7 @@ public class BilanganPecahan {
         id: "latihan-1",
         order: 1,
         title: "Latihan - Biodata Mahasiswa",
+        isReported: true,
 
         instructionContent: {
           type: "doc",

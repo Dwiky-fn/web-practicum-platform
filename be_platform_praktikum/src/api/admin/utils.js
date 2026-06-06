@@ -25,6 +25,10 @@ function handleAdminError(error, res) {
     LECTURER_REQUIRED: [400, 'Dosen pengampu wajib dipilih'],
     STATUS_REQUIRED: [400, 'Status kelas wajib dipilih'],
     CLASS_STATUS_INVALID: [400, 'Status kelas tidak valid'],
+    COURSE_ACCESS_DENIED: [403, 'Dosen tidak memiliki akses ke mata kuliah ini'],
+    CLASS_ACCESS_DENIED: [403, 'Dosen tidak memiliki akses ke kelas ini'],
+    JOBSHEET_NOT_FOUND: [404, 'Jobsheet tidak ditemukan'],
+    SUBMISSION_NOT_FOUND: [404, 'Submission tidak ditemukan'],
   };
   const detail = errors[error.message];
 

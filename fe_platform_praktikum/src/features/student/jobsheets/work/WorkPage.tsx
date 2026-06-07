@@ -82,6 +82,8 @@ export default function WorkPage() {
       <WorkHeader
         title={jobsheet.title}
         backTo={`/courses/${courseId}/jobsheets/${jobsheet.id}`}
+        course={course}
+        jobsheet={jobsheet}
       />
 
       <div className="flex flex-1 relative overflow-hidden">
@@ -89,9 +91,9 @@ export default function WorkPage() {
           ref={scrollContainerRef}
           data-work-scroll
           onScroll={handleWorkScroll}
-          className="flex-1 px-6 py-8 lg:px-10 overflow-y-auto"
+          className="flex-1 overflow-y-auto px-6 py-8 lg:px-10"
         >
-          <div className="max-w-4xl mx-auto">
+          <div className="mx-auto max-w-6xl">
             <Outlet
               context={{
                 course,

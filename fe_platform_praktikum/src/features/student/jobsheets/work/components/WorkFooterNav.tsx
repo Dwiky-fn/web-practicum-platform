@@ -55,15 +55,15 @@ export default function WorkFooterNav({
 
   return (
     <>
-      <footer className="hidden md:flex h-16 shrink-0 bg-white border-t items-center justify-between px-8">
+      <footer className="hidden h-12 shrink-0 items-center justify-between border-t bg-white px-6 md:flex">
         {/* Prev */}
         <div className="w-1/3">
           {prevItem && (
             <button
             onClick={() => navigate(prevItem.path)}
-            className="flex items-center text-gray-600 gap-3 p-2 rounded hover:bg-gray-200 hover:text-black active:text-black transition cursor-pointer"
+            className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-600 transition hover:bg-gray-100 hover:text-black"
             >
-              <ArrowLeft size={18} />
+              <ArrowLeft size={16} />
               <div className="font-semibold text-gray-700 truncate">
                   {prevItem.label}
               </div>
@@ -84,7 +84,7 @@ export default function WorkFooterNav({
           <button
             disabled={!canGoNext}
             onClick={() => navigate(nextItem.path)}
-            className={`flex items-center gap-3 p-2 rounded transition text-right ${
+            className={`flex items-center gap-2 rounded px-2 py-1.5 text-right text-sm transition ${
               canGoNext
                 ? "text-gray-600 hover:bg-gray-200 hover:text-black active:text-black cursor-pointer"
                 : "text-gray-300 cursor-not-allowed"
@@ -93,7 +93,7 @@ export default function WorkFooterNav({
             <div className="font-semibold truncate">
               {nextItem.label}
             </div>
-            <ArrowRight size={18} />
+            <ArrowRight size={16} />
           </button>
         )}
 
@@ -102,7 +102,7 @@ export default function WorkFooterNav({
             onClick={() =>
               navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}`)
             }
-            className="flex items-center text-gray-600 gap-3 p-2 rounded hover:bg-gray-200 hover:text-black active:text-black transition text-right cursor-pointer"
+            className="flex items-center gap-2 rounded px-2 py-1.5 text-right text-sm text-gray-600 transition hover:bg-gray-100 hover:text-black"
           >
             <Home size={18} />
             <div className="font-semibold text-gray-700 truncate">
@@ -114,7 +114,7 @@ export default function WorkFooterNav({
       </footer>
 
       {/* MOBILE FOOTER */}
-      <footer className="fixed bottom-0 left-0 right-0 md:hidden bg-white border-t z-9999 h-14 flex items-center justify-between px-4">
+      <footer className="fixed bottom-0 left-0 right-0 z-9999 flex h-12 items-center justify-between border-t bg-white px-4 md:hidden">
 
         {/* Prev */}
         {prevItem ? (

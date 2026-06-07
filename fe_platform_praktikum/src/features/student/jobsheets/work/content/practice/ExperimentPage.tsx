@@ -33,32 +33,31 @@ export default function ExperimentPage() {
   
   // TAMBAHKAN: Key yang lebih stabil
   const componentKey = `${experiment.id}-${submission?.updatedAt || 'initial'}`
-
-  const instructions = splitInstructionContent(experiment.instructionContent)
+  const workspaceInstructions = splitInstructionContent(experiment.instructionContent)
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">
-        {experiment.title}
-      </h1>
-
-      <div className="max-w-3xl">
-
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-2xl font-semibold text-gray-900">
+          {`Percobaan ${experiment.order || jobsheet.experiments.findIndex(exp => exp.id === experiment.id) + 1}: ${experiment.title}`}
+        </h2>
         {experiment.instructionContent && (
-          <RichTextViewer
-            content={experiment.instructionContent}
-            mode="viewer-default"
-          />
+          <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5">
+            <RichTextViewer content={experiment.instructionContent} mode="viewer-default" />
+          </div>
         )}
-        <InstructionWorkspaceCard
-          key={componentKey}  // PERBAIKI: Gunakan key yang lebih stabil
-          instructions={instructions}
-          templateCode={experiment.defaultTemplateCode}
-          language={programmingLanguage}
-          initialSteps={initialSteps}
-          onChange={(steps) => updateExperiment(experimentId, steps)}
-        />
-      </div> 
+      </div>
+
+      <InstructionWorkspaceCard
+        key={componentKey}
+        title={experiment.title}
+        label={`Percobaan ${experiment.order || jobsheet.experiments.findIndex(exp => exp.id === experiment.id) + 1}`}
+        instructions={workspaceInstructions}
+        templateCode={experiment.defaultTemplateCode}
+        language={programmingLanguage}
+        initialSteps={initialSteps}
+        onChange={(steps) => updateExperiment(experimentId, steps)}
+      />
     </div>
   )
 }

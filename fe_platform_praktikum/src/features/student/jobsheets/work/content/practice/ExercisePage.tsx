@@ -33,28 +33,28 @@ export default function ExercisePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">
-        {exercise.title}
-      </h1>
-
-      <div className="max-w-3xl">
-
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-2xl font-semibold text-gray-900">
+          {`Latihan: ${exercise.title}`}
+        </h2>
         {exercise.instructionContent && (
-          <RichTextViewer
-            content={exercise.instructionContent}
-            mode="viewer-default"
-          />
+          <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5">
+            <RichTextViewer content={exercise.instructionContent} mode="viewer-default" />
+          </div>
         )}
-        <InstructionWorkspaceCard
-          key={exercise.id}
-          instructions={[exercise.instructionContent]}
-          templateCode={exercise.defaultTemplateCode || ''}
-          language={programmingLanguage}
-          initialSteps={initialStep ? [initialStep] : undefined}
-          onChange={(steps) => updateExercise(exerciseId, steps[0])}
-        />
       </div>
+
+      <InstructionWorkspaceCard
+        key={exercise.id}
+        title={exercise.title}
+        label="Latihan"
+        instructions={[exercise.instructionContent]}
+        templateCode={exercise.defaultTemplateCode || ''}
+        language={programmingLanguage}
+        initialSteps={initialStep ? [initialStep] : undefined}
+        onChange={(steps) => updateExercise(exerciseId, steps[0])}
+      />
     </div>
   )
 }

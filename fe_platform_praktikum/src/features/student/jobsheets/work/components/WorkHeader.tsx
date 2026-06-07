@@ -1,25 +1,39 @@
 import { ArrowLeft } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
+import type { Course } from "../../../../../services/course/types"
+import type { Jobsheet } from "../../../../../services/jobsheet/types"
+import { buildWorkNavigation } from "../utils/buildNavigation"
 
 interface WorkHeaderProps {
   title: string
   backTo: string
+  course?: Course | null
+  jobsheet?: Jobsheet | null
 }
 
-export default function WorkHeader({ title, backTo }: WorkHeaderProps) {
+export default function WorkHeader({ title, backTo, course, jobsheet }: WorkHeaderProps) {
   const navigate = useNavigate()
+  const location = useLocation()
+  const navItems = course && jobsheet ? buildWorkNavigation(course.id, jobsheet) : []
+  const activeItem = navItems.find((item) => location.pathname.startsWith(item.path))
+  const activeTitle = activeItem?.label || title
 
   return (
-    <header className="h-16 bg-white border-b flex items-center px-6">
-      <button
-        onClick={() => navigate(backTo)}
-        className="flex items-center gap-3 p-2 rounded hover:bg-gray-200 transition cursor-pointer"
-      >
-        <ArrowLeft size={20} className="shrink-0" />
-        <span className="text-lg font-semibold text-gray-800">
-          {title}
-        </span>
-      </button>
+    <header className="shrink-0 border-b bg-white px-4 py-2 sm:px-5">
+      <div className="flex min-w-0 items-center gap-3">
+        <button
+          type="button"
+          onClick={() => navigate(backTo)}
+          className="flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+        >
+          <ArrowLeft size={17} className="shrink-0" />
+          Kembali
+        </button>
+
+        <h1 className="min-w-0 truncate text-base font-semibold text-gray-900">
+          {activeTitle}
+        </h1>
+      </div>
     </header>
   )
 }

@@ -94,12 +94,15 @@ export default function InstructionWorkspaceCard({
   const terminalOutputRef = useRef<Record<number, string>>({})
   const terminalInputRef = useRef<HTMLInputElement | null>(null)
   const terminalScrollRef = useRef<HTMLDivElement | null>(null)
+  const hasHydratedInitialStateRef = useRef(false)
 
   useEffect(() => {
     return () => executionClientRef.current?.close()
   }, [])
 
   useEffect(() => {
+    if (hasHydratedInitialStateRef.current) return
+
     const nextCodeMap = Object.fromEntries(
       Array.from({ length: totalSteps }, (_, index) => {
         const savedFiles = initialSteps?.[index]?.files
@@ -132,6 +135,7 @@ export default function InstructionWorkspaceCard({
     setIsDirty(false)
     setSaveStatus("")
     setSaveError("")
+    hasHydratedInitialStateRef.current = true
   }, [initialSteps, templateCode, defaultFileName, totalSteps])
 
   useEffect(() => {
@@ -237,13 +241,17 @@ export default function InstructionWorkspaceCard({
 
     const client = new ExecutionClient({
       onMessage: (message) => {
-        if (message.type === "started") return
-        if (message.type === "output") {
+        if (message.type === "started" || message.type === "start") return
+        if (message.type === "output" || message.type === "stdout") {
+          appendOutput(runIndex, message.data)
+          return
+        }
+        if (message.type === "stderr") {
           appendOutput(runIndex, message.data)
           return
         }
         if (message.type === "error" || message.type === "timeout") {
-          appendOutput(runIndex, message.data)
+          appendOutput(runIndex, message.type === "error" ? message.message || message.data || "" : message.data)
           finishRun()
           return
         }
@@ -629,4 +637,3 @@ function ToolbarButton({
     </button>
   )
 }
-

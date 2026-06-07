@@ -1,62 +1,29 @@
 const fs = require('fs');
 const path = require('path');
+const { resolveInsideBase, sanitizeRelativePath } = require('./pathSecurity');
 
-function normalizeProjectPath(filePath) {
-  if (typeof filePath !== 'string' || filePath.trim() === '') {
-    throw new Error('Path file tidak valid');
-  }
-
-  const normalizedPath = filePath.replace(/\\/g, '/').replace(/\/+/g, '/');
-
-  if (
-    normalizedPath.startsWith('/') ||
-    /^[a-zA-Z]:/.test(normalizedPath) ||
-    normalizedPath.includes('\0')
-  ) {
-    throw new Error(`Path file berbahaya: ${filePath}`);
-  }
-
-  const parts = normalizedPath.split('/');
-
-  if (parts.includes('..')) {
-    throw new Error(`Path file berbahaya: ${filePath}`);
-  }
-
-  return normalizedPath;
-}
-
-function resolveInsideBase(baseDir, projectPath) {
-  const resolvedBaseDir = path.resolve(baseDir);
-  const targetPath = path.resolve(resolvedBaseDir, projectPath);
-
-  if (
-    targetPath !== resolvedBaseDir &&
-    !targetPath.startsWith(resolvedBaseDir + path.sep)
-  ) {
-    throw new Error(`Path keluar dari folder project: ${projectPath}`);
-  }
-
-  return targetPath;
-}
-
-function writeProjectFiles(tempDir, files) {
+function writeProjectFiles(workspaceDir, files) {
   if (!Array.isArray(files) || files.length === 0) {
     throw new Error('Files kosong');
   }
 
-  const baseDir = path.resolve(tempDir);
-
   for (const file of files) {
-    const safePath = normalizeProjectPath(file.path);
-    const targetPath = resolveInsideBase(baseDir, safePath);
+    if (!file || typeof file !== 'object') {
+      throw new Error('Format file tidak valid');
+    }
+
+    const safePath = sanitizeRelativePath(file.path);
+    const targetPath = resolveInsideBase(workspaceDir, safePath);
 
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-    fs.writeFileSync(targetPath, file.content || '', 'utf8');
+    fs.writeFileSync(targetPath, String(file.content ?? ''), 'utf8');
   }
 }
 
 function getFilesRecursive(dir, extension) {
   let results = [];
+
+  if (!fs.existsSync(dir)) return results;
 
   const items = fs.readdirSync(dir, { withFileTypes: true });
 
@@ -74,8 +41,7 @@ function getFilesRecursive(dir, extension) {
 }
 
 module.exports = {
-  normalizeProjectPath,
-  resolveInsideBase,
   writeProjectFiles,
   getFilesRecursive,
 };
+

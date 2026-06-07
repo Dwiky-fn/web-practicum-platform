@@ -47,7 +47,7 @@ const execution = (server) => {
       } catch (error) {
         sendToClient({
           type: 'error',
-          data: error.message || 'Gagal memproses pesan execution',
+          message: error.message || 'Gagal memproses pesan execution',
         });
       }
     });

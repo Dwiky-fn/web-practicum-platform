@@ -11,7 +11,8 @@ class ExecutionGatewayService {
         this._handleRun(message, sendToClient);
         break;
       case 'input':
-        this._runnerClient.sendInput(message.value || '');
+      case 'stdin':
+        this._runnerClient.sendInput(message.data ?? message.value ?? '');
         break;
       case 'stop':
         this._runnerClient.stop();
@@ -26,14 +27,17 @@ class ExecutionGatewayService {
   }
 
   _handleRun(message, sendToClient) {
-    if (typeof message.code !== 'string' || message.code.trim() === '') {
+    const hasFiles = Array.isArray(message.files) && message.files.length > 0;
+    const hasCode = typeof message.code === 'string' && message.code.trim() !== '';
+
+    if (!hasFiles && !hasCode) {
       throw new Error('Kode program tidak boleh kosong');
     }
 
     this._runnerClient.run({
       language: message.language || 'python',
-      code: message.code,
-      files: message.files,
+      code: message.code || '',
+      files: hasFiles ? message.files : undefined,
       mainClass: message.mainClass,
       entryFile: message.entryFile,
     }, {

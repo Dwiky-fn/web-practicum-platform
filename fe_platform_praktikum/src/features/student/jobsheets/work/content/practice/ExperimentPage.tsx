@@ -31,8 +31,7 @@ export default function ExperimentPage() {
   // PERBAIKI: Ambil data dari submission dengan lebih hati-hati
   const initialSteps = submission?.report?.experiments?.[experiment.id]?.steps
   
-  // TAMBAHKAN: Key yang lebih stabil
-  const componentKey = `${experiment.id}-${submission?.updatedAt || 'initial'}`
+  const componentKey = experiment.id
   const workspaceInstructions = splitInstructionContent(experiment.instructionContent)
 
   return (

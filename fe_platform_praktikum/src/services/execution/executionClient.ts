@@ -63,7 +63,7 @@ export class ExecutionClient {
   }
 
   sendInput(value: string) {
-    this.send({ type: "input", value })
+    this.send({ type: "stdin", data: value })
   }
 
   stop() {

@@ -26,7 +26,7 @@ class InteractiveRunnerClient {
     this._socket.on('message', (data) => {
       const message = this._parseRunnerMessage(data);
 
-      if (message.type === 'exit' || message.type === 'timeout') {
+      if (message.type === 'exit' || message.type === 'error' || message.type === 'timeout') {
         this._isRunning = false;
       }
 
@@ -37,7 +37,7 @@ class InteractiveRunnerClient {
       this._isRunning = false;
       handlers.onMessage({
         type: 'error',
-        data: error.message || 'Gagal terhubung ke interactive runner',
+        message: error.message || 'Gagal terhubung ke interactive runner',
       });
     });
 
@@ -48,7 +48,7 @@ class InteractiveRunnerClient {
   }
 
   sendInput(value) {
-    this._sendToRunner({ type: 'input', data: value });
+    this._sendToRunner({ type: 'stdin', data: value });
   }
 
   stop() {

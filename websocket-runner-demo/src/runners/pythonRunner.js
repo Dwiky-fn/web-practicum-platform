@@ -1,51 +1,40 @@
-const path = require('path');
 const { spawn } = require('child_process');
-const {
-  writeProjectFiles,
-  normalizeProjectPath,
-  resolveInsideBase,
-} = require('../utils/fileUtils');
+const { resolveInsideBase, sanitizeRelativePath } = require('../utils/pathSecurity');
 
-function runPython({
-  code,
-  files,
-  tempDir,
-  entryFile = 'main.py',
-  onSuccess,
-  onFail,
-}) {
-  let projectFiles = files;
-
-  // Backward compatibility:
-  // Kalau masih pakai code tunggal, otomatis dianggap main.py
-  if (!Array.isArray(projectFiles) || projectFiles.length === 0) {
-    projectFiles = [
-      {
-        path: 'main.py',
-        content: code || '',
-      },
-    ];
+function getPythonCommand() {
+  if (process.platform === 'win32') {
+    return {
+      command: 'py',
+      args: ['-3', '-u'],
+    };
   }
 
-  try {
-    writeProjectFiles(tempDir, projectFiles);
+  return {
+    command: 'python3',
+    args: ['-u'],
+  };
+}
 
-    const safeEntryFile = normalizeProjectPath(entryFile);
-    const entryPath = resolveInsideBase(tempDir, safeEntryFile);
-
-    const pythonProcess = spawn('python', ['-u', entryPath], {
-      cwd: tempDir,
-      env: {
-        ...process.env,
-        PYTHONUNBUFFERED: '1',
-        PYTHONPATH: tempDir,
-      },
-    });
-
-    onSuccess(pythonProcess);
-  } catch (error) {
-    onFail(error.message);
+async function runPython({ workspaceDir, entryFile }) {
+  if (!entryFile || !entryFile.endsWith('.py')) {
+    throw new Error('entryFile Python harus berupa file .py');
   }
+
+  const safeEntryFile = sanitizeRelativePath(entryFile);
+  resolveInsideBase(workspaceDir, safeEntryFile);
+
+  const { command, args } = getPythonCommand();
+
+  return spawn(command, [...args, safeEntryFile], {
+    cwd: workspaceDir,
+    env: {
+      ...process.env,
+      PYTHONUNBUFFERED: '1',
+      PYTHONPATH: workspaceDir,
+    },
+    shell: false,
+  });
 }
 
 module.exports = { runPython };
+

@@ -214,17 +214,22 @@ class ClassesService {
 
   async getStudentCandidates(classId, filters = {}) {
     const classInfo = await this._pool.query(
-      `SELECT cl.course_id, c.semester
-       FROM classes cl
-       JOIN courses c ON c.id = cl.course_id
-       WHERE cl.id = $1`,
+      `SELECT cl.course_id, cl.academic_period_id, c.semester
+     FROM classes cl
+     JOIN courses c ON c.id = cl.course_id
+     WHERE cl.id = $1`,
       [classId],
     );
+
     if (!classInfo.rows.length) throw new Error('CLASS_NOT_FOUND');
-    const { course_id: courseId, semester: courseSemester } = classInfo.rows[0];
+
+    const {
+      course_id: courseId,
+      semester: courseSemester,
+    } = classInfo.rows[0];
 
     const keyword = `%${(filters.keyword || '').toLowerCase()}%`;
-    const params = [classId, keyword, courseId, Number(courseSemester)];
+    const params = [keyword, courseId, Number(courseSemester)];
     let semesterClause = '';
 
     if (filters.semester && filters.semester !== 'all') {
@@ -243,10 +248,10 @@ class ClassesService {
         AND NOT EXISTS (
           SELECT 1 FROM class_students cs
           JOIN classes cl ON cs.class_id = cl.id
-          WHERE cs.student_id = u.id AND cs.status = 'AKTIF' AND cl.course_id = $3
+          WHERE cs.student_id = u.id AND cs.status = 'AKTIF' AND cl.course_id = $2
         )
-        AND sp.semester = $4
-        AND ($2 = '%%' OR LOWER(u.fullname) LIKE $2 OR LOWER(COALESCE(sp.nim, '')) LIKE $2)
+        AND sp.semester = $3
+        AND ($1 = '%%' OR LOWER(u.fullname) LIKE $1 OR LOWER(COALESCE(sp.nim, '')) LIKE $1)
         ${semesterClause}
       ORDER BY sp.nim ASC
       `,
@@ -323,9 +328,8 @@ class ClassesService {
   async removeStudentFromClass(classId, studentId) {
     const result = await this._pool.query(
       `
-      UPDATE class_students
-      SET status = 'NONAKTIF'
-      WHERE class_id = $1 AND student_id = $2 AND status = 'AKTIF'
+      DELETE FROM class_students
+      WHERE class_id = $1 AND student_id = $2
       RETURNING id
       `,
       [classId, studentId],

@@ -112,6 +112,14 @@ export default function AdminClassDetailPage() {
     handleMouseUp(studentId, defaultClick)
   }
 
+  const openAssignModal = () => {
+    setQuery("")
+    setStudentSemester("all")
+    setSelectedStudentIds([])
+    setStudentCandidates([])
+    setAssignOpen(true)
+  }
+
   const handleBulkRemoveStudent = async () => {
     if (!id || !selectedIds.length) return
     try {
@@ -322,7 +330,7 @@ export default function AdminClassDetailPage() {
                   <h2 className="mt-5 text-lg font-semibold text-gray-900">Daftar Mahasiswa</h2>
                   <p className="text-sm text-gray-600">Mahasiswa yang terdaftar pada kelas ini.</p>
                 </div>
-                <AdminButton onClick={() => setAssignOpen(true)}>
+                <AdminButton onClick={openAssignModal}>
                   <Plus size={16} />
                   Assign Mahasiswa
                 </AdminButton>
@@ -375,7 +383,7 @@ export default function AdminClassDetailPage() {
               ) : (
                 <EmptyState
                   title="Belum ada mahasiswa di kelas ini"
-                  action={<AdminButton onClick={() => setAssignOpen(true)}><Plus size={16} />Assign Mahasiswa</AdminButton>}
+                  action={<AdminButton onClick={openAssignModal}><Plus size={16} />Assign Mahasiswa</AdminButton>}
                 />
               )}
             </div>
@@ -519,7 +527,11 @@ export default function AdminClassDetailPage() {
                   <span className="text-gray-700 select-none">{student.nim} - {student.fullname}</span>
                 </label>
               )) : (
-                <p className="text-sm text-gray-500 text-center py-2">Tidak ada kandidat mahasiswa.</p>
+                <p className="text-sm text-gray-500 text-center py-2">
+                  {query || studentSemester !== "all"
+                    ? "Tidak ada kandidat yang sesuai filter."
+                    : "Tidak ada kandidat mahasiswa yang tersedia."}
+                </p>
               )}
             </div>
           </div>

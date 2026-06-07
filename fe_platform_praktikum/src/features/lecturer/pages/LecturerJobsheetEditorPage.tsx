@@ -402,15 +402,8 @@ export default function LecturerJobsheetEditorPage() {
         </LecturerPanel>
 
         <LecturerPanel className="p-5">
-          <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="mb-4 border-b border-gray-200 pb-3">
             <h2 className="text-lg font-semibold">Dasar Teori</h2>
-            <LecturerButton
-              variant="secondary"
-              onClick={() => setTheoryItems((current) => [...current, createTheoryItem(current.length + 1)])}
-            >
-              <Plus size={16} />
-              Tambah Subtopik
-            </LecturerButton>
           </div>
           <div className="space-y-4">
             {theoryItems.map((item, index) => (
@@ -459,18 +452,20 @@ export default function LecturerJobsheetEditorPage() {
               </div>
             ))}
           </div>
+          <div className="mt-4 flex justify-start">
+            <LecturerButton
+              variant="secondary"
+              onClick={() => setTheoryItems((current) => [...current, createTheoryItem(current.length + 1)])}
+            >
+              <Plus size={16} />
+              Tambah Subtopik
+            </LecturerButton>
+          </div>
         </LecturerPanel>
 
         <LecturerPanel className="p-5">
-          <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="mb-4 border-b border-gray-200 pb-3">
             <h2 className="text-lg font-semibold">Percobaan Praktikum</h2>
-            <LecturerButton
-              variant="secondary"
-              onClick={() => setExperiments((current) => [...current, createExperimentItem(current.length + 1)])}
-            >
-              <Plus size={16} />
-              Tambah Percobaan
-            </LecturerButton>
           </div>
           <div className="space-y-4">
             {experiments.map((item, index) => (
@@ -501,7 +496,7 @@ export default function LecturerJobsheetEditorPage() {
                     placeholder="Judul percobaan"
                   />
                   <div className="space-y-2">
-                    <p className="text-sm font-medium text-gray-700">Instruksi Percobaan</p>
+                     <p className="text-sm font-medium text-gray-700">Instruksi Percobaan</p>
                     <RichTextEditor
                       value={item.instructionContent}
                       onChange={(value) =>
@@ -531,18 +526,20 @@ export default function LecturerJobsheetEditorPage() {
               </div>
             ))}
           </div>
+          <div className="mt-4 flex justify-start">
+            <LecturerButton
+              variant="secondary"
+              onClick={() => setExperiments((current) => [...current, createExperimentItem(current.length + 1)])}
+            >
+              <Plus size={16} />
+              Tambah Percobaan
+            </LecturerButton>
+          </div>
         </LecturerPanel>
 
         <LecturerPanel className="p-5">
-          <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="mb-4 border-b border-gray-200 pb-3">
             <h2 className="text-lg font-semibold">Latihan Praktikum</h2>
-            <LecturerButton
-              variant="secondary"
-              onClick={() => setExercises((current) => [...current, createExerciseItem(current.length + 1)])}
-            >
-              <Plus size={16} />
-              Tambah Latihan
-            </LecturerButton>
           </div>
           <div className="space-y-4">
             {exercises.map((item, index) => (
@@ -602,6 +599,15 @@ export default function LecturerJobsheetEditorPage() {
                 </div>
               </div>
             ))}
+          </div>
+          <div className="mt-4 flex justify-start">
+            <LecturerButton
+              variant="secondary"
+              onClick={() => setExercises((current) => [...current, createExerciseItem(current.length + 1)])}
+            >
+              <Plus size={16} />
+              Tambah Latihan
+            </LecturerButton>
           </div>
         </LecturerPanel>
 

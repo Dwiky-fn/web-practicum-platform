@@ -50,10 +50,25 @@ export default function RichTextEditor({
 
   if (!editor) return null;
 
+  const isLecturer = resolvedRole === "DOSEN";
+
+  if (isLecturer && editable) {
+    return (
+      <div className="flex flex-col md:flex-row gap-4 items-start relative w-full min-w-0">
+        <div className="w-full md:w-auto md:sticky md:top-4 z-10 shrink-0">
+          <EditorToolbar editor={editor} role={resolvedRole} />
+        </div>
+        <div className="flex-1 w-full min-w-0 border border-gray-300 rounded-lg bg-white p-5 shadow-sm min-h-[250px]">
+          <EditorContent editor={editor} />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="border border-gray-400 rounded-lg overflow-hidden bg-white">
+    <div className="border border-gray-300 rounded-lg overflow-hidden bg-white shadow-sm">
       {editable && <EditorToolbar editor={editor} role={resolvedRole} />}
-      <div className="p-4">
+      <div className="p-4 min-h-[200px]">
         <EditorContent editor={editor} />
       </div>
     </div>

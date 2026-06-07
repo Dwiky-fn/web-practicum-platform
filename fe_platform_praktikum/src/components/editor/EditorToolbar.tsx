@@ -1,6 +1,36 @@
 import type { Editor } from "@tiptap/core"
 import { useEditorState } from "@tiptap/react"
 import type { EditorRole } from "./utils/editorExtensions"
+import { useState, useEffect } from "react"
+import {
+  Bold,
+  Italic,
+  Strikethrough,
+  Code,
+  Highlighter,
+  Subscript,
+  Superscript,
+  Heading1,
+  Heading2,
+  Heading3,
+  Pilcrow,
+  List,
+  ListOrdered,
+  Quote,
+  Terminal,
+  Minus,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  Table,
+  Plus,
+  Trash2,
+  Undo,
+  Redo,
+  Eraser,
+  ChevronDown
+} from "lucide-react"
 
 interface Props {
   editor: Editor
@@ -8,31 +38,60 @@ interface Props {
 }
 
 type ToolbarButtonProps = {
+  icon: React.ReactNode
   label: string
   active?: boolean
-  onClick: () => void
+  onClick: (e: React.MouseEvent) => void
   disabled?: boolean
+  className?: string
+  showChevron?: boolean
 }
 
-function ToolbarButton({ label, active, onClick, disabled }: ToolbarButtonProps) {
+function ToolbarButton({
+  icon,
+  label,
+  active,
+  onClick,
+  disabled,
+  className = "",
+  showChevron = false,
+}: ToolbarButtonProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-md border px-3 py-1 text-sm transition ${
-        active
-          ? "border-blue-700 bg-blue-700 text-white"
-          : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
-      } disabled:cursor-not-allowed disabled:opacity-50`}
+      title={label}
+      aria-label={label}
+      className={`editor-toolbar-button flex items-center justify-center rounded-md transition-all duration-200 focus:outline-none relative
+        w-8 h-8 md:w-9 md:h-9
+        md:max-lg:w-7 md:max-lg:h-7
+        ${
+          active
+            ? "bg-blue-50 text-blue-600 border border-blue-200/60 font-semibold shadow-sm"
+            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 border border-transparent"
+        } 
+        disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-600
+        ${className}`}
     >
-      {label}
+      <div className="w-4 h-4 md:w-[17px] md:h-[17px] md:max-lg:w-3.5 md:max-lg:h-3.5 flex items-center justify-center">
+        {icon}
+      </div>
+      {showChevron && (
+        <ChevronDown className="w-2.5 h-2.5 ml-0.5 text-gray-400 md:max-lg:w-2 md:max-lg:h-2" />
+      )}
     </button>
   )
 }
 
 function ToolbarDivider() {
-  return <span className="h-7 w-px bg-gray-300" aria-hidden="true" />
+  return (
+    <div 
+      className="w-px h-6 bg-gray-200/80 mx-1 flex-shrink-0 
+        md:col-span-2 md:h-px md:w-full md:bg-gray-200/80 md:my-1 md:mx-0" 
+      aria-hidden="true" 
+    />
+  )
 }
 
 export default function EditorToolbar({ editor, role }: Props) {
@@ -64,141 +123,503 @@ export default function EditorToolbar({ editor, role }: Props) {
     }),
   })
 
+  const [activeMenu, setActiveMenu] = useState<"heading" | "align" | "table" | null>(null)
+  const [hoveredGrid, setHoveredGrid] = useState<{ rows: number; cols: number } | null>(null)
+  const [inputRows, setInputRows] = useState<number>(3)
+  const [inputCols, setInputCols] = useState<number>(3)
+  
   const isLecturer = role === "DOSEN"
 
-  return (
-    <div className="flex flex-wrap items-center gap-2 border-b bg-gray-50 p-3">
-      <ToolbarButton label="B" onClick={() => editor.chain().focus().toggleBold().run()} active={state.isBold} />
-      <ToolbarButton label="I" onClick={() => editor.chain().focus().toggleItalic().run()} active={state.isItalic} />
-      <ToolbarButton label="S" onClick={() => editor.chain().focus().toggleStrike().run()} active={state.isStrike} />
-      <ToolbarButton label="Code" onClick={() => editor.chain().focus().toggleCode().run()} active={state.isCode} />
+  const toggleMenu = (menu: "heading" | "align" | "table") => {
+    setActiveMenu((prev) => (prev === menu ? null : menu))
+  }
 
-      {isLecturer && (
+  // Close menus on clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest(".editor-toolbar-dropdown") && !target.closest(".editor-toolbar-button")) {
+        setActiveMenu(null)
+      }
+    }
+    document.addEventListener("click", handleOutsideClick)
+    return () => document.removeEventListener("click", handleOutsideClick)
+  }, [])
+
+  // Alignment icon based on active state
+  const getAlignIcon = () => {
+    if (state.isAlignCenter) return <AlignCenter size={16} />
+    if (state.isAlignRight) return <AlignRight size={16} />
+    if (state.isAlignJustify) return <AlignJustify size={16} />
+    return <AlignLeft size={16} />
+  }
+
+  // Heading label for UX
+  const getHeadingLabel = () => {
+    if (state.isH1) return "H1"
+    if (state.isH2) return "H2"
+    if (state.isH3) return "H3"
+    return "P"
+  }
+
+  return (
+    <div 
+      className={`editor-toolbar-container flex items-center justify-start flex-wrap gap-1.5 p-2 bg-gray-50 border border-gray-300 rounded-lg w-full select-none
+        ${
+          isLecturer 
+            ? "md:grid md:grid-cols-2 md:items-center md:gap-1.5 md:p-2.5 md:bg-white md:border md:border-gray-200 md:rounded-xl md:shadow-md md:w-[92px]" 
+            : ""
+        }`}
+    >
+      {/* ============================================================ */}
+      {/* KELOMPOK 1: FORMAT TEKS & HEADING (8 item -> 4 baris penuh) */}
+      {/* ============================================================ */}
+      
+      {/* Row 1 */}
+      <ToolbarButton
+        icon={<Bold size={16} />}
+        label="Tebal (Bold)"
+        active={state.isBold}
+        onClick={() => editor.chain().focus().toggleBold().run()}
+      />
+      <ToolbarButton
+        icon={<Italic size={16} />}
+        label="Miring (Italic)"
+        active={state.isItalic}
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+      />
+
+      {/* Row 2 */}
+      <ToolbarButton
+        icon={<Strikethrough size={16} />}
+        label="Coret (Strikethrough)"
+        active={state.isStrike}
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+      />
+      <ToolbarButton
+        icon={<Code size={16} />}
+        label="Kode Inline"
+        active={state.isCode}
+        onClick={() => editor.chain().focus().toggleCode().run()}
+      />
+
+      {/* Row 3 */}
+      {isLecturer ? (
         <>
           <ToolbarButton
-            label="Mark"
-            onClick={() => editor.chain().focus().toggleHighlight().run()}
+            icon={<Highlighter size={16} />}
+            label="Sorotan (Mark)"
             active={state.isHighlight}
+            onClick={() => editor.chain().focus().toggleHighlight().run()}
           />
           <ToolbarButton
-            label="Sub"
-            onClick={() => editor.chain().focus().toggleSubscript().run()}
+            icon={<Subscript size={16} />}
+            label="Subscript"
             active={state.isSubscript}
+            onClick={() => editor.chain().focus().toggleSubscript().run()}
           />
+
+          {/* Row 4 */}
           <ToolbarButton
-            label="Sup"
-            onClick={() => editor.chain().focus().toggleSuperscript().run()}
+            icon={<Superscript size={16} />}
+            label="Superscript"
             active={state.isSuperscript}
+            onClick={() => editor.chain().focus().toggleSuperscript().run()}
           />
-          <ToolbarDivider />
+          
+          {/* Row 4, Kolom 2: Heading (Dropdown - Kolom 2 -> md:left-[36px]) */}
+          <div className="relative">
+            <ToolbarButton
+              icon={
+                <span className="text-xs font-bold font-sans">
+                  {getHeadingLabel()}
+                </span>
+              }
+              label="Heading / Paragraf"
+              active={state.isH1 || state.isH2 || state.isH3}
+              onClick={() => toggleMenu("heading")}
+              showChevron
+            />
+            {activeMenu === "heading" && (
+              <div 
+                className="editor-toolbar-dropdown absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-1.5 flex flex-col gap-1 min-w-[140px]
+                  md:left-[36px] md:top-0 md:ml-2 md:mt-0 left-0 top-full mt-1.5"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().setParagraph().run()
+                    setActiveMenu(null)
+                  }}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-md hover:bg-gray-100 w-full text-left transition ${
+                    state.isParagraph ? "text-blue-600 bg-blue-50/50 font-semibold" : "text-gray-700"
+                  }`}
+                >
+                  <Pilcrow size={14} className="opacity-70" />
+                  <span>Paragraf</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().toggleHeading({ level: 1 }).run()
+                    setActiveMenu(null)
+                  }}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-md hover:bg-gray-100 w-full text-left transition ${
+                    state.isH1 ? "text-blue-600 bg-blue-50/50 font-semibold" : "text-gray-700"
+                  }`}
+                >
+                  <Heading1 size={14} className="opacity-70" />
+                  <span>Heading 1</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().toggleHeading({ level: 2 }).run()
+                    setActiveMenu(null)
+                  }}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-md hover:bg-gray-100 w-full text-left transition ${
+                    state.isH2 ? "text-blue-600 bg-blue-50/50 font-semibold" : "text-gray-700"
+                  }`}
+                >
+                  <Heading2 size={14} className="opacity-70" />
+                  <span>Heading 2</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().toggleHeading({ level: 3 }).run()
+                    setActiveMenu(null)
+                  }}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-md hover:bg-gray-100 w-full text-left transition ${
+                    state.isH3 ? "text-blue-600 bg-blue-50/50 font-semibold" : "text-gray-700"
+                  }`}
+                >
+                  <Heading3 size={14} className="opacity-70" />
+                  <span>Heading 3</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Untuk non-dosen */}
+        </>
+      )}
+
+      {isLecturer && <ToolbarDivider />}
+
+      {/* ============================================================ */}
+      {/* KELOMPOK 2: LIST, BLOCKS & ALIGNMENT (6 item -> 3 baris penuh) */}
+      {/* ============================================================ */}
+      
+      {isLecturer && (
+        <>
+          {/* Row 5, Kolom 1: Align (Dropdown - Kolom 1 -> md:left-[76px]) */}
+          <div className="relative">
+            <ToolbarButton
+              icon={getAlignIcon()}
+              label="Penyelarasan Teks (Alignment)"
+              active={state.isAlignLeft || state.isAlignCenter || state.isAlignRight || state.isAlignJustify}
+              onClick={() => toggleMenu("align")}
+              showChevron
+            />
+            {activeMenu === "align" && (
+              <div 
+                className="editor-toolbar-dropdown absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-1.5 flex flex-col gap-1 min-w-[140px]
+                  md:left-[76px] md:top-0 md:ml-2 md:mt-0 left-0 top-full mt-1.5"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().setTextAlign("left").run()
+                    setActiveMenu(null)
+                  }}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-md hover:bg-gray-100 w-full text-left transition ${
+                    state.isAlignLeft ? "text-blue-600 bg-blue-50/50 font-semibold" : "text-gray-700"
+                  }`}
+                >
+                  <AlignLeft size={14} className="opacity-70" />
+                  <span>Rata Kiri</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().setTextAlign("center").run()
+                    setActiveMenu(null)
+                  }}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-md hover:bg-gray-100 w-full text-left transition ${
+                    state.isAlignCenter ? "text-blue-600 bg-blue-50/50 font-semibold" : "text-gray-700"
+                  }`}
+                >
+                  <AlignCenter size={14} className="opacity-70" />
+                  <span>Rata Tengah</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().setTextAlign("right").run()
+                    setActiveMenu(null)
+                  }}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-md hover:bg-gray-100 w-full text-left transition ${
+                    state.isAlignRight ? "text-blue-600 bg-blue-50/50 font-semibold" : "text-gray-700"
+                  }`}
+                >
+                  <AlignRight size={14} className="opacity-70" />
+                  <span>Rata Kanan</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().setTextAlign("justify").run()
+                    setActiveMenu(null)
+                  }}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-md hover:bg-gray-100 w-full text-left transition ${
+                    state.isAlignJustify ? "text-blue-600 bg-blue-50/50 font-semibold" : "text-gray-700"
+                  }`}
+                >
+                  <AlignJustify size={14} className="opacity-70" />
+                  <span>Rata Kiri Kanan</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Row 5, Kolom 2 */}
           <ToolbarButton
-            label="P"
-            onClick={() => editor.chain().focus().setParagraph().run()}
-            active={state.isParagraph}
-          />
-          <ToolbarButton
-            label="H1"
-            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-            active={state.isH1}
-          />
-          <ToolbarButton
-            label="H2"
-            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-            active={state.isH2}
-          />
-          <ToolbarButton
-            label="H3"
-            onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-            active={state.isH3}
-          />
-          <ToolbarDivider />
-          <ToolbarButton
-            label="Bullet"
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            icon={<List size={16} />}
+            label="Bullet List"
             active={state.isBulletList}
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
           />
+
+          {/* Row 6 */}
           <ToolbarButton
-            label="Number"
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            icon={<ListOrdered size={16} />}
+            label="Numbered List"
             active={state.isOrderedList}
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
           />
           <ToolbarButton
-            label="Quote"
-            onClick={() => editor.chain().focus().toggleBlockquote().run()}
+            icon={<Quote size={16} />}
+            label="Kutipan (Quote)"
             active={state.isBlockquote}
+            onClick={() => editor.chain().focus().toggleBlockquote().run()}
           />
+
+          {/* Row 7 */}
           <ToolbarButton
+            icon={<Terminal size={16} />}
             label="Code Block"
-            onClick={() => editor.chain().focus().toggleCodeBlock().run()}
             active={state.isCodeBlock}
+            onClick={() => editor.chain().focus().toggleCodeBlock().run()}
           />
           <ToolbarButton
-            label="HR"
+            icon={<Minus size={16} />}
+            label="Horizontal Rule (HR)"
             onClick={() => editor.chain().focus().setHorizontalRule().run()}
-          />
-          <ToolbarDivider />
-          <ToolbarButton
-            label="Left"
-            onClick={() => editor.chain().focus().setTextAlign("left").run()}
-            active={state.isAlignLeft}
-          />
-          <ToolbarButton
-            label="Center"
-            onClick={() => editor.chain().focus().setTextAlign("center").run()}
-            active={state.isAlignCenter}
-          />
-          <ToolbarButton
-            label="Right"
-            onClick={() => editor.chain().focus().setTextAlign("right").run()}
-            active={state.isAlignRight}
-          />
-          <ToolbarButton
-            label="Justify"
-            onClick={() => editor.chain().focus().setTextAlign("justify").run()}
-            active={state.isAlignJustify}
-          />
-          <ToolbarDivider />
-          <ToolbarButton
-            label="Table"
-            onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-            active={state.isTable}
-          />
-          <ToolbarButton
-            label="+Row"
-            onClick={() => editor.chain().focus().addRowAfter().run()}
-            disabled={!state.isTable}
-          />
-          <ToolbarButton
-            label="+Col"
-            onClick={() => editor.chain().focus().addColumnAfter().run()}
-            disabled={!state.isTable}
-          />
-          <ToolbarButton
-            label="-Row"
-            onClick={() => editor.chain().focus().deleteRow().run()}
-            disabled={!state.isTable}
-          />
-          <ToolbarButton
-            label="-Col"
-            onClick={() => editor.chain().focus().deleteColumn().run()}
-            disabled={!state.isTable}
-          />
-          <ToolbarButton
-            label="Del Table"
-            onClick={() => editor.chain().focus().deleteTable().run()}
-            disabled={!state.isTable}
-          />
-          <ToolbarDivider />
-          <ToolbarButton
-            label="Clear"
-            onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
           />
         </>
       )}
 
-      <ToolbarDivider />
-      <ToolbarButton label="Undo" onClick={() => editor.chain().focus().undo().run()} disabled={!state.canUndo} />
-      <ToolbarButton label="Redo" onClick={() => editor.chain().focus().redo().run()} disabled={!state.canRedo} />
+      {isLecturer && <ToolbarDivider />}
+
+      {/* ============================================================ */}
+      {/* KELOMPOK 3: TABLE & LAINNYA / SEJARAH (4 item -> 2 baris penuh) */}
+      {/* ============================================================ */}
+      
+      {/* Row 8, Kolom 1: Table (Dropdown - Kolom 1 -> md:left-[76px]) */}
+      {isLecturer ? (
+        <>
+          <div className="relative">
+            <ToolbarButton
+              icon={<Table size={16} />}
+              label="Tabel"
+              active={state.isTable}
+              onClick={() => toggleMenu("table")}
+              showChevron
+            />
+            {activeMenu === "table" && (
+              <div 
+                className="editor-toolbar-dropdown absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-2.5 flex flex-col gap-2.5 w-[180px] select-none
+                  md:left-[76px] md:top-0 md:ml-2 md:mt-0 left-0 top-full mt-1.5 text-left"
+              >
+                {/* Word-style Grid Picker */}
+                <div className="flex flex-col gap-1.5 select-none">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                    <span>Buat Tabel</span>
+                    <span className="text-blue-600 font-bold font-sans">
+                      {hoveredGrid ? `${hoveredGrid.cols} × ${hoveredGrid.rows}` : "Pilih Ukuran"}
+                    </span>
+                  </div>
+                  
+                  <div 
+                    className="grid grid-cols-8 gap-0.5 p-1 bg-gray-50 border border-gray-200 rounded"
+                    onMouseLeave={() => setHoveredGrid(null)}
+                  >
+                    {Array.from({ length: 8 }).map((_, rIdx) => {
+                      const r = rIdx + 1
+                      return Array.from({ length: 8 }).map((_, cIdx) => {
+                        const c = cIdx + 1
+                        const isHighlighted = hoveredGrid
+                          ? r <= hoveredGrid.rows && c <= hoveredGrid.cols
+                          : false
+                        return (
+                          <div
+                            key={`${r}-${c}`}
+                            onMouseEnter={() => setHoveredGrid({ rows: r, cols: c })}
+                            onClick={() => {
+                              editor.chain().focus().insertTable({ rows: r, cols: c, withHeaderRow: true }).run()
+                              setActiveMenu(null)
+                              setHoveredGrid(null)
+                            }}
+                            className={`w-3.5 h-3.5 border transition-all duration-75 cursor-pointer rounded-[2px]
+                              ${
+                                isHighlighted
+                                  ? "bg-blue-500 border-blue-600 shadow-[0_0_2px_rgba(59,130,246,0.5)]"
+                                  : "bg-white border-gray-200 hover:border-blue-400"
+                              }`}
+                          />
+                        )
+                      })
+                    })}
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="h-px bg-gray-100 my-0.5" />
+
+                {/* Manual Size Inputs */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ukuran Kustom</span>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={inputCols}
+                      onChange={(e) => setInputCols(Math.max(1, parseInt(e.target.value) || 1))}
+                      placeholder="Kolom"
+                      className="w-10 h-7 text-xs border border-gray-300 rounded text-center focus:border-blue-500 outline-none"
+                    />
+                    <span className="text-[10px] text-gray-400">×</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={inputRows}
+                      onChange={(e) => setInputRows(Math.max(1, parseInt(e.target.value) || 1))}
+                      placeholder="Baris"
+                      className="w-10 h-7 text-xs border border-gray-300 rounded text-center focus:border-blue-500 outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        editor.chain().focus().insertTable({ rows: inputRows, cols: inputCols, withHeaderRow: true }).run()
+                        setActiveMenu(null)
+                      }}
+                      className="h-7 flex-1 bg-blue-600 text-white text-xs font-semibold rounded hover:bg-blue-700 transition"
+                    >
+                      OK
+                    </button>
+                  </div>
+                </div>
+
+                {/* Table Editing Actions */}
+                {state.isTable && (
+                  <>
+                    <div className="h-px bg-gray-100 my-0.5" />
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Edit Tabel</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          editor.chain().focus().addRowAfter().run()
+                          setActiveMenu(null)
+                        }}
+                        className="flex items-center gap-2 px-2 py-1.5 text-xs rounded-md hover:bg-gray-100 w-full text-left text-gray-700 transition"
+                      >
+                        <Plus size={12} className="text-gray-400" />
+                        <span>Tambah Baris</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          editor.chain().focus().addColumnAfter().run()
+                          setActiveMenu(null)
+                        }}
+                        className="flex items-center gap-2 px-2 py-1.5 text-xs rounded-md hover:bg-gray-100 w-full text-left text-gray-700 transition"
+                      >
+                        <Plus size={12} className="text-gray-400" />
+                        <span>Tambah Kolom</span>
+                      </button>
+                      <div className="h-px bg-gray-100 my-0.5" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          editor.chain().focus().deleteRow().run()
+                          setActiveMenu(null)
+                        }}
+                        className="flex items-center gap-2 px-2 py-1.5 text-xs rounded-md hover:bg-red-50 w-full text-left text-red-650 transition"
+                      >
+                        <Trash2 size={12} className="text-red-400" />
+                        <span>Hapus Baris</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          editor.chain().focus().deleteColumn().run()
+                          setActiveMenu(null)
+                        }}
+                        className="flex items-center gap-2 px-2 py-1.5 text-xs rounded-md hover:bg-red-50 w-full text-left text-red-650 transition"
+                      >
+                        <Trash2 size={12} className="text-red-400" />
+                        <span>Hapus Kolom</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          editor.chain().focus().deleteTable().run()
+                          setActiveMenu(null)
+                        }}
+                        className="flex items-center gap-2 px-2 py-1.5 text-xs rounded-md hover:bg-red-50 w-full text-left text-red-650 font-semibold transition"
+                      >
+                        <Trash2 size={12} className="text-red-650" />
+                        <span>Hapus Tabel</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Row 8, Kolom 2: Clear Formatting */}
+          <ToolbarButton
+            icon={<Eraser size={16} />}
+            label="Bersihkan Format"
+            onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
+          />
+        </>
+      ) : (
+        <>
+          {/* Untuk non-dosen */}
+        </>
+      )}
+
+      {/* Row 9 */}
+      <ToolbarButton
+        icon={<Undo size={16} />}
+        label="Urungkan (Undo)"
+        onClick={() => editor.chain().focus().undo().run()}
+        disabled={!state.canUndo}
+      />
+      <ToolbarButton
+        icon={<Redo size={16} />}
+        label="Ulangi (Redo)"
+        onClick={() => editor.chain().focus().redo().run()}
+        disabled={!state.canRedo}
+      />
     </div>
   )
 }

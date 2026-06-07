@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import StudentProfileModal from "../components/StudentProfileModal"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
 import LecturerLayout from "../components/LecturerLayout"
@@ -32,6 +33,7 @@ export default function LecturerMonitoringPage() {
   const [jobsheetId, setJobsheetId] = useState("all")
   const [status, setStatus] = useState("all")
   const [keyword, setKeyword] = useState("")
+  const [selectedStudentProfileId, setSelectedStudentProfileId] = useState<string | null>(null)
   const [studentCount, setStudentCount] = useState(0)
   const [jobsheets, setJobsheets] = useState<LecturerJobsheetSummary[]>([])
   const [matrix, setMatrix] = useState<LecturerSubmissionMatrixItem[]>([])
@@ -254,7 +256,15 @@ export default function LecturerMonitoringPage() {
                 {visibleRows.map((item) => (
                   <tr key={`${item.student.id}-${item.jobsheet.id}`}>
                     <td className="px-4 py-3 font-mono">{item.student.nim}</td>
-                    <td className="px-4 py-3">{item.student.fullname}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedStudentProfileId(item.student.id)}
+                        className="font-medium text-blue-700 hover:text-blue-900 hover:underline text-left focus:outline-none"
+                      >
+                        {item.student.fullname}
+                      </button>
+                    </td>
                     <td className="px-4 py-3 text-center">{getSubmissionWorkStatus(item.submission)}</td>
                     <td className="px-4 py-3 text-center">Jobsheet {jobsheets.find((jobsheet) => jobsheet.id === item.jobsheet.id)?.number ?? "-"}</td>
                     <td className="px-4 py-3 text-center">
@@ -266,6 +276,12 @@ export default function LecturerMonitoringPage() {
             )}
           </LecturerPanel>
         </>
+      )}
+      {selectedStudentProfileId && (
+        <StudentProfileModal
+          studentId={selectedStudentProfileId}
+          onClose={() => setSelectedStudentProfileId(null)}
+        />
       )}
     </LecturerLayout>
   )

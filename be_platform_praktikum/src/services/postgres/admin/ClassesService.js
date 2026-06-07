@@ -213,8 +213,18 @@ class ClassesService {
   }
 
   async getStudentCandidates(classId, filters = {}) {
+    const classInfo = await this._pool.query(
+      `SELECT cl.course_id, c.semester
+       FROM classes cl
+       JOIN courses c ON c.id = cl.course_id
+       WHERE cl.id = $1`,
+      [classId],
+    );
+    if (!classInfo.rows.length) throw new Error('CLASS_NOT_FOUND');
+    const { course_id: courseId, semester: courseSemester } = classInfo.rows[0];
+
     const keyword = `%${(filters.keyword || '').toLowerCase()}%`;
-    const params = [classId, keyword];
+    const params = [classId, keyword, courseId, Number(courseSemester)];
     let semesterClause = '';
 
     if (filters.semester && filters.semester !== 'all') {
@@ -232,8 +242,10 @@ class ClassesService {
       WHERE u.role = 'MAHASISWA'
         AND NOT EXISTS (
           SELECT 1 FROM class_students cs
-          WHERE cs.class_id = $1 AND cs.student_id = u.id AND cs.status = 'AKTIF'
+          JOIN classes cl ON cs.class_id = cl.id
+          WHERE cs.student_id = u.id AND cs.status = 'AKTIF' AND cl.course_id = $3
         )
+        AND sp.semester = $4
         AND ($2 = '%%' OR LOWER(u.fullname) LIKE $2 OR LOWER(COALESCE(sp.nim, '')) LIKE $2)
         ${semesterClause}
       ORDER BY sp.nim ASC
@@ -249,6 +261,44 @@ class ClassesService {
 
     try {
       await client.query('BEGIN');
+
+      const classInfo = await client.query(
+        `SELECT cl.course_id, c.semester
+         FROM classes cl
+         JOIN courses c ON c.id = cl.course_id
+         WHERE cl.id = $1`,
+        [classId],
+      );
+      if (!classInfo.rows.length) throw new Error('CLASS_NOT_FOUND');
+      const { course_id: courseId, semester: courseSemester } = classInfo.rows[0];
+
+      for (const studentId of studentIds) {
+        const studentProfile = await client.query(
+          `SELECT semester, nim FROM student_profiles WHERE user_id = $1`,
+          [studentId],
+        );
+        if (!studentProfile.rows.length) {
+          throw new Error('USER_NOT_FOUND');
+        }
+        const studentSemester = studentProfile.rows[0].semester;
+        if (Number(studentSemester) !== Number(courseSemester)) {
+          throw new Error('STUDENT_SEMESTER_MISMATCH');
+        }
+
+        const existingClass = await client.query(
+          `SELECT cl.name AS class_name
+           FROM class_students cs
+           JOIN classes cl ON cs.class_id = cl.id
+           WHERE cs.student_id = $1 AND cs.status = 'AKTIF' AND cl.course_id = $2
+             AND cl.id <> $3
+           LIMIT 1`,
+          [studentId, courseId, classId],
+        );
+        if (existingClass.rows.length) {
+          throw new Error('STUDENT_ALREADY_IN_COURSE_CLASS');
+        }
+      }
+
       for (const studentId of studentIds) {
         await client.query(
           `

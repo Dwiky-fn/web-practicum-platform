@@ -1,4 +1,4 @@
-import { ArrowLeft, Plus } from "lucide-react"
+import { ArrowLeft, Plus, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import AdminLayout from "../components/AdminLayout"
@@ -68,6 +68,65 @@ export default function AdminClassDetailPage() {
   const [assigning, setAssigning] = useState(false)
   const [error, setError] = useState("")
   const navigate = useNavigate()
+
+  // Multi-select & Long Press state for registered class students
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false)
+  const [longPressTimer, setLongPressTimer] = useState<any>(null)
+  const [longPressActive, setLongPressActive] = useState(false)
+
+  const toggleSelection = (studentId: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(studentId) ? prev.filter((id) => id !== studentId) : [...prev, studentId]
+    )
+  }
+
+  const handleMouseDown = (studentId: string) => {
+    setLongPressActive(false)
+    const timer = setTimeout(() => {
+      setLongPressActive(true)
+      toggleSelection(studentId)
+    }, 600)
+    setLongPressTimer(timer)
+  }
+
+  const handleMouseUp = (studentId: string, defaultClick: () => void) => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      setLongPressTimer(null)
+      if (!longPressActive) {
+        if (selectedIds.length > 0) {
+          toggleSelection(studentId)
+        } else {
+          defaultClick()
+        }
+      }
+    }
+  }
+
+  const handleTouchStart = (studentId: string) => {
+    handleMouseDown(studentId)
+  }
+
+  const handleTouchEnd = (studentId: string, defaultClick: () => void) => {
+    handleMouseUp(studentId, defaultClick)
+  }
+
+  const handleBulkRemoveStudent = async () => {
+    if (!id || !selectedIds.length) return
+    try {
+      setDeleting(true)
+      setError("")
+      await Promise.all(selectedIds.map((studentId) => removeAdminStudentFromClass(id, studentId)))
+      setBulkDeleteConfirmOpen(false)
+      setSelectedIds([])
+      fetchClass()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menghapus mahasiswa")
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const fetchClass = useCallback(async () => {
     if (!id) return
@@ -270,11 +329,32 @@ export default function AdminClassDetailPage() {
               </div>
 
               {selectedClass.students.length ? (
-                <AdminTable headers={["NIM", "Nama", "Semester", "Status", "Aksi"]}>
+                <AdminTable headers={selectedIds.length > 0 ? ["", "NIM", "Nama", "Semester", "Status", "Aksi"] : ["NIM", "Nama", "Semester", "Status", "Aksi"]}>
                   {selectedClass.students.map((student) => (
-                    <tr key={student.id}>
+                    <tr key={student.id} className={selectedIds.includes(student.id) ? "bg-blue-50/40" : ""}>
+                      {selectedIds.length > 0 && (
+                        <td className="px-4 py-3 text-center">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            checked={selectedIds.includes(student.id)}
+                            onChange={() => toggleSelection(student.id)}
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-3 font-mono">{student.nim}</td>
-                      <td className="px-4 py-3">{student.fullname}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          onMouseDown={() => handleMouseDown(student.id)}
+                          onMouseUp={() => handleMouseUp(student.id, () => navigate(`/users/students/${student.id}`))}
+                          onMouseLeave={() => { if (longPressTimer) { clearTimeout(longPressTimer); setLongPressTimer(null); } }}
+                          onTouchStart={() => handleTouchStart(student.id)}
+                          onTouchEnd={() => handleTouchEnd(student.id, () => navigate(`/users/students/${student.id}`))}
+                          className="cursor-pointer hover:text-blue-700 hover:underline select-none font-medium"
+                        >
+                          {student.fullname}
+                        </span>
+                      </td>
                       <td className="px-4 py-3">{student.semester}</td>
                       <td className="px-4 py-3">{student.status}</td>
                       <AdminActionCell>
@@ -471,6 +551,45 @@ export default function AdminClassDetailPage() {
             setStudentToDelete(null)
           }}
           onConfirm={handleRemoveStudent}
+        />
+      )}
+
+      {selectedIds.length > 0 && activeTab === "students" && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-6 border border-slate-800 animate-in slide-in-from-bottom duration-300">
+          <span className="text-sm font-semibold text-slate-300">
+            Terpilih <span className="text-white font-bold bg-slate-800 px-2 py-1 rounded-md ml-1">{selectedIds.length}</span>
+          </span>
+          <div className="h-6 w-px bg-slate-800" />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setBulkDeleteConfirmOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-semibold transition cursor-pointer"
+            >
+              <Trash2 size={14} />
+              Hapus dari Kelas
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds([])}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition cursor-pointer"
+            >
+              Batal
+            </button>
+          </div>
+        </div>
+      )}
+
+      {bulkDeleteConfirmOpen && (
+        <AdminConfirmModal
+          title="Hapus Mahasiswa dari Kelas"
+          message={`Apakah Anda yakin ingin menghapus ${selectedIds.length} mahasiswa terpilih dari kelas ini?`}
+          confirmLabel="Hapus Semua"
+          cancelLabel="Batal"
+          variant="danger"
+          loading={deleting}
+          onCancel={() => setBulkDeleteConfirmOpen(false)}
+          onConfirm={handleBulkRemoveStudent}
         />
       )}
     </AdminLayout>

@@ -9,7 +9,7 @@ const routes = (handler) => {
   router.post('/password-reset/request-otp', handler.requestPasswordResetOtpHandler);
   router.post('/password-reset/verify-otp', handler.resetPasswordWithOtpHandler);
 
-  router.get('/users/:id', requireSelfOrRoles('ADMIN'), handler.getUserByIdHandler);
+  router.get('/users/:id', requireSelfOrRoles('ADMIN', 'DOSEN'), handler.getUserByIdHandler);
   router.put('/users/:id', requireSelfOrRoles('ADMIN'), handler.updateUserByIdHandler);
   router.post(
     '/users/:id/verify-password',

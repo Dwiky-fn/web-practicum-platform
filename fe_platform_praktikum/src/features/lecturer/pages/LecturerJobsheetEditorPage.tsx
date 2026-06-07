@@ -393,7 +393,8 @@ export default function LecturerJobsheetEditorPage() {
         </div>
       )}
 
-      <div className="mx-auto max-w-5xl space-y-5">
+      <div className="mx-auto max-w-7xl grid gap-5 lg:grid-cols-[1fr_300px] items-start">
+        <div className="space-y-5">
         <LecturerPanel className="p-5">
           <h2 className="mb-4 text-lg font-semibold">Informasi Umum</h2>
           <div className="space-y-4">
@@ -793,29 +794,35 @@ export default function LecturerJobsheetEditorPage() {
           </div>
         </LecturerPanel>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-gray-200 bg-white p-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-700">Total Bobot Rubrik:</span>
-            <span
-              className={`rounded px-2.5 py-1 text-sm font-bold ${
-                totalRubric === 100
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
-              }`}
-            >
-              {totalRubric}% / 100%
-            </span>
-            {totalRubric !== 100 && (
-              <span className="text-xs text-red-600 font-medium">
-                (Total bobot harus bernilai 100% sebelum dapat disimpan/dipublikasikan)
+        </div>
+
+        <LecturerPanel className="p-5 lg:sticky lg:top-5 space-y-4 shadow-md border-slate-200">
+          <h2 className="text-md font-semibold text-gray-800 border-b border-gray-100 pb-2">Simpan Jobsheet</h2>
+          <div className="space-y-2">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block">Total Bobot Rubrik</span>
+            <div className="flex flex-col gap-1">
+              <span
+                className={`rounded px-2.5 py-1 text-center text-sm font-bold ${
+                  totalRubric === 100
+                    ? "bg-green-100 text-green-800"
+                    : "bg-red-100 text-red-800"
+                }`}
+              >
+                {totalRubric}% / 100%
               </span>
-            )}
+              {totalRubric !== 100 && (
+                <span className="text-[11px] text-red-600 font-medium text-center">
+                  Total bobot harus bernilai 100% sebelum dapat disimpan/dipublikasikan
+                </span>
+              )}
+            </div>
           </div>
-          <div className="flex gap-3">
-            <LecturerButton variant="secondary" disabled={saving} onClick={handleSaveDraft}>
+          <div className="flex flex-col gap-2 pt-2">
+            <LecturerButton className="w-full justify-center" variant="secondary" disabled={saving} onClick={handleSaveDraft}>
               {saving ? "Menyimpan..." : "Simpan Draft"}
             </LecturerButton>
             <LecturerButton
+              className="w-full justify-center"
               disabled={saving || !dataset?.course.classes.length}
               onClick={() => {
                 if (totalRubric !== 100) {
@@ -829,7 +836,7 @@ export default function LecturerJobsheetEditorPage() {
               Simpan & Publikasikan
             </LecturerButton>
           </div>
-        </div>
+        </LecturerPanel>
       </div>
 
       {publishOpen && (

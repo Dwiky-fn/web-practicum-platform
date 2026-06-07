@@ -12,6 +12,7 @@ import {
   UserCheck
 } from "lucide-react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
+import StudentProfileModal from "../components/StudentProfileModal"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import type { Jobsheet } from "../../../services/jobsheet/types"
@@ -54,6 +55,7 @@ export default function LecturerJobsheetDetailPage() {
   const courseId = searchParams.get("courseId") ?? ""
   const classId = searchParams.get("classId") ?? ""
   const [activeTab, setActiveTab] = useState<DetailTab>("detail")
+  const [selectedStudentProfileId, setSelectedStudentProfileId] = useState<string | null>(null)
   const [keyword, setKeyword] = useState("")
   const [status, setStatus] = useState("all")
   const [loading, setLoading] = useState(true)
@@ -537,7 +539,11 @@ export default function LecturerJobsheetDetailPage() {
                     {sortedAndFilteredProgressStudents.map((student) => (
                       <tr key={student.student_id}>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedStudentProfileId(student.student_id)}
+                            className="flex items-center gap-3 hover:text-blue-700 transition text-left focus:outline-none"
+                          >
                             {student.avatar_url ? (
                               <img src={student.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
                             ) : (
@@ -546,7 +552,7 @@ export default function LecturerJobsheetDetailPage() {
                               </div>
                             )}
                             <span className="font-medium text-gray-800">{student.fullname}</span>
-                          </div>
+                          </button>
                         </td>
                         <td className="px-4 py-3 font-mono text-sm text-gray-600">{student.nim}</td>
                         <td className="px-4 py-3">{renderStatusBadge(student.status)}</td>
@@ -606,7 +612,15 @@ export default function LecturerJobsheetDetailPage() {
                     {filteredStudents.map((item) => (
                       <tr key={item.student.id}>
                         <td className="px-4 py-3 font-mono">{item.student.nim}</td>
-                        <td className="px-4 py-3">{item.student.fullname}</td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedStudentProfileId(item.student.id)}
+                            className="font-medium text-blue-700 hover:text-blue-900 hover:underline text-left focus:outline-none"
+                          >
+                            {item.student.fullname}
+                          </button>
+                        </td>
                         <td className="px-4 py-3">{getSubmissionReviewStatus(item.submission)}</td>
                         <td className="px-4 py-3 text-center">{item.submission?.score ?? "-"}</td>
                         <td className="px-4 py-3 text-center">{item.submission?.review?.finalScore ?? "-"}</td>
@@ -787,6 +801,12 @@ export default function LecturerJobsheetDetailPage() {
             </div>
           </div>
         </div>
+      )}
+      {selectedStudentProfileId && (
+        <StudentProfileModal
+          studentId={selectedStudentProfileId}
+          onClose={() => setSelectedStudentProfileId(null)}
+        />
       )}
      </LecturerLayout>
    )

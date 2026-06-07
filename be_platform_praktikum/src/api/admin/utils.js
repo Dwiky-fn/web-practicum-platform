@@ -30,6 +30,8 @@ function handleAdminError(error, res) {
     CLASS_ACCESS_DENIED: [403, 'Dosen tidak memiliki akses ke kelas ini'],
     JOBSHEET_NOT_FOUND: [404, 'Jobsheet tidak ditemukan'],
     SUBMISSION_NOT_FOUND: [404, 'Submission tidak ditemukan'],
+    STUDENT_SEMESTER_MISMATCH: [400, 'Semester mahasiswa tidak sesuai dengan semester mata kuliah'],
+    STUDENT_ALREADY_IN_COURSE_CLASS: [409, 'Mahasiswa sudah terdaftar di kelas lain pada mata kuliah ini'],
   };
   const detail = errors[error.message];
 

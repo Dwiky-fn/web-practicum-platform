@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import StudentProfileModal from "../components/StudentProfileModal"
 import { ArrowLeft } from "lucide-react"
 import { Plus } from "lucide-react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
@@ -44,6 +45,7 @@ export default function LecturerClassDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [activeTab, setActiveTab] = useState<ClassTab>((searchParams.get("tab") as ClassTab) || "summary")
+  const [selectedStudentProfileId, setSelectedStudentProfileId] = useState<string | null>(null)
   const [keyword, setKeyword] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [jobsheetFilter, setJobsheetFilter] = useState("all")
@@ -307,7 +309,11 @@ export default function LecturerClassDetailPage() {
                         <td className="px-4 py-3">{student.fullname}</td>
                         <td className="px-4 py-3 text-center">{reportCount}</td>
                         <td className="px-4 py-3 text-center">
-                          <button type="button" className="font-semibold text-blue-700 hover:text-blue-900">
+                          <button
+                            type="button"
+                            className="font-semibold text-blue-700 hover:text-blue-900"
+                            onClick={() => setSelectedStudentProfileId(student.id)}
+                          >
                             Profile
                           </button>
                         </td>
@@ -350,7 +356,15 @@ export default function LecturerClassDetailPage() {
                     return (
                       <tr key={student.id}>
                         <td className="px-4 py-3 font-mono">{student.nim}</td>
-                        <td className="px-4 py-3">{student.fullname}</td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedStudentProfileId(student.id)}
+                            className="font-medium text-blue-700 hover:text-blue-900 hover:underline text-left"
+                          >
+                            {student.fullname}
+                          </button>
+                        </td>
                         <td className="px-4 py-3 text-center">
                           {selectedJobsheet ? selectedJobsheet.number : "-"}
                         </td>
@@ -381,6 +395,12 @@ export default function LecturerClassDetailPage() {
             )}
           </LecturerPanel>
         </>
+      )}
+      {selectedStudentProfileId && (
+        <StudentProfileModal
+          studentId={selectedStudentProfileId}
+          onClose={() => setSelectedStudentProfileId(null)}
+        />
       )}
     </LecturerLayout>
   )

@@ -69,6 +69,84 @@ export default function AdminUsersPage() {
   const [error, setError] = useState("")
   const [successMessage, setSuccessMessage] = useState("")
   const isStudent = role === "students"
+
+  // Multi-select & Long Press state
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [bulkConfirm, setBulkConfirm] = useState<{
+    action: ConfirmAction
+    ids: string[]
+  } | null>(null)
+  const [longPressTimer, setLongPressTimer] = useState<any>(null)
+  const [longPressActive, setLongPressActive] = useState(false)
+
+  // Clear selections when role changes
+  useEffect(() => {
+    setSelectedIds([])
+  }, [role])
+
+  const toggleSelection = (userId: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    )
+  }
+
+  const handleMouseDown = (userId: string) => {
+    setLongPressActive(false)
+    const timer = setTimeout(() => {
+      setLongPressActive(true)
+      toggleSelection(userId)
+    }, 600)
+    setLongPressTimer(timer)
+  }
+
+  const handleMouseUp = (userId: string, defaultClick: () => void) => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      setLongPressTimer(null)
+      if (!longPressActive) {
+        if (selectedIds.length > 0) {
+          toggleSelection(userId)
+        } else {
+          defaultClick()
+        }
+      }
+    }
+  }
+
+  const handleTouchStart = (userId: string) => {
+    handleMouseDown(userId)
+  }
+
+  const handleTouchEnd = (userId: string, defaultClick: () => void) => {
+    handleMouseUp(userId, defaultClick)
+  }
+
+  const handleBulkActionSubmit = async () => {
+    if (!bulkConfirm) return
+    try {
+      setSubmitting(true)
+      setError("")
+      setSuccessMessage("")
+      const { action, ids } = bulkConfirm
+      if (action === "activate") {
+        await Promise.all(ids.map((id) => activateAdminUser(id)))
+        setSuccessMessage(`${ids.length} pengguna berhasil diaktifkan.`)
+      } else if (action === "deactivate") {
+        await Promise.all(ids.map((id) => deactivateAdminUser(id)))
+        setSuccessMessage(`${ids.length} pengguna berhasil dinonaktifkan.`)
+      } else {
+        await Promise.all(ids.map((id) => deleteAdminUser(id)))
+        setSuccessMessage(`${ids.length} pengguna berhasil dihapus.`)
+      }
+      setSelectedIds([])
+      setBulkConfirm(null)
+      fetchUsers()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memproses aksi massal")
+    } finally {
+      setSubmitting(false)
+    }
+  }
   const activeSemester = getActiveSemester(semesters)
   const studentSemesterOptions = getStudentSemesterOptions(activeSemester?.term)
   const academicYearOptions = getAcademicYearOptions(semesters)
@@ -398,11 +476,32 @@ export default function AdminUsersPage() {
         <EmptyState title="Memuat data pengguna..." />
       ) : isStudent ? (
         students.length ? (
-          <AdminTable headers={["NIM", "Nama", "Semester", "Status", "Aksi"]}>
+          <AdminTable headers={selectedIds.length > 0 ? ["", "NIM", "Nama", "Semester", "Status", "Aksi"] : ["NIM", "Nama", "Semester", "Status", "Aksi"]}>
             {students.map((student) => (
-              <tr key={student.id}>
+              <tr key={student.id} className={selectedIds.includes(student.id) ? "bg-blue-50/40" : ""}>
+                {selectedIds.length > 0 && (
+                  <td className="px-4 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      checked={selectedIds.includes(student.id)}
+                      onChange={() => toggleSelection(student.id)}
+                    />
+                  </td>
+                )}
                 <td className="px-4 py-3 font-mono tracking-wide">{student.nim}</td>
-                <td className="px-4 py-3">{student.fullname}</td>
+                <td className="px-4 py-3">
+                  <span
+                    onMouseDown={() => handleMouseDown(student.id)}
+                    onMouseUp={() => handleMouseUp(student.id, () => navigate(`/users/students/${student.id}`))}
+                    onMouseLeave={() => { if (longPressTimer) { clearTimeout(longPressTimer); setLongPressTimer(null); } }}
+                    onTouchStart={() => handleTouchStart(student.id)}
+                    onTouchEnd={() => handleTouchEnd(student.id, () => navigate(`/users/students/${student.id}`))}
+                    className="cursor-pointer hover:text-blue-700 hover:underline select-none font-medium"
+                  >
+                    {student.fullname}
+                  </span>
+                </td>
                 <td className="px-4 py-3">{student.semester}</td>
                 <td className="px-4 py-3">{student.status}</td>
                 <AdminActionCell>
@@ -445,11 +544,32 @@ export default function AdminUsersPage() {
           />
         )
       ) : lecturers.length ? (
-        <AdminTable headers={["NIP", "Nama", "Email", "Status", "Aksi"]}>
+        <AdminTable headers={selectedIds.length > 0 ? ["", "NIP", "Nama", "Email", "Status", "Aksi"] : ["NIP", "Nama", "Email", "Status", "Aksi"]}>
           {lecturers.map((lecturer) => (
-            <tr key={lecturer.id}>
+            <tr key={lecturer.id} className={selectedIds.includes(lecturer.id) ? "bg-blue-50/40" : ""}>
+              {selectedIds.length > 0 && (
+                <td className="px-4 py-3 text-center">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    checked={selectedIds.includes(lecturer.id)}
+                    onChange={() => toggleSelection(lecturer.id)}
+                  />
+                </td>
+              )}
               <td className="px-4 py-3 font-mono tracking-wide">{lecturer.nip}</td>
-              <td className="px-4 py-3">{lecturer.fullname}</td>
+              <td className="px-4 py-3">
+                <span
+                  onMouseDown={() => handleMouseDown(lecturer.id)}
+                  onMouseUp={() => handleMouseUp(lecturer.id, () => navigate(`/users/lecturers/${lecturer.id}`))}
+                  onMouseLeave={() => { if (longPressTimer) { clearTimeout(longPressTimer); setLongPressTimer(null); } }}
+                  onTouchStart={() => handleTouchStart(lecturer.id)}
+                  onTouchEnd={() => handleTouchEnd(lecturer.id, () => navigate(`/users/lecturers/${lecturer.id}`))}
+                  className="cursor-pointer hover:text-blue-700 hover:underline select-none font-medium"
+                >
+                  {lecturer.fullname}
+                </span>
+              </td>
               <td className="px-4 py-3">{lecturer.email}</td>
               <td className="px-4 py-3">{lecturer.status}</td>
               <AdminActionCell>
@@ -520,6 +640,78 @@ export default function AdminUsersPage() {
           onCancel={() => setConfirm(null)}
           onConfirm={handleConfirmAction}
           loading={actionLoading === `${confirm.action}-${confirm.user.id}`}
+        />
+      )}
+
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-6 border border-slate-800 animate-in slide-in-from-bottom duration-300">
+          <span className="text-sm font-semibold text-slate-300">
+            Terpilih <span className="text-white font-bold bg-slate-800 px-2 py-1 rounded-md ml-1">{selectedIds.length}</span>
+          </span>
+          <div className="h-6 w-px bg-slate-800" />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setBulkConfirm({ action: "activate", ids: selectedIds })}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-700 hover:bg-green-800 text-xs font-semibold transition cursor-pointer"
+            >
+              <UserCheck size={14} />
+              Aktifkan
+            </button>
+            <button
+              type="button"
+              onClick={() => setBulkConfirm({ action: "deactivate", ids: selectedIds })}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-700 hover:bg-amber-800 text-xs font-semibold transition cursor-pointer"
+            >
+              <UserX size={14} />
+              Nonaktifkan
+            </button>
+            <button
+              type="button"
+              onClick={() => setBulkConfirm({ action: "delete", ids: selectedIds })}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-semibold transition cursor-pointer"
+            >
+              <Trash2 size={14} />
+              Hapus
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds([])}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition cursor-pointer"
+            >
+              Batal
+            </button>
+          </div>
+        </div>
+      )}
+
+      {bulkConfirm && (
+        <AdminConfirmModal
+          title={
+            bulkConfirm.action === "delete"
+              ? `Hapus ${bulkConfirm.ids.length} Pengguna?`
+              : bulkConfirm.action === "activate"
+              ? `Aktifkan ${bulkConfirm.ids.length} Pengguna?`
+              : `Nonaktifkan ${bulkConfirm.ids.length} Pengguna?`
+          }
+          message={
+            bulkConfirm.action === "delete"
+              ? `Apakah Anda yakin ingin menghapus ${bulkConfirm.ids.length} pengguna dari sistem? Tindakan ini tidak dapat dibatalkan.`
+              : bulkConfirm.action === "activate"
+              ? `Apakah Anda yakin ingin mengaktifkan kembali ${bulkConfirm.ids.length} pengguna?`
+              : `Apakah Anda yakin ingin menonaktifkan ${bulkConfirm.ids.length} pengguna?`
+          }
+          confirmLabel={
+            bulkConfirm.action === "delete"
+              ? "Hapus Semua"
+              : bulkConfirm.action === "activate"
+              ? "Aktifkan Semua"
+              : "Nonaktifkan Semua"
+          }
+          variant={bulkConfirm.action === "delete" ? "danger" : "primary"}
+          onCancel={() => setBulkConfirm(null)}
+          onConfirm={handleBulkActionSubmit}
+          loading={submitting}
         />
       )}
     </AdminLayout>

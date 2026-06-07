@@ -99,15 +99,20 @@ export default function AdminUsersPage() {
     setLongPressTimer(timer)
   }
 
-  const handleMouseUp = (userId: string, defaultClick: () => void) => {
+  const cancelLongPress = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      setLongPressTimer(null)
+    }
+  }
+
+  const handleMouseUp = (userId: string) => {
     if (longPressTimer) {
       clearTimeout(longPressTimer)
       setLongPressTimer(null)
       if (!longPressActive) {
         if (selectedIds.length > 0) {
           toggleSelection(userId)
-        } else {
-          defaultClick()
         }
       }
     }
@@ -117,8 +122,8 @@ export default function AdminUsersPage() {
     handleMouseDown(userId)
   }
 
-  const handleTouchEnd = (userId: string, defaultClick: () => void) => {
-    handleMouseUp(userId, defaultClick)
+  const handleTouchEnd = (userId: string) => {
+    handleMouseUp(userId)
   }
 
   const handleBulkActionSubmit = async () => {
@@ -478,9 +483,22 @@ export default function AdminUsersPage() {
         students.length ? (
           <AdminTable headers={selectedIds.length > 0 ? ["", "NIM", "Nama", "Semester", "Status", "Aksi"] : ["NIM", "Nama", "Semester", "Status", "Aksi"]}>
             {students.map((student) => (
-              <tr key={student.id} className={selectedIds.includes(student.id) ? "bg-blue-50/40" : ""}>
+              <tr
+                key={student.id}
+                className={`${selectedIds.includes(student.id) ? "bg-blue-50/40" : ""} cursor-default select-none`}
+                onMouseDown={() => handleMouseDown(student.id)}
+                onMouseUp={() => handleMouseUp(student.id)}
+                onMouseLeave={cancelLongPress}
+                onTouchStart={() => handleTouchStart(student.id)}
+                onTouchEnd={() => handleTouchEnd(student.id)}
+              >
                 {selectedIds.length > 0 && (
-                  <td className="px-4 py-3 text-center">
+                  <td
+                    className="px-4 py-3 text-center"
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onClick={(event) => event.stopPropagation()}
+                    onTouchStart={(event) => event.stopPropagation()}
+                  >
                     <input
                       type="checkbox"
                       className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -491,16 +509,7 @@ export default function AdminUsersPage() {
                 )}
                 <td className="px-4 py-3 font-mono tracking-wide">{student.nim}</td>
                 <td className="px-4 py-3">
-                  <span
-                    onMouseDown={() => handleMouseDown(student.id)}
-                    onMouseUp={() => handleMouseUp(student.id, () => navigate(`/users/students/${student.id}`))}
-                    onMouseLeave={() => { if (longPressTimer) { clearTimeout(longPressTimer); setLongPressTimer(null); } }}
-                    onTouchStart={() => handleTouchStart(student.id)}
-                    onTouchEnd={() => handleTouchEnd(student.id, () => navigate(`/users/students/${student.id}`))}
-                    className="cursor-pointer hover:text-blue-700 hover:underline select-none font-medium"
-                  >
-                    {student.fullname}
-                  </span>
+                  <span className="font-medium text-gray-900">{student.fullname}</span>
                 </td>
                 <td className="px-4 py-3">{student.semester}</td>
                 <td className="px-4 py-3">{student.status}</td>
@@ -508,7 +517,12 @@ export default function AdminUsersPage() {
                   <AdminButton
                     variant="ghost"
                     className="h-8 px-2"
-                    onClick={() => navigate(`/users/students/${student.id}`)}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onTouchStart={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      navigate(`/users/students/${student.id}`)
+                    }}
                   >
                     Detail
                   </AdminButton>
@@ -516,10 +530,15 @@ export default function AdminUsersPage() {
                     variant="ghost"
                     className="h-8 px-2"
                     disabled={Boolean(actionLoading)}
-                    onClick={() => setConfirm({
-                      action: student.status === "Aktif" ? "deactivate" : "activate",
-                      user: student,
-                    })}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onTouchStart={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setConfirm({
+                        action: student.status === "Aktif" ? "deactivate" : "activate",
+                        user: student,
+                      })
+                    }}
                   >
                     {student.status === "Aktif" ? <UserX size={14} /> : <UserCheck size={14} />}
                     {student.status === "Aktif" ? "Nonaktifkan" : "Aktifkan"}
@@ -528,7 +547,12 @@ export default function AdminUsersPage() {
                     variant="danger"
                     className="h-8 px-2"
                     disabled={Boolean(actionLoading)}
-                    onClick={() => setConfirm({ action: "delete", user: student })}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onTouchStart={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setConfirm({ action: "delete", user: student })
+                    }}
                   >
                     <Trash2 size={14} />
                     Hapus
@@ -546,9 +570,22 @@ export default function AdminUsersPage() {
       ) : lecturers.length ? (
         <AdminTable headers={selectedIds.length > 0 ? ["", "NIP", "Nama", "Email", "Status", "Aksi"] : ["NIP", "Nama", "Email", "Status", "Aksi"]}>
           {lecturers.map((lecturer) => (
-            <tr key={lecturer.id} className={selectedIds.includes(lecturer.id) ? "bg-blue-50/40" : ""}>
+            <tr
+              key={lecturer.id}
+              className={`${selectedIds.includes(lecturer.id) ? "bg-blue-50/40" : ""} cursor-default select-none`}
+              onMouseDown={() => handleMouseDown(lecturer.id)}
+              onMouseUp={() => handleMouseUp(lecturer.id)}
+              onMouseLeave={cancelLongPress}
+              onTouchStart={() => handleTouchStart(lecturer.id)}
+              onTouchEnd={() => handleTouchEnd(lecturer.id)}
+            >
               {selectedIds.length > 0 && (
-                <td className="px-4 py-3 text-center">
+                <td
+                  className="px-4 py-3 text-center"
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                  onTouchStart={(event) => event.stopPropagation()}
+                >
                   <input
                     type="checkbox"
                     className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -559,16 +596,7 @@ export default function AdminUsersPage() {
               )}
               <td className="px-4 py-3 font-mono tracking-wide">{lecturer.nip}</td>
               <td className="px-4 py-3">
-                <span
-                  onMouseDown={() => handleMouseDown(lecturer.id)}
-                  onMouseUp={() => handleMouseUp(lecturer.id, () => navigate(`/users/lecturers/${lecturer.id}`))}
-                  onMouseLeave={() => { if (longPressTimer) { clearTimeout(longPressTimer); setLongPressTimer(null); } }}
-                  onTouchStart={() => handleTouchStart(lecturer.id)}
-                  onTouchEnd={() => handleTouchEnd(lecturer.id, () => navigate(`/users/lecturers/${lecturer.id}`))}
-                  className="cursor-pointer hover:text-blue-700 hover:underline select-none font-medium"
-                >
-                  {lecturer.fullname}
-                </span>
+                <span className="font-medium text-gray-900">{lecturer.fullname}</span>
               </td>
               <td className="px-4 py-3">{lecturer.email}</td>
               <td className="px-4 py-3">{lecturer.status}</td>
@@ -576,7 +604,12 @@ export default function AdminUsersPage() {
                 <AdminButton
                   variant="ghost"
                   className="h-8 px-2"
-                  onClick={() => navigate(`/users/lecturers/${lecturer.id}`)}
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onTouchStart={(event) => event.stopPropagation()}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    navigate(`/users/lecturers/${lecturer.id}`)
+                  }}
                 >
                   Detail
                 </AdminButton>
@@ -584,10 +617,15 @@ export default function AdminUsersPage() {
                   variant="ghost"
                   className="h-8 px-2"
                   disabled={Boolean(actionLoading)}
-                  onClick={() => setConfirm({
-                    action: lecturer.status === "Aktif" ? "deactivate" : "activate",
-                    user: lecturer,
-                  })}
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onTouchStart={(event) => event.stopPropagation()}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    setConfirm({
+                      action: lecturer.status === "Aktif" ? "deactivate" : "activate",
+                      user: lecturer,
+                    })
+                  }}
                 >
                   {lecturer.status === "Aktif" ? <UserX size={14} /> : <UserCheck size={14} />}
                   {lecturer.status === "Aktif" ? "Nonaktifkan" : "Aktifkan"}
@@ -596,7 +634,12 @@ export default function AdminUsersPage() {
                   variant="danger"
                   className="h-8 px-2"
                   disabled={Boolean(actionLoading)}
-                  onClick={() => setConfirm({ action: "delete", user: lecturer })}
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onTouchStart={(event) => event.stopPropagation()}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    setConfirm({ action: "delete", user: lecturer })
+                  }}
                 >
                   <Trash2 size={14} />
                   Hapus

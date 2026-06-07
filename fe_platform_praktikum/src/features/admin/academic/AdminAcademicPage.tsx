@@ -50,6 +50,7 @@ type ConfirmTarget =
   | { type: "semester"; item: AcademicSemester }
   | { type: "course"; item: AcademicCourse }
   | { type: "class"; item: AcademicClass }
+type SelectedAcademicIds = Record<AdminTab, string[]>
 
 type CourseFormState = {
   code: string
@@ -93,6 +94,7 @@ export default function AdminAcademicPage() {
   const [selectedCourse, setSelectedCourse] = useState<AcademicCourse | null>(null)
   const [selectedClass, setSelectedClass] = useState<AcademicClass | null>(null)
   const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(null)
+  const [bulkDeleteTab, setBulkDeleteTab] = useState<AdminTab | null>(null)
   const [classActivationWarning, setClassActivationWarning] = useState(false)
   const [courseForm, setCourseForm] = useState<CourseFormState>({
     code: "",
@@ -115,7 +117,55 @@ export default function AdminAcademicPage() {
   const [submitting, setSubmitting] = useState(false)
   const [actionLoading, setActionLoading] = useState("")
   const [error, setError] = useState("")
+  const [selectedAcademicIds, setSelectedAcademicIds] = useState<SelectedAcademicIds>({
+    semester: [],
+    courses: [],
+    classes: [],
+  })
+  const [longPressTimer, setLongPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
+  const [longPressActive, setLongPressActive] = useState(false)
   const navigate = useNavigate()
+
+  const activeSelectedIds = selectedAcademicIds[activeTab]
+
+  const toggleAcademicSelection = (id: string) => {
+    setSelectedAcademicIds((prev) => ({
+      ...prev,
+      [activeTab]: prev[activeTab].includes(id)
+        ? prev[activeTab].filter((itemId) => itemId !== id)
+        : [...prev[activeTab], id],
+    }))
+  }
+
+  const handleAcademicMouseDown = (id: string) => {
+    setLongPressActive(false)
+    const timer = setTimeout(() => {
+      setLongPressActive(true)
+      toggleAcademicSelection(id)
+    }, 600)
+    setLongPressTimer(timer)
+  }
+
+  const cancelAcademicLongPress = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      setLongPressTimer(null)
+    }
+  }
+
+  const handleAcademicMouseUp = (id: string) => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      setLongPressTimer(null)
+      if (!longPressActive && activeSelectedIds.length > 0) {
+        toggleAcademicSelection(id)
+      }
+    }
+  }
+
+  const stopRowSelection = (event: React.SyntheticEvent) => {
+    event.stopPropagation()
+  }
 
   const fetchAcademicData = useCallback(async () => {
     setLoading(true)
@@ -201,6 +251,8 @@ export default function AdminAcademicPage() {
     : !lecturers.length
     ? "Belum ada dosen aktif untuk dijadikan pengampu."
     : ""
+  const activeSelectionLabel =
+    activeTab === "semester" ? "semester" : activeTab === "courses" ? "mata kuliah" : "kelas"
   const closeModal = () => {
     setModal(null)
     setSelectedSemester(null)
@@ -401,6 +453,36 @@ export default function AdminAcademicPage() {
       fetchAcademicData()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menghapus data")
+    } finally {
+      setActionLoading("")
+    }
+  }
+
+  const handleBulkDeleteConfirm = async () => {
+    if (!bulkDeleteTab) return
+    const ids = selectedAcademicIds[bulkDeleteTab]
+    if (!ids.length) return
+
+    try {
+      setActionLoading(`bulk-delete-${bulkDeleteTab}`)
+      setError("")
+
+      if (bulkDeleteTab === "semester") {
+        await Promise.all(ids.map((id) => deleteAdminSemester(id)))
+      } else if (bulkDeleteTab === "courses") {
+        await Promise.all(ids.map((id) => deleteAdminCourse(id)))
+      } else {
+        await Promise.all(ids.map((id) => deleteAdminClass(id)))
+      }
+
+      setSelectedAcademicIds((prev) => ({
+        ...prev,
+        [bulkDeleteTab]: [],
+      }))
+      setBulkDeleteTab(null)
+      fetchAcademicData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menghapus data terpilih")
     } finally {
       setActionLoading("")
     }
@@ -779,9 +861,32 @@ export default function AdminAcademicPage() {
                 <h2 className="text-lg font-semibold">Daftar Semester</h2>
                 <AdminButton onClick={() => setModal("semester")}><Plus size={16} />Tambah Semester</AdminButton>
               </div>
-              <AdminTable headers={["Tahun Ajaran", "Semester", "Status", "Aksi"]}>
+              <AdminTable headers={selectedAcademicIds.semester.length > 0 ? ["", "Tahun Ajaran", "Semester", "Status", "Aksi"] : ["Tahun Ajaran", "Semester", "Status", "Aksi"]}>
                 {semesters.map((semester) => (
-                  <tr key={semester.id}>
+                  <tr
+                    key={semester.id}
+                    className={`${selectedAcademicIds.semester.includes(semester.id) ? "bg-blue-50/40" : ""} cursor-default select-none`}
+                    onMouseDown={() => handleAcademicMouseDown(semester.id)}
+                    onMouseUp={() => handleAcademicMouseUp(semester.id)}
+                    onMouseLeave={cancelAcademicLongPress}
+                    onTouchStart={() => handleAcademicMouseDown(semester.id)}
+                    onTouchEnd={() => handleAcademicMouseUp(semester.id)}
+                  >
+                    {selectedAcademicIds.semester.length > 0 && (
+                      <td
+                        className="px-4 py-3 text-center"
+                        onMouseDown={stopRowSelection}
+                        onClick={stopRowSelection}
+                        onTouchStart={stopRowSelection}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          checked={selectedAcademicIds.semester.includes(semester.id)}
+                          onChange={() => toggleAcademicSelection(semester.id)}
+                        />
+                      </td>
+                    )}
                     <td className="px-4 py-3">{semester.year}</td>
                     <td className="px-4 py-3">{semester.term}</td>
                     <td className="px-4 py-3">{semester.status}</td>
@@ -790,7 +895,10 @@ export default function AdminAcademicPage() {
                         variant="ghost"
                         className="h-8 px-2"
                         disabled={submitting}
-                        onClick={() => {
+                        onMouseDown={stopRowSelection}
+                        onTouchStart={stopRowSelection}
+                        onClick={(event) => {
+                          event.stopPropagation()
                           setSelectedSemester(semester)
                           setModal(semester.status === "Aktif" ? "semester" : "activate")
                         }}
@@ -801,7 +909,12 @@ export default function AdminAcademicPage() {
                         variant="danger"
                         className="h-8 px-2"
                         disabled={Boolean(actionLoading) || semester.status === "Aktif"}
-                        onClick={() => setConfirmTarget({ type: "semester", item: semester })}
+                        onMouseDown={stopRowSelection}
+                        onTouchStart={stopRowSelection}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          setConfirmTarget({ type: "semester", item: semester })
+                        }}
                       >
                         Hapus
                       </AdminButton>
@@ -847,9 +960,32 @@ export default function AdminAcademicPage() {
               </div>
 
               {filteredCourses.length ? (
-                <AdminTable headers={["Kode MK", "Mata Kuliah", "Semester", "SKS", "Status", "Aksi"]}>
+                <AdminTable headers={selectedAcademicIds.courses.length > 0 ? ["", "Kode MK", "Mata Kuliah", "Semester", "SKS", "Status", "Aksi"] : ["Kode MK", "Mata Kuliah", "Semester", "SKS", "Status", "Aksi"]}>
                   {filteredCourses.map((course) => (
-                    <tr key={course.id}>
+                    <tr
+                      key={course.id}
+                      className={`${selectedAcademicIds.courses.includes(course.id) ? "bg-blue-50/40" : ""} cursor-default select-none`}
+                      onMouseDown={() => handleAcademicMouseDown(course.id)}
+                      onMouseUp={() => handleAcademicMouseUp(course.id)}
+                      onMouseLeave={cancelAcademicLongPress}
+                      onTouchStart={() => handleAcademicMouseDown(course.id)}
+                      onTouchEnd={() => handleAcademicMouseUp(course.id)}
+                    >
+                      {selectedAcademicIds.courses.length > 0 && (
+                        <td
+                          className="px-4 py-3 text-center"
+                          onMouseDown={stopRowSelection}
+                          onClick={stopRowSelection}
+                          onTouchStart={stopRowSelection}
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            checked={selectedAcademicIds.courses.includes(course.id)}
+                            onChange={() => toggleAcademicSelection(course.id)}
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-3 font-mono">{course.code}</td>
                       <td className="px-4 py-3">{course.name}</td>
                       <td className="px-4 py-3">{course.semester}</td>
@@ -860,7 +996,12 @@ export default function AdminAcademicPage() {
                         variant="ghost"
                         className="h-8 px-2"
                         disabled={Boolean(actionLoading)}
-                        onClick={() => openEditCourse(course)}
+                        onMouseDown={stopRowSelection}
+                        onTouchStart={stopRowSelection}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          openEditCourse(course)
+                        }}
                       >
                           Edit
                         </AdminButton>
@@ -869,7 +1010,12 @@ export default function AdminAcademicPage() {
                             variant="ghost"
                             className="h-8 px-2"
                             disabled={Boolean(actionLoading)}
-                            onClick={() => handleActivateCourse(course)}
+                            onMouseDown={stopRowSelection}
+                            onTouchStart={stopRowSelection}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleActivateCourse(course)
+                            }}
                           >
                             {actionLoading === `course-${course.id}` ? "Memproses..." : "Aktifkan"}
                           </AdminButton>
@@ -878,7 +1024,12 @@ export default function AdminAcademicPage() {
                           variant="danger"
                           className="h-8 px-2"
                           disabled={Boolean(actionLoading)}
-                          onClick={() => setConfirmTarget({ type: "course", item: course })}
+                          onMouseDown={stopRowSelection}
+                          onTouchStart={stopRowSelection}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            setConfirmTarget({ type: "course", item: course })
+                          }}
                         >
                           Hapus
                         </AdminButton>
@@ -941,25 +1092,71 @@ export default function AdminAcademicPage() {
               )}
 
               {filteredClasses.length ? (
-                <AdminTable headers={["Kelas", "Mata Kuliah", "Dosen", "Status", "Aksi"]}>
+                <AdminTable headers={selectedAcademicIds.classes.length > 0 ? ["", "Kelas", "Mata Kuliah", "Dosen", "Status", "Aksi"] : ["Kelas", "Mata Kuliah", "Dosen", "Status", "Aksi"]}>
                   {filteredClasses.map((item) => (
-                    <tr key={item.id}>
+                    <tr
+                      key={item.id}
+                      className={`${selectedAcademicIds.classes.includes(item.id) ? "bg-blue-50/40" : ""} cursor-default select-none`}
+                      onMouseDown={() => handleAcademicMouseDown(item.id)}
+                      onMouseUp={() => handleAcademicMouseUp(item.id)}
+                      onMouseLeave={cancelAcademicLongPress}
+                      onTouchStart={() => handleAcademicMouseDown(item.id)}
+                      onTouchEnd={() => handleAcademicMouseUp(item.id)}
+                    >
+                      {selectedAcademicIds.classes.length > 0 && (
+                        <td
+                          className="px-4 py-3 text-center"
+                          onMouseDown={stopRowSelection}
+                          onClick={stopRowSelection}
+                          onTouchStart={stopRowSelection}
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            checked={selectedAcademicIds.classes.includes(item.id)}
+                            onChange={() => toggleAcademicSelection(item.id)}
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-3">{item.name}</td>
                       <td className="px-4 py-3">{item.courseName}</td>
                       <td className="px-4 py-3">{item.lecturer}</td>
                       <td className="px-4 py-3">{item.status}</td>
                       <AdminActionCell>
-                        <AdminButton variant="ghost" className="h-8 px-2" onClick={() => navigate(`/classes/${item.id}`)}>
+                        <AdminButton
+                          variant="ghost"
+                          className="h-8 px-2"
+                          onMouseDown={stopRowSelection}
+                          onTouchStart={stopRowSelection}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            navigate(`/classes/${item.id}`)
+                          }}
+                        >
                           Detail
                         </AdminButton>
-                        <AdminButton variant="ghost" className="h-8 px-2" onClick={() => openEditClass(item)}>
+                        <AdminButton
+                          variant="ghost"
+                          className="h-8 px-2"
+                          onMouseDown={stopRowSelection}
+                          onTouchStart={stopRowSelection}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            openEditClass(item)
+                          }}
+                        >
                           Edit
                         </AdminButton>
                         <AdminButton
                           variant="danger"
                           className="h-8 px-3"
                           disabled={Boolean(actionLoading)}
-                          onClick={() => setConfirmTarget({ type: "class", item })}
+                          onMouseDown={stopRowSelection}
+                          onTouchStart={stopRowSelection}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            setConfirmTarget({ type: "class", item })
+                          }}
                         >
                           Hapus
                         </AdminButton>
@@ -988,6 +1185,30 @@ export default function AdminAcademicPage() {
       </div>
 
       {renderModal()}
+      {activeSelectedIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-6 rounded-xl border border-slate-800 bg-slate-900 px-6 py-4 text-white shadow-2xl animate-in slide-in-from-bottom duration-300">
+          <span className="text-sm font-semibold text-slate-300">
+            Terpilih <span className="ml-1 rounded-md bg-slate-800 px-2 py-1 font-bold text-white">{activeSelectedIds.length}</span>
+          </span>
+          <div className="flex gap-2">
+            <AdminButton
+              variant="secondary"
+              className="h-9 border-slate-700 bg-slate-800 px-3 text-white hover:bg-slate-700"
+              onClick={() => setSelectedAcademicIds((prev) => ({ ...prev, [activeTab]: [] }))}
+            >
+              Batal
+            </AdminButton>
+            <AdminButton
+              variant="danger"
+              className="h-9 px-3"
+              disabled={Boolean(actionLoading)}
+              onClick={() => setBulkDeleteTab(activeTab)}
+            >
+              Hapus Terpilih
+            </AdminButton>
+          </div>
+        </div>
+      )}
       {classActivationWarning && (
         <AdminModal
           title="Kelas Tidak Bisa Diaktifkan"
@@ -1020,6 +1241,18 @@ export default function AdminAcademicPage() {
           loading={actionLoading === `delete-${confirmTarget.type}-${confirmTarget.item.id}`}
           onCancel={() => setConfirmTarget(null)}
           onConfirm={handleDeleteConfirm}
+        />
+      )}
+      {bulkDeleteTab && (
+        <AdminConfirmModal
+          title={`Hapus ${selectedAcademicIds[bulkDeleteTab].length} ${activeSelectionLabel} terpilih?`}
+          message="Data yang sudah dihapus tidak dapat dikembalikan."
+          confirmLabel="Hapus"
+          cancelLabel="Batal"
+          variant="danger"
+          loading={Boolean(actionLoading)}
+          onCancel={() => setBulkDeleteTab(null)}
+          onConfirm={handleBulkDeleteConfirm}
         />
       )}
     </AdminLayout>

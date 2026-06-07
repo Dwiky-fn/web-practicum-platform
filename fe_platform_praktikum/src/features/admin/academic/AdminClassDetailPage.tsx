@@ -90,15 +90,20 @@ export default function AdminClassDetailPage() {
     setLongPressTimer(timer)
   }
 
-  const handleMouseUp = (studentId: string, defaultClick: () => void) => {
+  const cancelLongPress = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      setLongPressTimer(null)
+    }
+  }
+
+  const handleMouseUp = (studentId: string) => {
     if (longPressTimer) {
       clearTimeout(longPressTimer)
       setLongPressTimer(null)
       if (!longPressActive) {
         if (selectedIds.length > 0) {
           toggleSelection(studentId)
-        } else {
-          defaultClick()
         }
       }
     }
@@ -108,8 +113,8 @@ export default function AdminClassDetailPage() {
     handleMouseDown(studentId)
   }
 
-  const handleTouchEnd = (studentId: string, defaultClick: () => void) => {
-    handleMouseUp(studentId, defaultClick)
+  const handleTouchEnd = (studentId: string) => {
+    handleMouseUp(studentId)
   }
 
   const openAssignModal = () => {
@@ -339,9 +344,22 @@ export default function AdminClassDetailPage() {
               {selectedClass.students.length ? (
                 <AdminTable headers={selectedIds.length > 0 ? ["", "NIM", "Nama", "Semester", "Status", "Aksi"] : ["NIM", "Nama", "Semester", "Status", "Aksi"]}>
                   {selectedClass.students.map((student) => (
-                    <tr key={student.id} className={selectedIds.includes(student.id) ? "bg-blue-50/40" : ""}>
+                    <tr
+                      key={student.id}
+                      className={`${selectedIds.includes(student.id) ? "bg-blue-50/40" : ""} cursor-default select-none`}
+                      onMouseDown={() => handleMouseDown(student.id)}
+                      onMouseUp={() => handleMouseUp(student.id)}
+                      onMouseLeave={cancelLongPress}
+                      onTouchStart={() => handleTouchStart(student.id)}
+                      onTouchEnd={() => handleTouchEnd(student.id)}
+                    >
                       {selectedIds.length > 0 && (
-                        <td className="px-4 py-3 text-center">
+                        <td
+                          className="px-4 py-3 text-center"
+                          onMouseDown={(event) => event.stopPropagation()}
+                          onClick={(event) => event.stopPropagation()}
+                          onTouchStart={(event) => event.stopPropagation()}
+                        >
                           <input
                             type="checkbox"
                             className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -352,16 +370,7 @@ export default function AdminClassDetailPage() {
                       )}
                       <td className="px-4 py-3 font-mono">{student.nim}</td>
                       <td className="px-4 py-3">
-                        <span
-                          onMouseDown={() => handleMouseDown(student.id)}
-                          onMouseUp={() => handleMouseUp(student.id, () => navigate(`/users/students/${student.id}`))}
-                          onMouseLeave={() => { if (longPressTimer) { clearTimeout(longPressTimer); setLongPressTimer(null); } }}
-                          onTouchStart={() => handleTouchStart(student.id)}
-                          onTouchEnd={() => handleTouchEnd(student.id, () => navigate(`/users/students/${student.id}`))}
-                          className="cursor-pointer hover:text-blue-700 hover:underline select-none font-medium"
-                        >
-                          {student.fullname}
-                        </span>
+                        <span className="font-medium text-gray-900">{student.fullname}</span>
                       </td>
                       <td className="px-4 py-3">{student.semester}</td>
                       <td className="px-4 py-3">{student.status}</td>
@@ -369,7 +378,10 @@ export default function AdminClassDetailPage() {
                         <AdminButton
                           variant="ghost"
                           className="h-8 px-2 text-red-600 hover:bg-red-50"
-                          onClick={() => {
+                          onMouseDown={(event) => event.stopPropagation()}
+                          onTouchStart={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.stopPropagation()
                             setStudentToDelete(student)
                             setDeleteConfirmOpen(true)
                           }}

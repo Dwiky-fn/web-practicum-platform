@@ -427,19 +427,19 @@ export default function AdminClassDetailPage() {
             <FieldRow label="Cari Mahasiswa">
               <AdminSearchInput value={query} onChange={setQuery} placeholder="NIM / Nama" />
             </FieldRow>
-            <div className="space-y-3">
+            <div className="max-h-60 overflow-y-auto space-y-2 pr-2 border border-gray-200 rounded-md p-3 bg-gray-50">
               {candidates.length ? candidates.map((student) => (
-                <label key={student.id} className="flex items-center gap-3 text-sm">
+                <label key={student.id} className="flex items-center gap-3 text-sm cursor-pointer hover:bg-gray-100 p-1.5 rounded transition-colors">
                   <input
                     type="checkbox"
-                    className="h-4 w-4"
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     checked={selectedStudentIds.includes(student.id)}
                     onChange={() => toggleStudent(student.id)}
                   />
-                  <span>{student.nim} - {student.fullname}</span>
+                  <span className="text-gray-700 select-none">{student.nim} - {student.fullname}</span>
                 </label>
               )) : (
-                <p className="text-sm text-gray-500">Tidak ada kandidat mahasiswa.</p>
+                <p className="text-sm text-gray-500 text-center py-2">Tidak ada kandidat mahasiswa.</p>
               )}
             </div>
           </div>

@@ -78,6 +78,7 @@ class LecturerJobsheetsService {
       title: item.title || 'Percobaan',
       instructionContent: item.instructionContent || emptyDoc,
       templateCode: item.templateCode || '',
+      rubric: Number(item.rubric) || 0,
     }));
   }
 
@@ -87,6 +88,7 @@ class LecturerJobsheetsService {
       title: item.title || 'Latihan',
       instructionContent: item.instructionContent || emptyDoc,
       templateCode: item.templateCode || '',
+      rubric: Number(item.rubric) || 0,
     }));
   }
 
@@ -130,8 +132,8 @@ class LecturerJobsheetsService {
     for (const experiment of experiments) {
       await client.query(
         `
-        INSERT INTO experiments (id, jobsheet_id, title, instruction_content, template_code)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO experiments (id, jobsheet_id, title, instruction_content, template_code, rubric)
+        VALUES ($1, $2, $3, $4, $5, $6)
         `,
         [
           experiment.id,
@@ -139,6 +141,7 @@ class LecturerJobsheetsService {
           experiment.title,
           JSON.stringify(experiment.instructionContent || emptyDoc),
           experiment.templateCode || '',
+          experiment.rubric,
         ],
       );
     }
@@ -150,8 +153,8 @@ class LecturerJobsheetsService {
     for (const exercise of exercises) {
       await client.query(
         `
-        INSERT INTO exercises (id, jobsheet_id, title, instruction_content, template_code)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO exercises (id, jobsheet_id, title, instruction_content, template_code, rubric)
+        VALUES ($1, $2, $3, $4, $5, $6)
         `,
         [
           exercise.id,
@@ -159,6 +162,7 @@ class LecturerJobsheetsService {
           exercise.title,
           JSON.stringify(exercise.instructionContent || emptyDoc),
           exercise.templateCode || '',
+          exercise.rubric,
         ],
       );
     }

@@ -35,8 +35,11 @@ export default function ExercisePage() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-semibold text-gray-900">
-          {`Latihan: ${exercise.title}`}
+        <h2 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
+          <span>{`Latihan: ${exercise.title}`}</span>
+          <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded-full">
+            Bobot: {exercise.rubric ?? 0}%
+          </span>
         </h2>
         {exercise.instructionContent && (
           <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5">

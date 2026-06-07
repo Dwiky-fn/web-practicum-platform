@@ -64,7 +64,8 @@ class JobsheetsService {
         title,
         instruction_content,
         template_code,
-        template_code AS default_template_code
+        template_code AS default_template_code,
+        rubric
       FROM experiments
       WHERE jobsheet_id = ANY($1)
       ORDER BY jobsheet_id ASC, id ASC`,
@@ -78,7 +79,8 @@ class JobsheetsService {
         title,
         instruction_content,
         template_code,
-        template_code AS default_template_code
+        template_code AS default_template_code,
+        rubric
       FROM exercises
       WHERE jobsheet_id = ANY($1)
       ORDER BY jobsheet_id ASC, id ASC`,
@@ -135,7 +137,8 @@ class JobsheetsService {
         title,
         instruction_content,
         template_code,
-        template_code AS default_template_code
+        template_code AS default_template_code,
+        rubric
       FROM experiments
       WHERE jobsheet_id = $1
       ORDER BY id ASC`,
@@ -148,7 +151,8 @@ class JobsheetsService {
         title,
         instruction_content,
         template_code,
-        template_code AS default_template_code
+        template_code AS default_template_code,
+        rubric
       FROM exercises
       WHERE jobsheet_id = $1
       ORDER BY id ASC`,

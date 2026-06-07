@@ -146,7 +146,7 @@ export default function SidebarCard({
             {jobsheet.experiments.map((item) => (
               <label key={item.id} className="flex items-center gap-2 text-sm text-gray-600">
                 <input type="checkbox" checked={item.isReported} readOnly />
-                <span>{item.title}</span>
+                <span>{item.title} ({item.rubric ?? 0}%)</span>
               </label>
             ))}
           </div>
@@ -157,7 +157,7 @@ export default function SidebarCard({
             {jobsheet.exercises.map((item) => (
               <label key={item.id} className="flex items-center gap-2 text-sm text-gray-600">
                 <input type="checkbox" checked={item.isReported} readOnly />
-                <span>{item.title}</span>
+                <span>{item.title} ({item.rubric ?? 0}%)</span>
               </label>
             ))}
           </div>

@@ -74,6 +74,7 @@ function createExperimentItem(index: number): PracticeEditorItem {
     instructionContent: emptyDoc,
     templateCode: "",
     isReported: true,
+    rubric: 0,
   }
 }
 
@@ -84,6 +85,7 @@ function createExerciseItem(index: number): PracticeEditorItem {
     instructionContent: emptyDoc,
     templateCode: "",
     isReported: true,
+    rubric: 0,
   }
 }
 
@@ -163,6 +165,7 @@ export default function LecturerJobsheetEditorPage() {
                   instructionContent: item.instructionContent ?? emptyDoc,
                   templateCode: item.defaultTemplateCode,
                   isReported: item.isReported,
+                  rubric: item.rubric ?? 0,
                 }))
               : [createExperimentItem(1)],
           )
@@ -174,6 +177,7 @@ export default function LecturerJobsheetEditorPage() {
                   instructionContent: item.instructionContent ?? emptyDoc,
                   templateCode: item.defaultTemplateCode ?? "",
                   isReported: item.isReported,
+                  rubric: item.rubric ?? 0,
                 }))
               : [createExerciseItem(1)],
           )
@@ -227,6 +231,12 @@ export default function LecturerJobsheetEditorPage() {
     [exercises],
   )
 
+  const totalRubric = useMemo(() => {
+    const expTotal = experiments.reduce((acc, item) => acc + (item.rubric ?? 0), 0)
+    const exeTotal = exercises.reduce((acc, item) => acc + (item.rubric ?? 0), 0)
+    return expTotal + exeTotal
+  }, [experiments, exercises])
+
   function buildPayload() {
     return {
       lecturerId: user?.id ?? "",
@@ -243,12 +253,14 @@ export default function LecturerJobsheetEditorPage() {
         title: item.title || `Percobaan ${index + 1}`,
         instructionContent: item.instructionContent || emptyDoc,
         templateCode: item.templateCode,
+        rubric: Number(item.rubric) || 0,
       })),
       exercises: exercises.map((item, index) => ({
         id: item.id,
         title: item.title || `Latihan ${index + 1}`,
         instructionContent: item.instructionContent || emptyDoc,
         templateCode: item.templateCode,
+        rubric: Number(item.rubric) || 0,
       })),
       task: {
         instructionContent: taskInstruction,
@@ -286,6 +298,12 @@ export default function LecturerJobsheetEditorPage() {
   async function handleSaveDraft() {
     if (!user) return
 
+    if (totalRubric !== 100) {
+      setError(`Jumlah total bobot rubrik harus pas 100%. Saat ini: ${totalRubric}%.`)
+      window.scrollTo({ top: 0, behavior: "smooth" })
+      return
+    }
+
     try {
       setSaving(true)
       setError("")
@@ -306,6 +324,13 @@ export default function LecturerJobsheetEditorPage() {
 
   async function handlePublish() {
     if (!user) return
+
+    if (totalRubric !== 100) {
+      setError(`Jumlah total bobot rubrik harus pas 100%. Saat ini: ${totalRubric}%.`)
+      setPublishOpen(false)
+      window.scrollTo({ top: 0, behavior: "smooth" })
+      return
+    }
 
     try {
       setSaving(true)
@@ -483,18 +508,42 @@ export default function LecturerJobsheetEditorPage() {
                   )}
                 </div>
                 <div className="space-y-3">
-                  <input
-                    className={inputClass}
-                    value={item.title}
-                    onChange={(event) =>
-                      setExperiments((current) =>
-                        current.map((entry, currentIndex) =>
-                          currentIndex === index ? { ...entry, title: event.target.value } : entry,
-                        ),
-                      )
-                    }
-                    placeholder="Judul percobaan"
-                  />
+                  <div className="grid gap-3 md:grid-cols-[1fr_180px]">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-600">Judul Percobaan</label>
+                      <input
+                        className={inputClass}
+                        value={item.title}
+                        onChange={(event) =>
+                          setExperiments((current) =>
+                            current.map((entry, currentIndex) =>
+                              currentIndex === index ? { ...entry, title: event.target.value } : entry,
+                            ),
+                          )
+                        }
+                        placeholder="Judul percobaan"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-600">Bobot Penilaian (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        className={inputClass}
+                        value={item.rubric ?? 0}
+                        onChange={(event) => {
+                          const val = Math.max(0, parseInt(event.target.value) || 0)
+                          setExperiments((current) =>
+                            current.map((entry, currentIndex) =>
+                              currentIndex === index ? { ...entry, rubric: val } : entry,
+                            ),
+                          )
+                        }}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
                   <div className="space-y-2">
                      <p className="text-sm font-medium text-gray-700">Instruksi Percobaan</p>
                     <RichTextEditor
@@ -557,18 +606,42 @@ export default function LecturerJobsheetEditorPage() {
                   )}
                 </div>
                 <div className="space-y-3">
-                  <input
-                    className={inputClass}
-                    value={item.title}
-                    onChange={(event) =>
-                      setExercises((current) =>
-                        current.map((entry, currentIndex) =>
-                          currentIndex === index ? { ...entry, title: event.target.value } : entry,
-                        ),
-                      )
-                    }
-                    placeholder="Judul latihan"
-                  />
+                  <div className="grid gap-3 md:grid-cols-[1fr_180px]">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-600">Judul Latihan</label>
+                      <input
+                        className={inputClass}
+                        value={item.title}
+                        onChange={(event) =>
+                          setExercises((current) =>
+                            current.map((entry, currentIndex) =>
+                              currentIndex === index ? { ...entry, title: event.target.value } : entry,
+                            ),
+                          )
+                        }
+                        placeholder="Judul latihan"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-600">Bobot Penilaian (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        className={inputClass}
+                        value={item.rubric ?? 0}
+                        onChange={(event) => {
+                          const val = Math.max(0, parseInt(event.target.value) || 0)
+                          setExercises((current) =>
+                            current.map((entry, currentIndex) =>
+                              currentIndex === index ? { ...entry, rubric: val } : entry,
+                            ),
+                          )
+                        }}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-gray-700">Instruksi Latihan</p>
                     <RichTextEditor
@@ -720,13 +793,42 @@ export default function LecturerJobsheetEditorPage() {
           </div>
         </LecturerPanel>
 
-        <div className="flex justify-end gap-3">
-          <LecturerButton variant="secondary" disabled={saving} onClick={handleSaveDraft}>
-            {saving ? "Menyimpan..." : "Simpan Draft"}
-          </LecturerButton>
-          <LecturerButton disabled={saving || !dataset?.course.classes.length} onClick={() => setPublishOpen(true)}>
-            Simpan & Publikasikan
-          </LecturerButton>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-gray-200 bg-white p-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-700">Total Bobot Rubrik:</span>
+            <span
+              className={`rounded px-2.5 py-1 text-sm font-bold ${
+                totalRubric === 100
+                  ? "bg-green-100 text-green-800"
+                  : "bg-red-100 text-red-800"
+              }`}
+            >
+              {totalRubric}% / 100%
+            </span>
+            {totalRubric !== 100 && (
+              <span className="text-xs text-red-600 font-medium">
+                (Total bobot harus bernilai 100% sebelum dapat disimpan/dipublikasikan)
+              </span>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <LecturerButton variant="secondary" disabled={saving} onClick={handleSaveDraft}>
+              {saving ? "Menyimpan..." : "Simpan Draft"}
+            </LecturerButton>
+            <LecturerButton
+              disabled={saving || !dataset?.course.classes.length}
+              onClick={() => {
+                if (totalRubric !== 100) {
+                  setError(`Jumlah total bobot rubrik harus pas 100%. Saat ini: ${totalRubric}%.`)
+                  window.scrollTo({ top: 0, behavior: "smooth" })
+                  return
+                }
+                setPublishOpen(true)
+              }}
+            >
+              Simpan & Publikasikan
+            </LecturerButton>
+          </div>
         </div>
       </div>
 

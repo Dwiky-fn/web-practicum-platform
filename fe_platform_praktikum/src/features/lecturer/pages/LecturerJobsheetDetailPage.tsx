@@ -165,7 +165,12 @@ export default function LecturerJobsheetDetailPage() {
                     <div className="space-y-4">
                       {jobsheet.experiments.map((item) => (
                         <div key={item.id} className="rounded-lg border border-gray-200 bg-blue-50 p-4 text-sm text-gray-700">
-                          <p className="font-semibold">Percobaan {item.order}: {item.title}</p>
+                          <p className="font-semibold">
+                            Percobaan {item.order}: {item.title}{" "}
+                            <span className="ml-1 text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full font-medium">
+                              (Bobot: {item.rubric ?? 0}%)
+                            </span>
+                          </p>
                           <div className="mt-3">
                             <RichTextViewer content={item.instructionContent ?? { type: "doc", content: [] }} role="DOSEN" mode="viewer-default" />
                           </div>
@@ -183,6 +188,34 @@ export default function LecturerJobsheetDetailPage() {
                 </LecturerPanel>
 
                 <LecturerPanel className="p-5">
+                  <h2 className="mb-4 text-lg font-semibold">Latihan Praktikum</h2>
+                  {jobsheet.exercises.length ? (
+                    <div className="space-y-4">
+                      {jobsheet.exercises.map((item) => (
+                        <div key={item.id} className="rounded-lg border border-gray-200 bg-blue-50 p-4 text-sm text-gray-700">
+                          <p className="font-semibold">
+                            Latihan {item.order}: {item.title}{" "}
+                            <span className="ml-1 text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full font-medium">
+                              (Bobot: {item.rubric ?? 0}%)
+                            </span>
+                          </p>
+                          <div className="mt-3">
+                            <RichTextViewer content={item.instructionContent ?? { type: "doc", content: [] }} role="DOSEN" mode="viewer-default" />
+                          </div>
+                          {item.defaultTemplateCode && (
+                            <pre className="mt-3 overflow-x-auto rounded-md bg-white p-4 text-xs text-gray-800">
+                              <code>{item.defaultTemplateCode}</code>
+                            </pre>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">Belum ada latihan praktikum.</p>
+                  )}
+                </LecturerPanel>
+
+                <LecturerPanel className="p-5">
                   <h2 className="mb-4 text-lg font-semibold">Tugas Praktikum</h2>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="rounded-lg border border-gray-200 p-4">
@@ -191,7 +224,7 @@ export default function LecturerJobsheetDetailPage() {
                         {jobsheet.experiments.map((item) => (
                           <label key={item.id} className="flex items-center gap-3">
                             <input type="checkbox" checked={item.isReported} readOnly />
-                            <span>{item.title}</span>
+                            <span>{item.title} ({item.rubric ?? 0}%)</span>
                           </label>
                         ))}
                       </div>
@@ -202,7 +235,7 @@ export default function LecturerJobsheetDetailPage() {
                         {jobsheet.exercises.map((item) => (
                           <label key={item.id} className="flex items-center gap-3">
                             <input type="checkbox" checked={item.isReported} readOnly />
-                            <span>{item.title}</span>
+                            <span>{item.title} ({item.rubric ?? 0}%)</span>
                           </label>
                         ))}
                       </div>

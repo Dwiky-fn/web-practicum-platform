@@ -77,6 +77,7 @@ export type LecturerPracticeInput = {
   title: string
   instructionContent: JSONContent
   templateCode: string
+  rubric?: number
 }
 
 export type LecturerTheoryInput = {

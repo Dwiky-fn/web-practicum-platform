@@ -78,7 +78,12 @@ function PracticeItem({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase text-blue-700">{type} {item.order}</p>
-          <h3 className="mt-1 text-lg font-semibold text-gray-900">{item.title}</h3>
+          <h3 className="mt-1 text-lg font-semibold text-gray-900">
+            {item.title}{" "}
+            <span className="ml-1 text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+              (Bobot: {item.rubric ?? 0}%)
+            </span>
+          </h3>
         </div>
       </div>
 
@@ -95,7 +100,7 @@ function ReportChecklist({
   items,
 }: {
   title: string
-  items: Array<{ id: string; title: string; isReported: boolean }>
+  items: Array<{ id: string; title: string; isReported: boolean; rubric?: number }>
 }) {
   return (
     <div className="rounded-md border border-gray-200 bg-white p-4">
@@ -104,7 +109,7 @@ function ReportChecklist({
         {items.length ? items.map((item) => (
           <label key={item.id} className="flex items-center gap-3 text-sm text-gray-700">
             <input type="checkbox" checked={item.isReported} readOnly />
-            <span>{item.title}</span>
+            <span>{item.title} ({item.rubric ?? 0}%)</span>
           </label>
         )) : (
           <p className="text-sm text-gray-500">Belum ada item.</p>

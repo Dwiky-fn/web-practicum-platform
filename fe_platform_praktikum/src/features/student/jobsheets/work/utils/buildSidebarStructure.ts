@@ -35,7 +35,7 @@ export function buildSidebarTree(
       title: "Percobaan",
       children: jobsheet.experiments.map(e => ({
         id: e.id,
-        title: e.title,
+        title: `${e.title} (${e.rubric ?? 0}%)`,
         type: "experiment",
         path: `${base}/experiments/${e.id}`
       }))
@@ -45,7 +45,7 @@ export function buildSidebarTree(
       title: "Latihan",
       children: jobsheet.exercises.map(e => ({
         id: e.id,
-        title: e.title,
+        title: `${e.title} (${e.rubric ?? 0}%)`,
         type: "exercise",
         path: `${base}/exercises/${e.id}`
       }))

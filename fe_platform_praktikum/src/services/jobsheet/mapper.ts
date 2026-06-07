@@ -81,6 +81,7 @@ export const mapJobsheet = (data: RawJobsheet): Jobsheet => {
       isReported: task.experimentItems?.find((item) => item.id === exp.id)?.isReported ?? false,
       instructionContent: exp.instruction_content || emptyDoc,
       defaultTemplateCode: exp.default_template_code || exp.template_code || "",
+      rubric: exp.rubric ?? 0,
     })),
 
     exercises: (data.exercises || []).map((exe, index) => ({
@@ -90,6 +91,7 @@ export const mapJobsheet = (data: RawJobsheet): Jobsheet => {
       isReported: task.exerciseItems?.find((item) => item.id === exe.id)?.isReported ?? false,
       instructionContent: exe.instruction_content || emptyDoc,
       defaultTemplateCode: exe.default_template_code || exe.template_code || "",
+      rubric: exe.rubric ?? 0,
     })),
 
     theory: (data.theory || []).map((t, index) => ({

@@ -24,6 +24,7 @@ export interface Experiment {
   isReported: boolean;
   instructionContent?: JSONContent;
   defaultTemplateCode: string;
+  rubric?: number;
 }
 
 // ================= EXERCISE =================
@@ -34,6 +35,7 @@ export interface Exercise {
   isReported: boolean;
   instructionContent: JSONContent;
   defaultTemplateCode?: string;
+  rubric?: number;
 }
 
 export interface ReportableItemConfig {
@@ -68,6 +70,7 @@ export type RawExperiment = {
   instruction_content: JSONContent;
   template_code?: string;
   default_template_code?: string;
+  rubric?: number;
 };
 
 export type RawExercise = {
@@ -77,6 +80,7 @@ export type RawExercise = {
   instruction_content: JSONContent;
   template_code?: string;
   default_template_code?: string;
+  rubric?: number;
 };
 
 export type RawTheory = {

@@ -237,6 +237,14 @@ export default function SettingsPage() {
     );
   }
 
+  if (user.role === "DOSEN") {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {settingsContent}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />

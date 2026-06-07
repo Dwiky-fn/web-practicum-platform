@@ -9,9 +9,15 @@ import NavbarOverlay from "./NavbarOverlay";
 import MobileSidebar from "./MobileSidebar";
 import DesktopNavbar from "./DesktopNavbar";
 
-const defaultNavItems = [
+const studentNavItems = [
   { to: "/dashboard", label: "Dashboard" },
   { to: "/courses", label: "Mata Kuliah" },
+]
+
+const lecturerNavItems = [
+  { to: "/dashboard", label: "Dashboard" },
+  { to: "/courses", label: "Mata Kuliah" },
+  { to: "/monitoring", label: "Monitoring" },
 ]
 
 interface NavbarProps {
@@ -23,7 +29,7 @@ interface NavbarProps {
 }
 
 export default function Navbar({
-  navItems = defaultNavItems,
+  navItems,
   mobileEnabled = true,
 }: NavbarProps) {
   const { user, setUser } = useCurrentUser();
@@ -35,6 +41,10 @@ export default function Navbar({
   
   const unreadCount = notifications.filter(n => !n.isRead).length;
   const navigate = useNavigate();
+
+  const resolvedNavItems = navItems ?? (
+    user?.role === "DOSEN" ? lecturerNavItems : studentNavItems
+  );
 
   useEffect(() => {
     if (!user) return;
@@ -82,7 +92,7 @@ export default function Navbar({
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
           logo={logo}
-          navItems={navItems}
+          navItems={resolvedNavItems}
           unreadCount={unreadCount}
           onLogout={handleLogout}
         />
@@ -93,7 +103,7 @@ export default function Navbar({
         user={user}
         logo={logo}
         pattern={pattern}
-        navItems={navItems}
+        navItems={resolvedNavItems}
         showMobileButton={mobileEnabled}
         notifications={notifications}
         unreadCount={unreadCount}

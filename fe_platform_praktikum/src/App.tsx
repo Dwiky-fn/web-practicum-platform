@@ -6,6 +6,8 @@ import ForgotPasswordPage from "./features/auth/ForgotPasswordPage"
 import DashboardPage from "./features/dashboard"
 import SettingsPage from "./features/setting/SettingsPage"
 import FullScreenLoader from "./components/loading/FullScreenLoader"
+import LecturerLayout from "./features/lecturer/components/LecturerLayout"
+import TopProgressBar from "./components/loading/TopProgressBar"
 import StudentCoursePage from "./features/student/courses/StudentCoursePage"
 import CourseDetailPage from "./features/student/courses/CourseDetailPage" 
 import JobsheetOverviewPage from "./features/student/jobsheets/JobsheetOverviewPage"
@@ -58,7 +60,7 @@ function AppContent() {
     return <Navigate to="/" replace />
   }
 
-  return (
+  const routes = (
     <Routes>
       <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -153,11 +155,18 @@ function AppContent() {
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
+
+  if (user?.role === "DOSEN") {
+    return <LecturerLayout>{routes}</LecturerLayout>
+  }
+
+  return routes
 }
 
 export default function App() {
   return (
     <CurrentUserProvider>
+      <TopProgressBar />
       <AppContent />
     </CurrentUserProvider>
   )

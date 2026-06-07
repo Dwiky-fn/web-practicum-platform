@@ -12,6 +12,7 @@ function handleAdminError(error, res) {
     USER_DUPLICATE: [409, 'Email, NIM, atau NIP sudah digunakan'],
     USER_HAS_CLASSES: [409, 'Dosen masih menjadi pengampu kelas'],
     CLASS_NOT_FOUND: [404, 'Kelas tidak ditemukan'],
+    STUDENT_NOT_FOUND_IN_CLASS: [404, 'Mahasiswa tidak ditemukan di kelas ini'],
     CLASS_DUPLICATE: [409, 'Kelas pada mata kuliah dan semester aktif ini sudah ada'],
     COURSE_NOT_FOUND: [404, 'Mata kuliah tidak ditemukan'],
     COURSE_DUPLICATE: [409, 'Kode atau nama mata kuliah pada semester tersebut sudah ada'],

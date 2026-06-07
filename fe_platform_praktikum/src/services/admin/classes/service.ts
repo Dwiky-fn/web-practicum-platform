@@ -67,3 +67,12 @@ export const deleteAdminClass = async (id: string): Promise<void> => {
     method: "DELETE",
   })
 }
+
+export const removeAdminStudentFromClass = async (
+  classId: string,
+  studentId: string,
+): Promise<void> => {
+  await apiFetch(`/admin/classes/${classId}/students/${studentId}`, {
+    method: "DELETE",
+  })
+}

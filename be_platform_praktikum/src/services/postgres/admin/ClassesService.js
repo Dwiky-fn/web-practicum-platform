@@ -270,6 +270,22 @@ class ClassesService {
     }
   }
 
+  async removeStudentFromClass(classId, studentId) {
+    const result = await this._pool.query(
+      `
+      UPDATE class_students
+      SET status = 'NONAKTIF'
+      WHERE class_id = $1 AND student_id = $2 AND status = 'AKTIF'
+      RETURNING id
+      `,
+      [classId, studentId],
+    );
+
+    if (!result.rows.length) {
+      throw new Error('STUDENT_NOT_FOUND_IN_CLASS');
+    }
+  }
+
   async getClassJobsheets(classId) {
     const result = await this._pool.query(
       `

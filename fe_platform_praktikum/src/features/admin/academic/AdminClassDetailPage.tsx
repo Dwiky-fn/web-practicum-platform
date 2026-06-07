@@ -5,6 +5,7 @@ import AdminLayout from "../components/AdminLayout"
 import {
   AdminActionCell,
   AdminButton,
+  AdminConfirmModal,
   AdminModal,
   AdminPanel,
   AdminSearchInput,
@@ -19,6 +20,7 @@ import {
   getAdminClassById,
   getAdminStudentCandidates,
   getAdminUsers,
+  removeAdminStudentFromClass,
   updateAdminClass,
 } from "../../../services/admin/service"
 import type {
@@ -58,6 +60,9 @@ export default function AdminClassDetailPage() {
     status: "" as EditableClassStatus | "",
   })
   const [activationWarning, setActivationWarning] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [studentToDelete, setStudentToDelete] = useState<AdminStudent | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [assigning, setAssigning] = useState(false)
@@ -147,6 +152,23 @@ export default function AdminClassDetailPage() {
       setError(err instanceof Error ? err.message : "Gagal assign mahasiswa")
     } finally {
       setAssigning(false)
+    }
+  }
+
+  const handleRemoveStudent = async () => {
+    if (!id || !studentToDelete) return
+
+    try {
+      setDeleting(true)
+      setError("")
+      await removeAdminStudentFromClass(id, studentToDelete.id)
+      setDeleteConfirmOpen(false)
+      setStudentToDelete(null)
+      fetchClass()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menghapus mahasiswa")
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -248,13 +270,25 @@ export default function AdminClassDetailPage() {
               </div>
 
               {selectedClass.students.length ? (
-                <AdminTable headers={["NIM", "Nama", "Semester", "Status"]}>
+                <AdminTable headers={["NIM", "Nama", "Semester", "Status", "Aksi"]}>
                   {selectedClass.students.map((student) => (
                     <tr key={student.id}>
                       <td className="px-4 py-3 font-mono">{student.nim}</td>
                       <td className="px-4 py-3">{student.fullname}</td>
                       <td className="px-4 py-3">{student.semester}</td>
                       <td className="px-4 py-3">{student.status}</td>
+                      <AdminActionCell>
+                        <AdminButton
+                          variant="ghost"
+                          className="h-8 px-2 text-red-600 hover:bg-red-50"
+                          onClick={() => {
+                            setStudentToDelete(student)
+                            setDeleteConfirmOpen(true)
+                          }}
+                        >
+                          Hapus
+                        </AdminButton>
+                      </AdminActionCell>
                     </tr>
                   ))}
                 </AdminTable>
@@ -422,6 +456,22 @@ export default function AdminClassDetailPage() {
             Kelas hanya bisa diaktifkan jika semester mahasiswa sesuai dengan semester akademik aktif.
           </p>
         </AdminModal>
+      )}
+
+      {deleteConfirmOpen && studentToDelete && (
+        <AdminConfirmModal
+          title="Hapus Mahasiswa dari Kelas"
+          message={`Apakah Anda yakin ingin menghapus ${studentToDelete.fullname} (${studentToDelete.nim}) dari kelas ini?`}
+          confirmLabel="Hapus"
+          cancelLabel="Batal"
+          variant="danger"
+          loading={deleting}
+          onCancel={() => {
+            setDeleteConfirmOpen(false)
+            setStudentToDelete(null)
+          }}
+          onConfirm={handleRemoveStudent}
+        />
       )}
     </AdminLayout>
   )

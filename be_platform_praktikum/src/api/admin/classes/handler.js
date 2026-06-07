@@ -84,6 +84,16 @@ class ClassesHandler {
       return handleAdminError(error, res);
     }
   }
+
+  async removeStudentHandler(req, res) {
+    try {
+      const { id, studentId } = req.params;
+      await this._service.removeStudentFromClass(id, studentId);
+      return ok(res, {}, 'Mahasiswa berhasil dihapus dari kelas');
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
 }
 
 module.exports = ClassesHandler;

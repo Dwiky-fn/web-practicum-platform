@@ -3,7 +3,10 @@ const TokenService = require('../services/auth/TokenService');
 
 const tokenService = new TokenService();
 
-function sendUnauthorized(res, message = 'Sesi tidak valid, silakan login ulang') {
+function sendUnauthorized(
+  res,
+  message = 'Sesi tidak valid, silakan login ulang',
+) {
   return res.status(401).json({
     status: 'fail',
     message,
@@ -79,6 +82,14 @@ function requireRoles(...roles) {
     }
 
     if (!roles.includes(req.user.role)) {
+      console.warn('[auth] forbidden role access', {
+        method: req.method,
+        path: req.originalUrl,
+        userId: req.user.id,
+        userRole: req.user.role,
+        allowedRoles: roles,
+      });
+
       return res.status(403).json({
         status: 'fail',
         message: 'Anda tidak memiliki akses ke fitur ini',

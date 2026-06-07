@@ -1,6 +1,5 @@
 import type { JSONContent } from "@tiptap/react"
 import { apiFetch } from "../../services/api"
-import { getAdminClassById, getAdminClasses } from "../../services/admin/service"
 import type {
   AdminClassDetail,
   AdminStudent,
@@ -153,13 +152,13 @@ export function isSubmittedSubmission(submission: JobsheetSubmission | null) {
   return Boolean(submission && submission.status !== "DRAFT")
 }
 
-export async function getLecturerCourseGroups(lecturerId: string): Promise<LecturerCourseGroup[]> {
-  const classes = await getAdminClasses()
-  const lecturerClasses = classes.filter((item) => item.lecturerId === lecturerId)
+export async function getLecturerCourseGroups(_lecturerId: string): Promise<LecturerCourseGroup[]> {
+  const response = await apiFetch("/lecturer/classes")
+  const lecturerClasses = response.data.classes as AcademicClass[]
 
   const detailedClasses = await Promise.all(
     lecturerClasses.map(async (classItem) => {
-      const detail = await getAdminClassById(classItem.id)
+      const detail = await getLecturerClassDetail(classItem.id)
 
       return {
         ...classItem,
@@ -206,7 +205,8 @@ export async function getLecturerCourseGroup(
 }
 
 export async function getLecturerClassDetail(classId: string): Promise<AdminClassDetail> {
-  return getAdminClassById(classId)
+  const response = await apiFetch(`/lecturer/classes/${classId}`)
+  return response.data.class
 }
 
 export async function getLecturerJobsheetById(
@@ -274,7 +274,7 @@ export async function getLecturerCourseDataset(
   if (!course) return null
 
   const classDetails = await Promise.all(
-    course.classes.map((classItem) => getAdminClassById(classItem.id)),
+    course.classes.map((classItem) => getLecturerClassDetail(classItem.id)),
   )
 
   const jobsheetMap = new Map<string, LecturerJobsheetSummary>()

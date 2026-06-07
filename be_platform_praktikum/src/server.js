@@ -23,7 +23,7 @@ app.use(express.json({ limit: '10mb' }));
 
 // register routes
 app.use('/admin', requireAuth);
-app.use('/lecturer', requireAuth, requireRoles('DOSEN'));
+app.use('/lecturer', requireAuth); // role check handled per sub‑router
 app.use('/students', requireAuth, requireRoles('MAHASISWA', 'ADMIN'));
 app.use('/student-progress', requireAuth, requireRoles('MAHASISWA'));
 app.use('/courses', requireAuth, requireRoles('MAHASISWA', 'DOSEN', 'ADMIN'));

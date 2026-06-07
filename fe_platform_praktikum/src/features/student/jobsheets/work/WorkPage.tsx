@@ -21,7 +21,8 @@ export default function WorkPage() {
     loading,
     error,
     updateExperiment,
-    updateExercise
+    updateExercise,
+    trackActivity,
   } = useWorkPage(courseId, jobsheetId)
 
   const handleWorkScroll = useCallback(() => {
@@ -101,7 +102,8 @@ export default function WorkPage() {
                 submission,
                 programmingLanguage: jobsheet.programmingLanguage || course?.programmingLanguage || "java",
                 updateExperiment,
-                updateExercise
+                updateExercise,
+                trackActivity,
               }}
             />
           </div>

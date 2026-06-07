@@ -404,3 +404,82 @@ export function getLatestSubmissionForStudent(
       return rightTime - leftTime
     })[0] ?? null
 }
+
+export interface LecturerClassProgressSummary {
+  totalStudents: number
+  notStartedCount: number
+  inProgressCount: number
+  stalledCount: number
+  completedCount: number
+}
+
+export interface LecturerClassProgressStudent {
+  student_id: string
+  fullname: string
+  nim: string
+  avatar_url?: string
+  current_experiment_id?: string | null
+  current_instruction_id?: string | null
+  completed_steps: number
+  total_steps: number
+  progress_percentage: number
+  first_opened_at?: string | null
+  last_activity_at?: string | null
+  completed_at?: string | null
+  status: "not_started" | "in_progress" | "stalled" | "completed"
+  current_position_title: string
+}
+
+export interface LecturerClassProgressResponse {
+  summary: LecturerClassProgressSummary
+  students: LecturerClassProgressStudent[]
+}
+
+export interface LecturerStudentActivityLog {
+  experiment_id?: string | null
+  instruction_id?: string | null
+  activity_type: string
+  metadata?: Record<string, any>
+  created_at: string
+  description: string
+}
+
+export interface LecturerStudentDetailProgressResponse {
+  student: {
+    fullname: string
+    email: string
+    nim: string
+    avatar_url?: string
+  }
+  progress: {
+    completed_steps: number
+    total_steps: number
+    progress_percentage: number
+    first_opened_at?: string | null
+    last_activity_at?: string | null
+    completed_at?: string | null
+    status: "not_started" | "in_progress" | "stalled" | "completed"
+  }
+  logs: LecturerStudentActivityLog[]
+}
+
+export async function getLecturerClassProgress(
+  jobsheetId: string,
+  classId: string,
+): Promise<LecturerClassProgressResponse> {
+  const response = await apiFetch(
+    `/lecturer/jobsheets/${jobsheetId}/progress?classId=${encodeURIComponent(classId)}`,
+  )
+  return response.data
+}
+
+export async function getLecturerStudentDetailProgress(
+  jobsheetId: string,
+  studentId: string,
+  classId: string,
+): Promise<LecturerStudentDetailProgressResponse> {
+  const response = await apiFetch(
+    `/lecturer/jobsheets/${jobsheetId}/progress/${studentId}?classId=${encodeURIComponent(classId)}`,
+  )
+  return response.data
+}

@@ -21,6 +21,8 @@ interface Props {
     output: string
     analysis: JSONContent
   }[]
+  onRun?: () => void
+  onSave?: () => void
 }
 
 type BottomPanelTab = "terminal" | "analysis"
@@ -69,6 +71,8 @@ export default function InstructionWorkspaceCard({
   language,
   onChange,
   initialSteps,
+  onRun,
+  onSave,
 }: Props) {
   const defaultFileName = getDefaultFileName(language)
   const totalSteps = Math.max(instructions.length, initialSteps?.length || 0, 1)
@@ -183,6 +187,9 @@ export default function InstructionWorkspaceCard({
       await onChange(steps)
       setIsDirty(false)
       setSaveStatus("Tersimpan")
+      if (onSave) {
+        onSave()
+      }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Gagal menyimpan workspace.")
     } finally {
@@ -206,6 +213,10 @@ export default function InstructionWorkspaceCard({
     const runIndex = activeIndex
     const runStartedAt = performance.now()
     const currentFiles = codeMap[runIndex] || {}
+
+    if (onRun) {
+      onRun()
+    }
     const entryFile = currentFiles[activeFile] !== undefined
       ? activeFile
       : Object.keys(currentFiles)[0] || defaultFileName

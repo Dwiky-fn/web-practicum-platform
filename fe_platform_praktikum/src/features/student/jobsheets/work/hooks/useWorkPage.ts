@@ -8,7 +8,7 @@ import { getJobsheetById } from "../../../../../services/jobsheet/service"
 import { getOrCreateSubmissionByJobsheetId } from "../../../../../services/submission/service" 
 import { getCourseById } from "../../../../../services/course/service"
 import { updateSubmission } from "../../../../../services/submission/service"
-import { getStudentProgress, upsertStudentProgress } from "../../../../../services/progress/service"
+import { getStudentProgress, upsertStudentProgress, updateStudentProgressApi } from "../../../../../services/progress/service"
 import type { StudentProgressItem } from "../../../../../services/progress/types"
 import { useCurrentUser } from "../../../../../services/user/useCurrentUser"
 import { buildWorkNavigation } from "../utils/buildNavigation"
@@ -66,6 +66,15 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
         return prev
       }
 
+      // Track completion
+      const activityType = item.type === "experiment" ? "complete_experiment" : "complete_instruction"
+      updateStudentProgressApi(jobsheetIdRef.current || "", {
+        studentId: user?.id || "",
+        experimentId: item.type === "experiment" ? item.id : null,
+        instructionId: item.type !== "experiment" ? item.id : null,
+        activityType,
+      }).catch(console.error)
+
       return [
         ...prev,
         {
@@ -74,7 +83,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
         },
       ]
     })
-  }, [])
+  }, [user])
 
   useEffect(() => {
     jobsheetIdRef.current = jobsheetId
@@ -86,6 +95,90 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
       isMountedRef.current = false
     }
   }, [])
+
+  const trackActivity = useCallback(async (
+    activityType: string,
+    opts?: { experimentId?: string | null; instructionId?: string | null; metadata?: Record<string, any> }
+  ) => {
+    if (!jobsheetId || !user) return
+
+    let experimentId = opts?.experimentId
+    let instructionId = opts?.instructionId
+
+    if (experimentId === undefined && instructionId === undefined && jobsheet) {
+      const navItems = buildWorkNavigation(courseId || "", jobsheet)
+      const currentItem = navItems.find((item) => location.pathname.startsWith(item.path))
+      if (currentItem) {
+        if (currentItem.type === "experiment") {
+          experimentId = currentItem.id
+          instructionId = null
+        } else {
+          experimentId = null
+          instructionId = currentItem.id
+        }
+      }
+    }
+
+    try {
+      await updateStudentProgressApi(jobsheetId, {
+        studentId: user.id,
+        experimentId: experimentId || null,
+        instructionId: instructionId || null,
+        activityType,
+        metadata: opts?.metadata || {},
+      })
+    } catch (err) {
+      console.error("Failed to track activity:", activityType, err)
+    }
+  }, [jobsheetId, user, jobsheet, courseId, location.pathname])
+
+  // Track workspace opened and closed
+  useEffect(() => {
+    if (!jobsheetId || !user || loading || error) return
+
+    updateStudentProgressApi(jobsheetId, {
+      studentId: user.id,
+      activityType: "workspace_opened",
+    }).catch(console.error)
+
+    return () => {
+      updateStudentProgressApi(jobsheetId, {
+        studentId: user.id,
+        activityType: "workspace_closed",
+      }).catch(console.error)
+    }
+  }, [jobsheetId, user, loading, error])
+
+  // Track tab transitions
+  const lastPathRef = useRef("")
+  useEffect(() => {
+    if (!courseId || !jobsheetId || !jobsheet || !user || loading) return
+    if (location.pathname === lastPathRef.current) return
+    lastPathRef.current = location.pathname
+
+    const navItems = buildWorkNavigation(courseId, jobsheet)
+    const currentItem = navItems.find((item) =>
+      location.pathname.startsWith(item.path)
+    )
+
+    if (!currentItem) return
+
+    if (currentItem.type === "experiment") {
+      updateStudentProgressApi(jobsheetId, {
+        studentId: user.id,
+        experimentId: currentItem.id,
+        instructionId: null,
+        activityType: "open_experiment",
+      }).catch(console.error)
+    } else {
+      updateStudentProgressApi(jobsheetId, {
+        studentId: user.id,
+        experimentId: null,
+        instructionId: currentItem.id,
+        activityType: "open_instruction",
+      }).catch(console.error)
+    }
+  }, [courseId, jobsheetId, jobsheet, user, location.pathname, loading])
 
   // LOAD DATA
   useEffect(() => {
@@ -346,6 +439,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
     error,
     updateExperiment,
     updateExercise,
-    saveSubmission // 🔥 expose ke UI
+    saveSubmission, // 🔥 expose ke UI
+    trackActivity,
   }
 }

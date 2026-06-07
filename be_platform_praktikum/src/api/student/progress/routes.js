@@ -14,6 +14,11 @@ module.exports = (handler) => {
     requireTargetUserOrRoles('studentId'),
     handler.upsertProgressHandler,
   );
+  router.post(
+    '/student-progress/:jobsheetId/update',
+    requireTargetUserOrRoles('studentId'),
+    handler.updateJobsheetProgressHandler,
+  );
 
   return router;
 };

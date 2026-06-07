@@ -2,6 +2,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import { useEffect, useState } from "react"
 import { getJobsheetById } from "../../../../../../../services/jobsheet/service"
 import { getSubmissionByJobsheetIdPreview, submitSubmission, updateSubmission } from "../../../../../../../services/submission/service"
+import { updateStudentProgressApi } from "../../../../../../../services/progress/service"
 
 import type { Jobsheet } from "../../../../../../../services/jobsheet/types"
 import type { JobsheetSubmission } from "../../../../../../../services/submission/types"
@@ -37,6 +38,10 @@ export default function PreviewPage() {
       await updateSubmission(courseId, jobsheetId, user.id, buildReport(submission))
 
       await submitSubmission(courseId, jobsheetId, user.id)
+      await updateStudentProgressApi(jobsheetId, {
+        studentId: user.id,
+        activityType: "submit_answer",
+      }).catch(console.error)
       setShowSuccess(true)
     } catch (err) {
       console.error("Submit error:", err)

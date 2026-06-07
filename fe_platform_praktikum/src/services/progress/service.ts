@@ -23,3 +23,24 @@ export const upsertStudentProgress = async (
 
   return res.data.progress
 }
+
+export interface UpdateStudentProgressPayload {
+  studentId: string
+  classId?: string
+  experimentId?: string | null
+  instructionId?: string | null
+  activityType: string
+  metadata?: Record<string, any>
+}
+
+export const updateStudentProgressApi = async (
+  jobsheetId: string,
+  payload: UpdateStudentProgressPayload,
+): Promise<any> => {
+  const res = await apiFetch(`/student-progress/${jobsheetId}/update`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+
+  return res.data.progress
+}

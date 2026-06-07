@@ -1,8 +1,9 @@
 const autoBind = require('auto-bind');
 
 class StudentProgressHandler {
-  constructor(service) {
+  constructor(service, jobsheetProgressService) {
     this._service = service;
+    this._jobsheetProgressService = jobsheetProgressService;
     autoBind(this);
   }
 
@@ -67,6 +68,47 @@ class StudentProgressHandler {
       return res
         .status(500)
         .json({ status: 'fail', message: 'Gagal menyimpan progress' });
+    }
+  }
+
+  async updateJobsheetProgressHandler(req, res) {
+    try {
+      const { jobsheetId } = req.params;
+      const { studentId, classId, experimentId, instructionId, activityType, metadata } = req.body;
+
+      if (!studentId) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'studentId wajib diisi',
+        });
+      }
+
+      if (!activityType) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'activityType wajib diisi',
+        });
+      }
+
+      const result = await this._jobsheetProgressService.updateProgress({
+        studentId,
+        jobsheetId,
+        classId,
+        experimentId,
+        instructionId,
+        activityType,
+        metadata,
+      });
+
+      return res.json({
+        status: 'success',
+        data: { progress: result },
+      });
+    } catch (err) {
+      console.error(err);
+      return res
+        .status(500)
+        .json({ status: 'fail', message: 'Gagal memperbarui progress/aktivitas' });
     }
   }
 }

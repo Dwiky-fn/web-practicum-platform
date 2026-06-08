@@ -460,8 +460,9 @@ class UsersService {
         u.created_at,
         -- Student Profile
         sp.nim,
-        sp.program_studi,
-        sp.jurusan,
+        COALESCE(prog.name, sp.program_studi) AS program_studi,
+        COALESCE(dept.name, sp.jurusan) AS jurusan,
+        sp.study_program_id,
         sp.angkatan,
         sp.semester,
         sp.status,
@@ -480,6 +481,8 @@ class UsersService {
         lp.kota AS lp_kota
       FROM users u
       LEFT JOIN student_profiles sp ON sp.user_id = u.id
+      LEFT JOIN study_programs prog ON prog.id = sp.study_program_id
+      LEFT JOIN departments dept ON dept.id = prog.department_id
       LEFT JOIN lecturer_profiles lp ON lp.user_id = u.id
       WHERE u.id = $1`,
       [userId],

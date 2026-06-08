@@ -39,6 +39,7 @@ const mapStudent = (row) => ({
   status: row.is_active ? displayStatus(normalizeStatus(row.status)) : 'Nonaktif',
   programStudi: row.program_studi || 'Teknik Informatika',
   jurusan: row.jurusan || 'Teknologi Informasi',
+  studyProgramId: row.study_program_id || undefined,
   avatarUrl: row.avatar_url || undefined,
 });
 

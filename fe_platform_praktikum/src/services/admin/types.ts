@@ -94,6 +94,17 @@ export interface AdminDashboardSummary {
   }>
 }
 
+export interface StudyProgram {
+  id: string
+  name: string
+}
+
+export interface Department {
+  id: string
+  name: string
+  studyPrograms: StudyProgram[]
+}
+
 export interface CreateStudentPayload {
   nim: string
   fullname: string
@@ -101,6 +112,9 @@ export interface CreateStudentPayload {
   angkatan?: number
   semester?: number
   status?: AdminUserStatus
+  programStudi?: string
+  jurusan?: string
+  studyProgramId?: string
 }
 
 export interface CreateLecturerPayload {
@@ -120,6 +134,7 @@ export interface UpdateAdminUserPayload {
   semester?: number
   programStudi?: string
   jurusan?: string
+  studyProgramId?: string
 }
 
 export interface CreateSemesterPayload {

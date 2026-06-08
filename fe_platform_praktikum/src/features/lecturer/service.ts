@@ -198,7 +198,7 @@ export async function getLecturerCourseGroups(): Promise<LecturerCourseGroup[]> 
 }
 
 export async function getLecturerCourseGroup(
-  lecturerId: string,
+  _lecturerId: string,
   courseId: string,
 ): Promise<LecturerCourseGroup | null> {
   const groups = await getLecturerCourseGroups()

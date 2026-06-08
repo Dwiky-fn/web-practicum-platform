@@ -65,11 +65,17 @@ class AdminUsersService {
     const result = await this._pool.query(
       `
       SELECT u.id, u.fullname, u.email, u.is_active,
-        sp.nim, sp.program_studi, sp.jurusan, sp.angkatan, sp.semester,
+        sp.nim, 
+        COALESCE(prog.name, sp.program_studi) AS program_studi, 
+        COALESCE(dept.name, sp.jurusan) AS jurusan, 
+        sp.study_program_id,
+        sp.angkatan, sp.semester,
         sp.status, sp.avatar_url, sp.no_telepon, sp.tempat_lahir,
         sp.tanggal_lahir, sp.kota
       FROM users u
       LEFT JOIN student_profiles sp ON sp.user_id = u.id
+      LEFT JOIN study_programs prog ON prog.id = sp.study_program_id
+      LEFT JOIN departments dept ON dept.id = prog.department_id
       WHERE u.role = 'MAHASISWA'
         AND ($1 = '%%' OR LOWER(u.fullname) LIKE $1 OR LOWER(u.email) LIKE $1 OR LOWER(COALESCE(sp.nim, '')) LIKE $1)
         ${semesterClause}
@@ -130,17 +136,36 @@ class AdminUsersService {
           ],
         );
       } else {
+        let programStudi = payload.programStudi || payload.program_studi || 'Teknik Informatika';
+        let jurusan = payload.jurusan || 'Teknologi Informasi';
+        const studyProgramId = payload.studyProgramId || payload.study_program_id || null;
+
+        if (studyProgramId) {
+          const spResult = await client.query(
+            `SELECT sp.name AS program_name, d.name AS dept_name 
+             FROM study_programs sp 
+             JOIN departments d ON d.id = sp.department_id 
+             WHERE sp.id = $1`,
+            [studyProgramId]
+          );
+          if (spResult.rows.length) {
+            programStudi = spResult.rows[0].program_name;
+            jurusan = spResult.rows[0].dept_name;
+          }
+        }
+
         await client.query(
-          `INSERT INTO student_profiles (user_id, nim, program_studi, jurusan, angkatan, semester, status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          `INSERT INTO student_profiles (user_id, nim, program_studi, jurusan, angkatan, semester, status, study_program_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
           [
             id,
             payload.nim,
-            payload.programStudi || payload.program_studi || 'Teknik Informatika',
-            payload.jurusan || 'Teknologi Informasi',
+            programStudi,
+            jurusan,
             payload.angkatan ? Number(payload.angkatan) : null,
             payload.semester ? Number(payload.semester) : null,
             displayStatus(normalizeStatus(payload.status)),
+            studyProgramId,
           ],
         );
       }
@@ -192,6 +217,24 @@ class AdminUsersService {
       );
 
       if (role === 'MAHASISWA') {
+        let programStudi = payload.programStudi || payload.program_studi || null;
+        let jurusan = payload.jurusan || null;
+        const studyProgramId = payload.studyProgramId || payload.study_program_id || null;
+
+        if (studyProgramId) {
+          const spResult = await client.query(
+            `SELECT sp.name AS program_name, d.name AS dept_name 
+             FROM study_programs sp 
+             JOIN departments d ON d.id = sp.department_id 
+             WHERE sp.id = $1`,
+            [studyProgramId]
+          );
+          if (spResult.rows.length) {
+            programStudi = spResult.rows[0].program_name;
+            jurusan = spResult.rows[0].dept_name;
+          }
+        }
+
         await client.query(
           `UPDATE student_profiles
            SET
@@ -200,16 +243,18 @@ class AdminUsersService {
             semester = COALESCE($4, semester),
             program_studi = COALESCE($5, program_studi),
             jurusan = COALESCE($6, jurusan),
-            status = COALESCE($7, status)
+            status = COALESCE($7, status),
+            study_program_id = COALESCE($8, study_program_id)
            WHERE user_id = $1`,
           [
             id,
             payload.nim || null,
             payload.angkatan ? Number(payload.angkatan) : null,
             payload.semester ? Number(payload.semester) : null,
-            payload.programStudi || payload.program_studi || null,
-            payload.jurusan || null,
+            programStudi,
+            jurusan,
             status ? displayStatus(status) : null,
+            studyProgramId,
           ],
         );
       }

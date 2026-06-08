@@ -23,21 +23,25 @@ import {
   deleteAdminUser,
   getAdminSemesters,
   getAdminUsers,
+  getAdminDepartments,
 } from "../../../services/admin/service"
 import type {
   AcademicSemester,
   AdminLecturer,
   AdminStudent,
   UserRoleTab,
+  Department,
 } from "../../../services/admin/types"
 import {
-  getAcademicYearOptions,
   getActiveSemester,
   getStudentSemesterOptions,
 } from "../academic/semesterOptions"
 
 type ModalMode = "add" | "import" | "menu" | null
 type ConfirmAction = "activate" | "deactivate" | "delete"
+
+const currentYear = new Date().getFullYear()
+const angkatanOptions = Array.from({ length: 8 }, (_, index) => currentYear - index)
 
 function parseCsv(text: string) {
   return text
@@ -69,6 +73,11 @@ export default function AdminUsersPage() {
   const [error, setError] = useState("")
   const [successMessage, setSuccessMessage] = useState("")
   const isStudent = role === "students"
+
+  // Department & Study Program states
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [selectedDeptId, setSelectedDeptId] = useState("dept-3")
+  const [selectedProdiId, setSelectedProdiId] = useState("prodi-8")
 
   // Multi-select & Long Press state
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -154,8 +163,6 @@ export default function AdminUsersPage() {
   }
   const activeSemester = getActiveSemester(semesters)
   const studentSemesterOptions = getStudentSemesterOptions(activeSemester?.term)
-  const academicYearOptions = getAcademicYearOptions(semesters)
-  const fallbackAcademicYears = Array.from({ length: 3 }, (_, index) => new Date().getFullYear() - index)
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
@@ -197,6 +204,25 @@ export default function AdminUsersPage() {
   }, [])
 
   useEffect(() => {
+    async function fetchDepartments() {
+      try {
+        const data = await getAdminDepartments()
+        setDepartments(data)
+      } catch (err) {
+        console.error("Gagal mengambil data jurusan:", err)
+      }
+    }
+    fetchDepartments()
+  }, [])
+
+  useEffect(() => {
+    if (!modal) {
+      setSelectedDeptId("dept-3")
+      setSelectedProdiId("prodi-8")
+    }
+  }, [modal])
+
+  useEffect(() => {
     if (semester !== "all" && !studentSemesterOptions.includes(Number(semester))) {
       setSemester("all")
     }
@@ -218,6 +244,7 @@ export default function AdminUsersPage() {
           angkatan: Number(form.get("angkatan") || 0),
           semester: Number(form.get("semester") || 0),
           status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
+          studyProgramId: selectedProdiId,
         })
       } else {
         const lecturer = await createAdminLecturer({
@@ -255,7 +282,7 @@ export default function AdminUsersPage() {
 
       for (const row of normalizedRows) {
         if (isStudent) {
-          const [nim, fullname, angkatan, semesterValue, email] = row
+          const [nim, fullname, angkatan, semesterValue, email, programStudi, jurusan] = row
           await createAdminStudent({
             nim,
             fullname,
@@ -263,6 +290,8 @@ export default function AdminUsersPage() {
             semester: Number(semesterValue || 0),
             email,
             status: "Aktif",
+            programStudi: programStudi || undefined,
+            jurusan: jurusan || undefined,
           })
         } else {
           const [nip, fullname, email] = row
@@ -349,7 +378,7 @@ export default function AdminUsersPage() {
             <div className="rounded-md bg-blue-50 p-4 text-sm text-blue-900">
               <p className="font-semibold">Catatan:</p>
               <p>
-                Format: {isStudent ? "NIM, Nama, Angkatan, Semester, Email" : "NIP, Nama, Email"}
+                Format: {isStudent ? "NIM, Nama, Angkatan, Semester, Email, Program Studi (Opsional), Jurusan (Opsional)" : "NIP, Nama, Email"}
               </p>
             </div>
           </form>
@@ -385,10 +414,12 @@ export default function AdminUsersPage() {
           {isStudent && (
             <>
               <FieldRow label="Angkatan">
-                <select name="angkatan" className={inputClass} required>
+                <select name="angkatan" className={inputClass} defaultValue="" required>
                   <option value="" disabled>Pilih angkatan</option>
-                  {(academicYearOptions.length ? academicYearOptions : fallbackAcademicYears).map((year) => (
-                    <option key={year}>{year}</option>
+                  {angkatanOptions.map((year) => (
+                    <option key={year} value={String(year)}>
+                      {year}
+                    </option>
                   ))}
                 </select>
               </FieldRow>
@@ -397,6 +428,45 @@ export default function AdminUsersPage() {
                   <option value="" disabled>Pilih semester</option>
                   {studentSemesterOptions.map((option) => (
                     <option key={option}>{option}</option>
+                  ))}
+                </select>
+              </FieldRow>
+              <FieldRow label="Jurusan">
+                <select
+                  className={inputClass}
+                  value={selectedDeptId}
+                  onChange={(e) => {
+                    setSelectedDeptId(e.target.value)
+                    setSelectedProdiId("")
+                  }}
+                  required
+                >
+                  <option value="" disabled>Pilih Jurusan</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </select>
+              </FieldRow>
+              <FieldRow label="Program Studi">
+                <select
+                  className={inputClass}
+                  value={selectedProdiId}
+                  onChange={(e) => setSelectedProdiId(e.target.value)}
+                  disabled={!selectedDeptId}
+                  required
+                >
+                  <option value="" disabled>
+                    Pilih Program Studi
+                  </option>
+                  {(
+                    departments.find((d) => d.id === selectedDeptId)
+                      ?.studyPrograms || []
+                  ).map((prodi) => (
+                    <option key={prodi.id} value={prodi.id}>
+                      {prodi.name}
+                    </option>
                   ))}
                 </select>
               </FieldRow>

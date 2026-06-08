@@ -7,7 +7,13 @@ import type {
   CreateStudentPayload,
   UpdateAdminUserPayload,
   UserRoleTab,
+  Department,
 } from "../types"
+
+export const getAdminDepartments = async (): Promise<Department[]> => {
+  const res = await apiFetch("/departments")
+  return res.data.departments
+}
 
 export const getAdminUsers = async (
   role: UserRoleTab,

@@ -9,6 +9,7 @@ const execution = require('./api/execution');
 const users = require('./api/users');
 const admin = require('./api/admin');
 const lecturer = require('./api/lecturer');
+const departments = require('./api/departments');
 const {
   requireAuth,
   requireRoles,
@@ -28,11 +29,13 @@ app.use('/students', requireAuth, requireRoles('MAHASISWA', 'ADMIN'));
 app.use('/student-progress', requireAuth, requireRoles('MAHASISWA'));
 app.use('/courses', requireAuth, requireRoles('MAHASISWA', 'DOSEN', 'ADMIN'));
 app.use('/users', requireAuth);
+app.use('/departments', requireAuth);
 
 student(app);
 users(app);
 admin(app);
 lecturer(app);
+departments(app);
 execution(server);
 
 // test route

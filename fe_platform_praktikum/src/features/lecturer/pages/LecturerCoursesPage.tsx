@@ -23,7 +23,7 @@ export default function LecturerCoursesPage() {
       setError("")
 
       try {
-        const groups = await getLecturerCourseGroups(user.id)
+        const groups = await getLecturerCourseGroups()
         setCourses(groups)
         setOpenIds(groups[0] ? [groups[0].id] : [])
       } catch (loadError) {

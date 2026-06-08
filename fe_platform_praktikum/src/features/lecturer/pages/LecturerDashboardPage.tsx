@@ -48,7 +48,7 @@ export default function LecturerDashboardPage() {
       setError("")
 
       try {
-        const groups = await getLecturerCourseGroups(user.id)
+        const groups = await getLecturerCourseGroups()
         setCourseGroups(groups)
 
         if (groups.length > 0) {

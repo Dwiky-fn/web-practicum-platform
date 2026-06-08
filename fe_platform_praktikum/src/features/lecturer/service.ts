@@ -153,7 +153,7 @@ export function isSubmittedSubmission(submission: JobsheetSubmission | null) {
   return Boolean(submission && submission.status !== "DRAFT")
 }
 
-export async function getLecturerCourseGroups(_lecturerId: string): Promise<LecturerCourseGroup[]> {
+export async function getLecturerCourseGroups(): Promise<LecturerCourseGroup[]> {
   const response = await apiFetch("/lecturer/classes")
   const lecturerClasses = response.data.classes as AcademicClass[]
 
@@ -201,7 +201,7 @@ export async function getLecturerCourseGroup(
   lecturerId: string,
   courseId: string,
 ): Promise<LecturerCourseGroup | null> {
-  const groups = await getLecturerCourseGroups(lecturerId)
+  const groups = await getLecturerCourseGroups()
   return groups.find((group) => group.id === courseId) ?? null
 }
 
@@ -439,7 +439,7 @@ export interface LecturerStudentActivityLog {
   experiment_id?: string | null
   instruction_id?: string | null
   activity_type: string
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
   created_at: string
   description: string
 }

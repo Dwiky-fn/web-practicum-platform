@@ -1,6 +1,7 @@
 import { ChevronDown, FileUp, Plus, Trash2, UserCheck, UserX } from "lucide-react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
+import * as XLSX from "xlsx"
 import AdminLayout from "../components/AdminLayout"
 import {
   AdminButton,
@@ -78,6 +79,11 @@ export default function AdminUsersPage() {
   const [departments, setDepartments] = useState<Department[]>([])
   const [selectedDeptId, setSelectedDeptId] = useState("dept-3")
   const [selectedProdiId, setSelectedProdiId] = useState("prodi-8")
+
+  // Drag & Drop Import File states & ref
+  const [isDraggingFile, setIsDraggingFile] = useState(false)
+  const [importFileError, setImportFileError] = useState("")
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // Multi-select & Long Press state
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -219,6 +225,12 @@ export default function AdminUsersPage() {
     if (!modal) {
       setSelectedDeptId("dept-3")
       setSelectedProdiId("prodi-8")
+      setImportFile(null)
+      setIsDraggingFile(false)
+      setImportFileError("")
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
     }
   }, [modal])
 
@@ -267,6 +279,66 @@ export default function AdminUsersPage() {
     }
   }
 
+  const allowedExtensions = ["xlsx", "xls", "csv"]
+
+  const validateImportFile = (file: File) => {
+    const extension = file.name.split(".").pop()?.toLowerCase()
+    if (!extension || !allowedExtensions.includes(extension)) {
+      return "Format file tidak didukung. Gunakan file .xlsx, .xls, atau .csv."
+    }
+    return ""
+  }
+
+  const handleImportFileSelect = (file: File) => {
+    const errorMessage = validateImportFile(file)
+    if (errorMessage) {
+      setImportFile(null)
+      setImportFileError(errorMessage)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+      return
+    }
+    setImportFile(file)
+    setImportFileError("")
+  }
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingFile(true)
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingFile(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingFile(false)
+  }
+
+  const handleDropImportFile = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingFile(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) {
+      handleImportFileSelect(file)
+    }
+  }
+
+  const handleRemoveImportFile = () => {
+    setImportFile(null)
+    setImportFileError("")
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
   const handleImportSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!importFile) return
@@ -275,7 +347,19 @@ export default function AdminUsersPage() {
       setSubmitting(true)
       setError("")
       setSuccessMessage("")
-      const rows = parseCsv(await importFile.text())
+      let rows: string[][] = []
+      const extension = importFile.name.split(".").pop()?.toLowerCase()
+      if (extension === "xlsx" || extension === "xls") {
+        const data = await importFile.arrayBuffer()
+        const workbook = XLSX.read(new Uint8Array(data), { type: "array" })
+        const sheetName = workbook.SheetNames[0]
+        if (!sheetName) throw new Error("File Excel tidak memiliki sheet data")
+        const worksheet = workbook.Sheets[sheetName]
+        const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][]
+        rows = rawRows.map(row => row.map(cell => String(cell === null || cell === undefined ? "" : cell).trim()))
+      } else {
+        rows = parseCsv(await importFile.text())
+      }
       const normalizedRows = rows[0]?.[0]?.toLowerCase().includes(isStudent ? "nim" : "nip")
         ? rows.slice(1)
         : rows
@@ -355,7 +439,7 @@ export default function AdminUsersPage() {
           footer={
             <>
               <AdminButton variant="secondary" onClick={() => setModal(null)} disabled={submitting}>Batal</AdminButton>
-              <AdminButton type="submit" form="admin-import-form" disabled={submitting || !importFile}>
+              <AdminButton type="submit" form="admin-import-form" disabled={submitting || !importFile || !!importFileError}>
                 {submitting ? "Mengimport..." : "Import"}
               </AdminButton>
             </>
@@ -363,18 +447,71 @@ export default function AdminUsersPage() {
         >
           <form id="admin-import-form" className="space-y-5" onSubmit={handleImportSubmit}>
             <div>
-              <p className="text-sm font-medium text-gray-700">Upload File CSV</p>
-              <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-100">
-                <FileUp size={16} />
-                {importFile ? importFile.name : "Pilih File"}
+              <p className="text-sm font-medium text-gray-700 mb-2">Upload File Import</p>
+              
+              <div
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDropImportFile}
+                onClick={() => fileInputRef.current?.click()}
+                className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition cursor-pointer ${
+                  isDraggingFile
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400"
+                }`}
+              >
                 <input
+                  ref={fileInputRef}
                   type="file"
-                  accept=".csv,text/csv"
+                  accept=".xlsx,.xls,.csv"
                   className="sr-only"
-                  onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0]
+                    if (file) {
+                      handleImportFileSelect(file)
+                    }
+                  }}
                 />
-              </label>
+                
+                <FileUp className={`h-10 w-10 mb-3 ${isDraggingFile ? "text-blue-500" : "text-gray-400"}`} />
+                <p className="text-sm font-medium text-gray-700">
+                  Drag & drop file di sini atau klik untuk memilih file
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Format yang didukung: .xlsx, .xls, atau .csv
+                </p>
+              </div>
+
+              {importFileError && (
+                <p className="mt-2 text-sm text-red-600 font-medium">{importFileError}</p>
+              )}
+
+              {importFile && !importFileError && (
+                <div className="mt-4 flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <div className="rounded bg-blue-100 p-1.5 text-blue-700">
+                      <FileUp size={16} />
+                    </div>
+                    <div className="overflow-hidden">
+                      <p className="text-xs font-semibold text-gray-500 uppercase">File terpilih</p>
+                      <p className="text-sm font-medium text-gray-800 truncate">{importFile.name}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleRemoveImportFile()
+                    }}
+                    className="text-xs font-semibold text-red-600 hover:text-red-800 hover:underline px-2 py-1"
+                  >
+                    Hapus file
+                  </button>
+                </div>
+              )}
             </div>
+
             <div className="rounded-md bg-blue-50 p-4 text-sm text-blue-900">
               <p className="font-semibold">Catatan:</p>
               <p>

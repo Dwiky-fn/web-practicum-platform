@@ -1,5 +1,6 @@
 const pool = require('..');
 const { randomUUID } = require('crypto');
+const AiEvaluationQueue = require('../../execution/AiEvaluationQueue');
 
 class SubmissionsService {
   constructor(jobsheetService) {
@@ -214,6 +215,7 @@ class SubmissionsService {
 
       await this.resetReviewForSubmission(existing.id, client);
       await client.query('COMMIT');
+      AiEvaluationQueue.addJob(existing.id);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

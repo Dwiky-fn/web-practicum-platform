@@ -24,6 +24,28 @@ class SubmissionsHandler {
     return studentId;
   }
 
+  _filterSubmissionForStudent(submission, userRole) {
+    if (!submission) return null;
+
+    const result = { ...submission };
+
+    if (userRole === 'MAHASISWA') {
+      if (result.review) {
+        if (result.review.decision === 'PENDING') {
+          // Sembunyikan review jika masih draft (PENDING)
+          result.review = null;
+        } else {
+          // Hapus ai_feedback agar tidak membocorkan metadata AI ke mahasiswa
+          const cleanReview = { ...result.review };
+          delete cleanReview.ai_feedback;
+          result.review = cleanReview;
+        }
+      }
+    }
+
+    return result;
+  }
+
   async postSubmissionHandler(req, res) {
     try {
       const payload = req.body;
@@ -54,9 +76,11 @@ class SubmissionsHandler {
       studentId,
     );
 
+    const filtered = this._filterSubmissionForStudent(submission, req.user?.role);
+
     return res.json({
       status: 'success',
-      data: { submission },
+      data: { submission: filtered },
     });
   }
 
@@ -71,9 +95,11 @@ class SubmissionsHandler {
       studentId,
     );
 
+    const filtered = this._filterSubmissionForStudent(submission, req.user?.role);
+
     return res.json({
       status: 'success',
-      data: { submission },
+      data: { submission: filtered },
     });
   }
 
@@ -107,7 +133,9 @@ class SubmissionsHandler {
         studentId,
       );
 
-      return res.json({ status: 'success', data: { submission } });
+      const filtered = this._filterSubmissionForStudent(submission, req.user?.role);
+
+      return res.json({ status: 'success', data: { submission: filtered } });
     } catch (error) {
       console.error(error);
       return res

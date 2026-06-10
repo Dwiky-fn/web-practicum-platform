@@ -1,0 +1,725 @@
+{
+  "info": {
+    "name": "AI Evaluator Service",
+    "description": "Koleksi pengujian lokal AI Evaluator Service.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Health check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200 atau 503', function () { pm.expect(pm.response.code).to.be.oneOf([200,503]); });",
+              "pm.test('Response JSON valid', function () { pm.response.to.be.json; });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-AI-Service-Key",
+            "value": "{{aiServiceKey}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      }
+    },
+    {
+      "name": "2. Evaluasi Java satu file",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Response JSON valid', function () { pm.response.to.be.json; });",
+              "const body = pm.response.json();",
+              "pm.test('status success', function () { pm.expect(body.status).to.eql('success'); });",
+              "pm.test('requires lecturer review', function () { pm.expect(body.data.requiresLecturerReview).to.eql(true); });",
+              "pm.test('scope response sesuai request', function () { const requestBody = JSON.parse(pm.request.body.raw); pm.expect(body.data.scope).to.eql(requestBody.scope); });",
+              "pm.test('score tidak melebihi maxScore', function () { (body.data.rubricScores || []).forEach((item) => pm.expect(item.score).to.be.at.most(item.maxScore)); });",
+              "pm.test('nomor baris code feedback valid', function () { (body.data.codeFeedbacks || []).forEach((item) => { pm.expect(item.startLine).to.be.at.least(1); pm.expect(item.endLine).to.be.at.least(item.startLine); }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-AI-Service-Key",
+            "value": "{{aiServiceKey}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/evaluations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "evaluations"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"scope\": \"experiment\",\n  \"submissionId\": \"submission-123\",\n  \"jobsheet\": {\n    \"id\": \"jobsheet-1\",\n    \"title\": \"Percabangan\",\n    \"description\": \"Latihan percabangan\"\n  },\n  \"experiment\": {\n    \"id\": \"experiment-1\",\n    \"title\": \"Percobaan 1\",\n    \"objective\": \"Memahami percabangan\",\n    \"instruction\": \"Baca bilangan dan tampilkan Positif jika lebih dari nol.\",\n    \"language\": \"java\",\n    \"files\": [\n      {\n        \"id\": \"file-1\",\n        \"path\": \"src/Main.java\",\n        \"language\": \"java\",\n        \"content\": \"public class Main {\\n  public static void main(String[] args) {\\n    System.out.println(\\\"Positif\\\");\\n  }\\n}\"\n      }\n    ],\n    \"execution\": {\n      \"status\": \"success\",\n      \"stdin\": \"10\",\n      \"stdout\": \"Positif\",\n      \"stderr\": \"\",\n      \"expectedOutput\": \"Positif\",\n      \"exitCode\": 0,\n      \"durationMs\": 120,\n      \"testCases\": [\n        {\n          \"id\": \"test-1\",\n          \"name\": \"Bilangan positif\",\n          \"input\": \"10\",\n          \"expectedOutput\": \"Positif\",\n          \"actualOutput\": \"Positif\",\n          \"status\": \"passed\"\n        }\n      ]\n    },\n    \"studentAnalysis\": \"Program menggunakan percabangan.\",\n    \"studentConclusion\": \"Percabangan memilih output berdasarkan kondisi.\"\n  },\n  \"rubric\": {\n    \"criteria\": [\n      {\n        \"id\": \"correctness\",\n        \"name\": \"Kebenaran program\",\n        \"description\": \"Kesesuaian hasil program\",\n        \"maxScore\": 100\n      }\n    ]\n  },\n  \"options\": {\n    \"language\": \"id-ID\",\n    \"includeScoreRecommendation\": true\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "3. Evaluasi Java multi-file",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Response JSON valid', function () { pm.response.to.be.json; });",
+              "const body = pm.response.json();",
+              "pm.test('status success', function () { pm.expect(body.status).to.eql('success'); });",
+              "pm.test('requires lecturer review', function () { pm.expect(body.data.requiresLecturerReview).to.eql(true); });",
+              "pm.test('scope response sesuai request', function () { const requestBody = JSON.parse(pm.request.body.raw); pm.expect(body.data.scope).to.eql(requestBody.scope); });",
+              "pm.test('score tidak melebihi maxScore', function () { (body.data.rubricScores || []).forEach((item) => pm.expect(item.score).to.be.at.most(item.maxScore)); });",
+              "pm.test('nomor baris code feedback valid', function () { (body.data.codeFeedbacks || []).forEach((item) => { pm.expect(item.startLine).to.be.at.least(1); pm.expect(item.endLine).to.be.at.least(item.startLine); }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-AI-Service-Key",
+            "value": "{{aiServiceKey}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/evaluations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "evaluations"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"scope\": \"experiment\",\n  \"submissionId\": \"submission-123\",\n  \"jobsheet\": {\n    \"id\": \"jobsheet-1\",\n    \"title\": \"Percabangan\",\n    \"description\": \"Latihan percabangan\"\n  },\n  \"experiment\": {\n    \"id\": \"experiment-1\",\n    \"title\": \"Percobaan 1\",\n    \"objective\": \"Memahami percabangan\",\n    \"instruction\": \"Baca bilangan dan tampilkan Positif jika lebih dari nol.\",\n    \"language\": \"java\",\n    \"files\": [\n      {\n        \"id\": \"file-main\",\n        \"path\": \"src/Main.java\",\n        \"language\": \"java\",\n        \"content\": \"import model.Mahasiswa;\\npublic class Main { public static void main(String[] args) { System.out.println(new Mahasiswa(\\\"Ari\\\").getNama()); } }\"\n      },\n      {\n        \"id\": \"file-model\",\n        \"path\": \"src/model/Mahasiswa.java\",\n        \"language\": \"java\",\n        \"content\": \"package model;\\npublic class Mahasiswa { private final String nama; public Mahasiswa(String nama){this.nama=nama;} public String getNama(){return nama;} }\"\n      }\n    ],\n    \"execution\": {\n      \"status\": \"success\",\n      \"stdin\": \"10\",\n      \"stdout\": \"Positif\",\n      \"stderr\": \"\",\n      \"expectedOutput\": \"Positif\",\n      \"exitCode\": 0,\n      \"durationMs\": 120,\n      \"testCases\": [\n        {\n          \"id\": \"test-1\",\n          \"name\": \"Bilangan positif\",\n          \"input\": \"10\",\n          \"expectedOutput\": \"Positif\",\n          \"actualOutput\": \"Positif\",\n          \"status\": \"passed\"\n        }\n      ]\n    },\n    \"studentAnalysis\": \"Program menggunakan percabangan.\",\n    \"studentConclusion\": \"Percabangan memilih output berdasarkan kondisi.\"\n  },\n  \"rubric\": {\n    \"criteria\": [\n      {\n        \"id\": \"correctness\",\n        \"name\": \"Kebenaran program\",\n        \"description\": \"Kesesuaian hasil program\",\n        \"maxScore\": 100\n      }\n    ]\n  },\n  \"options\": {\n    \"language\": \"id-ID\",\n    \"includeScoreRecommendation\": true\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "4. Evaluasi Python satu file",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Response JSON valid', function () { pm.response.to.be.json; });",
+              "const body = pm.response.json();",
+              "pm.test('status success', function () { pm.expect(body.status).to.eql('success'); });",
+              "pm.test('requires lecturer review', function () { pm.expect(body.data.requiresLecturerReview).to.eql(true); });",
+              "pm.test('scope response sesuai request', function () { const requestBody = JSON.parse(pm.request.body.raw); pm.expect(body.data.scope).to.eql(requestBody.scope); });",
+              "pm.test('score tidak melebihi maxScore', function () { (body.data.rubricScores || []).forEach((item) => pm.expect(item.score).to.be.at.most(item.maxScore)); });",
+              "pm.test('nomor baris code feedback valid', function () { (body.data.codeFeedbacks || []).forEach((item) => { pm.expect(item.startLine).to.be.at.least(1); pm.expect(item.endLine).to.be.at.least(item.startLine); }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-AI-Service-Key",
+            "value": "{{aiServiceKey}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/evaluations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "evaluations"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"scope\": \"experiment\",\n  \"submissionId\": \"submission-123\",\n  \"jobsheet\": {\n    \"id\": \"jobsheet-1\",\n    \"title\": \"Percabangan\",\n    \"description\": \"Latihan percabangan\"\n  },\n  \"experiment\": {\n    \"id\": \"experiment-1\",\n    \"title\": \"Percobaan 1\",\n    \"objective\": \"Memahami percabangan\",\n    \"instruction\": \"Baca bilangan dan tampilkan Positif jika lebih dari nol.\",\n    \"language\": \"python\",\n    \"files\": [\n      {\n        \"id\": \"file-1\",\n        \"path\": \"main.py\",\n        \"language\": \"python\",\n        \"content\": \"nilai = int(input())\\nprint('Positif' if nilai > 0 else 'Tidak positif')\"\n      }\n    ],\n    \"execution\": {\n      \"status\": \"success\",\n      \"stdin\": \"10\",\n      \"stdout\": \"Positif\",\n      \"stderr\": \"\",\n      \"expectedOutput\": \"Positif\",\n      \"exitCode\": 0,\n      \"durationMs\": 120,\n      \"testCases\": [\n        {\n          \"id\": \"test-1\",\n          \"name\": \"Bilangan positif\",\n          \"input\": \"10\",\n          \"expectedOutput\": \"Positif\",\n          \"actualOutput\": \"Positif\",\n          \"status\": \"passed\"\n        }\n      ]\n    },\n    \"studentAnalysis\": \"Program menggunakan percabangan.\",\n    \"studentConclusion\": \"Percabangan memilih output berdasarkan kondisi.\"\n  },\n  \"rubric\": {\n    \"criteria\": [\n      {\n        \"id\": \"correctness\",\n        \"name\": \"Kebenaran program\",\n        \"description\": \"Kesesuaian hasil program\",\n        \"maxScore\": 100\n      }\n    ]\n  },\n  \"options\": {\n    \"language\": \"id-ID\",\n    \"includeScoreRecommendation\": true\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "5. Evaluasi Python multi-file",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Response JSON valid', function () { pm.response.to.be.json; });",
+              "const body = pm.response.json();",
+              "pm.test('status success', function () { pm.expect(body.status).to.eql('success'); });",
+              "pm.test('requires lecturer review', function () { pm.expect(body.data.requiresLecturerReview).to.eql(true); });",
+              "pm.test('scope response sesuai request', function () { const requestBody = JSON.parse(pm.request.body.raw); pm.expect(body.data.scope).to.eql(requestBody.scope); });",
+              "pm.test('score tidak melebihi maxScore', function () { (body.data.rubricScores || []).forEach((item) => pm.expect(item.score).to.be.at.most(item.maxScore)); });",
+              "pm.test('nomor baris code feedback valid', function () { (body.data.codeFeedbacks || []).forEach((item) => { pm.expect(item.startLine).to.be.at.least(1); pm.expect(item.endLine).to.be.at.least(item.startLine); }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-AI-Service-Key",
+            "value": "{{aiServiceKey}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/evaluations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "evaluations"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"scope\": \"experiment\",\n  \"submissionId\": \"submission-123\",\n  \"jobsheet\": {\n    \"id\": \"jobsheet-1\",\n    \"title\": \"Percabangan\",\n    \"description\": \"Latihan percabangan\"\n  },\n  \"experiment\": {\n    \"id\": \"experiment-1\",\n    \"title\": \"Percobaan 1\",\n    \"objective\": \"Memahami percabangan\",\n    \"instruction\": \"Baca bilangan dan tampilkan Positif jika lebih dari nol.\",\n    \"language\": \"python\",\n    \"files\": [\n      {\n        \"id\": \"main\",\n        \"path\": \"app/main.py\",\n        \"language\": \"python\",\n        \"content\": \"from services import klasifikasi\\nnilai = int(input())\\nprint(klasifikasi(nilai))\"\n      },\n      {\n        \"id\": \"service\",\n        \"path\": \"app/services.py\",\n        \"language\": \"python\",\n        \"content\": \"def klasifikasi(nilai):\\n    return 'Positif' if nilai > 0 else 'Tidak positif'\"\n      }\n    ],\n    \"execution\": {\n      \"status\": \"success\",\n      \"stdin\": \"10\",\n      \"stdout\": \"Positif\",\n      \"stderr\": \"\",\n      \"expectedOutput\": \"Positif\",\n      \"exitCode\": 0,\n      \"durationMs\": 120,\n      \"testCases\": [\n        {\n          \"id\": \"test-1\",\n          \"name\": \"Bilangan positif\",\n          \"input\": \"10\",\n          \"expectedOutput\": \"Positif\",\n          \"actualOutput\": \"Positif\",\n          \"status\": \"passed\"\n        }\n      ]\n    },\n    \"studentAnalysis\": \"Program menggunakan percabangan.\",\n    \"studentConclusion\": \"Percabangan memilih output berdasarkan kondisi.\"\n  },\n  \"rubric\": {\n    \"criteria\": [\n      {\n        \"id\": \"correctness\",\n        \"name\": \"Kebenaran program\",\n        \"description\": \"Kesesuaian hasil program\",\n        \"maxScore\": 100\n      }\n    ]\n  },\n  \"options\": {\n    \"language\": \"id-ID\",\n    \"includeScoreRecommendation\": true\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "6. Program berhasil",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Response JSON valid', function () { pm.response.to.be.json; });",
+              "const body = pm.response.json();",
+              "pm.test('status success', function () { pm.expect(body.status).to.eql('success'); });",
+              "pm.test('requires lecturer review', function () { pm.expect(body.data.requiresLecturerReview).to.eql(true); });",
+              "pm.test('scope response sesuai request', function () { const requestBody = JSON.parse(pm.request.body.raw); pm.expect(body.data.scope).to.eql(requestBody.scope); });",
+              "pm.test('score tidak melebihi maxScore', function () { (body.data.rubricScores || []).forEach((item) => pm.expect(item.score).to.be.at.most(item.maxScore)); });",
+              "pm.test('nomor baris code feedback valid', function () { (body.data.codeFeedbacks || []).forEach((item) => { pm.expect(item.startLine).to.be.at.least(1); pm.expect(item.endLine).to.be.at.least(item.startLine); }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-AI-Service-Key",
+            "value": "{{aiServiceKey}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/evaluations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "evaluations"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"scope\": \"experiment\",\n  \"submissionId\": \"submission-123\",\n  \"jobsheet\": {\n    \"id\": \"jobsheet-1\",\n    \"title\": \"Percabangan\",\n    \"description\": \"Latihan percabangan\"\n  },\n  \"experiment\": {\n    \"id\": \"experiment-1\",\n    \"title\": \"Percobaan 1\",\n    \"objective\": \"Memahami percabangan\",\n    \"instruction\": \"Baca bilangan dan tampilkan Positif jika lebih dari nol.\",\n    \"language\": \"java\",\n    \"files\": [\n      {\n        \"id\": \"file-1\",\n        \"path\": \"src/Main.java\",\n        \"language\": \"java\",\n        \"content\": \"public class Main {\\n  public static void main(String[] args) {\\n    System.out.println(\\\"Positif\\\");\\n  }\\n}\"\n      }\n    ],\n    \"execution\": {\n      \"status\": \"success\",\n      \"stdin\": \"10\",\n      \"stdout\": \"Positif\",\n      \"stderr\": \"\",\n      \"expectedOutput\": \"Positif\",\n      \"exitCode\": 0,\n      \"durationMs\": 120,\n      \"testCases\": [\n        {\n          \"id\": \"test-1\",\n          \"name\": \"Bilangan positif\",\n          \"input\": \"10\",\n          \"expectedOutput\": \"Positif\",\n          \"actualOutput\": \"Positif\",\n          \"status\": \"passed\"\n        }\n      ]\n    },\n    \"studentAnalysis\": \"Program menggunakan percabangan.\",\n    \"studentConclusion\": \"Percabangan memilih output berdasarkan kondisi.\"\n  },\n  \"rubric\": {\n    \"criteria\": [\n      {\n        \"id\": \"correctness\",\n        \"name\": \"Kebenaran program\",\n        \"description\": \"Kesesuaian hasil program\",\n        \"maxScore\": 100\n      }\n    ]\n  },\n  \"options\": {\n    \"language\": \"id-ID\",\n    \"includeScoreRecommendation\": true\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "7. Compiler error",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Response JSON valid', function () { pm.response.to.be.json; });",
+              "const body = pm.response.json();",
+              "pm.test('status success', function () { pm.expect(body.status).to.eql('success'); });",
+              "pm.test('requires lecturer review', function () { pm.expect(body.data.requiresLecturerReview).to.eql(true); });",
+              "pm.test('scope response sesuai request', function () { const requestBody = JSON.parse(pm.request.body.raw); pm.expect(body.data.scope).to.eql(requestBody.scope); });",
+              "pm.test('score tidak melebihi maxScore', function () { (body.data.rubricScores || []).forEach((item) => pm.expect(item.score).to.be.at.most(item.maxScore)); });",
+              "pm.test('nomor baris code feedback valid', function () { (body.data.codeFeedbacks || []).forEach((item) => { pm.expect(item.startLine).to.be.at.least(1); pm.expect(item.endLine).to.be.at.least(item.startLine); }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-AI-Service-Key",
+            "value": "{{aiServiceKey}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/evaluations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "evaluations"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"scope\": \"experiment\",\n  \"submissionId\": \"submission-123\",\n  \"jobsheet\": {\n    \"id\": \"jobsheet-1\",\n    \"title\": \"Percabangan\",\n    \"description\": \"Latihan percabangan\"\n  },\n  \"experiment\": {\n    \"id\": \"experiment-1\",\n    \"title\": \"Percobaan 1\",\n    \"objective\": \"Memahami percabangan\",\n    \"instruction\": \"Baca bilangan dan tampilkan Positif jika lebih dari nol.\",\n    \"language\": \"java\",\n    \"files\": [\n      {\n        \"id\": \"file-1\",\n        \"path\": \"src/Main.java\",\n        \"language\": \"java\",\n        \"content\": \"public class Main {\\n  public static void main(String[] args) {\\n    System.out.println(\\\"Positif\\\");\\n  }\\n}\"\n      }\n    ],\n    \"execution\": {\n      \"status\": \"compiler_error\",\n      \"stdin\": \"10\",\n      \"stdout\": \"\",\n      \"stderr\": \"Main.java:3: error: ';' expected\",\n      \"expectedOutput\": \"Positif\",\n      \"exitCode\": 1,\n      \"durationMs\": 120,\n      \"testCases\": []\n    },\n    \"studentAnalysis\": \"Program menggunakan percabangan.\",\n    \"studentConclusion\": \"Percabangan memilih output berdasarkan kondisi.\"\n  },\n  \"rubric\": {\n    \"criteria\": [\n      {\n        \"id\": \"correctness\",\n        \"name\": \"Kebenaran program\",\n        \"description\": \"Kesesuaian hasil program\",\n        \"maxScore\": 100\n      }\n    ]\n  },\n  \"options\": {\n    \"language\": \"id-ID\",\n    \"includeScoreRecommendation\": true\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "8. Runtime error",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Response JSON valid', function () { pm.response.to.be.json; });",
+              "const body = pm.response.json();",
+              "pm.test('status success', function () { pm.expect(body.status).to.eql('success'); });",
+              "pm.test('requires lecturer review', function () { pm.expect(body.data.requiresLecturerReview).to.eql(true); });",
+              "pm.test('scope response sesuai request', function () { const requestBody = JSON.parse(pm.request.body.raw); pm.expect(body.data.scope).to.eql(requestBody.scope); });",
+              "pm.test('score tidak melebihi maxScore', function () { (body.data.rubricScores || []).forEach((item) => pm.expect(item.score).to.be.at.most(item.maxScore)); });",
+              "pm.test('nomor baris code feedback valid', function () { (body.data.codeFeedbacks || []).forEach((item) => { pm.expect(item.startLine).to.be.at.least(1); pm.expect(item.endLine).to.be.at.least(item.startLine); }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-AI-Service-Key",
+            "value": "{{aiServiceKey}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/evaluations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "evaluations"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"scope\": \"experiment\",\n  \"submissionId\": \"submission-123\",\n  \"jobsheet\": {\n    \"id\": \"jobsheet-1\",\n    \"title\": \"Percabangan\",\n    \"description\": \"Latihan percabangan\"\n  },\n  \"experiment\": {\n    \"id\": \"experiment-1\",\n    \"title\": \"Percobaan 1\",\n    \"objective\": \"Memahami percabangan\",\n    \"instruction\": \"Baca bilangan dan tampilkan Positif jika lebih dari nol.\",\n    \"language\": \"python\",\n    \"files\": [\n      {\n        \"id\": \"file-1\",\n        \"path\": \"main.py\",\n        \"language\": \"python\",\n        \"content\": \"nilai = int(input())\\nprint('Positif' if nilai > 0 else 'Tidak positif')\"\n      }\n    ],\n    \"execution\": {\n      \"status\": \"runtime_error\",\n      \"stdin\": \"10\",\n      \"stdout\": \"\",\n      \"stderr\": \"ValueError: invalid literal for int()\",\n      \"expectedOutput\": \"Positif\",\n      \"exitCode\": 1,\n      \"durationMs\": 120,\n      \"testCases\": [\n        {\n          \"id\": \"test-1\",\n          \"name\": \"Bilangan positif\",\n          \"input\": \"10\",\n          \"expectedOutput\": \"Positif\",\n          \"actualOutput\": \"Positif\",\n          \"status\": \"passed\"\n        }\n      ]\n    },\n    \"studentAnalysis\": \"Program menggunakan percabangan.\",\n    \"studentConclusion\": \"Percabangan memilih output berdasarkan kondisi.\"\n  },\n  \"rubric\": {\n    \"criteria\": [\n      {\n        \"id\": \"correctness\",\n        \"name\": \"Kebenaran program\",\n        \"description\": \"Kesesuaian hasil program\",\n        \"maxScore\": 100\n      }\n    ]\n  },\n  \"options\": {\n    \"language\": \"id-ID\",\n    \"includeScoreRecommendation\": true\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "9. Test case gagal",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Response JSON valid', function () { pm.response.to.be.json; });",
+              "const body = pm.response.json();",
+              "pm.test('status success', function () { pm.expect(body.status).to.eql('success'); });",
+              "pm.test('requires lecturer review', function () { pm.expect(body.data.requiresLecturerReview).to.eql(true); });",
+              "pm.test('scope response sesuai request', function () { const requestBody = JSON.parse(pm.request.body.raw); pm.expect(body.data.scope).to.eql(requestBody.scope); });",
+              "pm.test('score tidak melebihi maxScore', function () { (body.data.rubricScores || []).forEach((item) => pm.expect(item.score).to.be.at.most(item.maxScore)); });",
+              "pm.test('nomor baris code feedback valid', function () { (body.data.codeFeedbacks || []).forEach((item) => { pm.expect(item.startLine).to.be.at.least(1); pm.expect(item.endLine).to.be.at.least(item.startLine); }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-AI-Service-Key",
+            "value": "{{aiServiceKey}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/evaluations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "evaluations"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"scope\": \"experiment\",\n  \"submissionId\": \"submission-123\",\n  \"jobsheet\": {\n    \"id\": \"jobsheet-1\",\n    \"title\": \"Percabangan\",\n    \"description\": \"Latihan percabangan\"\n  },\n  \"experiment\": {\n    \"id\": \"experiment-1\",\n    \"title\": \"Percobaan 1\",\n    \"objective\": \"Memahami percabangan\",\n    \"instruction\": \"Baca bilangan dan tampilkan Positif jika lebih dari nol.\",\n    \"language\": \"java\",\n    \"files\": [\n      {\n        \"id\": \"file-1\",\n        \"path\": \"src/Main.java\",\n        \"language\": \"java\",\n        \"content\": \"public class Main {\\n  public static void main(String[] args) {\\n    System.out.println(\\\"Positif\\\");\\n  }\\n}\"\n      }\n    ],\n    \"execution\": {\n      \"status\": \"success\",\n      \"stdin\": \"10\",\n      \"stdout\": \"Negatif\",\n      \"stderr\": \"\",\n      \"expectedOutput\": \"Positif\",\n      \"exitCode\": 0,\n      \"durationMs\": 120,\n      \"testCases\": [\n        {\n          \"id\": \"test-1\",\n          \"name\": \"Bilangan positif\",\n          \"input\": \"10\",\n          \"expectedOutput\": \"Positif\",\n          \"actualOutput\": \"Negatif\",\n          \"status\": \"failed\"\n        }\n      ]\n    },\n    \"studentAnalysis\": \"Program menggunakan percabangan.\",\n    \"studentConclusion\": \"Percabangan memilih output berdasarkan kondisi.\"\n  },\n  \"rubric\": {\n    \"criteria\": [\n      {\n        \"id\": \"correctness\",\n        \"name\": \"Kebenaran program\",\n        \"description\": \"Kesesuaian hasil program\",\n        \"maxScore\": 100\n      }\n    ]\n  },\n  \"options\": {\n    \"language\": \"id-ID\",\n    \"includeScoreRecommendation\": true\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "10. Analisis mahasiswa kurang tepat",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Response JSON valid', function () { pm.response.to.be.json; });",
+              "const body = pm.response.json();",
+              "pm.test('status success', function () { pm.expect(body.status).to.eql('success'); });",
+              "pm.test('requires lecturer review', function () { pm.expect(body.data.requiresLecturerReview).to.eql(true); });",
+              "pm.test('scope response sesuai request', function () { const requestBody = JSON.parse(pm.request.body.raw); pm.expect(body.data.scope).to.eql(requestBody.scope); });",
+              "pm.test('score tidak melebihi maxScore', function () { (body.data.rubricScores || []).forEach((item) => pm.expect(item.score).to.be.at.most(item.maxScore)); });",
+              "pm.test('nomor baris code feedback valid', function () { (body.data.codeFeedbacks || []).forEach((item) => { pm.expect(item.startLine).to.be.at.least(1); pm.expect(item.endLine).to.be.at.least(item.startLine); }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-AI-Service-Key",
+            "value": "{{aiServiceKey}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/evaluations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "evaluations"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"scope\": \"experiment\",\n  \"submissionId\": \"submission-123\",\n  \"jobsheet\": {\n    \"id\": \"jobsheet-1\",\n    \"title\": \"Percabangan\",\n    \"description\": \"Latihan percabangan\"\n  },\n  \"experiment\": {\n    \"id\": \"experiment-1\",\n    \"title\": \"Percobaan 1\",\n    \"objective\": \"Memahami percabangan\",\n    \"instruction\": \"Baca bilangan dan tampilkan Positif jika lebih dari nol.\",\n    \"language\": \"java\",\n    \"files\": [\n      {\n        \"id\": \"file-1\",\n        \"path\": \"src/Main.java\",\n        \"language\": \"java\",\n        \"content\": \"public class Main {\\n  public static void main(String[] args) {\\n    System.out.println(\\\"Positif\\\");\\n  }\\n}\"\n      }\n    ],\n    \"execution\": {\n      \"status\": \"success\",\n      \"stdin\": \"10\",\n      \"stdout\": \"Positif\",\n      \"stderr\": \"\",\n      \"expectedOutput\": \"Positif\",\n      \"exitCode\": 0,\n      \"durationMs\": 120,\n      \"testCases\": [\n        {\n          \"id\": \"test-1\",\n          \"name\": \"Bilangan positif\",\n          \"input\": \"10\",\n          \"expectedOutput\": \"Positif\",\n          \"actualOutput\": \"Positif\",\n          \"status\": \"passed\"\n        }\n      ]\n    },\n    \"studentAnalysis\": \"Program memakai perulangan untuk memilih kondisi.\",\n    \"studentConclusion\": \"Percabangan memilih output berdasarkan kondisi.\"\n  },\n  \"rubric\": {\n    \"criteria\": [\n      {\n        \"id\": \"correctness\",\n        \"name\": \"Kebenaran program\",\n        \"description\": \"Kesesuaian hasil program\",\n        \"maxScore\": 100\n      }\n    ]\n  },\n  \"options\": {\n    \"language\": \"id-ID\",\n    \"includeScoreRecommendation\": true\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "11. Evaluasi scope jobsheet",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Response JSON valid', function () { pm.response.to.be.json; });",
+              "const body = pm.response.json();",
+              "pm.test('status success', function () { pm.expect(body.status).to.eql('success'); });",
+              "pm.test('requires lecturer review', function () { pm.expect(body.data.requiresLecturerReview).to.eql(true); });",
+              "pm.test('scope response sesuai request', function () { const requestBody = JSON.parse(pm.request.body.raw); pm.expect(body.data.scope).to.eql(requestBody.scope); });",
+              "pm.test('score tidak melebihi maxScore', function () { (body.data.rubricScores || []).forEach((item) => pm.expect(item.score).to.be.at.most(item.maxScore)); });",
+              "pm.test('nomor baris code feedback valid', function () { (body.data.codeFeedbacks || []).forEach((item) => { pm.expect(item.startLine).to.be.at.least(1); pm.expect(item.endLine).to.be.at.least(item.startLine); }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-AI-Service-Key",
+            "value": "{{aiServiceKey}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/evaluations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "evaluations"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"scope\": \"jobsheet\",\n  \"submissionId\": \"submission-123\",\n  \"jobsheet\": {\n    \"id\": \"jobsheet-1\",\n    \"title\": \"Percabangan\",\n    \"description\": \"Latihan percabangan\",\n    \"objectives\": [\n      \"Memahami if dan else\"\n    ]\n  },\n  \"experimentResults\": [\n    {\n      \"experimentId\": \"experiment-1\",\n      \"title\": \"Percobaan 1\",\n      \"summary\": \"Program berjalan.\",\n      \"strengths\": [\n        \"Output sesuai\"\n      ],\n      \"issues\": [],\n      \"suggestions\": [\n        \"Perjelas analisis\"\n      ],\n      \"rubricScores\": [\n        {\n          \"criterionId\": \"correctness\",\n          \"score\": 80,\n          \"maxScore\": 100,\n          \"reason\": \"Test case lulus\"\n        }\n      ]\n    }\n  ],\n  \"studentConclusion\": \"Percabangan memilih alur program.\",\n  \"rubric\": {\n    \"criteria\": [\n      {\n        \"id\": \"correctness\",\n        \"name\": \"Kebenaran program\",\n        \"maxScore\": 100\n      }\n    ]\n  },\n  \"options\": {\n    \"language\": \"id-ID\",\n    \"includeScoreRecommendation\": true\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "12. Payload tidak valid",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 400', function () { pm.response.to.have.status(400); });",
+              "pm.test('Validation error', function () { pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-AI-Service-Key",
+            "value": "{{aiServiceKey}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/evaluations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "evaluations"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"scope\": \"experiment\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "13. API key salah (aktifkan auth dahulu)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status sesuai konfigurasi auth', function () { pm.expect(pm.response.code).to.be.oneOf([200,401]); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-AI-Service-Key",
+            "value": "{{aiServiceKey}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/evaluations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "evaluations"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"scope\": \"experiment\",\n  \"submissionId\": \"submission-123\",\n  \"jobsheet\": {\n    \"id\": \"jobsheet-1\",\n    \"title\": \"Percabangan\",\n    \"description\": \"Latihan percabangan\"\n  },\n  \"experiment\": {\n    \"id\": \"experiment-1\",\n    \"title\": \"Percobaan 1\",\n    \"objective\": \"Memahami percabangan\",\n    \"instruction\": \"Baca bilangan dan tampilkan Positif jika lebih dari nol.\",\n    \"language\": \"java\",\n    \"files\": [\n      {\n        \"id\": \"file-1\",\n        \"path\": \"src/Main.java\",\n        \"language\": \"java\",\n        \"content\": \"public class Main {\\n  public static void main(String[] args) {\\n    System.out.println(\\\"Positif\\\");\\n  }\\n}\"\n      }\n    ],\n    \"execution\": {\n      \"status\": \"success\",\n      \"stdin\": \"10\",\n      \"stdout\": \"Positif\",\n      \"stderr\": \"\",\n      \"expectedOutput\": \"Positif\",\n      \"exitCode\": 0,\n      \"durationMs\": 120,\n      \"testCases\": [\n        {\n          \"id\": \"test-1\",\n          \"name\": \"Bilangan positif\",\n          \"input\": \"10\",\n          \"expectedOutput\": \"Positif\",\n          \"actualOutput\": \"Positif\",\n          \"status\": \"passed\"\n        }\n      ]\n    },\n    \"studentAnalysis\": \"Program menggunakan percabangan.\",\n    \"studentConclusion\": \"Percabangan memilih output berdasarkan kondisi.\"\n  },\n  \"rubric\": {\n    \"criteria\": [\n      {\n        \"id\": \"correctness\",\n        \"name\": \"Kebenaran program\",\n        \"description\": \"Kesesuaian hasil program\",\n        \"maxScore\": 100\n      }\n    ]\n  },\n  \"options\": {\n    \"language\": \"id-ID\",\n    \"includeScoreRecommendation\": true\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "14. Simulasi Ollama tidak aktif",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 502 saat Ollama mati', function () { pm.expect(pm.response.code).to.be.oneOf([200,502,504]); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-AI-Service-Key",
+            "value": "{{aiServiceKey}}",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/evaluations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "evaluations"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"scope\": \"experiment\",\n  \"submissionId\": \"submission-123\",\n  \"jobsheet\": {\n    \"id\": \"jobsheet-1\",\n    \"title\": \"Percabangan\",\n    \"description\": \"Latihan percabangan\"\n  },\n  \"experiment\": {\n    \"id\": \"experiment-1\",\n    \"title\": \"Percobaan 1\",\n    \"objective\": \"Memahami percabangan\",\n    \"instruction\": \"Baca bilangan dan tampilkan Positif jika lebih dari nol.\",\n    \"language\": \"java\",\n    \"files\": [\n      {\n        \"id\": \"file-1\",\n        \"path\": \"src/Main.java\",\n        \"language\": \"java\",\n        \"content\": \"public class Main {\\n  public static void main(String[] args) {\\n    System.out.println(\\\"Positif\\\");\\n  }\\n}\"\n      }\n    ],\n    \"execution\": {\n      \"status\": \"success\",\n      \"stdin\": \"10\",\n      \"stdout\": \"Positif\",\n      \"stderr\": \"\",\n      \"expectedOutput\": \"Positif\",\n      \"exitCode\": 0,\n      \"durationMs\": 120,\n      \"testCases\": [\n        {\n          \"id\": \"test-1\",\n          \"name\": \"Bilangan positif\",\n          \"input\": \"10\",\n          \"expectedOutput\": \"Positif\",\n          \"actualOutput\": \"Positif\",\n          \"status\": \"passed\"\n        }\n      ]\n    },\n    \"studentAnalysis\": \"Program menggunakan percabangan.\",\n    \"studentConclusion\": \"Percabangan memilih output berdasarkan kondisi.\"\n  },\n  \"rubric\": {\n    \"criteria\": [\n      {\n        \"id\": \"correctness\",\n        \"name\": \"Kebenaran program\",\n        \"description\": \"Kesesuaian hasil program\",\n        \"maxScore\": 100\n      }\n    ]\n  },\n  \"options\": {\n    \"language\": \"id-ID\",\n    \"includeScoreRecommendation\": true\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

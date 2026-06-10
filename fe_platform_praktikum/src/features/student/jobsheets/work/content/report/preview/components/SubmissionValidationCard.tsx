@@ -9,6 +9,8 @@ interface Props {
   submission: JobsheetSubmission
   onSubmit?: () => void
   submitting?: boolean
+  onSaveDraft?: () => void
+  savingDraft?: boolean
 }
 
 function ValidationItem({
@@ -35,6 +37,8 @@ export default function SubmissionValidationCard({
   submission,
   onSubmit,
   submitting = false,
+  onSaveDraft,
+  savingDraft = false,
 }: Props) {
 
   const [isDeclared, setIsDeclared] = useState(false)
@@ -155,21 +159,31 @@ export default function SubmissionValidationCard({
         )}
       </div>
 
-      {/* SUBMIT BUTTON */}
-      <button
-        disabled={!isAllValid || submitting}  // ← tambah submitting
-        onClick={onSubmit}
-        className={`
-          w-full py-2 rounded-lg font-medium transition
-          ${
-            isAllValid && !submitting
-              ? "bg-blue-600 text-white hover:bg-blue-700"
+      {/* ACTIONS */}
+      <div className="flex gap-3">
+        <button
+          type="button"
+          disabled={savingDraft || submitting}
+          onClick={onSaveDraft}
+          className="flex-1 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition disabled:opacity-50 text-center cursor-pointer"
+        >
+          {savingDraft ? "Menyimpan..." : "Simpan Draft"}
+        </button>
+
+        <button
+          disabled={!isAllValid || submitting || savingDraft}
+          onClick={onSubmit}
+          className={`
+            flex-1 py-2 rounded-lg font-medium transition
+            ${isAllValid && !submitting && !savingDraft
+              ? "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
               : "bg-gray-300 text-gray-500 cursor-not-allowed"
-          }
-        `}
-      >
-        {submitting ? "Mengirim..." : "Submit Laporan"}
-      </button>
+            }
+          `}
+        >
+          {submitting ? "Mengirim..." : "Submit Laporan"}
+        </button>
+      </div>
 
     </div>
   )

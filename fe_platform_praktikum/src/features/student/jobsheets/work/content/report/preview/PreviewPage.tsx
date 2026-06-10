@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { getJobsheetById } from "../../../../../../../services/jobsheet/service"
 import { getSubmissionByJobsheetIdPreview, submitSubmission, updateSubmission } from "../../../../../../../services/submission/service"
 import { updateStudentProgressApi } from "../../../../../../../services/progress/service"
@@ -28,7 +28,46 @@ export default function PreviewPage() {
   const [loading, setLoading] = useState(true)
   const [showSuccess, setShowSuccess] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [savingDraft, setSavingDraft] = useState(false)
   const [error, setError] = useState("")
+  const [successMessage, setSuccessMessage] = useState("")
+
+  const handleSaveDraft = async () => {
+    if (!courseId || !jobsheetId || !submission || !user) return
+    try {
+      setSavingDraft(true)
+      setError("")
+      setSuccessMessage("")
+      await updateSubmission(courseId, jobsheetId, user.id, buildReport(submission))
+      setSuccessMessage("Draf laporan berhasil disimpan.")
+      setTimeout(() => setSuccessMessage(""), 3000)
+    } catch (err) {
+      console.error("Save draft error:", err)
+      setError(err instanceof Error ? err.message : "Gagal menyimpan draf.")
+    } finally {
+      setSavingDraft(false)
+    }
+  }
+
+  const handleConclusionChange = useCallback((data: { content: any; wordCount: number }) => {
+    setSubmission(prev => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        conclusion: {
+          content: data.content,
+          wordCount: data.wordCount,
+        },
+        report: {
+          ...prev.report,
+          conclusion: {
+            content: data.content,
+            wordCount: data.wordCount,
+          }
+        }
+      }
+    })
+  }, [])
 
   const handleSubmit = async () => {
     if (!courseId || !jobsheetId || !submission || !user) return
@@ -136,6 +175,12 @@ export default function PreviewPage() {
           </div>
         )}
 
+        {successMessage && (
+          <div className="mx-auto mb-6 max-w-6xl rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            {successMessage}
+          </div>
+        )}
+
         {/* CENTERED CONTAINER */}
         <div className="max-w-6xl mx-auto">
 
@@ -152,34 +197,10 @@ export default function PreviewPage() {
                 submission={submission}
               />
 
-              <ConclusionEditor
+               <ConclusionEditor
                 jobsheet={jobsheet}
                 submission={submission}
-                onChange={(data) => {
-                  setSubmission(prev => {
-                    if (!prev) return prev
-                    const updated: JobsheetSubmission = {
-                      ...prev,
-                      conclusion: {
-                        content: data.content,
-                        wordCount: data.wordCount,
-                      },
-                      report: {
-                        ...prev.report,
-                        conclusion: {
-                          content: data.content,
-                          wordCount: data.wordCount,
-                        }
-                      }
-                    }
-
-                    if (courseId && jobsheetId && user) {
-                      updateSubmission(courseId, jobsheetId, user.id, buildReport(updated)).catch(console.error)
-                    }
-
-                    return updated
-                  })
-                }}
+                onChange={handleConclusionChange}
               />
 
             </div>
@@ -187,12 +208,14 @@ export default function PreviewPage() {
             {/* RIGHT */}
             <div className="lg:col-span-1 space-y-6">
 
-              <div className="sticky top-6">
+               <div className="sticky top-6">
                 <SubmissionValidationCard
                   jobsheet={jobsheet}
                   submission={submission}
                   onSubmit={handleSubmit}
                   submitting={submitting} 
+                  onSaveDraft={handleSaveDraft}
+                  savingDraft={savingDraft}
                 />
               </div>
 

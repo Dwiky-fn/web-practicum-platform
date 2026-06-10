@@ -1,4 +1,5 @@
 const autoBind = require('auto-bind');
+const SubmissionsValidator = require('../../../validator/submissions');
 
 class SubmissionsHandler {
   constructor(service) {
@@ -126,22 +127,61 @@ class SubmissionsHandler {
   }
 
   async putSubmissionHandler(req, res) {
-    const { jobsheetId } = req.params;
+    const { jobsheetId, courseId } = req.params;
     const studentId = this._requireStudentId(req, res);
     if (!studentId) return;
+
+    if (req.body.experimentId !== undefined || req.body.instructionId !== undefined) {
+      const validationResult = SubmissionsValidator.validateStepPayload(req.body);
+      if (validationResult.error) {
+        return res.status(400).json({
+          status: 'fail',
+          message: validationResult.error.details[0].message,
+        });
+      }
+
+      try {
+        const submission = await this._service.updateSubmissionStep({
+          jobsheetId,
+          studentId,
+          courseId,
+          stepPayload: req.body,
+        });
+
+        return res.json({
+          status: 'success',
+          data: { submission },
+        });
+      } catch (error) {
+        console.error(error);
+        return res.status(400).json({
+          status: 'fail',
+          message: error.message || 'Gagal memperbarui step submission',
+        });
+      }
+    }
+
     const { report, status } = req.body;
 
-    const submission = await this._service.updateSubmission({
-      jobsheetId,
-      studentId,
-      report,
-      status,
-    });
+    try {
+      const submission = await this._service.updateSubmission({
+        jobsheetId,
+        studentId,
+        report,
+        status,
+      });
 
-    return res.json({
-      status: 'success',
-      data: { submission },
-    });
+      return res.json({
+        status: 'success',
+        data: { submission },
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({
+        status: 'fail',
+        message: 'Terjadi kesalahan saat memperbarui submission',
+      });
+    }
   }
 
   async submitSubmissionHandler(req, res) {

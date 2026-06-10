@@ -58,3 +58,39 @@ test('status published ditolak', () => {
   const { error } = validateEvaluationResult(result);
   assert.ok(error);
 });
+
+test('result exercise valid diterima', () => {
+  const result = {
+    scope: 'exercise',
+    submissionId: 'submission-1',
+    exerciseId: 'exercise-1',
+    codeFeedbacks: [],
+    exerciseFeedback: {
+      summary: 'Baik sekali',
+      instructionCompliance: 'Sesuai',
+      codeEvaluation: 'Baik',
+      outputEvaluation: 'Sesuai',
+      testCaseEvaluation: 'Lulus',
+      errorEvaluation: '',
+      analysisEvaluation: 'Cukup',
+      strengths: [],
+      issues: [],
+      suggestions: [],
+    },
+    rubricScores: [
+      {
+        criterionId: 'correctness',
+        score: 90,
+        maxScore: 100,
+        reason: 'Program berjalan sempurna.',
+      },
+    ],
+    totalScoreRecommendation: 90,
+    source: 'ai',
+    status: 'draft',
+    requiresLecturerReview: true,
+  };
+
+  const { error } = validateEvaluationResult(result);
+  assert.equal(error, undefined);
+});

@@ -3,7 +3,7 @@ function estimateTokens(value) {
 }
 
 function shouldChunkExperiment(payload) {
-  if (payload.scope !== 'experiment') {
+  if (payload.scope !== 'experiment' && payload.scope !== 'exercise') {
     return false;
   }
 
@@ -24,8 +24,9 @@ function createExperimentChunks(payload) {
   );
 
   const chunks = [];
+  const targetKey = payload.scope === 'experiment' ? 'experiment' : 'exercise';
 
-  payload.experiment.files.forEach((file) => {
+  payload[targetKey].files.forEach((file) => {
     const lineGroups = splitLinesByCharacterBudget(
       String(file.content).split(/\r?\n/),
       maxChunkCharacters,
@@ -36,8 +37,8 @@ function createExperimentChunks(payload) {
     lineGroups.forEach((lines, chunkIndex) => {
       chunks.push({
         ...payload,
-        experiment: {
-          ...payload.experiment,
+        [targetKey]: {
+          ...payload[targetKey],
           files: [
             {
               ...file,

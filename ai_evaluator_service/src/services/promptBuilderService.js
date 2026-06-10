@@ -1,5 +1,6 @@
 const systemPrompt = require('../prompts/systemPrompt');
 const buildExperimentPrompt = require('../prompts/experimentPrompt');
+const buildExercisePrompt = require('../prompts/exercisePrompt');
 const buildJobsheetPrompt = require('../prompts/jobsheetPrompt');
 const buildRepairJsonPrompt = require('../prompts/repairJsonPrompt');
 
@@ -8,6 +9,13 @@ function buildEvaluationPrompt(payload) {
     return {
       systemPrompt,
       userPrompt: buildExperimentPrompt(payload),
+    };
+  }
+
+  if (payload.scope === 'exercise') {
+    return {
+      systemPrompt,
+      userPrompt: buildExercisePrompt(payload),
     };
   }
 

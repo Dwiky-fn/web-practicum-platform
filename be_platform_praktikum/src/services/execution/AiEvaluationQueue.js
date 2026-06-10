@@ -156,8 +156,19 @@ class AiEvaluationQueue {
        ORDER BY id ASC`,
       [sub.jobsheet_id]
     );
-
     const experiments = experimentsRes.rows;
+
+    // Ambil daftar exercises dari database untuk jobsheet ini
+    console.log(`[AI Queue] [${submissionId}] Mengambil daftar latihan untuk jobsheet ${sub.jobsheet_id}...`);
+    const exercisesRes = await pool.query(
+      `SELECT id, title, instruction_content, template_code, rubric
+       FROM exercises
+       WHERE jobsheet_id = $1
+       ORDER BY id ASC`,
+      [sub.jobsheet_id]
+    );
+    const exercises = exercisesRes.rows;
+
     const aiServiceUrl = (process.env.AI_EVALUATOR_SERVICE_URL || 'http://localhost:5000').replace(/\/+$/, '');
     const aiServiceKey = process.env.AI_SERVICE_API_KEY || '';
 
@@ -217,6 +228,60 @@ class AiEvaluationQueue {
       });
     }
 
+    console.log(`[AI Queue] [${submissionId}] Menyusun payload untuk ${exercises.length} latihan...`);
+    const payloadExercises = [];
+    for (const exe of exercises) {
+      const exeReport = report.exercises?.[exe.id] || {};
+      const files = Object.entries(exeReport.files || {}).map(([filename, content]) => ({
+        id: filename,
+        path: filename,
+        language: sub.programming_language || 'java',
+        content: content
+      }));
+
+      if (files.length === 0) {
+        files.push({
+          id: 'Main.java',
+          path: 'Main.java',
+          language: sub.programming_language || 'java',
+          content: exe.template_code || ''
+        });
+      }
+
+      payloadExercises.push({
+        id: exe.id,
+        title: exe.title,
+        objective: '',
+        instruction: typeof exe.instruction_content === 'string'
+          ? exe.instruction_content
+          : extractTextFromTiptap(exe.instruction_content),
+        language: sub.programming_language || 'java',
+        files,
+        execution: {
+          status: 'success',
+          stdin: '',
+          stdout: exeReport.output || '',
+          stderr: '',
+          expectedOutput: '',
+          exitCode: 0,
+          durationMs: 0,
+          testCases: []
+        },
+        studentAnalysis: extractTextFromTiptap(exeReport.analysis),
+        studentConclusion: '',
+        rubric: {
+          criteria: [
+            {
+              id: `correctness_${exe.id}`,
+              name: `Kebenaran ${exe.title}`,
+              description: 'Kesesuaian program dengan instruksi, kebenaran output, serta analisis mahasiswa.',
+              maxScore: Number(exe.rubric) || 100
+            }
+          ]
+        }
+      });
+    }
+
     const payload = {
       scope: 'jobsheet',
       submissionId: submissionId,
@@ -226,14 +291,23 @@ class AiEvaluationQueue {
         description: sub.jobsheet_description || ''
       },
       experiments: payloadExperiments,
+      exercises: payloadExercises,
       studentConclusion: extractTextFromTiptap(report.conclusion),
       rubric: {
-        criteria: experiments.map((exp) => ({
-          id: `correctness_${exp.id}`,
-          name: exp.title,
-          description: 'Kesesuaian program dengan instruksi, kebenaran output, serta analisis mahasiswa.',
-          maxScore: Number(exp.rubric) || 100
-        }))
+        criteria: [
+          ...experiments.map((exp) => ({
+            id: `correctness_${exp.id}`,
+            name: exp.title,
+            description: 'Kesesuaian program dengan instruksi, kebenaran output, serta analisis mahasiswa.',
+            maxScore: Number(exp.rubric) || 100
+          })),
+          ...exercises.map((exe) => ({
+            id: `correctness_${exe.id}`,
+            name: exe.title,
+            description: 'Kesesuaian program dengan instruksi, kebenaran output, serta analisis mahasiswa.',
+            maxScore: Number(exe.rubric) || 100
+          }))
+        ]
       },
       options: {
         language: 'id-ID',
@@ -302,26 +376,92 @@ class AiEvaluationQueue {
       }
     });
 
+    (result.exerciseEvaluations || []).forEach((exeEval) => {
+      const exeTitle = exercises.find(e => e.id === exeEval.exerciseId)?.title || 'Latihan';
+      if (exeEval.status === 'completed') {
+        const feedback = exeEval.feedback || {};
+        experimentResultsForDb.push({
+          experimentId: exeEval.exerciseId, // Alias exerciseId as experimentId
+          title: exeTitle,
+          summary: feedback.summary || '',
+          strengths: feedback.strengths || [],
+          issues: feedback.issues || [],
+          suggestions: feedback.suggestions || [],
+          rubricScores: exeEval.rubricScores || []
+        });
+
+        (exeEval.codeFeedbacks || []).forEach((fb) => {
+          comments.push({
+            experimentId: exeEval.exerciseId, // Alias exerciseId as experimentId
+            step: 1,
+            comment: `[${fb.filePath} L${fb.startLine}-${fb.endLine}] [${fb.category}] [Severity: ${fb.severity}] ${fb.message} Saran: ${fb.suggestion}`
+          });
+        });
+      } else {
+        overallSuccess = false;
+        experimentResultsForDb.push({
+          experimentId: exeEval.exerciseId, // Alias exerciseId as experimentId
+          title: exeTitle,
+          status: 'failed',
+          error: exeEval.error || 'Gagal mengevaluasi latihan'
+        });
+      }
+    });
+
+    const mergedCodeFeedbacks = [];
+    (result.experimentEvaluations || [])
+      .filter(e => e.status === 'completed')
+      .forEach(e => {
+        (e.codeFeedbacks || []).forEach(fb => {
+          mergedCodeFeedbacks.push({
+            experimentId: e.experimentId,
+            ...fb
+          });
+        });
+      });
+
+    (result.exerciseEvaluations || [])
+      .filter(e => e.status === 'completed')
+      .forEach(e => {
+        (e.codeFeedbacks || []).forEach(fb => {
+          mergedCodeFeedbacks.push({
+            experimentId: e.exerciseId, // Alias exerciseId as experimentId
+            ...fb
+          });
+        });
+      });
+
+    const experimentsNeedingAttention = [
+      ...(result.jobsheetFeedback.experimentsNeedingAttention || [])
+    ];
+    if (result.jobsheetFeedback.exercisesNeedingAttention) {
+      result.jobsheetFeedback.exercisesNeedingAttention.forEach((item) => {
+        experimentsNeedingAttention.push({
+          experimentId: item.exerciseId, // Alias exerciseId as experimentId
+          reason: item.reason
+        });
+      });
+    }
+
     const aiFeedback = {
       scope: 'jobsheet',
-      jobsheetFeedback: result.jobsheetFeedback || {
-        summary: 'Evaluasi jobsheet parsial selesai.',
-        overallUnderstanding: '',
-        strengths: [],
-        issues: [],
-        consistencyEvaluation: '',
-        conclusionEvaluation: '',
-        experimentsNeedingAttention: [],
-        learningSuggestions: []
+      jobsheetFeedback: {
+        ...(result.jobsheetFeedback || {
+          summary: 'Evaluasi jobsheet parsial selesai.',
+          overallUnderstanding: '',
+          strengths: [],
+          issues: [],
+          consistencyEvaluation: '',
+          conclusionEvaluation: '',
+          experimentsNeedingAttention: [],
+          exercisesNeedingAttention: [],
+          learningSuggestions: []
+        }),
+        experimentsNeedingAttention
       },
       experimentResults: experimentResultsForDb,
       comments,
-      codeFeedbacks: result.experimentEvaluations
-        ?.filter(e => e.status === 'completed')
-        ?.flatMap(e => (e.codeFeedbacks || []).map(fb => ({
-          experimentId: e.experimentId,
-          ...fb
-        }))) || []
+      codeFeedbacks: mergedCodeFeedbacks
     };
 
     const totalScore = Math.min(100, Math.max(0, result.totalScoreRecommendation || 0));

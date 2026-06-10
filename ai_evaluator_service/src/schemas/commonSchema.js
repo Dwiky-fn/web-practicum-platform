@@ -155,6 +155,30 @@ const evaluationOptionsSchema = Joi.object({
   includeScoreRecommendation: true,
 });
 
+const exerciseSchema = experimentSchema;
+
+const exerciseResultSummarySchema = Joi.object({
+  exerciseId: idSchema,
+  title: titleSchema,
+  summary: Joi.string().allow('').max(50000).required(),
+  strengths: Joi.array()
+    .items(Joi.string().allow('').max(5000))
+    .max(100)
+    .default([]),
+  issues: Joi.array()
+    .items(Joi.string().allow('').max(5000))
+    .max(100)
+    .default([]),
+  suggestions: Joi.array()
+    .items(Joi.string().allow('').max(5000))
+    .max(100)
+    .default([]),
+  rubricScores: Joi.array()
+    .items(rubricScoreSummarySchema)
+    .max(100)
+    .default([]),
+});
+
 module.exports = {
   idSchema,
   titleSchema,
@@ -169,5 +193,7 @@ module.exports = {
   jobsheetSchema,
   experimentSchema,
   experimentResultSummarySchema,
+  exerciseSchema,
+  exerciseResultSummarySchema,
   evaluationOptionsSchema,
 };

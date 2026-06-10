@@ -5,6 +5,8 @@ const {
   jobsheetSchema,
   experimentSchema,
   experimentResultSummarySchema,
+  exerciseSchema,
+  exerciseResultSummarySchema,
   rubricSchema,
   evaluationOptionsSchema,
 } = require('./commonSchema');
@@ -25,6 +27,14 @@ const experimentEvaluationRequestSchema = Joi.object({
   .custom(validateExperimentRequest)
   .required();
 
+const exerciseEvaluationRequestSchema = Joi.object({
+  scope: Joi.string().valid('exercise').required(),
+  ...baseFields,
+  exercise: exerciseSchema,
+})
+  .custom(validateExerciseRequest)
+  .required();
+
 const jobsheetEvaluationRequestSchema = Joi.object({
   scope: Joi.string().valid('jobsheet').required(),
   ...baseFields,
@@ -33,6 +43,11 @@ const jobsheetEvaluationRequestSchema = Joi.object({
     .min(1)
     .max(100)
     .required(),
+  exercises: Joi.array()
+    .items(exerciseSchema)
+    .max(100)
+    .optional()
+    .default([]),
   studentConclusion: Joi.string().allow('').max(100000).default(''),
 })
   .custom(validateJobsheetRequest)
@@ -41,6 +56,7 @@ const jobsheetEvaluationRequestSchema = Joi.object({
 const evaluationRequestSchema = Joi.alternatives()
   .try(
     experimentEvaluationRequestSchema,
+    exerciseEvaluationRequestSchema,
     jobsheetEvaluationRequestSchema,
   )
   .match('one');
@@ -93,6 +109,54 @@ function validateExperimentRequest(payload, helpers) {
   return payload;
 }
 
+function validateExerciseRequest(payload, helpers) {
+  const duplicateCriterion = findDuplicateValue(
+    payload.rubric?.criteria || [],
+    'id',
+  );
+  if (duplicateCriterion) {
+    return helpers.message({
+      custom: `Criterion ID "${duplicateCriterion}" digunakan lebih dari satu kali`,
+    });
+  }
+
+  const duplicateFileId = findDuplicateValue(payload.exercise.files, 'id');
+  if (duplicateFileId) {
+    return helpers.message({
+      custom: `File ID "${duplicateFileId}" digunakan lebih dari satu kali`,
+    });
+  }
+
+  const duplicateFilePath = findDuplicateValue(
+    payload.exercise.files,
+    'path',
+  );
+  if (duplicateFilePath) {
+    return helpers.message({
+      custom: `Path file "${duplicateFilePath}" digunakan lebih dari satu kali`,
+    });
+  }
+
+  const invalidLanguageFile = payload.exercise.files.find(
+    (file) => file.language && file.language !== payload.exercise.language,
+  );
+  if (invalidLanguageFile) {
+    return helpers.message({
+      custom: `Bahasa file "${invalidLanguageFile.path}" harus sama dengan bahasa latihan`,
+    });
+  }
+
+  const testCases = payload.exercise.execution?.testCases || [];
+  const duplicateTestCaseId = findDuplicateValue(testCases, 'id');
+  if (duplicateTestCaseId) {
+    return helpers.message({
+      custom: `Test case ID "${duplicateTestCaseId}" digunakan lebih dari satu kali`,
+    });
+  }
+
+  return payload;
+}
+
 function validateJobsheetRequest(payload, helpers) {
   const duplicateCriterion = findDuplicateValue(
     payload.rubric?.criteria || [],
@@ -111,6 +175,16 @@ function validateJobsheetRequest(payload, helpers) {
   if (duplicateExperimentId) {
     return helpers.message({
       custom: `Experiment ID "${duplicateExperimentId}" digunakan lebih dari satu kali`,
+    });
+  }
+
+  const duplicateExerciseId = findDuplicateValue(
+    payload.exercises || [],
+    'id',
+  );
+  if (duplicateExerciseId) {
+    return helpers.message({
+      custom: `Exercise ID "${duplicateExerciseId}" digunakan lebih dari satu kali`,
     });
   }
 
@@ -144,6 +218,7 @@ function validateEvaluationRequest(payload) {
 module.exports = {
   evaluationRequestSchema,
   experimentEvaluationRequestSchema,
+  exerciseEvaluationRequestSchema,
   jobsheetEvaluationRequestSchema,
   validateEvaluationRequest,
 };

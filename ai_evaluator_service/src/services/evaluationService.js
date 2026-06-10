@@ -28,6 +28,8 @@ async function evaluateSubmission(payload) {
 
   if (payload.scope === 'experiment') {
     result = await evaluateExperiment(payload);
+  } else if (payload.scope === 'exercise') {
+    result = await evaluateExercise(payload);
   } else if (payload.scope === 'jobsheet') {
     result = await evaluateJobsheetFull(payload);
   } else {
@@ -51,6 +53,7 @@ async function evaluateSubmission(payload) {
 
 async function evaluateJobsheetFull(payload) {
   const experimentEvaluations = [];
+  const exerciseEvaluations = [];
   let successfulResultsCount = 0;
   let overallSuccess = true;
 
@@ -88,11 +91,49 @@ async function evaluateJobsheetFull(payload) {
     }
   }
 
+  const payloadExercises = payload.exercises || [];
+  for (const exe of payloadExercises) {
+    try {
+      const exePayload = {
+        scope: 'exercise',
+        submissionId: payload.submissionId,
+        jobsheet: payload.jobsheet,
+        exercise: exe,
+        rubric: exe.rubric || payload.rubric || { criteria: [] },
+        options: payload.options,
+      };
+
+      console.log(`[AI Service] Memulai evaluasi serial untuk latihan: ${exe.id}`);
+      const exeResult = await evaluateExercise(exePayload);
+
+      exerciseEvaluations.push({
+        exerciseId: exe.id,
+        status: 'completed',
+        codeFeedbacks: exeResult.codeFeedbacks || [],
+        feedback: exeResult.exerciseFeedback,
+        rubricScores: exeResult.rubricScores || [],
+        totalScoreRecommendation: exeResult.totalScoreRecommendation || 0
+      });
+      successfulResultsCount += 1;
+    } catch (err) {
+      console.error(`[AI Service] Gagal mengevaluasi latihan ${exe.id}:`, err);
+      overallSuccess = false;
+      exerciseEvaluations.push({
+        exerciseId: exe.id,
+        status: 'failed',
+        error: err.message || 'Gagal mengevaluasi latihan'
+      });
+    }
+  }
+
   if (successfulResultsCount === 0) {
-    throw new AppError('Seluruh percobaan pada jobsheet gagal dievaluasi', {
+    throw new AppError('Seluruh percobaan dan latihan pada jobsheet gagal dievaluasi', {
       statusCode: 502,
       code: 'JOBSHEET_EVALUATION_FAILED',
-      details: experimentEvaluations.map(e => ({ experimentId: e.experimentId, error: e.error }))
+      details: [
+        ...experimentEvaluations.map(e => ({ experimentId: e.experimentId, error: e.error })),
+        ...exerciseEvaluations.map(e => ({ exerciseId: e.exerciseId, error: e.error }))
+      ]
     });
   }
 
@@ -109,12 +150,25 @@ async function evaluateJobsheetFull(payload) {
       rubricScores: item.rubricScores
     }));
 
+  const successfulExerciseResults = exerciseEvaluations
+    .filter(item => item.status === 'completed')
+    .map(item => ({
+      exerciseId: item.exerciseId,
+      title: payloadExercises.find(e => e.id === item.exerciseId)?.title || 'Latihan',
+      summary: item.feedback.summary || '',
+      strengths: item.feedback.strengths || [],
+      issues: item.feedback.issues || [],
+      suggestions: item.feedback.suggestions || [],
+      rubricScores: item.rubricScores
+    }));
+
   // Panggil model untuk menghasilkan feedback keseluruhan jobsheet
   const jobsheetSummaryPayload = {
     scope: 'jobsheet',
     submissionId: payload.submissionId,
     jobsheet: payload.jobsheet,
     experimentResults: successfulExperimentResults,
+    exerciseResults: successfulExerciseResults,
     studentConclusion: payload.studentConclusion,
     rubric: payload.rubric,
     options: payload.options,
@@ -130,6 +184,7 @@ async function evaluateJobsheetFull(payload) {
     jobsheetId: payload.jobsheet.id,
     evaluationStatus: overallSuccess ? 'completed' : 'partially_failed',
     experimentEvaluations,
+    exerciseEvaluations,
     jobsheetFeedback: jobsheetModelResult.jobsheetFeedback,
     rubricScores: jobsheetModelResult.rubricScores || [],
     totalScoreRecommendation: jobsheetModelResult.totalScoreRecommendation || 0,
@@ -288,6 +343,15 @@ function validateResultAgainstPayload(result, payload) {
   }
 
   if (
+    payload.scope === 'exercise'
+    && result.exerciseId !== payload.exercise.id
+  ) {
+    errors.push(
+      domainError('exerciseId', 'exerciseId response tidak sesuai request'),
+    );
+  }
+
+  if (
     payload.scope === 'jobsheet'
     && result.jobsheetId !== payload.jobsheet.id
   ) {
@@ -296,9 +360,10 @@ function validateResultAgainstPayload(result, payload) {
     );
   }
 
-  if (payload.scope === 'experiment') {
+  if (payload.scope === 'experiment' || payload.scope === 'exercise') {
+    const targetKey = payload.scope === 'experiment' ? 'experiment' : 'exercise';
     const files = new Map(
-      payload.experiment.files.map((file) => [file.id, file]),
+      payload[targetKey].files.map((file) => [file.id, file]),
     );
 
     result.codeFeedbacks.forEach((feedback, index) => {
@@ -401,15 +466,45 @@ function validateResultAgainstPayload(result, payload) {
         }
       },
     );
+
+    if (result.jobsheetFeedback.exercisesNeedingAttention) {
+      const validExerciseIds = new Set(
+        (payload.exerciseResults || []).map((item) => item.exerciseId),
+      );
+
+      result.jobsheetFeedback.exercisesNeedingAttention.forEach(
+        (item, index) => {
+          if (!validExerciseIds.has(item.exerciseId)) {
+            errors.push(
+              domainError(
+                `jobsheetFeedback.exercisesNeedingAttention.${index}.exerciseId`,
+                'exerciseId tidak tersedia pada exerciseResults',
+              ),
+            );
+          }
+        },
+      );
+    }
   }
 
   return errors;
 }
 
-function sanitizeExperimentResult(result, originalPayload) {
+function sanitizeEvaluationResult(result, originalPayload) {
+  let targetKey = 'experiment';
+  if (originalPayload.scope === 'exercise') {
+    targetKey = 'exercise';
+  } else if (originalPayload.scope === 'experiment') {
+    targetKey = 'experiment';
+  } else if (originalPayload.exercise && !originalPayload.experiment) {
+    targetKey = 'exercise';
+  }
+  const idKey = targetKey === 'experiment' ? 'experimentId' : 'exerciseId';
+  
   const validFeedbacks = [];
+  const targetObj = originalPayload[targetKey];
   const filesById = new Map(
-    originalPayload.experiment.files.map((file) => [file.id, file]),
+    targetObj.files.map((file) => [file.id, file]),
   );
 
   result.codeFeedbacks.forEach((feedback) => {
@@ -425,7 +520,7 @@ function sanitizeExperimentResult(result, originalPayload) {
       logger.warn('Invalid code feedback discarded', {
         requestId: originalPayload.requestId,
         submissionId: originalPayload.submissionId,
-        experimentId: originalPayload.experiment.id,
+        [idKey]: targetObj.id,
         fileId: feedback.fileId,
         startLine: feedback.startLine,
         endLine: feedback.endLine,
@@ -446,7 +541,7 @@ function sanitizeExperimentResult(result, originalPayload) {
       logger.warn('Code feedback selectedCode mismatch discarded', {
         requestId: originalPayload.requestId,
         submissionId: originalPayload.submissionId,
-        experimentId: originalPayload.experiment.id,
+        [idKey]: targetObj.id,
         fileId: feedback.fileId,
       });
       return;
@@ -461,6 +556,117 @@ function sanitizeExperimentResult(result, originalPayload) {
   return {
     ...result,
     codeFeedbacks: deduplicateCodeFeedbacks(validFeedbacks),
+  };
+}
+
+function sanitizeExperimentResult(result, originalPayload) {
+  return sanitizeEvaluationResult(result, originalPayload);
+}
+
+function sanitizeExerciseResult(result, originalPayload) {
+  return sanitizeEvaluationResult(result, originalPayload);
+}
+
+async function evaluateExercise(payload) {
+  const chunks = createExperimentChunks(payload);
+
+  if (chunks.length > 100) {
+    throw new AppError('Source code terlalu besar untuk diproses', {
+      statusCode: 413,
+      code: 'PAYLOAD_TOO_LARGE',
+    });
+  }
+
+  const results = [];
+
+  for (const chunk of chunks) {
+    const result = await requestValidModelResult(chunk);
+    results.push(result);
+  }
+
+  if (results.length === 1) {
+    return sanitizeExerciseResult(results[0], payload);
+  }
+
+  const merged = mergeExerciseResults(results, payload);
+  return sanitizeExerciseResult(merged, payload);
+}
+
+function mergeExerciseResults(results, payload) {
+  const feedbackKeys = [
+    'summary',
+    'instructionCompliance',
+    'codeEvaluation',
+    'outputEvaluation',
+    'testCaseEvaluation',
+    'errorEvaluation',
+    'analysisEvaluation',
+  ];
+
+  const exerciseFeedback = {};
+
+  feedbackKeys.forEach((key) => {
+    exerciseFeedback[key] = uniqueStrings(
+      results.map((item) => item.exerciseFeedback[key]),
+    ).join('\n\n');
+  });
+
+  exerciseFeedback.strengths = uniqueStrings(
+    results.flatMap((item) => item.exerciseFeedback.strengths),
+  );
+  exerciseFeedback.issues = uniqueStrings(
+    results.flatMap((item) => item.exerciseFeedback.issues),
+  );
+  exerciseFeedback.suggestions = uniqueStrings(
+    results.flatMap((item) => item.exerciseFeedback.suggestions),
+  );
+
+  const rubricScores = payload.options?.includeScoreRecommendation === false
+    ? []
+    : payload.rubric.criteria.map((criterion) => {
+        const matches = results
+          .flatMap((item) => item.rubricScores)
+          .filter((item) => item.criterionId === criterion.id);
+
+        if (matches.length === 0) {
+          return {
+            criterionId: criterion.id,
+            score: 0,
+            maxScore: criterion.maxScore,
+            reason: 'Model tidak memberikan rekomendasi pada chunk ini.',
+          };
+        }
+
+        const averageScore = matches.reduce(
+          (total, item) => total + item.score,
+          0,
+        ) / matches.length;
+
+        return {
+          criterionId: criterion.id,
+          score: Math.min(
+            criterion.maxScore,
+            Number(averageScore.toFixed(2)),
+          ),
+          maxScore: criterion.maxScore,
+          reason: uniqueStrings(matches.map((item) => item.reason)).join(' '),
+        };
+      });
+
+  return {
+    scope: 'exercise',
+    submissionId: payload.submissionId,
+    exerciseId: payload.exercise.id,
+    codeFeedbacks: results.flatMap((item) => item.codeFeedbacks),
+    exerciseFeedback,
+    rubricScores,
+    totalScoreRecommendation: rubricScores.reduce(
+      (total, item) => total + item.score,
+      0,
+    ),
+    source: 'ai',
+    status: 'draft',
+    requiresLecturerReview: true,
   };
 }
 
@@ -602,9 +808,12 @@ function normalizeNewlines(value) {
 
 module.exports = {
   evaluateSubmission,
+  evaluateExercise,
   parseAndValidate,
   validateResultAgainstPayload,
   sanitizeExperimentResult,
+  sanitizeExerciseResult,
   mergeExperimentResults,
+  mergeExerciseResults,
   deduplicateCodeFeedbacks,
 };

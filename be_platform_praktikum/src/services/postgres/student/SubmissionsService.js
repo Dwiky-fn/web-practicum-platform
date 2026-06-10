@@ -2,6 +2,67 @@ const pool = require('..');
 const { randomUUID } = require('crypto');
 const AiEvaluationQueue = require('../../execution/AiEvaluationQueue');
 
+function extractSteps(content) {
+  if (!content || !content.content) return [];
+  const steps = [];
+  content.content.forEach((node) => {
+    if (node.type === 'orderedList' && node.content) {
+      node.content.forEach((listItem) => {
+        const paragraph = listItem.content?.[0];
+        if (paragraph?.content) {
+          const text = paragraph.content
+            .map((child) => child.text ?? '')
+            .join('');
+          if (text.trim()) {
+            steps.push(text.trim());
+          }
+        }
+      });
+    }
+  });
+  return steps;
+}
+
+function extractTextFromTiptap(node) {
+  if (!node) return '';
+  if (typeof node === 'string') return node;
+  if (node.type === 'text') return node.text || '';
+  if (Array.isArray(node.content)) {
+    return node.content.map(extractTextFromTiptap).join(' ');
+  }
+  if (Array.isArray(node)) {
+    return node.map(extractTextFromTiptap).join(' ');
+  }
+  if (node.content && typeof node.content === 'object') {
+    return extractTextFromTiptap(node.content);
+  }
+  return '';
+}
+
+function determineStepStatus(step, defaultTemplateCode) {
+  const files = step.files || {};
+  const hasCode = Object.entries(files).some(([name, code]) => {
+    return code && code.trim() !== '' && code.trim() !== (defaultTemplateCode || '').trim();
+  });
+  const hasOutput = typeof step.output === 'string' && step.output.trim() !== '';
+  const analysisText = extractTextFromTiptap(step.analysis);
+  const hasAnalysis = analysisText && analysisText.trim() !== '';
+
+  if (!hasCode && !hasOutput && !hasAnalysis) {
+    return 'not_started';
+  }
+  if (hasCode && !hasOutput && !hasAnalysis) {
+    return 'in_progress';
+  }
+  if (hasOutput && !hasAnalysis) {
+    return 'executed';
+  }
+  if (hasAnalysis) {
+    return 'completed';
+  }
+  return 'in_progress';
+}
+
 class SubmissionsService {
   constructor(jobsheetService) {
     this._pool = pool;
@@ -124,7 +185,8 @@ class SubmissionsService {
 
     const result = await this._pool.query(query);
 
-    return this._mapSubmissionRow(result.rows[0]);
+    const submission = this._mapSubmissionRow(result.rows[0]);
+    return await this._enrichSubmission(submission);
   }
 
   async getSubmissionByJobsheetId(jobsheetId, studentId) {
@@ -137,7 +199,8 @@ class SubmissionsService {
       [jobsheetId, studentId],
     );
 
-    return this._mapSubmissionRow(result.rows[0]) || null;
+    const submission = this._mapSubmissionRow(result.rows[0]) || null;
+    return await this._enrichSubmission(submission);
   }
 
   async getOrCreateSubmission(jobsheetId, courseId, studentId) {
@@ -151,6 +214,41 @@ class SubmissionsService {
   }
 
   async updateSubmission({ jobsheetId, studentId, report, status }) {
+    // Perform normalization on report before saving
+    try {
+      const jobsheetQuery = await this._pool.query('SELECT course_id FROM jobsheets WHERE id = $1', [jobsheetId]);
+      if (jobsheetQuery.rows.length) {
+        const courseId = jobsheetQuery.rows[0].course_id;
+        const jobsheet = await this._jobsheetService.getJobsheetFullById(jobsheetId, courseId);
+        
+        if (report && report.experiments) {
+          for (const exp of (jobsheet.experiments || [])) {
+            const experimentId = exp.id;
+            const stepsTexts = extractSteps(exp.instruction_content);
+            const expReport = report.experiments[experimentId];
+            if (expReport && Array.isArray(expReport.steps)) {
+              expReport.steps = expReport.steps.map((step, index) => {
+                const instructionNumber = step.instructionNumber || (index + 1);
+                const instructionId = step.instructionId || `instruksi-${instructionNumber}`;
+                return {
+                  instructionId,
+                  instructionNumber,
+                  files: step.files || {},
+                  output: step.output || '',
+                  analysis: step.analysis || { type: 'doc', content: [] },
+                  updatedAt: step.updatedAt || new Date().toISOString(),
+                };
+              });
+              // Sort steps by instructionNumber
+              expReport.steps.sort((a, b) => a.instructionNumber - b.instructionNumber);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Gagal menormalisasi report lama:', err);
+    }
+
     const query = {
       text: `
         WITH saved AS (
@@ -172,7 +270,8 @@ class SubmissionsService {
     };
 
     const result = await this._pool.query(query);
-    return this._mapSubmissionRow(result.rows[0]);
+    const submission = this._mapSubmissionRow(result.rows[0]);
+    return await this._enrichSubmission(submission);
   }
 
   async resetReviewForSubmission(submissionId, client = this._pool) {
@@ -224,6 +323,210 @@ class SubmissionsService {
     }
 
     return this.getSubmissionByJobsheetId(jobsheetId, studentId);
+  }
+
+  async _enrichSubmission(submission) {
+    if (!submission || !submission.report) return submission;
+
+    try {
+      const jobsheetQuery = await this._pool.query(
+        'SELECT course_id FROM jobsheets WHERE id = $1',
+        [submission.jobsheet_id]
+      );
+      if (!jobsheetQuery.rows.length) return submission;
+      const courseId = jobsheetQuery.rows[0].course_id;
+
+      const jobsheet = await this._jobsheetService.getJobsheetFullById(
+        submission.jobsheet_id,
+        courseId
+      );
+
+      const report = submission.report;
+      if (!report.experiments) report.experiments = {};
+
+      for (const exp of (jobsheet.experiments || [])) {
+        const experimentId = exp.id;
+        const stepsTexts = extractSteps(exp.instruction_content);
+        
+        let currentExp = report.experiments[experimentId];
+        if (!currentExp) {
+          currentExp = { steps: [] };
+          report.experiments[experimentId] = currentExp;
+        }
+        if (!Array.isArray(currentExp.steps)) {
+          currentExp.steps = [];
+        }
+
+        const existingSteps = currentExp.steps;
+        const enrichedSteps = [];
+
+        for (let i = 0; i < stepsTexts.length; i++) {
+          const instructionNumber = i + 1;
+          const instructionId = `instruksi-${instructionNumber}`;
+          const title = stepsTexts[i];
+
+          let stepData = existingSteps.find(s => s.instructionId === instructionId);
+          if (!stepData) {
+            stepData = existingSteps.find(s => s.instructionNumber === instructionNumber);
+            
+            if (!stepData && existingSteps[i] && existingSteps[i].instructionId === undefined && existingSteps[i].instructionNumber === undefined) {
+              stepData = existingSteps[i];
+            }
+          }
+
+          const defaultTemplateCode = exp.default_template_code || '';
+
+          if (stepData) {
+            const files = stepData.files || {};
+            const output = stepData.output || '';
+            const analysis = stepData.analysis || { type: 'doc', content: [] };
+            
+            const status = determineStepStatus({ files, output, analysis }, defaultTemplateCode);
+
+            enrichedSteps.push({
+              instructionId,
+              instructionNumber,
+              title,
+              status,
+              files,
+              output,
+              analysis,
+            });
+          } else {
+            enrichedSteps.push({
+              instructionId,
+              instructionNumber,
+              title,
+              status: 'not_started',
+              files: {},
+              output: '',
+              analysis: { type: 'doc', content: [] },
+            });
+          }
+        }
+
+        enrichedSteps.sort((a, b) => a.instructionNumber - b.instructionNumber);
+        report.experiments[experimentId].steps = enrichedSteps;
+      }
+    } catch (err) {
+      console.error('Gagal melakukan enrichment pada submission:', err);
+    }
+
+    return submission;
+  }
+
+  async updateSubmissionStep({ jobsheetId, studentId, courseId, stepPayload }) {
+    const enrollmentQuery = await this._pool.query(
+      `SELECT cs.id
+       FROM class_students cs
+       JOIN classes cl ON cs.class_id = cl.id
+       JOIN jobsheets j ON j.course_id = cl.course_id
+       WHERE cs.student_id = $1
+         AND j.id = $2
+         AND cs.status = 'AKTIF'
+         AND cl.status = 'AKTIF'
+       LIMIT 1`,
+      [studentId, jobsheetId]
+    );
+
+    if (!enrollmentQuery.rows.length) {
+      throw new Error('Mahasiswa tidak terdaftar atau tidak memiliki akses ke kelas jobsheet ini');
+    }
+
+    const submission = await this.getOrCreateSubmission(jobsheetId, courseId, studentId);
+    if (!submission) {
+      throw new Error('Submission tidak dapat ditemukan atau dibuat');
+    }
+
+    const jobsheet = await this._jobsheetService.getJobsheetFullById(jobsheetId, courseId);
+    if (!jobsheet) {
+      throw new Error('Jobsheet tidak ditemukan');
+    }
+
+    const targetExp = (jobsheet.experiments || []).find(e => e.id === stepPayload.experimentId);
+    if (!targetExp) {
+      throw new Error(`Experiment ID "${stepPayload.experimentId}" tidak ditemukan pada jobsheet`);
+    }
+
+    const stepsTexts = extractSteps(targetExp.instruction_content);
+    const instructionIndex = stepPayload.instructionNumber - 1;
+    if (instructionIndex < 0 || instructionIndex >= stepsTexts.length) {
+      throw new Error(`Instruction number ${stepPayload.instructionNumber} di luar batas instruksi yang valid`);
+    }
+    const expectedInstructionId = `instruksi-${stepPayload.instructionNumber}`;
+    if (stepPayload.instructionId !== expectedInstructionId) {
+      throw new Error(`Instruction ID "${stepPayload.instructionId}" tidak cocok dengan instruction number ${stepPayload.instructionNumber}`);
+    }
+
+    const report = submission.report || { experiments: {}, exercises: {}, conclusion: null };
+    if (!report.experiments) report.experiments = {};
+    if (!report.experiments[stepPayload.experimentId]) {
+      report.experiments[stepPayload.experimentId] = { steps: [] };
+    }
+    const expReport = report.experiments[stepPayload.experimentId];
+    if (!Array.isArray(expReport.steps)) {
+      expReport.steps = [];
+    }
+
+    let stepIndex = expReport.steps.findIndex(s => s.instructionId === stepPayload.instructionId);
+    if (stepIndex === -1) {
+      stepIndex = expReport.steps.findIndex(s => s.instructionNumber === stepPayload.instructionNumber);
+    }
+
+    const updatedStep = {
+      instructionId: stepPayload.instructionId,
+      instructionNumber: stepPayload.instructionNumber,
+      files: stepPayload.files,
+      output: stepPayload.output,
+      analysis: stepPayload.analysis,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (stepIndex !== -1) {
+      expReport.steps[stepIndex] = updatedStep;
+    } else {
+      expReport.steps.push(updatedStep);
+    }
+
+    expReport.steps.sort((a, b) => a.instructionNumber - b.instructionNumber);
+
+    const cleanedExperiments = {};
+    for (const [expId, expData] of Object.entries(report.experiments)) {
+      cleanedExperiments[expId] = {
+        steps: (expData.steps || []).map(s => ({
+          instructionId: s.instructionId,
+          instructionNumber: s.instructionNumber,
+          files: s.files,
+          output: s.output,
+          analysis: s.analysis,
+          updatedAt: s.updatedAt,
+        }))
+      };
+    }
+    const cleanedReport = {
+      ...report,
+      experiments: cleanedExperiments,
+    };
+
+    const query = {
+      text: `
+        WITH saved AS (
+          UPDATE task_submissions
+          SET 
+            report_html = $1
+          WHERE jobsheet_id = $2 AND student_id = $3
+          RETURNING id
+        )
+        ${this._buildSubmissionSelect()}
+        WHERE ts.id = (SELECT id FROM saved)
+      `,
+      values: [JSON.stringify(cleanedReport), jobsheetId, studentId],
+    };
+
+    const result = await this._pool.query(query);
+    const updatedSubmission = this._mapSubmissionRow(result.rows[0]);
+    
+    return await this._enrichSubmission(updatedSubmission);
   }
 }
 

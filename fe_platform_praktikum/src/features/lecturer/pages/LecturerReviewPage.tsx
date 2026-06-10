@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
-import type { JSONContent } from "@tiptap/react"
-import { ArrowLeft } from "lucide-react"
-import RichTextEditor from "../../../components/editor/RichTextEditor"
+const emptyDoc = { type: "doc" as const, content: [] }
+import { ArrowLeft, Eye, Edit } from "lucide-react"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import type { Jobsheet } from "../../../services/jobsheet/types"
@@ -17,15 +16,21 @@ import {
   saveLecturerSubmissionReview,
   getSubmissionReviewStatus,
 } from "../service"
+import {
+  getFeedbacks,
+  createFeedback,
+  updateFeedback,
+  deleteFeedback,
+  publishFeedback,
+  publishMultipleFeedbacks,
+} from "../../../services/reviewFeedbackService"
+import type { ReviewFeedback } from "../../../services/reviewFeedbackService"
+import type { SelectedLineRange } from "../components/review/CodeReviewBlock"
+import ExperimentReviewCard from "../components/review/ExperimentReviewCard"
 
-const emptyDoc = { type: "doc" as const, content: [] }
+import ReviewSidePanel from "../components/review/ReviewSidePanel"
 
-function extractTextContent(node: JSONContent | JSONContent[] | string | undefined): string {
-  if (!node) return ""
-  if (typeof node === "string") return node
-  if (Array.isArray(node)) return node.map(extractTextContent).join("")
-  return [node.text ?? "", ...(node.content ?? []).map(extractTextContent)].join("")
-}
+
 
 export default function LecturerReviewPage() {
   const navigate = useNavigate()
@@ -39,14 +44,20 @@ export default function LecturerReviewPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [score, setScore] = useState("")
-  const [decision, setDecision] = useState("")
-  const [lecturerNote, setLecturerNote] = useState<JSONContent>(emptyDoc)
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null)
   const [submission, setSubmission] = useState<JobsheetSubmission | null>(null)
   const [student, setStudent] = useState<{ fullname: string; nim: string } | null>(null)
   const [saving, setSaving] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
-  const [successDecision, setSuccessDecision] = useState<"ACCEPTED" | "REVISION" | null>(null)
+  const [successDecision, setSuccessDecision] = useState<"ACCEPTED" | null>(null)
+
+  // Review feedbacks states
+  const [feedbacks, setFeedbacks] = useState<ReviewFeedback[]>([])
+  const [activeFeedbackId, setActiveFeedbackId] = useState<string | null>(null)
+  const [selectedLineRange, setSelectedLineRange] = useState<SelectedLineRange | null>(null)
+  const [activeExperimentId, setActiveExperimentId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<"percobaan" | "jobsheet">("percobaan")
+  const [isEditingReview, setIsEditingReview] = useState(false)
 
   useEffect(() => {
     async function loadData() {
@@ -69,20 +80,6 @@ export default function LecturerReviewPage() {
         setJobsheet(selectedJobsheet)
         setSubmission(selectedSubmission)
         setScore(String(selectedSubmission?.review?.finalScore ?? ""))
-        setDecision(selectedSubmission?.review?.decision ?? "")
-        setLecturerNote(
-          selectedSubmission?.review?.lecturerFeedback
-            ? {
-                type: "doc",
-                content: [
-                  {
-                    type: "paragraph",
-                    content: [{ type: "text", text: selectedSubmission.review.lecturerFeedback }],
-                  },
-                ],
-              }
-            : emptyDoc,
-        )
 
         if (classId) {
           const classDetail = await getLecturerClassDetail(classId)
@@ -92,6 +89,11 @@ export default function LecturerReviewPage() {
               ? { fullname: selectedStudent.fullname, nim: selectedStudent.nim }
               : null,
           )
+        }
+
+        if (selectedSubmission) {
+          const reviewFeedbacks = await getFeedbacks(selectedSubmission.id)
+          setFeedbacks(reviewFeedbacks)
         }
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Gagal memuat halaman review dosen.")
@@ -124,11 +126,46 @@ export default function LecturerReviewPage() {
     }))
   }, [jobsheet, submission])
 
-  if (loading) {
-    return <TopProgressBar />
+  const handleCreateFeedback = async (payload: any) => {
+    const created = await createFeedback(payload)
+    setFeedbacks((prev) => [...prev, created])
+    return created
   }
 
-  async function handleSaveReview(nextDecision: "ACCEPTED" | "REVISION") {
+  const handleUpdateFeedback = async (id: string, payload: any) => {
+    const updated = await updateFeedback(id, payload)
+    setFeedbacks((prev) => prev.map((f) => (f.id === id ? updated : f)))
+    return updated
+  }
+
+  const handleDeleteFeedback = async (id: string) => {
+    await deleteFeedback(id)
+    setFeedbacks((prev) => prev.filter((f) => f.id !== id))
+    if (activeFeedbackId === id) {
+      setActiveFeedbackId(null)
+    }
+  }
+
+  const handlePublishFeedback = async (id: string) => {
+    const published = await publishFeedback(id)
+    setFeedbacks((prev) => prev.map((f) => (f.id === id ? published : f)))
+    return published
+  }
+
+  const handlePublishMultipleFeedbacks = async (ids: string[]) => {
+    await publishMultipleFeedbacks(ids)
+    setFeedbacks((prev) =>
+      prev.map((f) =>
+        ids.includes(f.id)
+          ? { ...f, status: "published" as const, publishedAt: new Date().toISOString() }
+          : f
+      )
+    )
+  }
+
+
+
+  async function handleSaveReview(nextDecision: "ACCEPTED") {
     if (!user || !submission) return
 
     try {
@@ -140,7 +177,7 @@ export default function LecturerReviewPage() {
         lecturerId: user.id,
         aiScore: submission.score,
         finalScore: score ? Number(score) : undefined,
-        feedback: extractTextContent(lecturerNote).trim(),
+        feedback: "",
         decision: nextDecision,
         aiFeedback: {
           comments: submission.review?.comments ?? [],
@@ -149,19 +186,23 @@ export default function LecturerReviewPage() {
 
       const refreshedSubmission = await getLecturerSubmission(courseId, jobsheetId, studentId)
       setSubmission(refreshedSubmission)
-      setDecision(nextDecision)
       setSuccessDecision(nextDecision)
-      setSuccessMessage(
-        nextDecision === "ACCEPTED"
-          ? "Review berhasil disimpan dan submission diterima."
-          : "Review berhasil disimpan dan mahasiswa diminta revisi.",
-      )
+      setSuccessMessage("Review berhasil disimpan dan submission diterima.")
+      setIsEditingReview(false)
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Gagal menyimpan review dosen.")
     } finally {
       setSaving(false)
     }
   }
+
+  if (loading) {
+    return <TopProgressBar />
+  }
+
+  const isDraft = submission?.status === "DRAFT"
+  const isReviewed = submission?.status === "ACCEPTED"
+  const isReadOnly = isDraft || (isReviewed && !isEditingReview)
 
   return (
     <LecturerLayout>
@@ -195,165 +236,212 @@ export default function LecturerReviewPage() {
         <LecturerEmptyState title="Submission mahasiswa belum tersedia untuk direview." />
       ) : (
         <>
-          {decision && (
-            <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-              Keputusan saat ini: {decision}
+          {/* Warning Banner if submission is reviewed */}
+          {isReviewed && (
+            <div className={`mb-6 rounded-xl border px-5 py-4 text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm font-sans ${
+              isEditingReview 
+                ? "border-amber-200 bg-amber-50 text-amber-800" 
+                : "border-blue-200 bg-blue-50 text-blue-800"
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className="shrink-0">
+                  {isEditingReview ? (
+                    <Edit className="w-5 h-5 text-amber-600" />
+                  ) : (
+                    <Eye className="w-5 h-5 text-blue-600" />
+                  )}
+                </div>
+                <div>
+                  {isEditingReview ? (
+                    <>
+                      <span className="font-bold">Mode Edit Penilaian Aktif:</span> Anda sedang mengubah penilaian dan feedback untuk laporan ini. Klik <span className="font-semibold">Simpan & Publish Penilaian</span> di panel sebelah kanan (tab Jobsheet) setelah selesai.
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-bold">Laporan Sudah Dinilai:</span> Hasil review saat ini terkunci (read-only). Klik tombol di sebelah kanan jika ingin memperbarui penilaian.
+                    </>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingReview(prev => !prev)}
+                className={`shrink-0 text-xs font-semibold px-4 py-2 rounded-lg border shadow-sm transition-all ${
+                  isEditingReview
+                    ? "bg-white border-amber-300 text-amber-700 hover:bg-amber-100/50"
+                    : "bg-blue-600 hover:bg-blue-700 text-white border-transparent"
+                }`}
+              >
+                {isEditingReview ? "Batal Edit" : "Edit Penilaian"}
+              </button>
             </div>
           )}
 
-          <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-            <LecturerPanel className="p-5">
-              <section className="border-b border-gray-200 pb-5">
-                <h2 className="mb-4 text-lg font-semibold">Identitas Mahasiswa</h2>
-                <dl className="grid gap-3 text-sm md:grid-cols-[160px_1fr]">
-                  <dt className="text-gray-600">Nama</dt><dd>{student?.fullname ?? "-"}</dd>
-                  <dt className="text-gray-600">NIM</dt><dd>{student?.nim ?? "-"}</dd>
-                  <dt className="text-gray-600">Materi</dt><dd>{jobsheet.title}</dd>
-                  <dt className="text-gray-600">Status</dt><dd>{getSubmissionReviewStatus(submission)}</dd>
-                  <dt className="text-gray-600">Diperbarui</dt><dd>{new Date(submission.updatedAt).toLocaleString("id-ID")}</dd>
-                </dl>
-              </section>
+          {/* Warning Banner if submission is draft */}
+          {isDraft && (
+            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 flex items-center gap-3 shadow-sm font-sans">
+              <div className="text-xl shrink-0">⚠️</div>
+              <div>
+                <span className="font-bold">Laporan Belum Dikumpulkan:</span> Mahasiswa belum menyelesaikan jobsheet ini (status submission masih DRAFT). Anda hanya dapat memantau pengerjaan laporan dan belum bisa melakukan review atau memberikan penilaian.
+              </div>
+            </div>
+          )}
 
-              <section className="py-5">
-                <h2 className="mb-4 text-lg font-semibold">Percobaan</h2>
+          <div className="grid gap-6 lg:grid-cols-[1fr_380px] items-start">
+            <div className="space-y-6">
+              {/* Identitas Mahasiswa Panel */}
+              <LecturerPanel className="p-5">
+                <h2 className="mb-4 text-lg font-semibold border-b border-gray-100 pb-2">Identitas Mahasiswa</h2>
+                <dl className="grid gap-3 text-sm md:grid-cols-[160px_1fr]">
+                  <dt className="text-gray-600 font-medium">Nama</dt>
+                  <dd className="text-gray-900">{student?.fullname ?? "-"}</dd>
+                  <dt className="text-gray-600 font-medium">NIM</dt>
+                  <dd className="text-gray-900">{student?.nim ?? "-"}</dd>
+                  <dt className="text-gray-600 font-medium">Materi</dt>
+                  <dd className="text-gray-900">{jobsheet.title}</dd>
+                  <dt className="text-gray-600 font-medium">Status</dt>
+                  <dd className="text-gray-900">{getSubmissionReviewStatus(submission)}</dd>
+                  <dt className="text-gray-600 font-medium font-sans">Diperbarui</dt>
+                  <dd className="text-gray-900">{new Date(submission.updatedAt).toLocaleString("id-ID")}</dd>
+                </dl>
+              </LecturerPanel>
+
+              {/* Collapsible Experiments review list */}
+              <div className="space-y-4">
+                <h2 className="text-lg font-bold text-gray-800">Percobaan Laporan</h2>
                 {!experimentReports.length ? (
-                  <p className="text-sm text-gray-500">Tidak ada percobaan pada jobsheet ini.</p>
+                  <p className="text-sm text-gray-500 bg-white border border-gray-200 rounded-xl p-5 text-center italic">
+                    Tidak ada percobaan pada jobsheet ini.
+                  </p>
                 ) : (
                   experimentReports.map(({ experiment, steps }) => (
-                    <div key={experiment.id} className="mb-5 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                      <p className="mb-3 text-sm font-semibold">
-                        Percobaan {experiment.order}: {experiment.title}
-                      </p>
-                      {!steps.length ? (
-                        <p className="text-sm text-gray-500">Mahasiswa belum mengisi percobaan ini.</p>
-                      ) : (
-                        steps.map((step, index) => (
-                          <div key={`${experiment.id}-${index}`} className="mb-4 rounded-md bg-white p-4 text-sm">
-                            <p className="font-semibold">Langkah {index + 1}</p>
-                            <pre className="mt-3 overflow-x-auto rounded-md bg-gray-950 p-4 text-xs text-gray-100">
-                              <code>
-                                {Object.entries(step.files ?? {})
-                                  .map(([name, content]) => `// ${name}\n${content}`)
-                                  .join("\n\n") || "// Belum ada kode"}
-                              </code>
-                            </pre>
-                            <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3">
-                              <p className="font-semibold">Output:</p>
-                              <p className="mt-1 whitespace-pre-line">{step.output || "-"}</p>
-                            </div>
-                            <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3">
-                              <p className="mb-2 font-semibold">Analisis:</p>
-                              <RichTextViewer content={step.analysis ?? emptyDoc} role="DOSEN" mode="viewer-default" />
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
+                    <ExperimentReviewCard
+                      key={experiment.id}
+                      submissionId={submission.id}
+                      experiment={experiment}
+                      steps={steps}
+                      feedbacks={feedbacks}
+                      readOnly={isReadOnly}
+                      selectedLineRange={isReadOnly ? null : selectedLineRange}
+                      activeFeedbackId={activeFeedbackId}
+                      onSelectLines={isReadOnly ? undefined : setSelectedLineRange}
+                      onSelectFeedback={setActiveFeedbackId}
+                      onClearSelection={() => setSelectedLineRange(null)}
+                      onOpenFeedbackEditor={(expId) => {
+                        if (isReadOnly) return
+                        setActiveExperimentId(expId)
+                        setActiveTab("percobaan")
+                      }}
+                      isExpandedByDefault={true}
+                    />
                   ))
                 )}
-              </section>
+              </div>
 
-              <section className="border-t border-gray-200 py-5">
-                <h2 className="mb-4 text-lg font-semibold">Latihan</h2>
+              {/* Latihan Section */}
+              <div className="space-y-4">
+                <h2 className="text-lg font-bold text-gray-800">Latihan Laporan</h2>
                 {!exerciseReports.length ? (
-                  <p className="text-sm text-gray-500">Tidak ada latihan pada jobsheet ini.</p>
+                  <p className="text-sm text-gray-500 bg-white border border-gray-200 rounded-xl p-5 text-center italic">
+                    Tidak ada latihan pada jobsheet ini.
+                  </p>
                 ) : (
-                  exerciseReports.map(({ exercise, report }) => (
-                    <div key={exercise.id} className="mb-5 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                      <p className="mb-3 text-sm font-semibold">
-                        Latihan {exercise.order}: {exercise.title}
-                      </p>
-                      {!report ? (
-                        <p className="text-sm text-gray-500">Mahasiswa belum mengisi latihan ini.</p>
-                      ) : (
-                        <>
-                          <pre className="overflow-x-auto rounded-md bg-gray-950 p-4 text-xs text-gray-100">
-                            <code>
-                              {Object.entries(report.files ?? {})
-                                .map(([name, content]) => `// ${name}\n${content}`)
-                                .join("\n\n") || "// Belum ada kode"}
-                            </code>
-                          </pre>
-                          <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3">
-                            <p className="font-semibold">Output:</p>
-                            <p className="mt-1 whitespace-pre-line">{report.output || "-"}</p>
-                          </div>
-                          <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3">
-                            <p className="mb-2 font-semibold">Analisis:</p>
-                            <RichTextViewer content={report.analysis ?? emptyDoc} role="DOSEN" mode="viewer-default" />
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ))
+                  exerciseReports.map(({ exercise, report }) => {
+                    const exerciseSteps = report
+                      ? [
+                          {
+                            files: report.files ?? {},
+                            output: report.output || "",
+                            analysis: report.analysis ?? emptyDoc,
+                          },
+                        ]
+                      : []
+                    return (
+                      <ExperimentReviewCard
+                        key={exercise.id}
+                        submissionId={submission.id}
+                        experiment={{
+                          id: exercise.id,
+                          title: exercise.title,
+                          order: exercise.order,
+                          instructionContent: exercise.instructionContent,
+                        }}
+                        steps={exerciseSteps}
+                        feedbacks={feedbacks}
+                        readOnly={isReadOnly}
+                        selectedLineRange={isReadOnly ? null : selectedLineRange}
+                        activeFeedbackId={activeFeedbackId}
+                        onSelectLines={isReadOnly ? undefined : setSelectedLineRange}
+                        onSelectFeedback={setActiveFeedbackId}
+                        onClearSelection={() => setSelectedLineRange(null)}
+                        onOpenFeedbackEditor={(exeId) => {
+                          if (isReadOnly) return
+                          setActiveExperimentId(exeId)
+                          setActiveTab("percobaan")
+                        }}
+                        isExpandedByDefault={true}
+                        type="exercise"
+                      />
+                    )
+                  })
                 )}
-              </section>
+              </div>
 
-              <section className="border-t border-gray-200 pt-5">
-                <h2 className="mb-3 text-lg font-semibold">Kesimpulan Akhir</h2>
-                <div className="rounded-md bg-gray-50 p-4 text-sm">
+              {/* Kesimpulan Akhir */}
+              <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
+                <h2 className="text-lg font-bold text-gray-800 border-b border-gray-100 pb-2">Kesimpulan Akhir</h2>
+                <div className="rounded-lg bg-gray-50 p-4 text-sm border">
                   {submission.conclusion?.content ? (
-                    <RichTextViewer content={submission.conclusion.content} role="DOSEN" mode="viewer-default" />
+                    <RichTextViewer content={submission.conclusion.content} role="MAHASISWA" mode="viewer-default" />
                   ) : (
-                    <p className="text-gray-500">Mahasiswa belum menulis kesimpulan akhir.</p>
+                    <p className="text-gray-500 italic">Mahasiswa belum menulis kesimpulan akhir.</p>
                   )}
                 </div>
-              </section>
-            </LecturerPanel>
+              </div>
 
-            <aside className="space-y-5">
-              <LecturerPanel className="p-5">
-                <h2 className="mb-4 text-lg font-semibold">Ringkasan Review</h2>
-                <div className="space-y-3 text-sm">
-                  <p>Status submission: {getSubmissionReviewStatus(submission)}</p>
-                  <p>Nilai AI: {submission.score ?? "-"}</p>
-                  <p>Nilai akhir backend: {submission.review?.finalScore ?? "-"}</p>
-                  <p>Jumlah komentar backend: {submission.review?.comments.length ?? 0}</p>
-                </div>
-              </LecturerPanel>
 
-              <LecturerPanel className="p-5">
-                <h2 className="mb-4 text-lg font-semibold">Penilaian & Keputusan</h2>
-                <label className="mb-3 block text-sm font-medium">
-                  Nilai AI
-                  <input className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3" value={submission.score ?? ""} readOnly />
-                </label>
-                <label className="mb-3 block text-sm font-medium">
-                  Nilai Akhir
-                  <input className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3" value={score} onChange={(event) => setScore(event.target.value)} />
-                </label>
-                <label className="block text-sm font-medium">
-                  Catatan Dosen
-                  <div className="mt-2">
-                    <RichTextEditor
-                      value={lecturerNote}
-                      onChange={setLecturerNote}
-                      role="DOSEN"
-                      placeholder="Tulis catatan review dosen dengan format lengkap..."
-                    />
+            </div>
+
+            {/* Tabbed Sticky Reviews Panel / Draft Mode Placeholder */}
+            <aside className="sticky top-6">
+              {isDraft ? (
+                <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm space-y-4 font-sans">
+                  <h3 className="font-bold text-gray-800 text-sm">Status Submission</h3>
+                  <div className="bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold px-3 py-2 rounded-lg text-center uppercase tracking-wide">
+                    DRAFT (Belum Selesai)
                   </div>
-                </label>
-                <div className="mt-5 flex gap-3">
-                  <LecturerButton
-                    variant="secondary"
-                    className="flex-1"
-                    disabled={saving}
-                    onClick={() => handleSaveReview("REVISION")}
-                  >
-                    {saving ? "Menyimpan..." : "Tolak & Revisi"}
-                  </LecturerButton>
-                  <LecturerButton
-                    className="flex-1"
-                    disabled={saving}
-                    onClick={() => handleSaveReview("ACCEPTED")}
-                  >
-                    {saving ? "Menyimpan..." : "Terima"}
-                  </LecturerButton>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    Mahasiswa masih pengerjaan jobsheet ini. Anda hanya dapat memantau progres pengerjaan laporan secara real-time. Fitur penilaian, input nilai, dan feedback akan terbuka secara otomatis setelah laporan berhasil dikumpulkan oleh mahasiswa.
+                  </p>
                 </div>
-                <LecturerButton variant="ghost" className="mt-3 w-full" onClick={() => navigate(-1)}>
-                  Kembali
-                </LecturerButton>
-              </LecturerPanel>
+              ) : (
+                <ReviewSidePanel
+                  submissionId={submission.id}
+                  experiments={jobsheet.experiments}
+                  exercises={jobsheet.exercises}
+                  feedbacks={feedbacks}
+                  activeFeedbackId={activeFeedbackId}
+                  onSelectFeedback={setActiveFeedbackId}
+                  selectedLineRange={selectedLineRange}
+                  onClearSelection={() => setSelectedLineRange(null)}
+                  onCreateFeedback={handleCreateFeedback}
+                  onUpdateFeedback={handleUpdateFeedback}
+                  onDeleteFeedback={handleDeleteFeedback}
+                  onPublishFeedback={handlePublishFeedback}
+                  onPublishMultipleFeedbacks={handlePublishMultipleFeedbacks}
+
+                  activeExperimentId={activeExperimentId}
+                  onSetActiveExperimentId={setActiveExperimentId}
+                  score={score}
+                  onScoreChange={setScore}
+                  saving={saving}
+                  onSaveReview={handleSaveReview}
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  readOnly={isReadOnly}
+                  aiScore={submission.score}
+                />
+              )}
             </aside>
           </div>
         </>
@@ -380,9 +468,7 @@ export default function LecturerReviewPage() {
           }
         >
           <p className="text-sm text-gray-700">
-            {successDecision === "ACCEPTED"
-              ? "Jobsheet sudah berhasil dinilai dan diterima."
-              : "Jobsheet sudah berhasil dinilai dan dikembalikan untuk revisi."}
+            Jobsheet sudah berhasil dinilai dan disimpan.
           </p>
         </LecturerModal>
       )}

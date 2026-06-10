@@ -35,6 +35,7 @@ import {
 interface Props {
   editor: Editor
   role: EditorRole
+  layout?: "vertical" | "horizontal"
 }
 
 type ToolbarButtonProps = {
@@ -84,17 +85,19 @@ function ToolbarButton({
   )
 }
 
-function ToolbarDivider() {
+function ToolbarDivider({ layout = "vertical" }: { layout?: "vertical" | "horizontal" }) {
   return (
     <div 
-      className="w-px h-6 bg-gray-200/80 mx-1 flex-shrink-0 
-        md:col-span-2 md:h-px md:w-full md:bg-gray-200/80 md:my-1 md:mx-0" 
+      className={layout === "horizontal"
+        ? "w-px h-6 bg-gray-200/80 mx-1 flex-shrink-0"
+        : "w-px h-6 bg-gray-200/80 mx-1 flex-shrink-0 md:col-span-2 md:h-px md:w-full md:bg-gray-200/80 md:my-1 md:mx-0"
+      }
       aria-hidden="true" 
     />
   )
 }
 
-export default function EditorToolbar({ editor, role }: Props) {
+export default function EditorToolbar({ editor, role, layout = "vertical" }: Props) {
   const state = useEditorState({
     editor,
     selector: (ctx) => ({
@@ -166,7 +169,7 @@ export default function EditorToolbar({ editor, role }: Props) {
     <div 
       className={`editor-toolbar-container flex items-center justify-start flex-wrap gap-1.5 p-2 bg-gray-50 border border-gray-300 rounded-lg w-full select-none
         ${
-          isLecturer 
+          isLecturer && layout === "vertical"
             ? "md:grid md:grid-cols-2 md:items-center md:gap-1.5 md:p-2.5 md:bg-white md:border md:border-gray-200 md:rounded-xl md:shadow-md md:w-[92px]" 
             : ""
         }`}
@@ -307,7 +310,7 @@ export default function EditorToolbar({ editor, role }: Props) {
         </>
       )}
 
-      {isLecturer && <ToolbarDivider />}
+      {isLecturer && <ToolbarDivider layout={layout} />}
 
       {/* ============================================================ */}
       {/* KELOMPOK 2: LIST, BLOCKS & ALIGNMENT (6 item -> 3 baris penuh) */}
@@ -422,7 +425,7 @@ export default function EditorToolbar({ editor, role }: Props) {
         </>
       )}
 
-      {isLecturer && <ToolbarDivider />}
+      {isLecturer && <ToolbarDivider layout={layout} />}
 
       {/* ============================================================ */}
       {/* KELOMPOK 3: TABLE & LAINNYA / SEJARAH (4 item -> 2 baris penuh) */}

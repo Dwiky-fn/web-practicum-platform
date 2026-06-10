@@ -12,6 +12,7 @@ interface Props {
   editable?: boolean;
   placeholder?: string;
   role?: EditorRole;
+  toolbarPosition?: "top" | "side";
 }
 
 export default function RichTextEditor({
@@ -20,6 +21,7 @@ export default function RichTextEditor({
   editable = true,
   placeholder = "Mulai menulis...",
   role,
+  toolbarPosition = "side",
 }: Props) {
   const { user } = useCurrentUser();
   const resolvedRole: EditorRole = role ?? toEditorRole(user?.role);
@@ -53,6 +55,16 @@ export default function RichTextEditor({
   const isLecturer = resolvedRole === "DOSEN";
 
   if (isLecturer && editable) {
+    if (toolbarPosition === "top") {
+      return (
+        <div className="flex flex-col gap-2 w-full">
+          <EditorToolbar editor={editor} role={resolvedRole} layout="horizontal" />
+          <div className="flex-1 w-full border border-gray-300 rounded-lg bg-white p-4 shadow-sm min-h-[120px]">
+            <EditorContent editor={editor} />
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col md:flex-row gap-4 items-start relative w-full min-w-0">
         <div className="w-full md:w-auto md:sticky md:top-4 z-10 shrink-0">

@@ -1,21 +1,23 @@
 import { useParams } from "react-router-dom"
-import { useEffect, useState } from "react"
-
+import { useEffect, useMemo, useState } from "react"
 import { getJobsheetById } from "../../../../../../../services/jobsheet/service"
 import { getSubmissionByJobsheetId } from "../../../../../../../services/submission/service"
-
 import type { Jobsheet } from "../../../../../../../services/jobsheet/types"
 import type { JobsheetSubmission } from "../../../../../../../services/submission/types"
-
 import ReportHeader from "../components/ReportHeader"
 import StudentIdentityCard from "../components/StudentIdentityCard"
-import ReportSection from "../components/report/ReportSection"
-import ReviewSection from "./components/ReviewSection"
-import ReviewCommentPanel from "./components/ReviewCommentPanel"
 import TopProgressBar from "../../../../../../../components/loading/TopProgressBar"
 import ConclusionEditor from "../components/ConclusionEditor"
 import { useCurrentUser } from "../../../../../../../services/user/useCurrentUser"
 import Navbar from "../../../../../../../components/navbar/Navbar"
+import ReviewSummaryBanner from "./components/ReviewSummaryBanner"
+import StudentReviewPanel from "./components/StudentReviewPanel"
+import ExperimentReviewCard from "../../../../../../lecturer/components/review/ExperimentReviewCard"
+import JobsheetFeedbackCard from "../../../../../../lecturer/components/review/JobsheetFeedbackCard"
+import { getFeedbacks } from "../../../../../../../services/reviewFeedbackService"
+import type { ReviewFeedback } from "../../../../../../../services/reviewFeedbackService"
+
+const emptyDoc = { type: "doc" as const, content: [] }
 
 export default function ReviewPage() {
   const { courseId, jobsheetId } = useParams()
@@ -25,6 +27,11 @@ export default function ReviewPage() {
   const [submission, setSubmission] = useState<JobsheetSubmission | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+
+  const [feedbacks, setFeedbacks] = useState<ReviewFeedback[]>([])
+  const [activeFeedbackId, setActiveFeedbackId] = useState<string | null>(null)
+  const [isPanelOpen, setIsPanelOpen] = useState(true)
+  const [expandedExperiments, setExpandedExperiments] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     async function loadData() {
@@ -39,6 +46,19 @@ export default function ReviewPage() {
 
         setJobsheet(selected || null)
         setSubmission(sub)
+
+        if (sub) {
+          const fbs = await getFeedbacks(sub.id)
+          setFeedbacks(fbs)
+          // Expand experiments that have active feedbacks initially
+          const expWithFbs: Record<string, boolean> = {}
+          fbs.forEach(fb => {
+            if (fb.experimentId && (fb.status === "published" || fb.status === "resolved")) {
+              expWithFbs[fb.experimentId] = true
+            }
+          })
+          setExpandedExperiments(expWithFbs)
+        }
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Gagal memuat hasil review.")
       } finally {
@@ -48,6 +68,82 @@ export default function ReviewPage() {
 
     loadData()
   }, [courseId, jobsheetId, user])
+
+  const experimentReports = useMemo(() => {
+    if (!jobsheet || !submission) return []
+
+    return jobsheet.experiments.map((experiment) => {
+      const report = submission.report.experiments?.[experiment.id]
+      return {
+        experiment,
+        steps: report?.steps ?? [],
+      }
+    })
+  }, [jobsheet, submission])
+
+  const exerciseReports = useMemo(() => {
+    if (!jobsheet || !submission) return []
+
+    return jobsheet.exercises.map((exercise) => ({
+      exercise,
+      report: submission.report.exercises?.[exercise.id] ?? null,
+    }))
+  }, [jobsheet, submission])
+
+  const scrollToElement = (id: string) => {
+    const el = document.getElementById(id)
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
+  }
+
+  const handleBannerClick = (scope: "code" | "experiment" | "jobsheet") => {
+    if (scope === "code") {
+      setIsPanelOpen(true)
+      const firstCodeFb = feedbacks.find(f => f.scope === "code" && (f.status === "published" || f.status === "resolved"))
+      if (firstCodeFb && firstCodeFb.experimentId) {
+        setExpandedExperiments(prev => ({ ...prev, [firstCodeFb.experimentId!]: true }))
+        setTimeout(() => {
+          const isExercise = jobsheet?.exercises.some(e => e.id === firstCodeFb.experimentId)
+          const elementId = isExercise ? `exercise-card-${firstCodeFb.experimentId}` : `experiment-card-${firstCodeFb.experimentId}`
+          scrollToElement(elementId)
+        }, 150)
+      }
+    } else if (scope === "experiment") {
+      const firstExpFb = feedbacks.find(f => f.scope === "experiment" && (f.status === "published" || f.status === "resolved"))
+      if (firstExpFb && firstExpFb.experimentId) {
+        setExpandedExperiments(prev => ({ ...prev, [firstExpFb.experimentId!]: true }))
+        setTimeout(() => {
+          const isExercise = jobsheet?.exercises.some(e => e.id === firstExpFb.experimentId)
+          const elementId = isExercise ? `exercise-card-${firstExpFb.experimentId}` : `experiment-card-${firstExpFb.experimentId}`
+          scrollToElement(elementId)
+        }, 100)
+      } else if (jobsheet?.experiments.length) {
+        const firstId = jobsheet.experiments[0].id
+        setExpandedExperiments(prev => ({ ...prev, [firstId]: true }))
+        setTimeout(() => {
+          scrollToElement(`experiment-card-${firstId}`)
+        }, 100)
+      }
+    } else if (scope === "jobsheet") {
+      scrollToElement("jobsheet-feedback")
+    }
+  }
+
+  const handleSelectFeedback = (id: string | null) => {
+    setActiveFeedbackId(id)
+    if (id) {
+      const fb = feedbacks.find(f => f.id === id)
+      if (fb && fb.experimentId) {
+        setExpandedExperiments(prev => ({ ...prev, [fb.experimentId!]: true }))
+        setTimeout(() => {
+          const isExercise = jobsheet?.exercises.some(e => e.id === fb.experimentId)
+          const elementId = isExercise ? `exercise-card-${fb.experimentId}` : `experiment-card-${fb.experimentId}`
+          scrollToElement(elementId)
+        }, 150)
+      }
+    }
+  }
 
   if (loading) {
     return <TopProgressBar />
@@ -68,52 +164,125 @@ export default function ReviewPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Navbar />
 
-      {/* HEADER */}
       <ReportHeader
         title={jobsheet.title}
         backTo={`/courses/${courseId}/jobsheets/${jobsheet.id}/works/task`}
       />
 
-      <div className="px-6 py-8 lg:px-16">
-        <div className="max-w-6xl mx-auto">
+      <div className="px-6 py-8 lg:px-16 max-w-7xl mx-auto space-y-6">
+        {/* Summary Banner */}
+        <ReviewSummaryBanner
+          feedbacks={feedbacks}
+          onClickItem={handleBannerClick}
+        />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 items-start">
+          <div className="space-y-6">
+            <StudentIdentityCard jobsheet={jobsheet} />
 
-            {/* LEFT */}
-            <div className="lg:col-span-2 space-y-6">
+            {/* Collapsible Experiments */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-bold text-gray-800">Percobaan</h3>
+              {!experimentReports.length ? (
+                <p className="text-sm text-gray-500 bg-white border border-gray-200 rounded-xl p-5 text-center italic">
+                  Tidak ada percobaan pada jobsheet ini.
+                </p>
+              ) : (
+                experimentReports.map(({ experiment, steps }) => (
+                  <div key={experiment.id} id={`experiment-card-${experiment.id}`}>
+                    <ExperimentReviewCard
+                      submissionId={submission.id}
+                      experiment={experiment}
+                      steps={steps}
+                      feedbacks={feedbacks}
+                      readOnly={true}
+                      activeFeedbackId={activeFeedbackId}
+                      onSelectFeedback={handleSelectFeedback}
+                      isExpandedByDefault={!!expandedExperiments[experiment.id]}
+                      isStudent={true}
+                    />
+                  </div>
+                ))
+              )}
+            </div>
 
-              <StudentIdentityCard jobsheet={jobsheet} />
+            {/* Collapsible Latihan */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-bold text-gray-800">Latihan</h3>
+              {!exerciseReports.length ? (
+                <p className="text-sm text-gray-500 bg-white border border-gray-200 rounded-xl p-5 text-center italic">
+                  Tidak ada latihan pada jobsheet ini.
+                </p>
+              ) : (
+                exerciseReports.map(({ exercise, report }) => {
+                  const exerciseSteps = report
+                    ? [
+                        {
+                          files: report.files ?? {},
+                          output: report.output || "",
+                          analysis: report.analysis ?? emptyDoc,
+                        },
+                      ]
+                    : []
+                  return (
+                    <div key={exercise.id} id={`exercise-card-${exercise.id}`}>
+                      <ExperimentReviewCard
+                        submissionId={submission.id}
+                        experiment={{
+                          id: exercise.id,
+                          title: exercise.title,
+                          order: exercise.order,
+                          instructionContent: exercise.instructionContent,
+                        }}
+                        steps={exerciseSteps}
+                        feedbacks={feedbacks}
+                        readOnly={true}
+                        activeFeedbackId={activeFeedbackId}
+                        onSelectFeedback={handleSelectFeedback}
+                        isExpandedByDefault={!!expandedExperiments[exercise.id]}
+                        type="exercise"
+                        isStudent={true}
+                      />
+                    </div>
+                  )
+                })
+              )}
+            </div>
 
-              <ReviewSection submission={submission} />
+            {/* Conclusion */}
+            <ConclusionEditor
+              jobsheet={jobsheet}
+              submission={submission}
+              readOnly={true}
+            />
 
-              <ReportSection
-                jobsheet={jobsheet}
-                submission={submission}
-              />
-
-              <ConclusionEditor
-                jobsheet={jobsheet}
-                submission={submission}
+            {/* Overall Jobsheet Feedback */}
+            <div id="jobsheet-feedback">
+              <JobsheetFeedbackCard
+                feedbacks={feedbacks}
                 readOnly={true}
+                activeFeedbackId={activeFeedbackId}
+                onSelectFeedback={handleSelectFeedback}
               />
-
             </div>
-
-            {/* RIGHT */}
-            <div className="lg:col-span-1">
-
-              <div className="sticky top-6">
-                <ReviewCommentPanel submission={submission} />
-              </div>
-
-            </div>
-
           </div>
 
+          {/* Student review side panel */}
+          <div className="sticky top-6">
+            <StudentReviewPanel
+              feedbacks={feedbacks}
+              activeFeedbackId={activeFeedbackId}
+              onSelectFeedback={handleSelectFeedback}
+              isOpen={isPanelOpen}
+              onClose={() => setIsPanelOpen(false)}
+              experiments={jobsheet.experiments}
+              exercises={jobsheet.exercises}
+            />
+          </div>
         </div>
       </div>
-
     </div>
   )
 }

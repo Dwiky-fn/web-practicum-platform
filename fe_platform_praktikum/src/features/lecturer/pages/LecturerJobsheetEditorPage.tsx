@@ -221,16 +221,6 @@ export default function LecturerJobsheetEditorPage() {
     loadData()
   }, [courseId, savedJobsheetId, user])
 
-  const reportedExperimentIds = useMemo(
-    () => experiments.filter((item) => item.isReported).map((item) => item.id).filter(Boolean) as string[],
-    [experiments],
-  )
-
-  const reportedExerciseIds = useMemo(
-    () => exercises.filter((item) => item.isReported).map((item) => item.id).filter(Boolean) as string[],
-    [exercises],
-  )
-
   const totalRubric = useMemo(() => {
     const expTotal = experiments.reduce((acc, item) => acc + (item.rubric ?? 0), 0)
     const exeTotal = exercises.reduce((acc, item) => acc + (item.rubric ?? 0), 0)
@@ -509,8 +499,7 @@ export default function LecturerJobsheetEditorPage() {
                   )}
                 </div>
                 <div className="space-y-3">
-                  <div className="grid gap-3 md:grid-cols-[1fr_180px]">
-                    <div className="space-y-1">
+                  <div className="space-y-1">
                       <label className="text-xs font-semibold text-gray-600">Judul Percobaan</label>
                       <input
                         className={inputClass}
@@ -525,26 +514,6 @@ export default function LecturerJobsheetEditorPage() {
                         placeholder="Judul percobaan"
                       />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-600">Bobot Penilaian (%)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        className={inputClass}
-                        value={item.rubric ?? 0}
-                        onChange={(event) => {
-                          const val = Math.max(0, parseInt(event.target.value) || 0)
-                          setExperiments((current) =>
-                            current.map((entry, currentIndex) =>
-                              currentIndex === index ? { ...entry, rubric: val } : entry,
-                            ),
-                          )
-                        }}
-                        placeholder="0"
-                      />
-                    </div>
-                  </div>
                   <div className="space-y-2">
                      <p className="text-sm font-medium text-gray-700">Instruksi Percobaan</p>
                     <RichTextEditor
@@ -557,6 +526,7 @@ export default function LecturerJobsheetEditorPage() {
                         )
                       }
                       role="DOSEN"
+                      toolbarPosition="top"
                       placeholder="Tulis instruksi percobaan dengan format lengkap..."
                     />
                   </div>
@@ -607,8 +577,7 @@ export default function LecturerJobsheetEditorPage() {
                   )}
                 </div>
                 <div className="space-y-3">
-                  <div className="grid gap-3 md:grid-cols-[1fr_180px]">
-                    <div className="space-y-1">
+                  <div className="space-y-1">
                       <label className="text-xs font-semibold text-gray-600">Judul Latihan</label>
                       <input
                         className={inputClass}
@@ -623,26 +592,6 @@ export default function LecturerJobsheetEditorPage() {
                         placeholder="Judul latihan"
                       />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-600">Bobot Penilaian (%)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        className={inputClass}
-                        value={item.rubric ?? 0}
-                        onChange={(event) => {
-                          const val = Math.max(0, parseInt(event.target.value) || 0)
-                          setExercises((current) =>
-                            current.map((entry, currentIndex) =>
-                              currentIndex === index ? { ...entry, rubric: val } : entry,
-                            ),
-                          )
-                        }}
-                        placeholder="0"
-                      />
-                    </div>
-                  </div>
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-gray-700">Instruksi Latihan</p>
                     <RichTextEditor
@@ -655,6 +604,7 @@ export default function LecturerJobsheetEditorPage() {
                         )
                       }
                       role="DOSEN"
+                      toolbarPosition="top"
                       placeholder="Tulis instruksi latihan dengan format lengkap..."
                     />
                   </div>
@@ -700,7 +650,9 @@ export default function LecturerJobsheetEditorPage() {
                         onChange={() =>
                           setExperiments((current) =>
                             current.map((entry, currentIndex) =>
-                              currentIndex === index ? { ...entry, isReported: !entry.isReported } : entry,
+                              currentIndex === index
+                                ? { ...entry, isReported: !entry.isReported, rubric: entry.isReported ? 0 : entry.rubric }
+                                : entry,
                             ),
                           )
                         }
@@ -721,7 +673,9 @@ export default function LecturerJobsheetEditorPage() {
                         onChange={() =>
                           setExercises((current) =>
                             current.map((entry, currentIndex) =>
-                              currentIndex === index ? { ...entry, isReported: !entry.isReported } : entry,
+                              currentIndex === index
+                                ? { ...entry, isReported: !entry.isReported, rubric: entry.isReported ? 0 : entry.rubric }
+                                : entry,
                             ),
                           )
                         }
@@ -733,15 +687,74 @@ export default function LecturerJobsheetEditorPage() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-gray-200 p-4">
-              <p className="mb-3 text-sm font-semibold text-gray-800">Ringkasan Pilihan Laporan</p>
-              <p className="text-sm text-gray-600">
-                Percobaan terpilih: {reportedExperimentIds.length || 0} item
-              </p>
-              <p className="text-sm text-gray-600">
-                Latihan terpilih: {reportedExerciseIds.length || 0} item
-              </p>
-            </div>
+            {/* Rubrik bobot penilaian - hanya untuk item yang dilaporkan */}
+            {(experiments.some((e) => e.isReported) || exercises.some((e) => e.isReported)) && (
+              <div className="rounded-lg border border-gray-200 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-gray-800">Bobot Penilaian per Item (%)</p>
+                  <span
+                    className={`text-xs font-bold px-2.5 py-1 rounded ${
+                      totalRubric === 100
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    Total: {totalRubric}% / 100%
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500">Input bobot hanya untuk item yang dipilih untuk dilaporkan. Total harus 100%.</p>
+                <div className="space-y-2">
+                  {experiments.map((item, realIndex) => !item.isReported ? null : (
+                    <div key={item.id} className="flex items-center gap-3">
+                      <span className="text-sm text-gray-700 flex-1 truncate">
+                        Percobaan {realIndex + 1}: {item.title || `Percobaan ${realIndex + 1}`}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        className="h-8 w-24 rounded-md border border-gray-300 px-2 text-xs text-right"
+                        value={item.rubric ?? 0}
+                        onChange={(event) => {
+                          const val = Math.max(0, parseInt(event.target.value) || 0)
+                          setExperiments((current) =>
+                            current.map((entry, currentIndex) =>
+                              currentIndex === realIndex ? { ...entry, rubric: val } : entry,
+                            ),
+                          )
+                        }}
+                        placeholder="0"
+                      />
+                      <span className="text-xs text-gray-400">%</span>
+                    </div>
+                  ))}
+                  {exercises.map((item, realIndex) => !item.isReported ? null : (
+                    <div key={item.id} className="flex items-center gap-3">
+                      <span className="text-sm text-gray-700 flex-1 truncate">
+                        Latihan {realIndex + 1}: {item.title || `Latihan ${realIndex + 1}`}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        className="h-8 w-24 rounded-md border border-gray-300 px-2 text-xs text-right"
+                        value={item.rubric ?? 0}
+                        onChange={(event) => {
+                          const val = Math.max(0, parseInt(event.target.value) || 0)
+                          setExercises((current) =>
+                            current.map((entry, currentIndex) =>
+                              currentIndex === realIndex ? { ...entry, rubric: val } : entry,
+                            ),
+                          )
+                        }}
+                        placeholder="0"
+                      />
+                      <span className="text-xs text-gray-400">%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <p className="text-sm font-medium text-gray-700">Instruksi Tugas Praktikum</p>

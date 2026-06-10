@@ -18,6 +18,31 @@ function extractTextFromTiptap(node) {
   return '';
 }
 
+function extractInstructions(instructionContent) {
+  if (!instructionContent) return [];
+  if (typeof instructionContent === 'string') {
+    return [instructionContent];
+  }
+  const items = [];
+  
+  function traverse(node) {
+    if (!node) return;
+    if (node.type === 'listItem') {
+      items.push(extractTextFromTiptap(node).trim());
+      return;
+    }
+    if (Array.isArray(node.content)) {
+      node.content.forEach(traverse);
+    }
+    if (node.content && typeof node.content === 'object') {
+      traverse(node.content);
+    }
+  }
+  
+  traverse(instructionContent);
+  return items;
+}
+
 function httpPost(url, headers, body) {
   return new Promise((resolve, reject) => {
     const parsedUrl = new URL(url);
@@ -176,56 +201,67 @@ class AiEvaluationQueue {
     const payloadExperiments = [];
     for (const exp of experiments) {
       const expReport = report.experiments?.[exp.id] || {};
-      const step = expReport.steps?.[0] || { files: {}, output: '', analysis: { type: 'doc', content: [] } };
+      const steps = expReport.steps || [];
+      const instructions = extractInstructions(exp.instruction_content);
+      const numSteps = Math.max(1, steps.length, instructions.length);
 
-      const files = Object.entries(step.files || {}).map(([filename, content]) => ({
-        id: filename,
-        path: filename,
-        language: sub.programming_language || 'java',
-        content: content
-      }));
+      for (let i = 0; i < numSteps; i++) {
+        const step = steps[i] || { files: {}, output: '', analysis: { type: 'doc', content: [] } };
+        const instructionText = instructions[i] || instructions[instructions.length - 1] || 'Lakukan percobaan sesuai modul.';
+        const stepNumber = i + 1;
 
-      if (files.length === 0) {
-        files.push({
-          id: 'Main.java',
-          path: 'Main.java',
+        const files = Object.entries(step.files || {}).map(([filename, content]) => ({
+          id: filename,
+          path: filename,
           language: sub.programming_language || 'java',
-          content: exp.template_code || ''
+          content: content
+        }));
+
+        if (files.length === 0) {
+          files.push({
+            id: 'Main.java',
+            path: 'Main.java',
+            language: sub.programming_language || 'java',
+            content: exp.template_code || ''
+          });
+        }
+
+        const totalRubricScore = Number(exp.rubric) || 100;
+        const baseScore = Math.floor(totalRubricScore / numSteps);
+        const remainder = totalRubricScore % numSteps;
+        const stepMaxScore = baseScore + (i < remainder ? 1 : 0);
+
+        payloadExperiments.push({
+          id: `${exp.id}:${stepNumber}`,
+          title: `${exp.title} - Langkah ${stepNumber}`,
+          objective: '',
+          instruction: instructionText,
+          language: sub.programming_language || 'java',
+          files,
+          execution: {
+            status: 'success',
+            stdin: '',
+            stdout: step.output || '',
+            stderr: '',
+            expectedOutput: '',
+            exitCode: 0,
+            durationMs: 0,
+            testCases: []
+          },
+          studentAnalysis: extractTextFromTiptap(step.analysis),
+          studentConclusion: '',
+          rubric: {
+            criteria: [
+              {
+                id: `correctness_${exp.id}_step-${stepNumber}`,
+                name: `Kebenaran Langkah ${stepNumber}`,
+                description: `Kesesuaian langkah ${stepNumber} dengan instruksi, kebenaran output, serta analisis mahasiswa.`,
+                maxScore: stepMaxScore
+              }
+            ]
+          }
         });
       }
-
-      payloadExperiments.push({
-        id: exp.id,
-        title: exp.title,
-        objective: '',
-        instruction: typeof exp.instruction_content === 'string'
-          ? exp.instruction_content
-          : extractTextFromTiptap(exp.instruction_content),
-        language: sub.programming_language || 'java',
-        files,
-        execution: {
-          status: 'success',
-          stdin: '',
-          stdout: step.output || '',
-          stderr: '',
-          expectedOutput: '',
-          exitCode: 0,
-          durationMs: 0,
-          testCases: []
-        },
-        studentAnalysis: extractTextFromTiptap(step.analysis),
-        studentConclusion: '',
-        rubric: {
-          criteria: [
-            {
-              id: `correctness_${exp.id}`,
-              name: `Kebenaran ${exp.title}`,
-              description: 'Kesesuaian program dengan instruksi, kebenaran output, serta analisis mahasiswa.',
-              maxScore: Number(exp.rubric) || 100
-            }
-          ]
-        }
-      });
     }
 
     console.log(`[AI Queue] [${submissionId}] Menyusun payload untuk ${exercises.length} latihan...`);
@@ -282,6 +318,26 @@ class AiEvaluationQueue {
       });
     }
 
+    // Build the main jobsheet rubric criteria by combining step-level rubric criteria for experiments,
+    // and exercise-level criteria.
+    const mainRubricCriteria = [];
+    for (const exp of payloadExperiments) {
+      mainRubricCriteria.push({
+        id: exp.rubric.criteria[0].id,
+        name: exp.title,
+        description: exp.rubric.criteria[0].description,
+        maxScore: exp.rubric.criteria[0].maxScore
+      });
+    }
+    for (const exe of payloadExercises) {
+      mainRubricCriteria.push({
+        id: exe.rubric.criteria[0].id,
+        name: exe.title,
+        description: exe.rubric.criteria[0].description,
+        maxScore: exe.rubric.criteria[0].maxScore
+      });
+    }
+
     const payload = {
       scope: 'jobsheet',
       submissionId: submissionId,
@@ -294,20 +350,7 @@ class AiEvaluationQueue {
       exercises: payloadExercises,
       studentConclusion: extractTextFromTiptap(report.conclusion),
       rubric: {
-        criteria: [
-          ...experiments.map((exp) => ({
-            id: `correctness_${exp.id}`,
-            name: exp.title,
-            description: 'Kesesuaian program dengan instruksi, kebenaran output, serta analisis mahasiswa.',
-            maxScore: Number(exp.rubric) || 100
-          })),
-          ...exercises.map((exe) => ({
-            id: `correctness_${exe.id}`,
-            name: exe.title,
-            description: 'Kesesuaian program dengan instruksi, kebenaran output, serta analisis mahasiswa.',
-            maxScore: Number(exe.rubric) || 100
-          }))
-        ]
+        criteria: mainRubricCriteria
       },
       options: {
         language: 'id-ID',
@@ -339,39 +382,87 @@ class AiEvaluationQueue {
     const result = responseData.data;
     console.log(`[AI Queue] [${submissionId}] Response data AI Service valid. Status evaluasi: ${result.evaluationStatus}`);
 
-    // Extract experiment evaluations from the unified response
+    // Extract experiment evaluations from the unified response, grouping them by real experiment ID
     const comments = [];
-    const experimentResultsForDb = [];
+    const experimentResultsMap = new Map();
     let overallSuccess = true;
 
     (result.experimentEvaluations || []).forEach((expEval) => {
-      const expTitle = experiments.find(e => e.id === expEval.experimentId)?.title || 'Percobaan';
+      const [realExpId, stepStr] = expEval.experimentId.split(':');
+      const stepNumber = parseInt(stepStr, 10) || 1;
+      const expTitle = experiments.find(e => e.id === realExpId)?.title || 'Percobaan';
+
+      if (!experimentResultsMap.has(realExpId)) {
+        experimentResultsMap.set(realExpId, {
+          experimentId: realExpId,
+          title: expTitle,
+          status: 'completed',
+          summaries: [],
+          strengths: new Set(),
+          issues: new Set(),
+          suggestions: new Set(),
+          rubricScores: []
+        });
+      }
+
+      const agg = experimentResultsMap.get(realExpId);
+
       if (expEval.status === 'completed') {
         const feedback = expEval.feedback || {};
-        experimentResultsForDb.push({
-          experimentId: expEval.experimentId,
-          title: expTitle,
-          summary: feedback.summary || '',
-          strengths: feedback.strengths || [],
-          issues: feedback.issues || [],
-          suggestions: feedback.suggestions || [],
-          rubricScores: expEval.rubricScores || []
+        if (feedback.summary) agg.summaries.push(`Langkah ${stepNumber}: ${feedback.summary}`);
+        (feedback.strengths || []).forEach(s => agg.strengths.add(s));
+        (feedback.issues || []).forEach(i => agg.issues.add(i));
+        (feedback.suggestions || []).forEach(s => agg.suggestions.add(s));
+        (expEval.rubricScores || []).forEach((score) => {
+          agg.rubricScores.push(score);
         });
 
         (expEval.codeFeedbacks || []).forEach((fb) => {
           comments.push({
-            experimentId: expEval.experimentId,
-            step: 1,
+            experimentId: realExpId,
+            step: stepNumber,
             comment: `[${fb.filePath} L${fb.startLine}-${fb.endLine}] [${fb.category}] [Severity: ${fb.severity}] ${fb.message} Saran: ${fb.suggestion}`
           });
         });
       } else {
+        agg.status = 'failed';
+        agg.error = expEval.error || `Gagal mengevaluasi Langkah ${stepNumber}`;
         overallSuccess = false;
+      }
+    });
+
+    const experimentResultsForDb = [];
+    experimentResultsMap.forEach((agg, realExpId) => {
+      if (agg.status === 'completed') {
+        const totalScore = agg.rubricScores.reduce((sum, item) => sum + item.score, 0);
+        const totalMaxScore = agg.rubricScores.reduce((sum, item) => sum + item.maxScore, 0);
+        const reason = agg.rubricScores.map(item => {
+          const stepNum = item.criterionId.split('_step-')[1] || '';
+          return `Langkah ${stepNum}: ${item.reason}`;
+        }).join(' | ');
+
         experimentResultsForDb.push({
-          experimentId: expEval.experimentId,
-          title: expTitle,
+          experimentId: realExpId,
+          title: agg.title,
+          summary: agg.summaries.join('\n\n'),
+          strengths: Array.from(agg.strengths),
+          issues: Array.from(agg.issues),
+          suggestions: Array.from(agg.suggestions),
+          rubricScores: [
+            {
+              criterionId: `correctness_${realExpId}`,
+              score: totalScore,
+              maxScore: totalMaxScore,
+              reason: reason
+            }
+          ]
+        });
+      } else {
+        experimentResultsForDb.push({
+          experimentId: realExpId,
+          title: agg.title,
           status: 'failed',
-          error: expEval.error || 'Gagal mengevaluasi percobaan'
+          error: agg.error
         });
       }
     });
@@ -412,9 +503,12 @@ class AiEvaluationQueue {
     (result.experimentEvaluations || [])
       .filter(e => e.status === 'completed')
       .forEach(e => {
+        const [realExpId, stepStr] = e.experimentId.split(':');
+        const stepNumber = parseInt(stepStr, 10) || 1;
         (e.codeFeedbacks || []).forEach(fb => {
           mergedCodeFeedbacks.push({
-            experimentId: e.experimentId,
+            experimentId: realExpId,
+            step: stepNumber,
             ...fb
           });
         });
@@ -426,14 +520,28 @@ class AiEvaluationQueue {
         (e.codeFeedbacks || []).forEach(fb => {
           mergedCodeFeedbacks.push({
             experimentId: e.exerciseId, // Alias exerciseId as experimentId
+            step: 1,
             ...fb
           });
         });
       });
 
-    const experimentsNeedingAttention = [
-      ...(result.jobsheetFeedback.experimentsNeedingAttention || [])
-    ];
+    const experimentsNeedingAttention = [];
+    if (result.jobsheetFeedback.experimentsNeedingAttention) {
+      const seen = new Set();
+      result.jobsheetFeedback.experimentsNeedingAttention.forEach((item) => {
+        const [realExpId, stepStr] = item.experimentId.split(':');
+        const stepLabel = stepStr ? ` (Langkah ${stepStr})` : '';
+        const key = `${realExpId}:${item.reason}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          experimentsNeedingAttention.push({
+            experimentId: realExpId,
+            reason: `${stepLabel ? `[Langkah ${stepStr}] ` : ''}${item.reason}`
+          });
+        }
+      });
+    }
     if (result.jobsheetFeedback.exercisesNeedingAttention) {
       result.jobsheetFeedback.exercisesNeedingAttention.forEach((item) => {
         experimentsNeedingAttention.push({
@@ -447,7 +555,7 @@ class AiEvaluationQueue {
       scope: 'jobsheet',
       jobsheetFeedback: {
         ...(result.jobsheetFeedback || {
-          summary: 'Evaluasi jobsheet parsial selesai.',
+          summary: 'Evaluasi jobsheet selesai.',
           overallUnderstanding: '',
           strengths: [],
           issues: [],

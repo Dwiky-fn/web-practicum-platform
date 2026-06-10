@@ -787,11 +787,22 @@ function uniqueStrings(values) {
 }
 
 function mapJoiErrors(error) {
-  return error.details.map((detail) => ({
-    path: detail.path.join('.'),
-    type: detail.type,
-    message: detail.message.replace(/"/g, ''),
-  }));
+  const errors = [];
+
+  function collect(detail) {
+    if (detail.context && Array.isArray(detail.context.details)) {
+      detail.context.details.forEach(collect);
+    } else {
+      errors.push({
+        path: Array.isArray(detail.path) ? detail.path.join('.') : '',
+        type: detail.type,
+        message: detail.message.replace(/"/g, ''),
+      });
+    }
+  }
+
+  error.details.forEach(collect);
+  return errors;
 }
 
 function domainError(path, message) {

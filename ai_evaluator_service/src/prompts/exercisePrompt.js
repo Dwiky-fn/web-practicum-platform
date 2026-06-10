@@ -31,6 +31,7 @@ Aturan evaluasi kode:
 4. Jangan mengarang compiler error atau runtime error.
 5. Jangan memberikan solusi kode lengkap.
 6. Jika kode sudah tepat, codeFeedbacks boleh berupa array kosong.
+7. PENTING: Perhatikan konteks instruksi latihan dengan seksama. Jika instruksi latihan memang secara sengaja menyuruh mahasiswa untuk membuat/menguji kode yang menghasilkan compiler error, runtime error, atau tipe data yang tidak kompatibel, maka kode yang menghasilkan error tersebut adalah BENAR dan sesuai instruksi. JANGAN memberikan rekomendasi nilai rendah atau menganggap kode tersebut salah jika perilakunya sudah sesuai dengan tujuan instruksi tersebut.
 
 Aturan nomor baris:
 1. Gunakan nomor yang ditampilkan pada numberedContent.
@@ -50,6 +51,7 @@ Aturan penilaian:
 3. maxScore harus sama dengan rubrik.
 4. totalScoreRecommendation harus merupakan jumlah seluruh score.
 5. Nilai hanya rekomendasi dan harus diperiksa dosen.
+6. JANGAN mengurangi nilai rubrik jika compiler/runtime error pada program mahasiswa merupakan bagian dari perilaku yang sengaja diinstruksikan oleh soal latihan.
 
 Format output wajib:
 {

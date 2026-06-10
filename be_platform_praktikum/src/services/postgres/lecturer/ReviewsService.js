@@ -40,6 +40,13 @@ class LecturerReviewsService {
       const reviewId = existing.rows[0]?.id || createId('rev');
       const aiFeedback = payload.aiFeedback || {};
 
+      const clampedAiScore = payload.aiScore !== undefined && payload.aiScore !== null
+        ? Math.min(100, Math.max(0, Number(payload.aiScore)))
+        : null;
+      const clampedFinalScore = payload.finalScore !== undefined && payload.finalScore !== null
+        ? Math.min(100, Math.max(0, Number(payload.finalScore)))
+        : null;
+
       if (existing.rows.length) {
         await client.query(
           `
@@ -56,8 +63,8 @@ class LecturerReviewsService {
           [
             reviewId,
             payload.lecturerId,
-            payload.aiScore ?? null,
-            payload.finalScore ?? null,
+            clampedAiScore,
+            clampedFinalScore,
             JSON.stringify(aiFeedback),
             payload.feedback || null,
             payload.decision || 'PENDING',
@@ -76,8 +83,8 @@ class LecturerReviewsService {
             reviewId,
             payload.submissionId,
             payload.lecturerId,
-            payload.aiScore ?? null,
-            payload.finalScore ?? null,
+            clampedAiScore,
+            clampedFinalScore,
             JSON.stringify(aiFeedback),
             payload.feedback || null,
             payload.decision || 'PENDING',

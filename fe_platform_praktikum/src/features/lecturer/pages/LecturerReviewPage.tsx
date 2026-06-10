@@ -58,7 +58,7 @@ export default function LecturerReviewPage() {
   const [activeFeedbackId, setActiveFeedbackId] = useState<string | null>(null)
   const [selectedLineRange, setSelectedLineRange] = useState<SelectedLineRange | null>(null)
   const [activeExperimentId, setActiveExperimentId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<"percobaan" | "jobsheet">("percobaan")
+  const [activeTab, setActiveTab] = useState<"percobaan" | "komentar_kode" | "jobsheet">("percobaan")
   const [isEditingReview, setIsEditingReview] = useState(false)
 
   useEffect(() => {
@@ -182,6 +182,54 @@ export default function LecturerReviewPage() {
     loadData()
   }, [classId, courseId, jobsheetId, studentId])
 
+  useEffect(() => {
+    if (activeFeedbackId) {
+      const fb = feedbacks.find((f) => f.id === activeFeedbackId)
+      if (
+        fb &&
+        fb.scope === "code" &&
+        fb.experimentId &&
+        fb.fileName &&
+        fb.startLine
+      ) {
+        // Wait a bit to allow the experiment card to expand if collapsed
+        setTimeout(() => {
+          let el = null
+          
+          // 1. Try exact match with feedback's codeBlockId if present
+          if (fb.codeBlockId) {
+            el = document.getElementById(
+              `code-line-${fb.experimentId}-${fb.codeBlockId}-${fb.fileName}-${fb.startLine}`
+            )
+          }
+          
+          // 2. Try typical step indices (step-0, step-1, step-2, etc.)
+          if (!el) {
+            for (let i = 0; i < 10; i++) {
+              el = document.getElementById(
+                `code-line-${fb.experimentId}-step-${i}-${fb.fileName}-${fb.startLine}`
+              )
+              if (el) break
+            }
+          }
+          
+          // 3. Try fallback to AI format codeBlockId
+          if (!el) {
+            el = document.getElementById(
+              `code-line-${fb.experimentId}-code-${fb.experimentId}-${fb.fileName}-${fb.startLine}`
+            )
+          }
+
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" })
+          } else {
+            console.warn(`[Scroll-to-Code] Baris kode tidak ditemukan untuk feedback:`, fb)
+          }
+        }, 150)
+      }
+    }
+  }, [activeFeedbackId, feedbacks])
+
   const experimentReports = useMemo(() => {
     if (!jobsheet || !submission) return []
 
@@ -255,8 +303,8 @@ export default function LecturerReviewPage() {
 
       await saveLecturerSubmissionReview(submission.id, {
         lecturerId: user.id,
-        aiScore: submission.score,
-        finalScore: score ? Number(score) : undefined,
+        aiScore: submission.score !== undefined && submission.score !== null ? Math.min(100, Math.max(0, submission.score)) : undefined,
+        finalScore: score ? Math.min(100, Math.max(0, Number(score))) : undefined,
         feedback: lecturerFeedbackText,
         decision: nextDecision,
         aiFeedback: {

@@ -55,6 +55,17 @@ export default function ExperimentReviewCard({
     setIsExpanded(isExpandedByDefault)
   }, [isExpandedByDefault])
 
+  useEffect(() => {
+    if (activeFeedbackId) {
+      const hasActiveFeedback = feedbacks.some(
+        (f) => f.id === activeFeedbackId && f.experimentId === experiment.id
+      )
+      if (hasActiveFeedback) {
+        setIsExpanded(true)
+      }
+    }
+  }, [activeFeedbackId, feedbacks, experiment.id])
+
   // Get active feedbacks for this experiment
   const experimentFeedbacks = feedbacks.filter(
     (f) => f.experimentId === experiment.id && f.scope === "experiment"

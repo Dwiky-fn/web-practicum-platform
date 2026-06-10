@@ -81,6 +81,16 @@ async function checkOllamaHealth() {
 }
 
 function httpPost(url, body, signal) {
+  if (process.env.NODE_ENV === 'test') {
+    return fetch(url, {
+      method: 'POST',
+      body,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal,
+    });
+  }
   return new Promise((resolve, reject) => {
     const parsedUrl = new URL(url);
     const options = {

@@ -46,9 +46,9 @@ export default function CodeReviewBlock({
   const fileFeedbacks = feedbacks.filter(
     (f) =>
       f.experimentId === experimentId &&
-      f.codeBlockId === codeBlockId &&
       f.fileName === fileName &&
-      f.scope === "code"
+      f.scope === "code" &&
+      (!f.codeBlockId || f.codeBlockId === codeBlockId || f.codeBlockId.includes(experimentId))
   )
 
   // Check if a line is within the active selection range
@@ -195,6 +195,7 @@ export default function CodeReviewBlock({
           return (
             <div
               key={index}
+              id={`code-line-${experimentId}-${codeBlockId}-${fileName}-${lineNum}`}
               className={`flex items-stretch group relative ${bgClass} transition-colors min-w-full`}
               onMouseDown={() => handleMouseDown(index)}
               onMouseUp={() => handleMouseUp(index)}

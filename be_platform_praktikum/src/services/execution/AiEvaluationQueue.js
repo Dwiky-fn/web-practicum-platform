@@ -324,8 +324,8 @@ class AiEvaluationQueue {
         }))) || []
     };
 
-    const totalScore = result.totalScoreRecommendation;
-    console.log(`[AI Queue] [${submissionId}] Total score rekomendasi AI: ${totalScore}. Menyimpan ke submission_reviews...`);
+    const totalScore = Math.min(100, Math.max(0, result.totalScoreRecommendation || 0));
+    console.log(`[AI Queue] [${submissionId}] Total score rekomendasi AI (clamped): ${totalScore}. Menyimpan ke submission_reviews...`);
 
     // Simpan ke database submission_reviews sebagai draft AI
     const existingReviewRes = await pool.query(

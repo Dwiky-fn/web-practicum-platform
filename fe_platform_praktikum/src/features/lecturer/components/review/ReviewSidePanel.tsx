@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Trash2, Sparkles, User, FileEdit, MessageSquare } from "lucide-react"
+import { Trash2, Sparkles, User, FileEdit, MessageSquare, Pencil } from "lucide-react"
 
 import { LecturerButton } from "../LecturerUI"
 import type { ReviewFeedback } from "../../../../services/reviewFeedbackService"
@@ -25,8 +25,8 @@ interface Props {
   onScoreChange: (score: string) => void
   saving: boolean
   onSaveReview: (decision: "ACCEPTED") => void
-  activeTab: "percobaan" | "jobsheet"
-  onTabChange: (tab: "percobaan" | "jobsheet") => void
+  activeTab: "percobaan" | "komentar_kode" | "jobsheet"
+  onTabChange: (tab: "percobaan" | "komentar_kode" | "jobsheet") => void
   submissionId: string
   readOnly?: boolean
   aiScore?: number
@@ -84,10 +84,24 @@ export default function ReviewSidePanel({
       .map((s) => s.trim())
       .filter(Boolean)
 
-  // ── When line range is selected, stay on percobaan tab ──
+  const getStepLabel = (codeBlockId?: string | null) => {
+    if (!codeBlockId) return ""
+    if (codeBlockId.startsWith("step-")) {
+      const num = parseInt(codeBlockId.replace("step-", ""), 10)
+      if (!isNaN(num)) {
+        return `Langkah ${num + 1}`
+      }
+    }
+    if (codeBlockId.startsWith("code-")) {
+      return "Langkah 1"
+    }
+    return ""
+  }
+
+  // ── When line range is selected, switch to komentar_kode tab ──
   useEffect(() => {
     if (selectedLineRange) {
-      onTabChange("percobaan")
+      onTabChange("komentar_kode")
       setIsEditingCode(false)
       setInlineComment("")
     }
@@ -97,9 +111,8 @@ export default function ReviewSidePanel({
   useEffect(() => {
     if (activeFeedback) {
       if (activeFeedback.scope === "code") {
-        onTabChange("percobaan")
-        setIsEditingCode(true)
-        setInlineComment(activeFeedback.content)
+        onTabChange("komentar_kode")
+        // Only switch tab, don't enter edit mode automatically
       } else if (activeFeedback.scope === "experiment") {
         onTabChange("percobaan")
         onSetActiveExperimentId(activeFeedback.experimentId ?? null)
@@ -279,6 +292,7 @@ export default function ReviewSidePanel({
         {(
           [
             { id: "percobaan", label: "Percobaan / Latihan" },
+            { id: "komentar_kode", label: "Komentar Kode" },
             { id: "jobsheet", label: "Jobsheet" },
           ] as const
         ).map((t) => (
@@ -300,38 +314,40 @@ export default function ReviewSidePanel({
 
       {/* Main Content Area */}
       <div className="flex-grow p-4 overflow-y-auto space-y-4">
-
-        {/* ════ TAB 1: PERCOBAAN / LATIHAN ════ */}
-        {activeTab === "percobaan" && (
-          <div className="space-y-4">
-
-            {/* Experiment/Exercise selector */}
-            <label className="block text-xs font-semibold text-gray-700">
-              Pilih Percobaan / Latihan
-              <select
-                value={activeExperimentId || ""}
-                onChange={(e) => onSetActiveExperimentId(e.target.value || null)}
-                className="mt-1 h-9 w-full rounded-md border border-gray-300 bg-white px-2 text-xs"
-              >
-                <option value="">-- Pilih Percobaan / Latihan --</option>
-                <optgroup label="Percobaan">
-                  {experiments.map((e, idx) => (
+        {/* Experiment/Exercise selector */}
+        {(activeTab === "percobaan" || activeTab === "komentar_kode") && (
+          <label className="block text-xs font-semibold text-gray-700">
+            Pilih Percobaan / Latihan
+            <select
+              value={activeExperimentId || ""}
+              onChange={(e) => onSetActiveExperimentId(e.target.value || null)}
+              className="mt-1 h-9 w-full rounded-md border border-gray-300 bg-white px-2 text-xs"
+            >
+              <option value="">-- Pilih Percobaan / Latihan --</option>
+              <optgroup label="Percobaan">
+                {experiments.map((e, idx) => (
+                  <option key={e.id} value={e.id}>
+                    Percobaan {idx + 1}: {e.title}
+                  </option>
+                ))}
+              </optgroup>
+              {exercises.length > 0 && (
+                <optgroup label="Latihan">
+                  {exercises.map((e, idx) => (
                     <option key={e.id} value={e.id}>
-                      Percobaan {idx + 1}: {e.title}
+                      Latihan {idx + 1}: {e.title}
                     </option>
                   ))}
                 </optgroup>
-                {exercises.length > 0 && (
-                  <optgroup label="Latihan">
-                    {exercises.map((e, idx) => (
-                      <option key={e.id} value={e.id}>
-                        Latihan {idx + 1}: {e.title}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-            </label>
+              )}
+            </select>
+          </label>
+        )}
+
+        {/* ════ TAB 1: PERCOBAAN / LATIHAN ════ */}
+        {/* ════ TAB 1: PERCOBAAN / LATIHAN ════ */}
+        {activeTab === "percobaan" && (
+          <div className="space-y-4">
 
             {activeExperimentId ? (
               <>
@@ -423,7 +439,21 @@ export default function ReviewSidePanel({
                     </p>
                   </div>
                 )}
+              </>
+            ) : (
+              <div className="text-center py-8 text-gray-400 italic text-[11px] bg-gray-50 rounded-xl border border-gray-100">
+                Pilih percobaan di atas untuk mulai memberikan feedback per percobaan.
+              </div>
+            )}
+          </div>
+        )}
 
+        {/* ════ TAB 2: KOMENTAR KODE ════ */}
+        {activeTab === "komentar_kode" && (
+          <div className="space-y-4">
+
+            {activeExperimentId ? (
+              <>
                 {/* ── Komentar Kode (Contextual Feedback) list ── */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -436,19 +466,6 @@ export default function ReviewSidePanel({
                         </span>
                       )}
                     </h5>
-                    {feedbacks.some((f) => f.status === "draft") && !readOnly && (
-                      <button
-                        onClick={async () => {
-                          const draftIds = feedbacks.filter((f) => f.status === "draft").map((f) => f.id)
-                          if (draftIds.length && window.confirm(`Publikasikan semua ${draftIds.length} draft?`)) {
-                            await onPublishMultipleFeedbacks(draftIds)
-                          }
-                        }}
-                        className="text-[10px] bg-amber-600 hover:bg-amber-700 text-white font-bold px-2 py-0.5 rounded"
-                      >
-                        Publish Semua Draft
-                      </button>
-                    )}
                   </div>
 
                   {/* Inline comment creator (shown when a line range is selected or editing) */}
@@ -490,6 +507,7 @@ export default function ReviewSidePanel({
 
                       <form onSubmit={handleSaveInlineComment} className="mt-3 space-y-2">
                         <textarea
+                          id="inline-comment-textarea"
                           value={inlineComment}
                           onChange={(e) => setInlineComment(e.target.value)}
                           placeholder="Masukkan catatan feedback pada baris kode ini..."
@@ -531,25 +549,40 @@ export default function ReviewSidePanel({
                             <div className="flex gap-1.5">
                               {renderSourceBadge(fb.source)}
                             </div>
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                               {!readOnly && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    if (window.confirm("Hapus komentar ini?")) {
-                                      onDeleteFeedback(fb.id)
-                                    }
-                                  }}
-                                  className="text-gray-400 hover:text-red-500"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
+                                <>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      onSelectFeedback(fb.id)
+                                      setIsEditingCode(true)
+                                      setInlineComment(fb.content)
+                                    }}
+                                    className="text-gray-400 hover:text-blue-500"
+                                    title="Edit komentar"
+                                  >
+                                    <Pencil size={12} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (window.confirm("Hapus komentar ini?")) {
+                                        onDeleteFeedback(fb.id)
+                                      }
+                                    }}
+                                    className="text-gray-400 hover:text-red-500"
+                                    title="Hapus komentar"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </>
                               )}
                             </div>
                           </div>
 
                           <div className="text-gray-500 text-[10px] mb-1 font-sans">
-                            {fb.fileName} · Baris {fb.startLine}-{fb.endLine}
+                            {getStepLabel(fb.codeBlockId) ? `${getStepLabel(fb.codeBlockId)} · ` : ""}{fb.fileName} · Baris {fb.startLine}-{fb.endLine}
                           </div>
                           <p className="text-gray-700 leading-snug">{fb.content}</p>
                         </div>
@@ -560,7 +593,7 @@ export default function ReviewSidePanel({
               </>
             ) : (
               <div className="text-center py-8 text-gray-400 italic text-[11px] bg-gray-50 rounded-xl border border-gray-100">
-                Pilih percobaan di atas untuk mulai memberikan feedback per percobaan.
+                Pilih percobaan di atas untuk melihat komentar kode.
               </div>
             )}
           </div>
@@ -579,7 +612,7 @@ export default function ReviewSidePanel({
                 <div>
                   <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Nilai AI</span>
                   <span className="text-lg font-extrabold text-purple-700 flex items-center gap-1.5 mt-0.5">
-                    {aiScore != null ? aiScore : "-"}
+                    {aiScore != null ? Math.min(100, Math.max(0, aiScore)) : "-"}
                   </span>
                 </div>
                 <div>
@@ -591,8 +624,18 @@ export default function ReviewSidePanel({
                   ) : (
                     <input
                       type="number"
+                      min="0"
+                      max="100"
                       value={score}
-                      onChange={(e) => onScoreChange(e.target.value)}
+                      onChange={(e) => {
+                        let val = e.target.value;
+                        if (val !== "") {
+                          const num = Number(val);
+                          if (num > 100) val = "100";
+                          if (num < 0) val = "0";
+                        }
+                        onScoreChange(val);
+                      }}
                       placeholder="0 - 100"
                       className="mt-1 h-8 w-full rounded-lg border border-gray-300 px-2.5 text-xs font-semibold focus:border-blue-500 outline-none"
                     />

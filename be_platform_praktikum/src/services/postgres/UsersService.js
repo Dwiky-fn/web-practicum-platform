@@ -320,10 +320,10 @@ class UsersService {
   }
 
   async requestPasswordResetOtp(payload) {
-    const email = payload.email?.trim().toLowerCase();
+    const email = payload.email?.trim();
 
     if (!email) {
-      throw new Error('EMAIL_REQUIRED');
+      throw new Error('EMAIL_FORGOT_REQUIRED');
     }
 
     if (!EMAIL_PATTERN.test(email)) {
@@ -339,7 +339,7 @@ class UsersService {
     );
 
     if (!userResult.rows.length || !userResult.rows[0].is_active) {
-      return;
+      throw new Error('USER_EMAIL_NOT_FOUND');
     }
 
     const user = userResult.rows[0];
@@ -358,33 +358,22 @@ class UsersService {
       [user.id, otpHash],
     );
 
-    await this._mailService.sendPasswordResetOtp(user.email, otp);
+    await this._mailService.sendPasswordResetOtp({
+      to: user.email,
+      otp,
+    });
   }
 
-  async resetPasswordWithOtp(payload) {
-    const email = payload.email?.trim().toLowerCase();
+  async verifyPasswordResetOtp(payload) {
+    const email = payload.email?.trim();
     const otp = payload.otp?.trim();
-    const newPassword = payload.newPassword || payload.new_password;
-    const confirmPassword = payload.confirmPassword || payload.confirm_password;
 
     if (!email) {
-      throw new Error('EMAIL_REQUIRED');
-    }
-
-    if (!EMAIL_PATTERN.test(email)) {
-      throw new Error('EMAIL_INVALID');
+      throw new Error('EMAIL_FORGOT_REQUIRED');
     }
 
     if (!otp) {
       throw new Error('OTP_REQUIRED');
-    }
-
-    if (!newPassword || newPassword.length < 8) {
-      throw new Error('NEW_PASSWORD_INVALID');
-    }
-
-    if (newPassword !== confirmPassword) {
-      throw new Error('PASSWORD_CONFIRM_MISMATCH');
     }
 
     const userResult = await this._pool.query(
@@ -396,12 +385,13 @@ class UsersService {
     );
 
     if (!userResult.rows.length || !userResult.rows[0].is_active) {
-      throw new Error('OTP_INVALID');
+      throw new Error('USER_EMAIL_NOT_FOUND');
     }
 
     const user = userResult.rows[0];
+
     const otpResult = await this._pool.query(
-      `SELECT id, otp_hash, expires_at, attempts
+      `SELECT id, otp_hash, expires_at, attempts, is_verified
        FROM password_reset_otps
        WHERE user_id = $1
        ORDER BY created_at DESC
@@ -414,6 +404,10 @@ class UsersService {
     }
 
     const otpData = otpResult.rows[0];
+
+    if (otpData.is_verified) {
+      throw new Error('OTP_INVALID');
+    }
 
     if (Number(otpData.attempts) >= 5) {
       throw new Error('OTP_TOO_MANY_ATTEMPTS');
@@ -434,18 +428,66 @@ class UsersService {
       throw new Error('OTP_INVALID');
     }
 
+    const resetToken = crypto.randomBytes(32).toString('hex');
+
+    await this._pool.query(
+      `UPDATE password_reset_otps
+       SET is_verified = true, reset_token = $2
+       WHERE id = $1`,
+      [otpData.id, resetToken]
+    );
+
+    return { resetToken };
+  }
+
+  async resetForgottenPassword(payload) {
+    const { resetToken } = payload;
+    const newPassword = payload.newPassword || payload.new_password;
+    const confirmPassword = payload.confirmPassword || payload.confirm_password;
+
+    if (!resetToken) {
+      throw new Error('RESET_TOKEN_REQUIRED');
+    }
+
+    if (!newPassword || newPassword.length < 8) {
+      throw new Error('NEW_PASSWORD_INVALID');
+    }
+
+    if (newPassword !== confirmPassword) {
+      throw new Error('PASSWORD_CONFIRM_MISMATCH');
+    }
+
+    const otpResult = await this._pool.query(
+      `SELECT o.id, o.user_id, o.expires_at, u.email
+       FROM password_reset_otps o
+       JOIN users u ON u.id = o.user_id
+       WHERE o.reset_token = $1 AND o.is_verified = true
+       LIMIT 1`,
+      [resetToken]
+    );
+
+    if (!otpResult.rows.length) {
+      throw new Error('RESET_TOKEN_INVALID');
+    }
+
+    const otpData = otpResult.rows[0];
+
+    if (new Date(otpData.expires_at) < new Date()) {
+      throw new Error('RESET_TOKEN_EXPIRED');
+    }
+
     const hashedPassword = await hashBcrypt(newPassword, 10);
 
     await this._pool.query('UPDATE users SET password = $2 WHERE id = $1', [
-      user.id,
+      otpData.user_id,
       hashedPassword,
     ]);
 
     await this._pool.query('DELETE FROM password_reset_otps WHERE user_id = $1', [
-      user.id,
+      otpData.user_id,
     ]);
 
-    await this._mailService.sendPasswordChangedNotification(user.email);
+    await this._mailService.sendPasswordChangedNotification(otpData.email);
   }
 
   async getUserById(userId) {
@@ -717,8 +759,62 @@ class UsersService {
       hashedPassword,
     ]);
 
-    await this._mailService.sendPasswordChangedNotification(
-      userResult.rows[0].email,
+    return this.getUserById(userId);
+  }
+
+  async changeAuthenticatedUserPassword(userId, payload) {
+    const currentPassword = payload.currentPassword || payload.current_password;
+    const newPassword = payload.newPassword || payload.new_password;
+    const confirmPassword = payload.confirmPassword || payload.confirm_password;
+
+    if (!currentPassword) {
+      throw new Error('CURRENT_PASSWORD_REQUIRED');
+    }
+
+    if (!newPassword || newPassword.length < 8) {
+      throw new Error('NEW_PASSWORD_INVALID');
+    }
+
+    if (newPassword !== confirmPassword) {
+      throw new Error('PASSWORD_CONFIRM_MISMATCH');
+    }
+
+    const userResult = await this._pool.query(
+      'SELECT id, password FROM users WHERE id = $1',
+      [userId],
+    );
+
+    if (!userResult.rows.length) {
+      throw new Error('USER_NOT_FOUND');
+    }
+
+    const user = userResult.rows[0];
+
+    const validPassword = await compareBcrypt(
+      currentPassword,
+      user.password,
+    );
+
+    if (!validPassword) {
+      throw new Error('PASSWORD_INVALID');
+    }
+
+    const isSamePassword = await compareBcrypt(
+      newPassword,
+      user.password,
+    );
+
+    if (isSamePassword) {
+      throw new Error('PASSWORD_SAME_AS_OLD');
+    }
+
+    const hashedPassword = await hashBcrypt(newPassword, 10);
+
+    await this._pool.query(
+      `UPDATE users
+       SET password = $2
+       WHERE id = $1`,
+      [userId, hashedPassword],
     );
 
     return this.getUserById(userId);

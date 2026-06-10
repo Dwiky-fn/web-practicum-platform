@@ -8,7 +8,7 @@ const {
   normalizeStatus,
 } = require('./utils');
 
-const DEFAULT_PASSWORD = 'password123';
+const DEFAULT_PASSWORD = 'mahasiswa@POLNEP';
 
 function normalizePasswordName(fullname = '') {
   const [firstName = 'dosen'] = fullname.trim().split(/\s+/);

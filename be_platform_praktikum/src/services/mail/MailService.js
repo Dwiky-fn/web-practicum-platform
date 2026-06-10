@@ -26,6 +26,13 @@ function formatChangedAt(date = new Date()) {
   }).format(date);
 }
 
+function validateRecipient(to) {
+  if (!to || typeof to !== 'string' || !to.trim()) {
+    throw new Error('Penerima email tidak tersedia');
+  }
+  return to.trim();
+}
+
 class MailService {
   constructor() {
     this._transporter = nodemailer.createTransport({
@@ -40,7 +47,7 @@ class MailService {
   async sendEmailChangeOtp(to, otp) {
     await this._transporter.sendMail({
       from: process.env.MAIL_FROM,
-      to,
+      to: validateRecipient(to),
       subject: 'Kode OTP Perubahan Email',
       html: emailChangeOtpTemplate({
         otp,
@@ -50,10 +57,10 @@ class MailService {
     });
   }
 
-  async sendPasswordResetOtp(to, otp) {
+  async sendPasswordResetOtp({ to, otp }) {
     await this._transporter.sendMail({
       from: process.env.MAIL_FROM,
-      to,
+      to: validateRecipient(to),
       subject: 'Kode OTP Reset Password',
       html: passwordResetOtpTemplate({
         otp,
@@ -66,7 +73,7 @@ class MailService {
   async sendEmailChangedNotification(to, newEmail) {
     await this._transporter.sendMail({
       from: process.env.MAIL_FROM,
-      to,
+      to: validateRecipient(to),
       subject: 'Email Akun Berhasil Diubah',
       html: emailChangedNotificationTemplate({
         appName: APP_NAME,
@@ -80,7 +87,7 @@ class MailService {
   async sendPasswordChangedNotification(to) {
     await this._transporter.sendMail({
       from: process.env.MAIL_FROM,
-      to,
+      to: validateRecipient(to),
       subject: 'Password Akun Berhasil Diubah',
       html: passwordChangedNotificationTemplate({
         appName: APP_NAME,

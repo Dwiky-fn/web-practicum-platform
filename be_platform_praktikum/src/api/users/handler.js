@@ -121,6 +121,35 @@ class UsersHandler {
     }
   }
 
+  async verifyPasswordResetOtpHandler(req, res) {
+    try {
+      const { resetToken } = await this._service.verifyPasswordResetOtp(req.body);
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'OTP berhasil diverifikasi',
+        data: {
+          resetToken,
+        },
+      });
+    } catch (error) {
+      return this._handleAccountError(error, res);
+    }
+  }
+
+  async resetForgottenPasswordHandler(req, res) {
+    try {
+      await this._service.resetForgottenPassword(req.body);
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'Password berhasil diperbarui',
+      });
+    } catch (error) {
+      return this._handleAccountError(error, res);
+    }
+  }
+
   async requestUpdateEmailOtpHandler(req, res) {
     try {
       const userId = this._getRequestUserId(req);
@@ -220,6 +249,8 @@ class UsersHandler {
   _handleAccountError(error, res) {
     const errors = {
       USER_NOT_FOUND: [404, 'User tidak ditemukan'],
+      USER_EMAIL_NOT_FOUND: [404, 'Akun dengan email tersebut tidak ditemukan'],
+      EMAIL_FORGOT_REQUIRED: [400, 'Email wajib diisi'],
       EMAIL_REQUIRED: [400, 'Email baru wajib diisi'],
       EMAIL_INVALID: [400, 'Format email tidak valid'],
       EMAIL_SAME: [400, 'Email baru tidak boleh sama dengan email lama'],
@@ -228,12 +259,16 @@ class UsersHandler {
       PASSWORD_INVALID: [401, 'Password tidak sesuai'],
       NEW_PASSWORD_INVALID: [400, 'Password baru minimal 8 karakter'],
       PASSWORD_CONFIRM_MISMATCH: [400, 'Konfirmasi password baru tidak sama'],
+      PASSWORD_SAME_AS_OLD: [400, 'Password baru tidak boleh sama dengan password lama'],
 
       OTP_REQUIRED: [400, 'OTP wajib diisi'],
       OTP_NOT_FOUND: [404, 'OTP tidak ditemukan, silakan minta OTP baru'],
       OTP_EXPIRED: [400, 'OTP sudah kedaluwarsa'],
       OTP_INVALID: [400, 'OTP tidak valid'],
       OTP_TOO_MANY_ATTEMPTS: [429, 'Terlalu banyak percobaan OTP'],
+      RESET_TOKEN_REQUIRED: [400, 'Token reset password wajib diisi'],
+      RESET_TOKEN_INVALID: [400, 'Token reset password tidak valid atau kedaluwarsa'],
+      RESET_TOKEN_EXPIRED: [400, 'Token reset password sudah kedaluwarsa'],
     };
 
     const detail = errors[error.message];
@@ -292,6 +327,45 @@ class UsersHandler {
       return res.status(200).json({
         status: 'success',
         message: 'Password berhasil diperbarui',
+      });
+    } catch (error) {
+      return this._handleAccountError(error, res);
+    }
+  }
+
+  async changeAuthenticatedUserPasswordHandler(req, res) {
+    try {
+      const userId = req.user.id;
+      const {
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      } = req.body;
+
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        return res.status(400).json({
+          status: 'fail',
+          message:
+            'Password lama, password baru, dan konfirmasi password wajib diisi',
+        });
+      }
+
+      if (newPassword !== confirmPassword) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Konfirmasi password tidak sesuai',
+        });
+      }
+
+      await this._service.changeAuthenticatedUserPassword(userId, {
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      });
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'Password berhasil diubah',
       });
     } catch (error) {
       return this._handleAccountError(error, res);

@@ -35,10 +35,10 @@ export const verifyUserPassword = async (
 }
 
 export const updateUserPassword = async (
-  userId: string,
+  _userId: string,
   payload: UpdatePasswordPayload,
 ): Promise<void> => {
-  await apiFetch(`/users/${userId}/password`, {
+  await apiFetch(`/users/me/password`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   })

@@ -33,7 +33,7 @@ export const loginWithGoogle = async (
 export const requestPasswordResetOtp = async (
   payload: { email: string },
 ): Promise<void> => {
-  await apiFetch("/password-reset/request-otp", {
+  await apiFetch("/auth/forgot-password/request-otp", {
     method: "POST",
     body: JSON.stringify(payload),
   })
@@ -47,8 +47,22 @@ export const resetPasswordWithOtp = async (
     confirmPassword: string
   },
 ): Promise<void> => {
-  await apiFetch("/password-reset/verify-otp", {
+  const verifyRes = await apiFetch("/auth/forgot-password/verify-otp", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      email: payload.email,
+      otp: payload.otp,
+    }),
+  })
+
+  const resetToken = verifyRes.data.resetToken
+
+  await apiFetch("/auth/forgot-password/reset-password", {
+    method: "POST",
+    body: JSON.stringify({
+      resetToken,
+      newPassword: payload.newPassword,
+      confirmPassword: payload.confirmPassword,
+    }),
   })
 }

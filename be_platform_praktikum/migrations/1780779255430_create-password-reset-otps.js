@@ -16,6 +16,15 @@ exports.up = (pgm) => {
       type: 'text',
       notNull: true,
     },
+    reset_token: {
+      type: 'text',
+      notNull: false,
+    },
+    is_verified: {
+      type: 'boolean',
+      notNull: true,
+      default: false,
+    },
     expires_at: {
       type: 'timestamptz',
       notNull: true,

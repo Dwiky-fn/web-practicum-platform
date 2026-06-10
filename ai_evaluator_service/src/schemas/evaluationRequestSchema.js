@@ -28,8 +28,8 @@ const experimentEvaluationRequestSchema = Joi.object({
 const jobsheetEvaluationRequestSchema = Joi.object({
   scope: Joi.string().valid('jobsheet').required(),
   ...baseFields,
-  experimentResults: Joi.array()
-    .items(experimentResultSummarySchema)
+  experiments: Joi.array()
+    .items(experimentSchema)
     .min(1)
     .max(100)
     .required(),
@@ -105,8 +105,8 @@ function validateJobsheetRequest(payload, helpers) {
   }
 
   const duplicateExperimentId = findDuplicateValue(
-    payload.experimentResults,
-    'experimentId',
+    payload.experiments || [],
+    'id',
   );
   if (duplicateExperimentId) {
     return helpers.message({
@@ -116,6 +116,7 @@ function validateJobsheetRequest(payload, helpers) {
 
   return payload;
 }
+
 
 function findDuplicateValue(items, field) {
   const values = new Set();

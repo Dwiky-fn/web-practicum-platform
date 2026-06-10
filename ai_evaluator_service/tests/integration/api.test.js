@@ -139,6 +139,122 @@ test('retry habis mengembalikan 502', async () => {
   assert.equal(response.body.error.code, 'INVALID_MODEL_RESPONSE');
 });
 
+test('POST /api/evaluations menerima scope jobsheet lengkap', async () => {
+  let calls = 0;
+  const experimentResult = createExperimentResult();
+  const jobsheetResult = {
+    scope: 'jobsheet',
+    submissionId: 'submission-1',
+    jobsheetId: 'jobsheet-1',
+    jobsheetFeedback: {
+      summary: 'Pemahaman mahasiswa sangat baik.',
+      overallUnderstanding: 'Memahami konsep.',
+      strengths: [],
+      issues: [],
+      consistencyEvaluation: 'Konsisten.',
+      conclusionEvaluation: 'Tepat.',
+      experimentsNeedingAttention: [],
+      learningSuggestions: []
+    },
+    rubricScores: [
+      {
+        criterionId: 'correctness_experiment-1',
+        score: 80,
+        maxScore: 100,
+        reason: 'Sesuai.'
+      }
+    ],
+    totalScoreRecommendation: 80,
+    source: 'ai',
+    status: 'draft',
+    requiresLecturerReview: true
+  };
+
+  global.fetch = async (url, options) => {
+    calls += 1;
+    let responseObj;
+    if (calls === 1) {
+      responseObj = experimentResult;
+    } else {
+      responseObj = jobsheetResult;
+    }
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return { response: JSON.stringify(responseObj) };
+      },
+    };
+  };
+
+  const response = await request({
+    method: 'POST',
+    path: '/api/evaluations',
+    body: {
+      scope: 'jobsheet',
+      submissionId: 'submission-1',
+      jobsheet: {
+        id: 'jobsheet-1',
+        title: 'Percabangan',
+        description: 'Latihan percabangan.'
+      },
+      experiments: [
+        {
+          id: 'experiment-1',
+          title: 'Percobaan 1',
+          objective: 'Memahami if.',
+          instruction: 'Tampilkan Positif untuk nilai lebih dari nol.',
+          language: 'java',
+          files: [
+            {
+              id: 'file-1',
+              path: 'src/Main.java',
+              language: 'java',
+              content: 'class Main { public static void main(String[] args) {} }',
+            },
+          ],
+          execution: {
+            status: 'success',
+            stdout: 'Positif',
+            stderr: '',
+            testCases: [],
+          },
+          studentAnalysis: 'Program menggunakan if.',
+          studentConclusion: 'Percabangan memilih kondisi.',
+          rubric: {
+            criteria: [
+              {
+                id: 'correctness',
+                name: 'Kebenaran',
+                maxScore: 100
+              }
+            ]
+          }
+        }
+      ],
+      studentConclusion: 'Selesai.',
+      rubric: {
+        criteria: [
+          {
+            id: 'correctness_experiment-1',
+            name: 'Percobaan 1',
+            maxScore: 100
+          }
+        ]
+      }
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.status, 'success');
+  assert.equal(response.body.data.scope, 'jobsheet');
+  assert.equal(response.body.data.evaluationStatus, 'completed');
+  assert.equal(response.body.data.experimentEvaluations.length, 1);
+  assert.equal(response.body.data.experimentEvaluations[0].status, 'completed');
+  assert.equal(calls, 2);
+});
+
+
 function request({ method, path, body }) {
   return new Promise((resolve, reject) => {
     const data = body === undefined ? null : JSON.stringify(body);

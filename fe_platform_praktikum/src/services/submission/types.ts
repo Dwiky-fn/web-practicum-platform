@@ -71,6 +71,7 @@ export interface JobsheetSubmission {
       step?: number
       comment: string
     }[]
+    aiFeedback?: any
   }
 
   createdAt?: string

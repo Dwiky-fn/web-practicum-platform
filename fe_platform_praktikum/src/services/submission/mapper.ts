@@ -119,6 +119,7 @@ export function mapSubmission(data: RawSubmission): JobsheetSubmission {
               step: item.step,
               comment: item.comment ?? "",
             })),
+          aiFeedback: data.review.ai_feedback ?? undefined,
         }
       : undefined,
   }

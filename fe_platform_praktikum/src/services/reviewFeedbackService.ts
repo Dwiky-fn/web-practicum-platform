@@ -37,7 +37,7 @@ export interface ReviewFeedback {
 // LocalStorage Mock Helpers
 const STORAGE_KEY = "praktikum_review_feedbacks";
 
-const getStoredFeedbacks = (): ReviewFeedback[] => {
+export const getStoredFeedbacks = (): ReviewFeedback[] => {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     return data ? JSON.parse(data) : [];
@@ -47,7 +47,7 @@ const getStoredFeedbacks = (): ReviewFeedback[] => {
   }
 };
 
-const saveStoredFeedbacks = (feedbacks: ReviewFeedback[]) => {
+export const saveStoredFeedbacks = (feedbacks: ReviewFeedback[]) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(feedbacks));
 };
 

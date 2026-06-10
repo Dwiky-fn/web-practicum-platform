@@ -121,7 +121,9 @@ const experimentSchema = Joi.object({
   execution: executionSchema.allow(null).optional(),
   studentAnalysis: Joi.string().allow('').max(100000).default(''),
   studentConclusion: Joi.string().allow('').max(100000).default(''),
+  rubric: rubricSchema.optional(),
 }).required();
+
 
 const experimentResultSummarySchema = Joi.object({
   experimentId: idSchema,

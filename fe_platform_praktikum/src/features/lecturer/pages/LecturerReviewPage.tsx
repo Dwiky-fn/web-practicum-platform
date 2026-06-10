@@ -23,6 +23,8 @@ import {
   deleteFeedback,
   publishFeedback,
   publishMultipleFeedbacks,
+  getStoredFeedbacks,
+  saveStoredFeedbacks,
 } from "../../../services/reviewFeedbackService"
 import type { ReviewFeedback } from "../../../services/reviewFeedbackService"
 import type { SelectedLineRange } from "../components/review/CodeReviewBlock"
@@ -92,7 +94,82 @@ export default function LecturerReviewPage() {
         }
 
         if (selectedSubmission) {
-          const reviewFeedbacks = await getFeedbacks(selectedSubmission.id)
+          let reviewFeedbacks = await getFeedbacks(selectedSubmission.id)
+          
+          if (reviewFeedbacks.length === 0 && selectedSubmission.review?.aiFeedback?.feedbacks) {
+            reviewFeedbacks = selectedSubmission.review.aiFeedback.feedbacks;
+            const all = getStoredFeedbacks();
+            const filteredAll = all.filter((f) => f.submissionId !== selectedSubmission.id);
+            saveStoredFeedbacks([...filteredAll, ...reviewFeedbacks]);
+          } else if (reviewFeedbacks.length === 0 && selectedSubmission.review?.aiFeedback) {
+            const ai = selectedSubmission.review.aiFeedback;
+            const initialFeedbacks: ReviewFeedback[] = [];
+            
+            if (ai.jobsheetFeedback) {
+              initialFeedbacks.push({
+                id: `ai-jobsheet-${selectedSubmission.id}`,
+                submissionId: selectedSubmission.id,
+                scope: "jobsheet" as const,
+                content: ai.jobsheetFeedback.summary || "",
+                strengths: ai.jobsheetFeedback.strengths || [],
+                issues: ai.jobsheetFeedback.issues || [],
+                suggestions: ai.jobsheetFeedback.learningSuggestions || [],
+                source: "ai" as const,
+                status: "draft" as const,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              });
+            }
+            
+            if (Array.isArray(ai.experimentResults)) {
+              ai.experimentResults.forEach((res: any) => {
+                if (res.status !== "failed") {
+                  initialFeedbacks.push({
+                    id: `ai-experiment-${res.experimentId}`,
+                    submissionId: selectedSubmission.id,
+                    experimentId: res.experimentId,
+                    scope: "experiment" as const,
+                    content: res.summary || "",
+                    strengths: res.strengths || [],
+                    issues: res.issues || [],
+                    suggestions: res.suggestions || [],
+                    source: "ai" as const,
+                    status: "draft" as const,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                  });
+                }
+              });
+            }
+            
+            if (Array.isArray(ai.codeFeedbacks)) {
+              ai.codeFeedbacks.forEach((fb: any, index: number) => {
+                initialFeedbacks.push({
+                  id: `ai-code-${fb.experimentId}-${index}`,
+                  submissionId: selectedSubmission.id,
+                  experimentId: fb.experimentId,
+                  codeBlockId: `code-${fb.experimentId}`,
+                  fileName: fb.filePath,
+                  scope: "code" as const,
+                  startLine: fb.startLine,
+                  endLine: fb.endLine,
+                  selectedCode: fb.selectedCode || "",
+                  content: `${fb.message}\nSaran: ${fb.suggestion}`,
+                  source: "ai" as const,
+                  status: "draft" as const,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString()
+                });
+              });
+            }
+            
+            if (initialFeedbacks.length > 0) {
+              reviewFeedbacks = initialFeedbacks;
+              const all = getStoredFeedbacks();
+              const filteredAll = all.filter((f) => f.submissionId !== selectedSubmission.id);
+              saveStoredFeedbacks([...filteredAll, ...reviewFeedbacks]);
+            }
+          }
           setFeedbacks(reviewFeedbacks)
         }
       } catch (loadError) {
@@ -168,6 +245,9 @@ export default function LecturerReviewPage() {
   async function handleSaveReview(nextDecision: "ACCEPTED") {
     if (!user || !submission) return
 
+    const jobsheetFeedback = feedbacks.find(f => f.scope === "jobsheet")
+    const lecturerFeedbackText = jobsheetFeedback ? jobsheetFeedback.content : ""
+
     try {
       setSaving(true)
       setError("")
@@ -177,10 +257,10 @@ export default function LecturerReviewPage() {
         lecturerId: user.id,
         aiScore: submission.score,
         finalScore: score ? Number(score) : undefined,
-        feedback: "",
+        feedback: lecturerFeedbackText,
         decision: nextDecision,
         aiFeedback: {
-          comments: submission.review?.comments ?? [],
+          feedbacks: feedbacks,
         },
       })
 

@@ -110,6 +110,30 @@ const jobsheetResultSchema = Joi.object({
   requiresLecturerReview: Joi.boolean().valid(true).required(),
 }).custom(validateTotalScore);
 
+const experimentEvaluationResultSchema = Joi.object({
+  experimentId: Joi.string().trim().min(1).max(200).required(),
+  status: Joi.string().valid('completed', 'failed').required(),
+  codeFeedbacks: Joi.array().items(codeFeedbackSchema).max(1000).optional().default([]),
+  feedback: experimentFeedbackSchema.optional(),
+  rubricScores: Joi.array().items(rubricScoreSchema).max(100).optional().default([]),
+  totalScoreRecommendation: Joi.number().min(0).optional(),
+  error: Joi.string().allow('').max(10000).optional()
+});
+
+const jobsheetFullResultSchema = Joi.object({
+  scope: Joi.string().valid('jobsheet').required(),
+  submissionId: Joi.string().trim().min(1).max(200).required(),
+  jobsheetId: Joi.string().trim().min(1).max(200).required(),
+  evaluationStatus: Joi.string().valid('completed', 'partially_failed').required(),
+  experimentEvaluations: Joi.array().items(experimentEvaluationResultSchema).min(1).max(100).required(),
+  jobsheetFeedback: jobsheetFeedbackSchema,
+  rubricScores: Joi.array().items(rubricScoreSchema).max(100).default([]),
+  totalScoreRecommendation: Joi.number().min(0).required(),
+  source: Joi.string().valid('ai').required(),
+  status: Joi.string().valid('draft').required(),
+  requiresLecturerReview: Joi.boolean().valid(true).required(),
+}).custom(validateTotalScore);
+
 const evaluationResultSchema = Joi.alternatives()
   .try(experimentResultSchema, jobsheetResultSchema)
   .match('one');
@@ -136,6 +160,15 @@ function validateEvaluationResult(payload) {
   });
 }
 
+function validateFullJobsheetResult(payload) {
+  return jobsheetFullResultSchema.validate(payload, {
+    abortEarly: false,
+    allowUnknown: false,
+    stripUnknown: false,
+    convert: true,
+  });
+}
+
 module.exports = {
   categories,
   rubricScoreSchema,
@@ -144,6 +177,9 @@ module.exports = {
   jobsheetFeedbackSchema,
   experimentResultSchema,
   jobsheetResultSchema,
+  jobsheetFullResultSchema,
   evaluationResultSchema,
   validateEvaluationResult,
+  validateFullJobsheetResult,
 };
+

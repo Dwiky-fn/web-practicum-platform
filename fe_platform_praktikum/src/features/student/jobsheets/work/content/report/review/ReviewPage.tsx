@@ -14,7 +14,11 @@ import ReviewSummaryBanner from "./components/ReviewSummaryBanner"
 import StudentReviewPanel from "./components/StudentReviewPanel"
 import ExperimentReviewCard from "../../../../../../lecturer/components/review/ExperimentReviewCard"
 import JobsheetFeedbackCard from "../../../../../../lecturer/components/review/JobsheetFeedbackCard"
-import { getFeedbacks } from "../../../../../../../services/reviewFeedbackService"
+import {
+  getFeedbacks,
+  getStoredFeedbacks,
+  saveStoredFeedbacks,
+} from "../../../../../../../services/reviewFeedbackService"
 import type { ReviewFeedback } from "../../../../../../../services/reviewFeedbackService"
 
 const emptyDoc = { type: "doc" as const, content: [] }
@@ -48,7 +52,14 @@ export default function ReviewPage() {
         setSubmission(sub)
 
         if (sub) {
-          const fbs = await getFeedbacks(sub.id)
+          let fbs = await getFeedbacks(sub.id)
+          
+          if (fbs.length === 0 && sub.review?.aiFeedback?.feedbacks) {
+            fbs = sub.review.aiFeedback.feedbacks;
+            const all = getStoredFeedbacks();
+            const filteredAll = all.filter((f) => f.submissionId !== sub.id);
+            saveStoredFeedbacks([...filteredAll, ...fbs]);
+          }
           setFeedbacks(fbs)
           // Expand experiments that have active feedbacks initially
           const expWithFbs: Record<string, boolean> = {}

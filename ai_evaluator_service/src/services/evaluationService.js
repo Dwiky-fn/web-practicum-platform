@@ -29,7 +29,7 @@ async function evaluateSubmission(payload) {
   if (payload.scope === 'experiment') {
     result = await evaluateExperiment(payload);
   } else if (payload.scope === 'jobsheet') {
-    result = await requestValidModelResult(payload);
+    result = await evaluateJobsheetFull(payload);
   } else {
     throw new AppError('Scope evaluasi tidak didukung', {
       statusCode: 400,
@@ -43,11 +43,104 @@ async function evaluateSubmission(payload) {
     experimentId: payload.experiment?.id || null,
     scope: payload.scope,
     durationMs: Date.now() - startedAt,
-    feedbackCount: result.codeFeedbacks?.length || 0,
+    feedbackCount: result.codeFeedbacks?.length || result.experimentEvaluations?.length || 0,
   });
 
   return result;
 }
+
+async function evaluateJobsheetFull(payload) {
+  const experimentEvaluations = [];
+  let successfulResultsCount = 0;
+  let overallSuccess = true;
+
+  for (const exp of payload.experiments) {
+    try {
+      const expPayload = {
+        scope: 'experiment',
+        submissionId: payload.submissionId,
+        jobsheet: payload.jobsheet,
+        experiment: exp,
+        rubric: exp.rubric || payload.rubric || { criteria: [] },
+        options: payload.options,
+      };
+
+      console.log(`[AI Service] Memulai evaluasi serial untuk percobaan: ${exp.id}`);
+      const expResult = await evaluateExperiment(expPayload);
+      
+      experimentEvaluations.push({
+        experimentId: exp.id,
+        status: 'completed',
+        codeFeedbacks: expResult.codeFeedbacks || [],
+        feedback: expResult.experimentFeedback,
+        rubricScores: expResult.rubricScores || [],
+        totalScoreRecommendation: expResult.totalScoreRecommendation || 0
+      });
+      successfulResultsCount += 1;
+    } catch (err) {
+      console.error(`[AI Service] Gagal mengevaluasi percobaan ${exp.id}:`, err);
+      overallSuccess = false;
+      experimentEvaluations.push({
+        experimentId: exp.id,
+        status: 'failed',
+        error: err.message || 'Gagal mengevaluasi percobaan'
+      });
+    }
+  }
+
+  if (successfulResultsCount === 0) {
+    throw new AppError('Seluruh percobaan pada jobsheet gagal dievaluasi', {
+      statusCode: 502,
+      code: 'JOBSHEET_EVALUATION_FAILED',
+      details: experimentEvaluations.map(e => ({ experimentId: e.experimentId, error: e.error }))
+    });
+  }
+
+  // Siapkan experimentResults ringkasan dari percobaan yang sukses untuk prompting jobsheet
+  const successfulExperimentResults = experimentEvaluations
+    .filter(item => item.status === 'completed')
+    .map(item => ({
+      experimentId: item.experimentId,
+      title: payload.experiments.find(e => e.id === item.experimentId)?.title || 'Percobaan',
+      summary: item.feedback.summary || '',
+      strengths: item.feedback.strengths || [],
+      issues: item.feedback.issues || [],
+      suggestions: item.feedback.suggestions || [],
+      rubricScores: item.rubricScores
+    }));
+
+  // Panggil model untuk menghasilkan feedback keseluruhan jobsheet
+  const jobsheetSummaryPayload = {
+    scope: 'jobsheet',
+    submissionId: payload.submissionId,
+    jobsheet: payload.jobsheet,
+    experimentResults: successfulExperimentResults,
+    studentConclusion: payload.studentConclusion,
+    rubric: payload.rubric,
+    options: payload.options,
+    requestId: payload.requestId
+  };
+
+  console.log(`[AI Service] Memulai evaluasi scope jobsheet keseluruhan`);
+  const jobsheetModelResult = await requestValidModelResult(jobsheetSummaryPayload);
+
+  const finalResponse = {
+    scope: 'jobsheet',
+    submissionId: payload.submissionId,
+    jobsheetId: payload.jobsheet.id,
+    evaluationStatus: overallSuccess ? 'completed' : 'partially_failed',
+    experimentEvaluations,
+    jobsheetFeedback: jobsheetModelResult.jobsheetFeedback,
+    rubricScores: jobsheetModelResult.rubricScores || [],
+    totalScoreRecommendation: jobsheetModelResult.totalScoreRecommendation || 0,
+    source: 'ai',
+    status: 'draft',
+    requiresLecturerReview: true
+  };
+
+  return finalResponse;
+}
+
 
 async function evaluateExperiment(payload) {
   const chunks = createExperimentChunks(payload);

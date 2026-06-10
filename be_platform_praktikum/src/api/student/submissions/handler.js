@@ -35,9 +35,31 @@ class SubmissionsHandler {
           // Sembunyikan review jika masih draft (PENDING)
           result.review = null;
         } else {
-          // Hapus ai_feedback agar tidak membocorkan metadata AI ke mahasiswa
+          // Bersihkan ai_feedback dari indikator AI sebelum dikirim ke mahasiswa
           const cleanReview = { ...result.review };
-          delete cleanReview.ai_feedback;
+          delete cleanReview.ai_score;
+          if (cleanReview.ai_feedback) {
+            const cleanAiFeedback = { ...cleanReview.ai_feedback };
+            if (Array.isArray(cleanAiFeedback.feedbacks)) {
+              cleanAiFeedback.feedbacks = cleanAiFeedback.feedbacks.map((f) => ({
+                ...f,
+                source: 'lecturer', // Ubah semua source menjadi lecturer (Dosen)
+              }));
+            }
+            if (Array.isArray(cleanAiFeedback.experimentResults)) {
+              cleanAiFeedback.experimentResults = cleanAiFeedback.experimentResults.map((r) => ({
+                ...r,
+                source: 'lecturer',
+              }));
+            }
+            if (Array.isArray(cleanAiFeedback.codeFeedbacks)) {
+              cleanAiFeedback.codeFeedbacks = cleanAiFeedback.codeFeedbacks.map((fb) => ({
+                ...fb,
+                source: 'lecturer',
+              }));
+            }
+            cleanReview.ai_feedback = cleanAiFeedback;
+          }
           result.review = cleanReview;
         }
       }

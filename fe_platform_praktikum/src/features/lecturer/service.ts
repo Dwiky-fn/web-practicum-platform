@@ -365,14 +365,7 @@ export async function saveLecturerSubmissionReview(
     finalScore?: number
     feedback?: string
     decision: "PENDING" | "ACCEPTED" | "REVISION"
-    aiFeedback?: {
-      comments?: Array<{
-        experimentId?: string
-        exerciseId?: string
-        step?: number
-        comment: string
-      }>
-    }
+    aiFeedback?: any
   },
 ) {
   const response = await apiFetch(`/lecturer/submissions/${submissionId}/review`, {

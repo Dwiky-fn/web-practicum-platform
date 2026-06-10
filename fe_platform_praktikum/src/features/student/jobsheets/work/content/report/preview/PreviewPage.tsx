@@ -158,13 +158,26 @@ export default function PreviewPage() {
                 onChange={(data) => {
                   setSubmission(prev => {
                     if (!prev) return prev
-                    return {
+                    const updated: JobsheetSubmission = {
                       ...prev,
                       conclusion: {
                         content: data.content,
                         wordCount: data.wordCount,
+                      },
+                      report: {
+                        ...prev.report,
+                        conclusion: {
+                          content: data.content,
+                          wordCount: data.wordCount,
+                        }
                       }
                     }
+
+                    if (courseId && jobsheetId && user) {
+                      updateSubmission(courseId, jobsheetId, user.id, buildReport(updated)).catch(console.error)
+                    }
+
+                    return updated
                   })
                 }}
               />

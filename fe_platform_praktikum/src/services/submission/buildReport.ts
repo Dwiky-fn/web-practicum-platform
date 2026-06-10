@@ -1,7 +1,12 @@
 import type { JobsheetSubmission } from "./types";
 
 export function buildReport(submission: JobsheetSubmission) {
-  if (submission.report) return submission.report
+  if (submission.report) {
+    return {
+      ...submission.report,
+      conclusion: submission.conclusion ?? null,
+    };
+  }
 
   return {
     experiments: Object.fromEntries(

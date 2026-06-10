@@ -1,5 +1,6 @@
 const pool = require('../postgres');
 const { randomUUID } = require('crypto');
+const http = require('http');
 
 function extractTextFromTiptap(node) {
   if (!node) return '';
@@ -17,6 +18,46 @@ function extractTextFromTiptap(node) {
   return '';
 }
 
+function httpPost(url, headers, body) {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const options = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+      path: parsedUrl.pathname + parsedUrl.search,
+      method: 'POST',
+      headers: {
+        ...headers,
+        'Content-Length': Buffer.byteLength(body),
+      },
+      timeout: 0, // Batalkan pembatasan waktu timeout
+    };
+
+    const req = http.request(options, (res) => {
+      let responseBody = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => {
+        responseBody += chunk;
+      });
+      res.on('end', () => {
+        resolve({
+          ok: res.statusCode >= 200 && res.statusCode < 300,
+          status: res.statusCode,
+          text: async () => responseBody,
+          json: async () => JSON.parse(responseBody),
+        });
+      });
+    });
+
+    req.on('error', (err) => {
+      reject(err);
+    });
+
+    req.write(body);
+    req.end();
+  });
+}
+
 class AiEvaluationQueue {
   constructor() {
     this._queue = [];
@@ -25,6 +66,7 @@ class AiEvaluationQueue {
 
   async addJob(submissionId) {
     try {
+      console.log(`[AI Queue] Menambahkan submission ${submissionId} ke antrean.`);
       // Set status di DB menjadi queued
       await pool.query(
         `UPDATE task_submissions 
@@ -47,6 +89,7 @@ class AiEvaluationQueue {
 
     this._processing = true;
     const submissionId = this._queue.shift();
+    console.log(`[AI Queue] Mengambil submission ${submissionId} dari antrean untuk diproses. Sisa antrean: ${this._queue.length}`);
 
     try {
       await this._evaluateSubmissionJob(submissionId);
@@ -76,8 +119,9 @@ class AiEvaluationQueue {
     );
 
     // Ambil submission, jobsheet, dan data kelas
+    console.log(`[AI Queue] [${submissionId}] Mengambil data submission dan jobsheet dari database...`);
     const submissionRes = await pool.query(
-      `SELECT ts.*, j.title as jobsheet_title, j.description as jobsheet_description, j.content as jobsheet_content, j.programming_language
+      `SELECT ts.*, j.title as jobsheet_title, j.description as jobsheet_description, j.content as jobsheet_content
        FROM task_submissions ts
        JOIN jobsheets j ON j.id = ts.jobsheet_id
        WHERE ts.id = $1 LIMIT 1`,
@@ -92,6 +136,7 @@ class AiEvaluationQueue {
     const report = typeof sub.report_html === 'string' ? JSON.parse(sub.report_html) : (sub.report_html || {});
 
     // Dapatkan lecturer_id kelas mahasiswa tersebut
+    console.log(`[AI Queue] [${submissionId}] Mengambil lecturer ID kelas mahasiswa...`);
     const classRes = await pool.query(
       `SELECT c.lecturer_id 
        FROM classes c
@@ -103,6 +148,7 @@ class AiEvaluationQueue {
     const lecturerId = classRes.rows[0]?.lecturer_id || 'dosen-1';
 
     // Ambil daftar experiments dari database untuk jobsheet ini
+    console.log(`[AI Queue] [${submissionId}] Mengambil daftar percobaan untuk jobsheet ${sub.jobsheet_id}...`);
     const experimentsRes = await pool.query(
       `SELECT id, title, instruction_content, template_code, rubric
        FROM experiments
@@ -115,6 +161,7 @@ class AiEvaluationQueue {
     const aiServiceUrl = (process.env.AI_EVALUATOR_SERVICE_URL || 'http://localhost:5000').replace(/\/+$/, '');
     const aiServiceKey = process.env.AI_SERVICE_API_KEY || '';
 
+    console.log(`[AI Queue] [${submissionId}] Menyusun payload untuk ${experiments.length} percobaan...`);
     const payloadExperiments = [];
     for (const exp of experiments) {
       const expReport = report.experiments?.[exp.id] || {};
@@ -140,8 +187,8 @@ class AiEvaluationQueue {
         id: exp.id,
         title: exp.title,
         objective: '',
-        instruction: typeof exp.instruction_content === 'string' 
-          ? exp.instruction_content 
+        instruction: typeof exp.instruction_content === 'string'
+          ? exp.instruction_content
           : extractTextFromTiptap(exp.instruction_content),
         language: sub.programming_language || 'java',
         files,
@@ -199,13 +246,11 @@ class AiEvaluationQueue {
       headers['X-AI-Service-Key'] = aiServiceKey;
     }
 
-    console.log(`[AI Queue] Mengirim evaluasi scope jobsheet lengkap untuk ${submissionId}`);
-    
-    const response = await fetch(`${aiServiceUrl}/api/evaluations`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload)
-    });
+    console.log(`[AI Queue] [${submissionId}] Mengirim POST request ke AI Evaluator Service di: ${aiServiceUrl}/api/evaluations`);
+
+    const response = await httpPost(`${aiServiceUrl}/api/evaluations`, headers, JSON.stringify(payload));
+
+    console.log(`[AI Queue] [${submissionId}] AI Service merespon dengan status HTTP ${response.status}`);
 
     if (!response.ok) {
       const text = await response.text();
@@ -218,6 +263,7 @@ class AiEvaluationQueue {
     }
 
     const result = responseData.data;
+    console.log(`[AI Queue] [${submissionId}] Response data AI Service valid. Status evaluasi: ${result.evaluationStatus}`);
 
     // Extract experiment evaluations from the unified response
     const comments = [];
@@ -279,6 +325,7 @@ class AiEvaluationQueue {
     };
 
     const totalScore = result.totalScoreRecommendation;
+    console.log(`[AI Queue] [${submissionId}] Total score rekomendasi AI: ${totalScore}. Menyimpan ke submission_reviews...`);
 
     // Simpan ke database submission_reviews sebagai draft AI
     const existingReviewRes = await pool.query(
@@ -288,6 +335,7 @@ class AiEvaluationQueue {
 
     if (existingReviewRes.rows.length > 0) {
       const reviewId = existingReviewRes.rows[0].id;
+      console.log(`[AI Queue] [${submissionId}] Ditemukan review lama dengan ID: ${reviewId}, mengupdate review...`);
       await pool.query(
         `UPDATE submission_reviews
          SET lecturer_id = $2, ai_score = $3, final_score = NULL, ai_feedback = $4, feedback = NULL, decision = 'PENDING'
@@ -296,6 +344,7 @@ class AiEvaluationQueue {
       );
     } else {
       const reviewId = `rev-${randomUUID().slice(0, 12)}`;
+      console.log(`[AI Queue] [${submissionId}] Membuat review baru dengan ID: ${reviewId}...`);
       await pool.query(
         `INSERT INTO submission_reviews (id, submission_id, lecturer_id, ai_score, final_score, ai_feedback, feedback, decision)
          VALUES ($1, $2, $3, $4, NULL, $5, NULL, 'PENDING')`,
@@ -305,14 +354,14 @@ class AiEvaluationQueue {
 
     // Set status di DB ke completed / partially_failed
     const finalStatus = result.evaluationStatus || (overallSuccess ? 'completed' : 'partially_failed');
+    console.log(`[AI Queue] [${submissionId}] Mengupdate ai_evaluation_status di task_submissions menjadi '${finalStatus}'...`);
     await pool.query(
       `UPDATE task_submissions 
        SET ai_evaluation_status = $2 
        WHERE id = $1`,
       [submissionId, finalStatus]
-    );
-
-    console.log(`[AI Queue] Evaluasi submission ${submissionId} selesai dengan status: ${finalStatus}`);
+    )
+    console.log(`[AI Queue] [${submissionId}] Evaluasi submission selesai dengan status: ${finalStatus}`);
   }
 }
 

@@ -178,6 +178,7 @@ async function requestValidModelResult(payload) {
   let lastErrors = [];
 
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    console.log(`[AI Service] Mengirim request ke model (Attempt ${attempt + 1}/${maxRetries + 1}) untuk scope: ${payload.scope}...`);
     lastOutput = await generateJsonText({
       ...prompt,
       requestId: payload.requestId,
@@ -186,10 +187,13 @@ async function requestValidModelResult(payload) {
     const validation = parseAndValidate(lastOutput, payload);
 
     if (validation.valid) {
+      console.log(`[AI Service] Output model valid pada Attempt ${attempt + 1} untuk scope: ${payload.scope}`);
       return validation.value;
     }
 
     lastErrors = validation.errors;
+
+    console.warn(`[AI Service] [Attempt ${attempt + 1}] Validasi output model gagal untuk scope ${payload.scope}. Errors:`, JSON.stringify(lastErrors, null, 2));
 
     logger.warn('Model output validation failed', {
       requestId: payload.requestId,
@@ -208,6 +212,7 @@ async function requestValidModelResult(payload) {
     }
   }
 
+  console.error(`[AI Service] Seluruh attempt retry habis. Model gagal mengembalikan response sesuai skema.`);
   throw new AppError('Output AI tidak sesuai format setelah retry', {
     statusCode: 502,
     code: 'INVALID_MODEL_RESPONSE',
@@ -221,6 +226,7 @@ function parseAndValidate(rawOutput, payload) {
   try {
     parsed = parseJsonResponse(rawOutput);
   } catch (error) {
+    console.error(`[AI Service] Gagal mem-parse JSON dari model (Error: ${error.message}). Output mentah:`, rawOutput);
     return {
       valid: false,
       errors: [
@@ -236,6 +242,7 @@ function parseAndValidate(rawOutput, payload) {
   const { error, value } = validateEvaluationResult(parsed);
 
   if (error) {
+    console.error(`[AI Service] Validasi Joi gagal untuk scope ${payload.scope}. Errors:`, error.details);
     return {
       valid: false,
       errors: mapJoiErrors(error),
@@ -245,6 +252,7 @@ function parseAndValidate(rawOutput, payload) {
   const domainErrors = validateResultAgainstPayload(value, payload);
 
   if (domainErrors.length > 0) {
+    console.error(`[AI Service] Validasi Domain gagal untuk scope ${payload.scope}. Errors:`, domainErrors);
     return {
       valid: false,
       errors: domainErrors,

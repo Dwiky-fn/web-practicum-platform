@@ -248,6 +248,7 @@ async function requestValidModelResult(payload) {
 
     lastErrors = validation.errors;
 
+    console.warn(`[AI Service] [Attempt ${attempt + 1}] Output mentah model:`, lastOutput);
     console.warn(`[AI Service] [Attempt ${attempt + 1}] Validasi output model gagal untuk scope ${payload.scope}. Errors:`, JSON.stringify(lastErrors, null, 2));
 
     logger.warn('Model output validation failed', {

@@ -376,6 +376,13 @@ export async function saveLecturerSubmissionReview(
   return response.data.review
 }
 
+export async function triggerAiReview(submissionId: string): Promise<any> {
+  const response = await apiFetch(`/lecturer/submissions/${submissionId}/trigger-ai`, {
+    method: "POST",
+  })
+  return response.data
+}
+
 export function getStudentReportCount(
   studentId: string,
   matrix: LecturerSubmissionMatrixItem[],

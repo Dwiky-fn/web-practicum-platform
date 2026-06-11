@@ -39,6 +39,8 @@ type RawSubmission = {
   submitted_at?: string | null
   report?: RawReport
   report_html?: string | null
+  ai_evaluation_status?: string
+  ai_evaluation_error?: string | null
   review?: {
     id?: string
     ai_score?: number | null
@@ -83,6 +85,8 @@ export function mapSubmission(data: RawSubmission): JobsheetSubmission {
     report,
     createdAt: data.created_at,
     updatedAt: timestamp,
+    aiEvaluationStatus: data.ai_evaluation_status ?? "none",
+    aiEvaluationError: data.ai_evaluation_error ?? undefined,
 
     experiments: Object.entries(experimentsObj).map(
       ([experimentId, value]) => ({

@@ -15,6 +15,7 @@ import {
   getLecturerSubmission,
   saveLecturerSubmissionReview,
   getSubmissionReviewStatus,
+  triggerAiReview,
 } from "../service"
 import {
   getFeedbacks,
@@ -60,6 +61,7 @@ export default function LecturerReviewPage() {
   const [activeExperimentId, setActiveExperimentId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<"percobaan" | "komentar_kode" | "jobsheet">("percobaan")
   const [isEditingReview, setIsEditingReview] = useState(false)
+  const [triggeringAi, setTriggeringAi] = useState(false)
 
   useEffect(() => {
     async function loadData() {
@@ -181,6 +183,137 @@ export default function LecturerReviewPage() {
 
     loadData()
   }, [classId, courseId, jobsheetId, studentId])
+
+  async function handleTriggerAiReview() {
+    if (!submission) return
+    try {
+      setTriggeringAi(true)
+      setError("")
+      await triggerAiReview(submission.id)
+      setSubmission((prev) =>
+        prev
+          ? {
+              ...prev,
+              aiEvaluationStatus: "queued",
+              aiEvaluationError: undefined,
+            }
+          : null,
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menjalankan review AI.")
+    } finally {
+      setTriggeringAi(false)
+    }
+  }
+
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null
+
+    if (
+      submission &&
+      (submission.aiEvaluationStatus === "queued" ||
+        submission.aiEvaluationStatus === "processing")
+    ) {
+      intervalId = setInterval(async () => {
+        try {
+          const refreshedSubmission = await getLecturerSubmission(courseId, jobsheetId, studentId)
+          if (refreshedSubmission) {
+            setSubmission(refreshedSubmission)
+
+            if (
+              refreshedSubmission.aiEvaluationStatus === "completed" ||
+              refreshedSubmission.aiEvaluationStatus === "partially_failed"
+            ) {
+              // Clear local feedbacks for this submission so we load the new AI ones
+              const all = getStoredFeedbacks()
+              const filtered = all.filter((f) => f.submissionId !== refreshedSubmission.id)
+              saveStoredFeedbacks(filtered)
+
+              // Load the feedbacks
+              let reviewFeedbacks = await getFeedbacks(refreshedSubmission.id)
+              if (reviewFeedbacks.length === 0 && refreshedSubmission.review?.aiFeedback?.feedbacks) {
+                reviewFeedbacks = refreshedSubmission.review.aiFeedback.feedbacks
+                saveStoredFeedbacks([...filtered, ...reviewFeedbacks])
+              } else if (reviewFeedbacks.length === 0 && refreshedSubmission.review?.aiFeedback) {
+                const ai = refreshedSubmission.review.aiFeedback
+                const initialFeedbacks: ReviewFeedback[] = []
+
+                if (ai.jobsheetFeedback) {
+                  initialFeedbacks.push({
+                    id: `ai-jobsheet-${refreshedSubmission.id}`,
+                    submissionId: refreshedSubmission.id,
+                    scope: "jobsheet" as const,
+                    content: ai.jobsheetFeedback.summary || "",
+                    strengths: ai.jobsheetFeedback.strengths || [],
+                    issues: ai.jobsheetFeedback.issues || [],
+                    suggestions: ai.jobsheetFeedback.learningSuggestions || [],
+                    source: "ai" as const,
+                    status: "draft" as const,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  })
+                }
+
+                if (Array.isArray(ai.experimentResults)) {
+                  ai.experimentResults.forEach((res: any) => {
+                    if (res.status !== "failed") {
+                      initialFeedbacks.push({
+                        id: `ai-experiment-${res.experimentId}`,
+                        submissionId: refreshedSubmission.id,
+                        experimentId: res.experimentId,
+                        scope: "experiment" as const,
+                        content: res.summary || "",
+                        strengths: res.strengths || [],
+                        issues: res.issues || [],
+                        suggestions: res.suggestions || [],
+                        source: "ai" as const,
+                        status: "draft" as const,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                      })
+                    }
+                  })
+                }
+
+                if (Array.isArray(ai.codeFeedbacks)) {
+                  ai.codeFeedbacks.forEach((fb: any, index: number) => {
+                    initialFeedbacks.push({
+                      id: `ai-code-${fb.experimentId}-${index}`,
+                      submissionId: refreshedSubmission.id,
+                      experimentId: fb.experimentId,
+                      codeBlockId: `code-${fb.experimentId}`,
+                      fileName: fb.filePath,
+                      scope: "code" as const,
+                      startLine: fb.startLine,
+                      endLine: fb.endLine,
+                      selectedCode: fb.selectedCode || "",
+                      content: `${fb.message}\nSaran: ${fb.suggestion}`,
+                      source: "ai" as const,
+                      status: "draft" as const,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    })
+                  })
+                }
+
+                if (initialFeedbacks.length > 0) {
+                  reviewFeedbacks = initialFeedbacks
+                  saveStoredFeedbacks([...filtered, ...reviewFeedbacks])
+                }
+              }
+              setFeedbacks(reviewFeedbacks)
+            }
+          }
+        } catch (err) {
+          console.error("Failed to poll AI evaluation status:", err)
+        }
+      }, 2500)
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId)
+    }
+  }, [submission?.aiEvaluationStatus, courseId, jobsheetId, studentId])
 
   useEffect(() => {
     if (activeFeedbackId) {
@@ -433,6 +566,135 @@ export default function LecturerReviewPage() {
                   <dd className="text-gray-900">{new Date(submission.updatedAt).toLocaleString("id-ID")}</dd>
                 </dl>
               </LecturerPanel>
+
+              {/* AI Review Assistant Panel */}
+              {submission && submission.status !== "DRAFT" && (
+                <LecturerPanel className="p-5 border border-blue-100 bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/30">
+                  <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-2">
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                      <span className="text-xl">🤖</span> AI Review Assistant
+                    </h2>
+                  </div>
+
+                  {/* Progress & Status */}
+                  <div className="space-y-4">
+                    {/* Status Display (Permanent) */}
+                    <div className="bg-white/80 rounded-xl p-4 border border-gray-100 space-y-3 shadow-sm font-sans">
+                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Status Review AI</div>
+                      
+                      {submission.aiEvaluationStatus === "none" && (
+                        <div className="text-sm text-gray-600">Belum dievaluasi oleh AI.</div>
+                      )}
+
+                      {submission.aiEvaluationStatus === "queued" && (
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-amber-600 font-medium flex items-center gap-2">
+                              <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                              Dalam Antrean...
+                            </span>
+                            <span className="text-xs text-gray-400">Menunggu antrean server</span>
+                          </div>
+                          <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-amber-500 h-full rounded-full animate-pulse" style={{ width: "30%" }}></div>
+                          </div>
+                        </div>
+                      )}
+
+                      {submission.aiEvaluationStatus === "processing" && (
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-blue-600 font-semibold flex items-center gap-2">
+                              <svg className="animate-spin h-3.5 w-3.5 text-blue-600" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Sedang Menganalisis Laporan...
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-blue-600 h-full rounded-full animate-pulse" style={{ width: "70%" }}></div>
+                          </div>
+                          <p className="text-[11px] text-gray-400 italic">Mencakup analisis kode program, output, dan analisis mahasiswa.</p>
+                        </div>
+                      )}
+
+                      {submission.aiEvaluationStatus === "completed" && (
+                        <div className="text-sm text-green-700 font-semibold flex items-center gap-1.5">
+                          <span>✅</span> Review AI Selesai
+                        </div>
+                      )}
+
+                      {submission.aiEvaluationStatus === "partially_failed" && (
+                        <div className="text-sm text-amber-700 font-semibold flex items-center gap-1.5">
+                          <span>⚠️</span> Selesai dengan Beberapa Error
+                        </div>
+                      )}
+
+                      {submission.aiEvaluationStatus === "failed" && (
+                        <div className="space-y-2">
+                          <div className="text-sm text-red-700 font-semibold flex items-center gap-1.5">
+                            <span>❌</span> Review AI Gagal
+                          </div>
+                          {submission.aiEvaluationError && (
+                            <div className="text-[11px] bg-red-50 border border-red-100 rounded-lg p-2.5 text-red-600 font-mono overflow-auto max-h-20 leading-relaxed">
+                              {submission.aiEvaluationError}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Explanatory text & Trigger Button (Temporary) */}
+                    <div className="space-y-3 pt-1">
+                      {submission.aiEvaluationStatus === "completed" && (
+                        <p className="text-xs text-gray-500 leading-relaxed font-sans">
+                          Draft nilai & feedback dari AI telah dimasukkan ke panel penilaian di sebelah kanan. Anda dapat menyesuaikannya sebelum mempublish review.
+                        </p>
+                      )}
+                      {submission.aiEvaluationStatus === "partially_failed" && (
+                        <p className="text-xs text-gray-500 leading-relaxed font-sans">
+                          Beberapa bagian gagal dievaluasi. Draft penilaian untuk bagian yang berhasil tetap dapat Anda akses di sebelah kanan.
+                        </p>
+                      )}
+                      
+                      <div className="flex flex-wrap items-center gap-3 font-sans">
+                        <button
+                          type="button"
+                          onClick={handleTriggerAiReview}
+                          disabled={triggeringAi || submission.aiEvaluationStatus === "queued" || submission.aiEvaluationStatus === "processing"}
+                          className={`text-xs font-semibold px-4 py-2.5 rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                            submission.aiEvaluationStatus === "queued" || submission.aiEvaluationStatus === "processing"
+                              ? "bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed"
+                              : submission.aiEvaluationStatus === "completed" || submission.aiEvaluationStatus === "partially_failed"
+                              ? "bg-white hover:bg-gray-50 border border-gray-300 text-gray-700"
+                              : "bg-blue-600 hover:bg-blue-700 text-white"
+                          }`}
+                        >
+                          {(triggeringAi || submission.aiEvaluationStatus === "queued" || submission.aiEvaluationStatus === "processing") ? (
+                            <>
+                              <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              {submission.aiEvaluationStatus === "queued" ? "Dalam Antrean AI..." : "Progres AI Mereview..."}
+                            </>
+                          ) : submission.aiEvaluationStatus === "completed" || submission.aiEvaluationStatus === "partially_failed" ? (
+                            "Jalankan Ulang Review AI"
+                          ) : (
+                            "Mulai Review dengan AI"
+                          )}
+                        </button>
+                        
+                        <span className="text-[10px] bg-amber-50 text-amber-700 font-semibold px-2 py-1 rounded border border-amber-200 uppercase tracking-wider">
+                          Fitur Sementara
+                        </span>
+                      </div>
+                    </div>
+
+                  </div>
+                </LecturerPanel>
+              )}
 
               {/* Collapsible Experiments review list */}
               <div className="space-y-4">

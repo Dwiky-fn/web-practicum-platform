@@ -16,6 +16,7 @@ import {
   saveLecturerSubmissionReview,
   getSubmissionReviewStatus,
   triggerAiReview,
+  retryAiReview,
 } from "../service"
 import {
   getFeedbacks,
@@ -186,10 +187,19 @@ export default function LecturerReviewPage() {
 
   async function handleTriggerAiReview() {
     if (!submission) return
+    const isRetry =
+      submission.aiEvaluationStatus === "completed" ||
+      submission.aiEvaluationStatus === "partially_failed" ||
+      submission.aiEvaluationStatus === "failed"
+
     try {
       setTriggeringAi(true)
       setError("")
-      await triggerAiReview(submission.id)
+      if (isRetry) {
+        await retryAiReview(submission.id)
+      } else {
+        await triggerAiReview(submission.id)
+      }
       setSubmission((prev) =>
         prev
           ? {

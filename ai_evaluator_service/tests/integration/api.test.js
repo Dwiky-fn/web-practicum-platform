@@ -156,15 +156,6 @@ test('POST /api/evaluations menerima scope jobsheet lengkap', async () => {
       experimentsNeedingAttention: [],
       learningSuggestions: []
     },
-    rubricScores: [
-      {
-        criterionId: 'correctness_experiment-1',
-        score: 80,
-        maxScore: 100,
-        reason: 'Sesuai.'
-      }
-    ],
-    totalScoreRecommendation: 80,
     source: 'ai',
     status: 'draft',
     requiresLecturerReview: true
@@ -224,7 +215,7 @@ test('POST /api/evaluations menerima scope jobsheet lengkap', async () => {
           rubric: {
             criteria: [
               {
-                id: 'correctness',
+                id: 'correctness_experiment-1',
                 name: 'Kebenaran',
                 maxScore: 100
               }
@@ -327,7 +318,7 @@ function createExperimentPayload() {
     rubric: {
       criteria: [
         {
-          id: 'correctness',
+          id: 'correctness_experiment-1',
           name: 'Kebenaran program',
           maxScore: 100,
         },
@@ -356,7 +347,7 @@ function createExperimentResult() {
     },
     rubricScores: [
       {
-        criterionId: 'correctness',
+        criterionId: 'correctness_experiment-1',
         score: 80,
         maxScore: 100,
         reason: 'Output sesuai bukti yang dikirim.',

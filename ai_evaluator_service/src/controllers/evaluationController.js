@@ -5,7 +5,21 @@ const {
   evaluateSubmission,
 } = require('../services/evaluationService');
 
+const activeEvaluations = new Set();
+
 async function evaluationController(req, res, next) {
+  const submissionId = req.body?.submissionId;
+
+  if (submissionId) {
+    if (activeEvaluations.has(submissionId)) {
+      return res.status(409).json({
+        status: 'fail',
+        message: 'Evaluation already running for this submission',
+      });
+    }
+    activeEvaluations.add(submissionId);
+  }
+
   const startedAt = Date.now();
 
   try {
@@ -47,6 +61,10 @@ async function evaluationController(req, res, next) {
     });
   } catch (error) {
     return next(error);
+  } finally {
+    if (submissionId) {
+      activeEvaluations.delete(submissionId);
+    }
   }
 }
 

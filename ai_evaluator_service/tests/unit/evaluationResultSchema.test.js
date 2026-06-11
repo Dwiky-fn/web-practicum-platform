@@ -43,12 +43,12 @@ test('result valid diterima', () => {
   assert.equal(error, undefined);
 });
 
-test('total score yang tidak cocok ditolak', () => {
+test('total score yang tidak cocok diterima oleh skema Joi', () => {
   const result = createResult();
   result.totalScoreRecommendation = 90;
 
   const { error } = validateEvaluationResult(result);
-  assert.ok(error);
+  assert.equal(error, undefined);
 });
 
 test('status published ditolak', () => {

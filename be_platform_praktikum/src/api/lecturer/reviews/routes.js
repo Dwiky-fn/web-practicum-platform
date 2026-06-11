@@ -28,5 +28,12 @@ module.exports = (handler) => {
     (req, res) => handler.postTriggerAiHandler(req, res),
   );
 
+  router.post(
+    '/lecturer/submissions/:submissionId/ai-review/retry',
+    requireAuth,
+    requireRoles('DOSEN'),
+    (req, res) => handler.postRetryAiHandler(req, res),
+  );
+
   return router;
 };

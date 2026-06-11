@@ -248,7 +248,6 @@ async function requestValidModelResult(payload) {
 
     lastErrors = validation.errors;
 
-    console.warn(`[AI Service] [Attempt ${attempt + 1}] Output mentah model:`, lastOutput);
     console.warn(`[AI Service] [Attempt ${attempt + 1}] Validasi output model gagal untuk scope ${payload.scope}. Errors:`, JSON.stringify(lastErrors, null, 2));
 
     logger.warn('Model output validation failed', {
@@ -276,6 +275,26 @@ async function requestValidModelResult(payload) {
   });
 }
 
+function calculateTotalScore(rubricScores = []) {
+  return rubricScores.reduce((total, item) => {
+    return total + Number(item.score || 0);
+  }, 0);
+}
+
+function normalizeEvaluationResult(result) {
+  const rubricScores = Array.isArray(result.rubricScores)
+    ? result.rubricScores
+    : [];
+
+  return {
+    ...result,
+    totalScoreRecommendation: calculateTotalScore(rubricScores),
+    source: 'ai',
+    status: 'draft',
+    requiresLecturerReview: true,
+  };
+}
+
 function parseAndValidate(rawOutput, payload) {
   let parsed;
 
@@ -299,25 +318,55 @@ function parseAndValidate(rawOutput, payload) {
 
   if (error) {
     console.error(`[AI Service] Validasi Joi gagal untuk scope ${payload.scope}. Errors:`, error.details);
+    console.error(`[AI Service] Output mentah yang menyebabkan gagal validasi:`, rawOutput);
     return {
       valid: false,
       errors: mapJoiErrors(error),
     };
   }
 
+  if (payload.scope === 'jobsheet') {
+    const combinedRubricScores = [];
+    if (Array.isArray(payload.experimentResults)) {
+      payload.experimentResults.forEach(exp => {
+        if (Array.isArray(exp.rubricScores)) {
+          combinedRubricScores.push(...exp.rubricScores);
+        }
+      });
+    }
+    if (Array.isArray(payload.exerciseResults)) {
+      payload.exerciseResults.forEach(exe => {
+        if (Array.isArray(exe.rubricScores)) {
+          combinedRubricScores.push(...exe.rubricScores);
+        }
+      });
+    }
+    value.rubricScores = combinedRubricScores;
+  }
+
   const domainErrors = validateResultAgainstPayload(value, payload);
 
   if (domainErrors.length > 0) {
     console.error(`[AI Service] Validasi Domain gagal untuk scope ${payload.scope}. Errors:`, domainErrors);
+    console.error(`[AI Service] Output mentah yang menyebabkan gagal validasi:`, rawOutput);
     return {
       valid: false,
       errors: domainErrors,
     };
   }
 
+  const normalizedResult = normalizeEvaluationResult(value);
+
+  logger.info('Computed totalScoreRecommendation', {
+    scope: normalizedResult.scope,
+    submissionId: normalizedResult.submissionId,
+    totalScoreRecommendation: normalizedResult.totalScoreRecommendation,
+    rubricScoreCount: normalizedResult.rubricScores?.length || 0,
+  });
+
   return {
     valid: true,
-    value,
+    value: normalizedResult,
   };
 }
 
@@ -793,6 +842,8 @@ function mapJoiErrors(error) {
   function collect(detail) {
     if (detail.context && Array.isArray(detail.context.details)) {
       detail.context.details.forEach(collect);
+    } else if (Array.isArray(detail.details)) {
+      detail.details.forEach(collect);
     } else {
       errors.push({
         path: Array.isArray(detail.path) ? detail.path.join('.') : '',

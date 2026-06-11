@@ -43,9 +43,32 @@ function extractInstructions(instructionContent) {
   return items;
 }
 
+function getAiServiceTimeoutMs() {
+  const rawValue = process.env.AI_SERVICE_TIMEOUT_MS;
+
+  if (!rawValue || rawValue === '0') {
+    return 0;
+  }
+
+  const parsed = Number(rawValue);
+
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return 0;
+  }
+
+  return parsed;
+}
+
 function httpPost(url, headers, body) {
   return new Promise((resolve, reject) => {
     const parsedUrl = new URL(url);
+    const timeoutMs = getAiServiceTimeoutMs();
+    console.log(
+      timeoutMs > 0
+        ? `[AI Queue] AI service timeout aktif: ${timeoutMs}ms`
+        : '[AI Queue] AI service timeout dinonaktifkan'
+    );
+
     const options = {
       hostname: parsedUrl.hostname,
       port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
@@ -55,8 +78,11 @@ function httpPost(url, headers, body) {
         ...headers,
         'Content-Length': Buffer.byteLength(body),
       },
-      timeout: 0, // Batalkan pembatasan waktu timeout
     };
+
+    if (timeoutMs > 0) {
+      options.timeout = timeoutMs;
+    }
 
     const req = http.request(options, (res) => {
       let responseBody = '';
@@ -78,20 +104,160 @@ function httpPost(url, headers, body) {
       reject(err);
     });
 
+    if (timeoutMs > 0) {
+      req.on('timeout', () => {
+        req.destroy(new Error(`AI Evaluator Service request timeout (${timeoutMs}ms exceeded)`));
+      });
+    }
+
     req.write(body);
     req.end();
   });
 }
 
+function getErrorMessage(error) {
+  if (!error) return 'Unknown error';
+  if (error.message && error.message.trim()) {
+    return error.message;
+  }
+  if (Array.isArray(error.errors) && error.errors.length > 0) {
+    const messages = error.errors.map(e => e.message).filter(Boolean);
+    if (messages.length > 0) return messages.join('; ');
+  }
+  return String(error);
+}
+
 class AiEvaluationQueue {
   constructor() {
     this._queue = [];
+    this._activeSubmissionIds = new Set();
+    this._queuedSubmissionIds = new Set();
     this._processing = false;
+    this._cleanHangingJobs();
   }
 
-  async addJob(submissionId) {
+  async _cleanHangingJobs() {
     try {
-      console.log(`[AI Queue] Menambahkan submission ${submissionId} ke antrean.`);
+      console.log('[AI Queue] Membersihkan submission yang menggantung (queued/processing) karena server restart.');
+      await pool.query(
+        `UPDATE task_submissions 
+         SET 
+           ai_evaluation_status = 'failed', 
+           ai_evaluation_error = 'AI review dihentikan karena server restart' 
+         WHERE ai_evaluation_status IN ('queued', 'processing')`
+      );
+    } catch (err) {
+      console.error('[AI Queue] Gagal membersihkan submission yang menggantung:', err);
+    }
+  }
+
+  async hasExistingAiFeedback(submissionId) {
+    const result = await pool.query(
+      `
+      SELECT COUNT(*)::int AS count
+      FROM submission_reviews
+      WHERE submission_id = $1
+        AND ai_feedback IS NOT NULL
+      `,
+      [submissionId]
+    );
+
+    return Number(result.rows[0]?.count || 0) > 0;
+  }
+
+  async canEnqueueAiEvaluation(submissionId, options = {}) {
+    const force = options.force === true;
+
+    const result = await pool.query(
+      `
+      SELECT ai_evaluation_status
+      FROM task_submissions
+      WHERE id = $1
+      `,
+      [submissionId]
+    );
+
+    const submission = result.rows[0];
+
+    if (!submission) {
+      return {
+        allowed: false,
+        reason: 'submission_not_found',
+      };
+    }
+
+    if (force) {
+      return {
+        allowed: true,
+        reason: 'forced_retry',
+      };
+    }
+
+    const blockedStatuses = [
+      'queued',
+      'processing',
+      'completed',
+      'partially_failed',
+      'failed',
+      'skipped',
+      'needs_lecturer_review',
+    ];
+
+    if (blockedStatuses.includes(submission.ai_evaluation_status)) {
+      return {
+        allowed: false,
+        reason: `ai_evaluation_status_is_${submission.ai_evaluation_status}`,
+      };
+    }
+
+    const hasFeedback = await this.hasExistingAiFeedback(submissionId);
+    if (hasFeedback) {
+      return {
+        allowed: false,
+        reason: 'ai_feedback_already_exists',
+      };
+    }
+
+    return {
+      allowed: true,
+      reason: 'allowed',
+    };
+  }
+
+  async addJob(submissionId, options = {}) {
+    if (this._activeSubmissionIds.has(submissionId)) {
+      console.log(`[AI Queue] Skip enqueue ${submissionId}: already processing`);
+      return {
+        enqueued: false,
+        reason: 'already_processing',
+      };
+    }
+
+    if (this._queuedSubmissionIds.has(submissionId)) {
+      console.log(`[AI Queue] Skip enqueue ${submissionId}: already queued`);
+      return {
+        enqueued: false,
+        reason: 'already_queued',
+      };
+    }
+
+    // Tandai submission sebagai queued di memori secara sinkron untuk memblokir race condition
+    this._queuedSubmissionIds.add(submissionId);
+
+    try {
+      console.log(`[AI Queue] Request enqueue submission ${submissionId}`);
+      console.trace('[AI Queue] enqueue caller trace');
+
+      const check = await this.canEnqueueAiEvaluation(submissionId, options);
+      if (!check.allowed) {
+        console.log(`[AI Queue] Skip enqueue ${submissionId}: ${check.reason}`);
+        this._queuedSubmissionIds.delete(submissionId);
+        return {
+          enqueued: false,
+          reason: check.reason,
+        };
+      }
+
       // Set status di DB menjadi queued
       await pool.query(
         `UPDATE task_submissions 
@@ -102,8 +268,18 @@ class AiEvaluationQueue {
 
       this._queue.push(submissionId);
       this._processNext();
+
+      return {
+        enqueued: true,
+        reason: check.reason,
+      };
     } catch (err) {
       console.error('[AI Queue] Gagal menambahkan job ke antrean:', err);
+      this._queuedSubmissionIds.delete(submissionId);
+      return {
+        enqueued: false,
+        reason: 'error',
+      };
     }
   }
 
@@ -114,25 +290,51 @@ class AiEvaluationQueue {
 
     this._processing = true;
     const submissionId = this._queue.shift();
+    this._queuedSubmissionIds.delete(submissionId);
+    this._activeSubmissionIds.add(submissionId);
+
     console.log(`[AI Queue] Mengambil submission ${submissionId} dari antrean untuk diproses. Sisa antrean: ${this._queue.length}`);
 
     try {
       await this._evaluateSubmissionJob(submissionId);
     } catch (error) {
       console.error(`[AI Queue] Gagal mengevaluasi submission ${submissionId}:`, error);
+      const errorMessage = getErrorMessage(error);
       await pool.query(
         `UPDATE task_submissions 
          SET ai_evaluation_status = 'failed', ai_evaluation_error = $2
          WHERE id = $1`,
-        [submissionId, error.message || 'Unknown error']
+        [submissionId, errorMessage]
       );
     } finally {
+      this._activeSubmissionIds.delete(submissionId);
       this._processing = false;
       this._processNext();
     }
   }
 
   async _evaluateSubmissionJob(submissionId) {
+    try {
+      await this._evaluateSubmissionJobInternal(submissionId);
+    } catch (error) {
+      await this._markSubmissionAiFailed(submissionId, error);
+      throw error;
+    }
+  }
+
+  async _markSubmissionAiFailed(submissionId, error) {
+    const errorMessage = getErrorMessage(error);
+    await pool.query(
+      `UPDATE task_submissions
+       SET
+         ai_evaluation_status = 'failed',
+         ai_evaluation_error = $2
+       WHERE id = $1`,
+      [submissionId, errorMessage]
+    );
+  }
+
+  async _evaluateSubmissionJobInternal(submissionId) {
     console.log(`[AI Queue] Memulai evaluasi untuk submission ${submissionId}`);
 
     // Update status di DB menjadi processing
@@ -370,11 +572,22 @@ class AiEvaluationQueue {
     console.log(`[AI Queue] [${submissionId}] AI Service merespon dengan status HTTP ${response.status}`);
 
     if (!response.ok) {
-      const text = await response.text();
+      let text = await response.text();
+      if (text.includes('<html') || text.includes('<!DOCTYPE')) {
+        text = `HTTP ${response.status} Error (HTML Response)`;
+      } else if (text.length > 200) {
+        text = text.slice(0, 200) + '...';
+      }
       throw new Error(`AI Evaluator Service HTTP ${response.status}: ${text}`);
     }
 
-    const responseData = await response.json();
+    let responseData;
+    try {
+      responseData = await response.json();
+    } catch (e) {
+      throw new Error('Gagal mengurai respons JSON dari AI Evaluator Service');
+    }
+
     if (responseData.status !== 'success' || !responseData.data) {
       throw new Error(`AI Evaluator Service mengembalikan status ${responseData.status}`);
     }
@@ -575,41 +788,53 @@ class AiEvaluationQueue {
     const totalScore = Math.min(100, Math.max(0, result.totalScoreRecommendation || 0));
     console.log(`[AI Queue] [${submissionId}] Total score rekomendasi AI (clamped): ${totalScore}. Menyimpan ke submission_reviews...`);
 
-    // Simpan ke database submission_reviews sebagai draft AI
-    const existingReviewRes = await pool.query(
-      `SELECT id FROM submission_reviews WHERE submission_id = $1 ORDER BY id DESC LIMIT 1`,
-      [submissionId]
-    );
+    // Simpan ke database submission_reviews sebagai draft AI dan update status menggunakan Transaksi
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    if (existingReviewRes.rows.length > 0) {
-      const reviewId = existingReviewRes.rows[0].id;
-      console.log(`[AI Queue] [${submissionId}] Ditemukan review lama dengan ID: ${reviewId}, mengupdate review...`);
-      await pool.query(
-        `UPDATE submission_reviews
-         SET lecturer_id = $2, ai_score = $3, final_score = NULL, ai_feedback = $4, feedback = NULL, decision = 'PENDING'
+      const existingReviewRes = await client.query(
+        `SELECT id FROM submission_reviews WHERE submission_id = $1 ORDER BY id DESC LIMIT 1`,
+        [submissionId]
+      );
+
+      if (existingReviewRes.rows.length > 0) {
+        const reviewId = existingReviewRes.rows[0].id;
+        console.log(`[AI Queue] [${submissionId}] Ditemukan review lama dengan ID: ${reviewId}, mengupdate review...`);
+        await client.query(
+          `UPDATE submission_reviews
+           SET lecturer_id = $2, ai_score = $3, final_score = NULL, ai_feedback = $4, feedback = NULL, decision = 'PENDING'
+           WHERE id = $1`,
+          [reviewId, lecturerId, totalScore, JSON.stringify(aiFeedback)]
+        );
+      } else {
+        const reviewId = `rev-${randomUUID().slice(0, 12)}`;
+        console.log(`[AI Queue] [${submissionId}] Membuat review baru dengan ID: ${reviewId}...`);
+        await client.query(
+          `INSERT INTO submission_reviews (id, submission_id, lecturer_id, ai_score, final_score, ai_feedback, feedback, decision)
+           VALUES ($1, $2, $3, $4, NULL, $5, NULL, 'PENDING')`,
+          [reviewId, submissionId, lecturerId, totalScore, JSON.stringify(aiFeedback)]
+        );
+      }
+
+      // Set status di DB ke completed / partially_failed
+      const finalStatus = result.evaluationStatus || (overallSuccess ? 'completed' : 'partially_failed');
+      console.log(`[AI Queue] [${submissionId}] Mengupdate ai_evaluation_status di task_submissions menjadi '${finalStatus}'...`);
+      await client.query(
+        `UPDATE task_submissions 
+         SET ai_evaluation_status = $2 
          WHERE id = $1`,
-        [reviewId, lecturerId, totalScore, JSON.stringify(aiFeedback)]
+        [submissionId, finalStatus]
       );
-    } else {
-      const reviewId = `rev-${randomUUID().slice(0, 12)}`;
-      console.log(`[AI Queue] [${submissionId}] Membuat review baru dengan ID: ${reviewId}...`);
-      await pool.query(
-        `INSERT INTO submission_reviews (id, submission_id, lecturer_id, ai_score, final_score, ai_feedback, feedback, decision)
-         VALUES ($1, $2, $3, $4, NULL, $5, NULL, 'PENDING')`,
-        [reviewId, submissionId, lecturerId, totalScore, JSON.stringify(aiFeedback)]
-      );
-    }
 
-    // Set status di DB ke completed / partially_failed
-    const finalStatus = result.evaluationStatus || (overallSuccess ? 'completed' : 'partially_failed');
-    console.log(`[AI Queue] [${submissionId}] Mengupdate ai_evaluation_status di task_submissions menjadi '${finalStatus}'...`);
-    await pool.query(
-      `UPDATE task_submissions 
-       SET ai_evaluation_status = $2 
-       WHERE id = $1`,
-      [submissionId, finalStatus]
-    )
-    console.log(`[AI Queue] [${submissionId}] Evaluasi submission selesai dengan status: ${finalStatus}`);
+      await client.query('COMMIT');
+      console.log(`[AI Queue] [${submissionId}] Evaluasi submission selesai dengan status: ${finalStatus}`);
+    } catch (dbError) {
+      await client.query('ROLLBACK');
+      throw dbError;
+    } finally {
+      client.release();
+    }
   }
 }
 

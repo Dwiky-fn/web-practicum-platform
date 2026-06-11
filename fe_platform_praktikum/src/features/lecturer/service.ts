@@ -383,6 +383,13 @@ export async function triggerAiReview(submissionId: string): Promise<any> {
   return response.data
 }
 
+export async function retryAiReview(submissionId: string): Promise<any> {
+  const response = await apiFetch(`/lecturer/submissions/${submissionId}/ai-review/retry`, {
+    method: "POST",
+  })
+  return response.data
+}
+
 export function getStudentReportCount(
   studentId: string,
   matrix: LecturerSubmissionMatrixItem[],

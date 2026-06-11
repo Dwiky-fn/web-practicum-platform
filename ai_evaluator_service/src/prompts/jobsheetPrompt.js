@@ -26,7 +26,7 @@ Aturan:
 4. Nilai hanya rekomendasi untuk diperiksa dosen.
 5. experimentId harus tersedia dalam experimentResults, dan exerciseId harus tersedia dalam exerciseResults.
 6. score tidak boleh negatif atau melebihi maxScore.
-7. totalScoreRecommendation harus merupakan jumlah seluruh score.
+7. Jangan menghitung atau menyertakan totalScoreRecommendation maupun rubricScores pada output JSON. Fokus hanya pada jobsheetFeedback. rubricScores dan nilai total akan dihitung secara otomatis oleh sistem.
 
 Format output wajib:
 {
@@ -54,15 +54,6 @@ Format output wajib:
     ],
     "learningSuggestions": ["string"]
   },
-  "rubricScores": [
-    {
-      "criterionId": "string",
-      "score": 0,
-      "maxScore": 0,
-      "reason": "string"
-    }
-  ],
-  "totalScoreRecommendation": 0,
   "source": "ai",
   "status": "draft",
   "requiresLecturerReview": true

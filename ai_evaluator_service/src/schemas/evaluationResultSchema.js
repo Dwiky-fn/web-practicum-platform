@@ -40,10 +40,10 @@ const codeFeedbackSchema = Joi.object({
   startLine: Joi.number().integer().min(1).required(),
   endLine: Joi.number().integer().min(1).required(),
   selectedCode: Joi.string().allow('').max(20000).default(''),
-  category: Joi.string().valid(...categories).required(),
-  severity: Joi.string().valid('low', 'medium', 'high').required(),
+  category: Joi.string().valid(...categories).default('logic'),
+  severity: Joi.string().valid('low', 'medium', 'high').default('medium'),
   message: Joi.string().trim().min(1).max(10000).required(),
-  suggestion: Joi.string().allow('').max(10000).required(),
+  suggestion: Joi.string().allow('').max(10000).default(''),
 }).custom((value, helpers) => {
   if (value.startLine > value.endLine) {
     return helpers.error('line.invalidRange');
@@ -102,11 +102,11 @@ const experimentResultSchema = Joi.object({
   codeFeedbacks: Joi.array().items(codeFeedbackSchema).max(1000).default([]),
   experimentFeedback: experimentFeedbackSchema,
   rubricScores: Joi.array().items(rubricScoreSchema).max(100).default([]),
-  totalScoreRecommendation: Joi.number().min(0).required(),
+  totalScoreRecommendation: Joi.number().min(0).optional(),
   source: Joi.string().valid('ai').required(),
   status: Joi.string().valid('draft').required(),
   requiresLecturerReview: Joi.boolean().valid(true).required(),
-}).custom(validateTotalScore);
+});
 
 const exerciseResultSchema = Joi.object({
   scope: Joi.string().valid('exercise').required(),
@@ -115,11 +115,11 @@ const exerciseResultSchema = Joi.object({
   codeFeedbacks: Joi.array().items(codeFeedbackSchema).max(1000).default([]),
   exerciseFeedback: experimentFeedbackSchema,
   rubricScores: Joi.array().items(rubricScoreSchema).max(100).default([]),
-  totalScoreRecommendation: Joi.number().min(0).required(),
+  totalScoreRecommendation: Joi.number().min(0).optional(),
   source: Joi.string().valid('ai').required(),
   status: Joi.string().valid('draft').required(),
   requiresLecturerReview: Joi.boolean().valid(true).required(),
-}).custom(validateTotalScore);
+});
 
 const jobsheetResultSchema = Joi.object({
   scope: Joi.string().valid('jobsheet').required(),
@@ -127,11 +127,11 @@ const jobsheetResultSchema = Joi.object({
   jobsheetId: Joi.string().trim().min(1).max(200).required(),
   jobsheetFeedback: jobsheetFeedbackSchema,
   rubricScores: Joi.array().items(rubricScoreSchema).max(100).default([]),
-  totalScoreRecommendation: Joi.number().min(0).required(),
+  totalScoreRecommendation: Joi.number().min(0).optional(),
   source: Joi.string().valid('ai').required(),
   status: Joi.string().valid('draft').required(),
   requiresLecturerReview: Joi.boolean().valid(true).required(),
-}).custom(validateTotalScore);
+});
 
 const experimentEvaluationResultSchema = Joi.object({
   experimentId: Joi.string().trim().min(1).max(200).required(),
@@ -162,34 +162,32 @@ const jobsheetFullResultSchema = Joi.object({
   exerciseEvaluations: Joi.array().items(exerciseEvaluationResultSchema).max(100).optional().default([]),
   jobsheetFeedback: jobsheetFeedbackSchema,
   rubricScores: Joi.array().items(rubricScoreSchema).max(100).default([]),
-  totalScoreRecommendation: Joi.number().min(0).required(),
+  totalScoreRecommendation: Joi.number().min(0).optional(),
   source: Joi.string().valid('ai').required(),
   status: Joi.string().valid('draft').required(),
   requiresLecturerReview: Joi.boolean().valid(true).required(),
-}).custom(validateTotalScore);
+});
 
 const evaluationResultSchema = Joi.alternatives()
   .try(experimentResultSchema, exerciseResultSchema, jobsheetResultSchema)
   .match('one');
 
-function validateTotalScore(value, helpers) {
-  const calculatedTotal = value.rubricScores.reduce(
-    (total, item) => total + item.score,
-    0,
-  );
-
-  if (Math.abs(calculatedTotal - value.totalScoreRecommendation) > 0.0001) {
-    return helpers.error('score.totalMismatch');
-  }
-
-  return value;
-}
+// validateTotalScore was removed
 
 function validateEvaluationResult(payload) {
-  return evaluationResultSchema.validate(payload, {
+  let schema = evaluationResultSchema;
+  if (payload && payload.scope === 'experiment') {
+    schema = experimentResultSchema;
+  } else if (payload && payload.scope === 'exercise') {
+    schema = exerciseResultSchema;
+  } else if (payload && payload.scope === 'jobsheet') {
+    schema = jobsheetResultSchema;
+  }
+
+  return schema.validate(payload, {
     abortEarly: false,
-    allowUnknown: false,
-    stripUnknown: false,
+    allowUnknown: true,
+    stripUnknown: true,
     convert: true,
   });
 }
@@ -197,8 +195,8 @@ function validateEvaluationResult(payload) {
 function validateFullJobsheetResult(payload) {
   return jobsheetFullResultSchema.validate(payload, {
     abortEarly: false,
-    allowUnknown: false,
-    stripUnknown: false,
+    allowUnknown: true,
+    stripUnknown: true,
     convert: true,
   });
 }

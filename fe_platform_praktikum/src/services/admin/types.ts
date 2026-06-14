@@ -202,6 +202,8 @@ export interface CreateClassPayload {
   academicPeriodId?: string
   programmingLanguage?: "java" | "python"
   status?: "Aktif" | "Nonaktif" | "Arsip"
+  class_name?: string
+  className?: string
 }
 
 export interface CloneClassPayload {

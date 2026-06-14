@@ -42,6 +42,21 @@ const resolveProgrammingLanguage = (value, fallback = 'java') => {
   return normalized;
 };
 
+const generateClassName = ({ courseName, rombel, academicYear, semester }) => {
+  return [courseName, rombel, academicYear, semester]
+    .filter(Boolean)
+    .join(' - ');
+};
+
+const extractRombelFromFullName = (fullName, courseName) => {
+  if (!fullName) return '';
+  const parts = fullName.split(' - ');
+  if (parts.length > 1) {
+    return parts[1];
+  }
+  return fullName;
+};
+
 const createClientError = (message, statusCode = 400) => {
   const error = new Error(message);
   error.statusCode = statusCode;
@@ -99,24 +114,52 @@ class ClassesService {
   }
 
   async createClass(payload) {
-    const id = payload.id || createId('kelas');
-    const activeSemester = payload.academicPeriodId || payload.academic_period_id ||
-      (await this._pool.query('SELECT id FROM academic_periods WHERE is_active = true LIMIT 1')).rows[0]?.id;
-
-    if (!activeSemester) throw new Error('ACTIVE_SEMESTER_NOT_FOUND');
+    const activePeriodResult = await this._pool.query(
+      'SELECT id, year, semester_type FROM academic_periods WHERE is_active = true LIMIT 1'
+    );
+    const activePeriod = activePeriodResult.rows[0];
+    if (!activePeriod) {
+      throw createClientError('Semester aktif belum tersedia. Silakan aktifkan semester terlebih dahulu.', 400);
+    }
 
     const courseId = payload.courseId || payload.course_id;
-    const name = payload.name;
+    if (!courseId) throw createClientError('Mata kuliah wajib dipilih', 400);
+
     const lecturerId = payload.lecturerId || payload.lecturer_id;
+    if (!lecturerId) throw createClientError('Dosen pengampu wajib dipilih', 400);
+
+    const courseResult = await this._pool.query('SELECT name FROM courses WHERE id = $1', [courseId]);
+    if (!courseResult.rows.length) {
+      throw createClientError('Mata kuliah tidak ditemukan', 404);
+    }
+    const courseName = courseResult.rows[0].name;
+
+    const rombel = payload.class_name || payload.className || payload.rombel ||
+      extractRombelFromFullName(payload.name, courseName);
+
+    if (!rombel || !String(rombel).trim()) {
+      throw createClientError('Kelas/Rombel wajib diisi', 400);
+    }
+
     const programmingLanguage = resolveProgrammingLanguage(
       payload.programmingLanguage || payload.programming_language,
     );
-    await this.ensureCourseAvailableForClass(courseId);
+
+    const className = generateClassName({
+      courseName,
+      rombel: rombel.trim(),
+      academicYear: activePeriod.year,
+      semester: displayTerm(activePeriod.semester_type),
+    });
+
+    await this.ensureCourseAvailableForClass(courseId, this._pool, activePeriod.id);
     await this.ensureClassUnique({
       courseId,
-      name,
-      academicPeriodId: activeSemester,
+      name: className,
+      academicPeriodId: activePeriod.id,
     });
+
+    const id = payload.id || createId('kelas');
 
     await this._pool.query(
       `INSERT INTO classes (
@@ -126,9 +169,9 @@ class ClassesService {
       [
         id,
         courseId,
-        name,
+        className,
         lecturerId,
-        activeSemester,
+        activePeriod.id,
         normalizeStatus(payload.status, 'AKTIF'),
         programmingLanguage,
       ],
@@ -606,7 +649,7 @@ class ClassesService {
 
       const sourceResult = await client.query(
         `
-        SELECT cl.*, c.semester AS course_semester, ap.semester_type AS source_semester_type
+        SELECT cl.*, c.name AS course_name, c.semester AS course_semester, ap.semester_type AS source_semester_type
         FROM classes cl
         JOIN courses c ON c.id = cl.course_id
         JOIN academic_periods ap ON ap.id = cl.academic_period_id
@@ -615,29 +658,43 @@ class ClassesService {
         `,
         [payload.source_class_id],
       );
-      if (!sourceResult.rows.length) throw new Error('CLONE_SOURCE_CLASS_NOT_FOUND');
+      if (!sourceResult.rows.length) {
+        throw createClientError('Kelas sumber tidak ditemukan', 404);
+      }
 
       const sourceClass = sourceResult.rows[0];
-      const targetAcademicPeriod = await this._resolveAcademicPeriod(client, payload);
-      const academicPeriodId = targetAcademicPeriod.id;
+
+      // Retrieve the active period from database
+      const activePeriodResult = await client.query(
+        'SELECT id, year, semester_type FROM academic_periods WHERE is_active = true LIMIT 1'
+      );
+      const activePeriod = activePeriodResult.rows[0];
+      if (!activePeriod) {
+        throw createClientError('Semester aktif belum tersedia. Silakan aktifkan semester terlebih dahulu.', 400);
+      }
+
+      const academicPeriodId = activePeriod.id;
       const newClassId = createId('kelas');
       const lecturerId = payload.lecturer_id || sourceClass.lecturer_id;
+      if (!lecturerId) throw createClientError('Dosen pengampu wajib dipilih', 400);
+
       const programmingLanguage = resolveProgrammingLanguage(
         payload.programming_language || sourceClass.programming_language,
       );
+      const rombel = payload.class_name || payload.className || payload.rombel ||
+        extractRombelFromFullName(payload.name, sourceClass.course_name);
+
+      if (!rombel || !String(rombel).trim()) {
+        throw createClientError('Kelas/Rombel wajib diisi', 400);
+      }
+
       const sourceTerm = sourceClass.source_semester_type;
-      const targetTerm = targetAcademicPeriod.semester_type;
+      const targetTerm = activePeriod.semester_type;
 
       if (targetTerm !== sourceTerm) {
         throw createClientError(
           `Kelas semester ${displayTerm(sourceTerm)} tidak dapat digunakan sebagai template untuk semester ${displayTerm(targetTerm)}`,
-        );
-      }
-
-      const requestedTerm = payload.semester ? normalizeAcademicTerm(payload.semester) : sourceTerm;
-      if (requestedTerm && requestedTerm !== sourceTerm) {
-        throw createClientError(
-          `Kelas semester ${displayTerm(sourceTerm)} tidak dapat digunakan sebagai template untuk semester ${displayTerm(requestedTerm)}`,
+          400
         );
       }
 
@@ -647,13 +704,22 @@ class ClassesService {
       ) {
         throw createClientError(
           'Bahasa pemrograman harus sama dengan kelas sumber jika jobsheet ikut disalin',
+          400
         );
       }
+
+      // Generate class name standard format
+      const className = generateClassName({
+        courseName: sourceClass.course_name,
+        rombel: rombel.trim(),
+        academicYear: activePeriod.year,
+        semester: displayTerm(activePeriod.semester_type),
+      });
 
       await this.ensureCourseAvailableForClass(sourceClass.course_id, client, academicPeriodId);
       await this.ensureClassUnique({
         courseId: sourceClass.course_id,
-        name: payload.name,
+        name: className,
         academicPeriodId,
       }, client);
 
@@ -664,7 +730,7 @@ class ClassesService {
         )
         VALUES ($1, $2, $3, $4, $5, 'AKTIF', $6)
         `,
-        [newClassId, sourceClass.course_id, payload.name, lecturerId, academicPeriodId, programmingLanguage],
+        [newClassId, sourceClass.course_id, className, lecturerId, academicPeriodId, programmingLanguage],
       );
 
       const jobsheetsCopied = payload.copy_jobsheets

@@ -90,6 +90,31 @@ type CloneClassFormState = {
   autoEnrollStudents: boolean
 }
 
+function generateClassName({
+  courseName,
+  className,
+  academicYear,
+  semester,
+}: {
+  courseName?: string
+  className?: string
+  academicYear?: string
+  semester?: string
+}) {
+  return [courseName, className, academicYear, semester]
+    .filter(Boolean)
+    .join(" - ")
+}
+
+function getRombelFromClassName(fullName: string, courseName: string) {
+  if (!fullName) return ""
+  const parts = fullName.split(" - ")
+  if (parts.length > 1) {
+    return parts[1]
+  }
+  return fullName
+}
+
 const tabs: Array<{ id: AdminTab; label: string }> = [
   { id: "semester", label: "Semester" },
   { id: "courses", label: "Mata Kuliah" },
@@ -147,6 +172,13 @@ export default function AdminAcademicPage() {
     autoEnrollStudents: true,
   })
   const [cloneDepartmentId, setCloneDepartmentId] = useState("")
+
+  // Controlled manual class form states
+  const [manualCourseId, setManualCourseId] = useState("")
+  const [manualRombel, setManualRombel] = useState("")
+  const [manualLecturerId, setManualLecturerId] = useState("")
+  const [manualProgLang, setManualProgLang] = useState<"java" | "python">("java")
+  const [manualStatus, setManualStatus] = useState<"Aktif" | "Nonaktif" | "">("Nonaktif")
   const [clonePreview, setClonePreview] = useState<ClassClonePreview | null>(null)
   const [templateClasses, setTemplateClasses] = useState<ClassTemplate[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(false)
@@ -312,6 +344,19 @@ export default function AdminAcademicPage() {
     () => semesters.find((semester) => semester.id === cloneClassForm.academicPeriodId),
     [cloneClassForm.academicPeriodId, semesters],
   )
+  const manualSelectedCourse = useMemo(
+    () => courses.find((c) => c.id === manualCourseId),
+    [courses, manualCourseId]
+  )
+  const manualGeneratedName = useMemo(() => {
+    if (!manualSelectedCourse || !manualRombel || !activeSemester) return ""
+    return generateClassName({
+      courseName: manualSelectedCourse.name,
+      className: manualRombel,
+      academicYear: activeSemester.year,
+      semester: activeSemester.term,
+    })
+  }, [manualSelectedCourse, manualRombel, activeSemester])
   const cloneSemesterOptions = useMemo(
     () => targetSemester
       ? semesters.filter((semester) => semester.term === targetSemester)
@@ -324,21 +369,7 @@ export default function AdminAcademicPage() {
     if (clonePreview && clonePreview.source_class.academic_term !== selectedCloneSemester.term) return true
     return false
   }, [selectedTemplateClass, selectedCloneSemester, clonePreview])
-  const buildCloneClassName = useCallback((
-    template?: ClassTemplate,
-    rombel = "",
-    semester?: AcademicSemester,
-  ) => {
-    if (!template) return rombel
-
-    const cleanRombel = (rombel || template.name || "").replace(/^Kelas\s+/i, "")
-
-    return [
-      template.course_name,
-      cleanRombel,
-      semester ? `${semester.year} - ${semester.term}` : "",
-    ].filter(Boolean).join(" - ")
-  }, [])
+  // removed buildCloneClassName helper in favor of generateClassName
   const cloneSubmitDisabled = classCreationMode === "template" && (
     templatesLoading ||
     !cloneClassForm.sourceClassId ||
@@ -398,6 +429,11 @@ export default function AdminAcademicPage() {
     setClonePreview(null)
     setCloneConfirmed(false)
     setTargetSemester(activeSemester?.term || "")
+    setManualCourseId("")
+    setManualRombel("")
+    setManualLecturerId("")
+    setManualProgLang("java")
+    setManualStatus("Nonaktif")
   }
 
   const handleSemesterSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -538,17 +574,27 @@ export default function AdminAcademicPage() {
       dept.studyPrograms.some((program) => program.id === template?.study_program_id),
     )
 
-    const cleanRombel = template?.name?.replace(/^Kelas\s+/i, "") || ""
+    const cleanRombel = template ? getRombelFromClassName(template.name, template.course_name) : ""
 
-    setCloneClassForm((form) => ({
-      ...form,
-      sourceClassId: classId,
-      name: buildCloneClassName(template, cleanRombel || form.className, selectedCloneSemester) || form.name,
-      lecturerId: template?.lecturer_id || form.lecturerId,
-      programmingLanguage: template?.programming_language || "java",
-      studyProgramId: template?.study_program_id || form.studyProgramId,
-      className: cleanRombel || form.className,
-    }))
+    setCloneClassForm((form) => {
+      const rombel = cleanRombel || form.className
+      const generatedName = generateClassName({
+        courseName: template?.course_name,
+        className: rombel,
+        academicYear: activeSemester?.year,
+        semester: activeSemester?.term,
+      })
+      return {
+        ...form,
+        sourceClassId: classId,
+        className: rombel,
+        name: generatedName,
+        lecturerId: template?.lecturer_id || form.lecturerId,
+        programmingLanguage: template?.programming_language || "java",
+        studyProgramId: template?.study_program_id || form.studyProgramId,
+        academicPeriodId: activeSemester?.id || form.academicPeriodId,
+      }
+    })
     setCloneDepartmentId(department?.id || "")
     setClonePreview(null)
     setCloneConfirmed(false)
@@ -568,19 +614,36 @@ export default function AdminAcademicPage() {
 
   const handleClassSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const form = new FormData(event.currentTarget)
+    if (!activeSemester) {
+      setError("Semester aktif belum tersedia. Silakan aktifkan semester terlebih dahulu.")
+      return
+    }
+    if (!manualCourseId) {
+      setError("Mata kuliah wajib dipilih")
+      return
+    }
+    if (!manualRombel.trim()) {
+      setError("Kelas/Rombel wajib diisi")
+      return
+    }
+    if (!manualLecturerId) {
+      setError("Dosen pengampu wajib dipilih")
+      return
+    }
 
     try {
       setSubmitting(true)
       setError("")
       setSuccess("")
       await createAdminClass({
-        courseId: String(form.get("courseId") || ""),
-        name: String(form.get("name") || ""),
-        lecturerId: String(form.get("lecturerId") || ""),
-        academicPeriodId: activeSemester?.id,
-        programmingLanguage: String(form.get("programmingLanguage") || "java") as "java" | "python",
-        status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
+        courseId: manualCourseId,
+        name: manualGeneratedName,
+        lecturerId: manualLecturerId,
+        academicPeriodId: activeSemester.id,
+        programmingLanguage: manualProgLang,
+        status: (manualStatus || "Nonaktif") as "Aktif" | "Nonaktif",
+        class_name: manualRombel,
+        className: manualRombel,
       })
       closeModal()
       setSuccess("Kelas berhasil ditambahkan.")
@@ -594,6 +657,11 @@ export default function AdminAcademicPage() {
 
   const handleCloneClassSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+
+    if (!activeSemester) {
+      setError("Semester aktif belum tersedia. Silakan aktifkan semester terlebih dahulu.")
+      return
+    }
 
     if (!cloneClassForm.sourceClassId) {
       setError("Kelas sumber wajib dipilih")
@@ -617,7 +685,7 @@ export default function AdminAcademicPage() {
       const result = await cloneAdminClass({
         source_class_id: cloneClassForm.sourceClassId,
         name: cloneClassForm.name,
-        academic_period_id: cloneClassForm.academicPeriodId || activeSemester?.id,
+        academic_period_id: activeSemester.id,
         study_program_id: cloneClassForm.studyProgramId,
         generation: cloneClassForm.generation ? Number(cloneClassForm.generation) : undefined,
         class_name: cloneClassForm.className,
@@ -1050,7 +1118,11 @@ export default function AdminAcademicPage() {
             <AdminButton
               type="submit"
               form={classCreationMode === "manual" ? "admin-class-form" : "admin-class-clone-form"}
-              disabled={submitting || cloneSubmitDisabled}
+              disabled={
+                submitting ||
+                (classCreationMode === "template" && cloneSubmitDisabled) ||
+                (classCreationMode === "manual" && (!manualCourseId || !manualRombel || !manualLecturerId || !activeSemester))
+              }
             >
               {submitting ? "Menyimpan..." : classCreationMode === "manual" ? "Tambah" : "Buat Kelas"}
             </AdminButton>
@@ -1087,16 +1159,43 @@ export default function AdminAcademicPage() {
 
           {classCreationMode === "manual" ? (
             <form id="admin-class-form" className="space-y-4" onSubmit={handleClassSubmit}>
-              <FieldRow label="Semester Akademik"><span className="text-sm font-semibold">{activeSemester ? `${activeSemester.year} - ${activeSemester.term}` : "Belum ada semester aktif"}</span></FieldRow>
+              <FieldRow label="Tahun Akademik">
+                <input
+                  className={`${inputClass} bg-gray-50 text-gray-700`}
+                  value={activeSemester?.year || "-"}
+                  disabled
+                  readOnly
+                />
+              </FieldRow>
+              <FieldRow label="Semester">
+                <input
+                  className={`${inputClass} bg-gray-50 text-gray-700`}
+                  value={activeSemester?.term || "-"}
+                  disabled
+                  readOnly
+                />
+              </FieldRow>
               <FieldRow label="Mata Kuliah">
-                <select name="courseId" className={inputClass} required>
+                <select
+                  name="courseId"
+                  className={inputClass}
+                  value={manualCourseId}
+                  onChange={(e) => setManualCourseId(e.target.value)}
+                  required
+                >
                   <option value="" disabled>Pilih mata kuliah</option>
                   {classCourseOptions.map((course) => <option key={course.id} value={course.id}>{course.name}</option>)}
                 </select>
               </FieldRow>
-              <FieldRow label="Kelas">
-                <select name="name" className={inputClass} required>
-                  <option value="" disabled>Pilih kelas</option>
+              <FieldRow label="Kelas/Rombel">
+                <select
+                  name="name"
+                  className={inputClass}
+                  value={manualRombel}
+                  onChange={(e) => setManualRombel(e.target.value)}
+                  required
+                >
+                  <option value="" disabled>Pilih kelas/rombel</option>
                   <option>A</option>
                   <option>B</option>
                   <option>C</option>
@@ -1104,61 +1203,98 @@ export default function AdminAcademicPage() {
                   <option>E</option>
                 </select>
               </FieldRow>
+              <FieldRow label="Nama Kelas Otomatis">
+                <div>
+                  <input
+                    className={`${inputClass} w-full bg-gray-50 text-gray-700`}
+                    value={manualGeneratedName}
+                    disabled
+                    readOnly
+                    placeholder="Nama kelas akan digenerate otomatis"
+                  />
+                  <p className="mt-1 text-xs font-normal text-gray-500">
+                    Nama kelas dibuat otomatis dari mata kuliah, kelas/rombel, tahun akademik, dan semester aktif.
+                  </p>
+                </div>
+              </FieldRow>
               <FieldRow label="Dosen Pengampu">
-                <select name="lecturerId" className={inputClass} required>
+                <select
+                  name="lecturerId"
+                  className={inputClass}
+                  value={manualLecturerId}
+                  onChange={(e) => setManualLecturerId(e.target.value)}
+                  required
+                >
                   <option value="" disabled>Pilih dosen pengampu</option>
                   {lecturers.map((lecturer) => <option key={lecturer.id} value={lecturer.id}>{lecturer.fullname}</option>)}
                 </select>
               </FieldRow>
               <FieldRow label="Bahasa Pemrograman">
-                <select name="programmingLanguage" className={inputClass} defaultValue="java" required>
+                <select
+                  name="programmingLanguage"
+                  className={inputClass}
+                  value={manualProgLang}
+                  onChange={(e) => setManualProgLang(e.target.value as "java" | "python")}
+                  required
+                >
                   <option value="java">Java</option>
                   <option value="python">Python</option>
                 </select>
               </FieldRow>
               <FieldRow label="Status">
                 <div className="flex gap-5">
-                  <label className="flex items-center gap-2"><input type="radio" name="status" value="Nonaktif" required /> Nonaktif</label>
-                  <label className="flex items-center gap-2"><input type="radio" name="status" value="Aktif" /> Aktif</label>
-                  <label className="flex items-center gap-2"><input type="radio" name="status" value="Arsip" /> Arsip</label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="Nonaktif"
+                      checked={manualStatus === "Nonaktif"}
+                      onChange={() => setManualStatus("Nonaktif")}
+                      required
+                    />
+                    Nonaktif
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="Aktif"
+                      checked={manualStatus === "Aktif"}
+                      onChange={() => setManualStatus("Aktif")}
+                    />
+                    Aktif
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="Arsip"
+                      checked={manualStatus === "Arsip"}
+                      onChange={() => setManualStatus("Arsip")}
+                    />
+                    Arsip
+                  </label>
                 </div>
               </FieldRow>
             </form>
           ) : (
             <form id="admin-class-clone-form" className="space-y-3" onSubmit={handleCloneClassSubmit}>
               <FieldRow label="Tahun Akademik">
-                <select
-                  className={`${inputClass} w-full`}
-                  value={cloneClassForm.academicPeriodId}
-                  onChange={(event) => {
-                    const academicPeriodId = event.target.value
-                    const semester = semesters.find((item) => item.id === academicPeriodId)
-                    setCloneClassForm((form) => ({
-                      ...form,
-                      academicPeriodId,
-                      name: buildCloneClassName(selectedTemplateClass, form.className, semester),
-                    }))
-                  }}
-                  required
-                >
-                  <option value="" disabled>Pilih tahun akademik</option>
-                  {cloneSemesterOptions.map((semester) => (
-                    <option key={semester.id} value={semester.id}>{semester.year} - {semester.term}</option>
-                  ))}
-                </select>
+                <input
+                  className={`${inputClass} w-full bg-gray-50 text-gray-700`}
+                  value={activeSemester?.year || "-"}
+                  disabled
+                  readOnly
+                />
               </FieldRow>
 
               <FieldRow label="Semester Target">
-                <select
-                  className={`${inputClass} w-full`}
-                  value={targetSemester}
-                  onChange={(event) => setTargetSemester(event.target.value as "Ganjil" | "Genap")}
-                  required
-                >
-                  <option value="" disabled>Pilih semester target</option>
-                  <option value="Ganjil">Ganjil</option>
-                  <option value="Genap">Genap</option>
-                </select>
+                <input
+                  className={`${inputClass} w-full bg-gray-50 text-gray-700`}
+                  value={activeSemester?.term || "-"}
+                  disabled
+                  readOnly
+                />
               </FieldRow>
 
               <FieldRow label="Kelas Sumber">
@@ -1167,16 +1303,14 @@ export default function AdminAcademicPage() {
                   value={cloneClassForm.sourceClassId}
                   onChange={(event) => handleTemplateClassChange(event.target.value)}
                   required
-                  disabled={!targetSemester || templatesLoading}
+                  disabled={templatesLoading}
                 >
                   <option value="" disabled>
                     {templatesLoading
                       ? "Memuat template..."
-                      : !targetSemester
-                      ? "Pilih semester target terlebih dahulu"
                       : templateClasses.length === 0
-                      ? `Tidak ada kelas semester ${targetSemester} yang tersedia sebagai template.`
-                      : `Pilih kelas sumber semester ${targetSemester}`}
+                      ? `Tidak ada kelas semester ${activeSemester?.term} yang tersedia sebagai template.`
+                      : `Pilih kelas sumber semester ${activeSemester?.term}`}
                   </option>
                   {templateClasses.map((item) => (
                     <option key={item.id} value={item.id}>
@@ -1186,9 +1320,9 @@ export default function AdminAcademicPage() {
                 </select>
               </FieldRow>
 
-              {targetSemester && templateClasses.length === 0 && !templatesLoading && (
+              {templateClasses.length === 0 && !templatesLoading && (
                 <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                  Belum ada kelas semester {targetSemester} yang bisa digunakan sebagai template. Silakan pilih semester lain atau buat kelas secara manual.
+                  Belum ada kelas semester {activeSemester?.term} yang bisa digunakan sebagai template. Silakan buat kelas secara manual.
                 </div>
               )}
 
@@ -1227,12 +1361,17 @@ export default function AdminAcademicPage() {
                         setCloneClassForm((form) => ({
                           ...form,
                           className: rombel,
-                          name: buildCloneClassName(selectedTemplateClass, rombel, selectedCloneSemester),
+                          name: generateClassName({
+                            courseName: selectedTemplateClass?.course_name,
+                            className: rombel,
+                            academicYear: activeSemester?.year,
+                            semester: activeSemester?.term,
+                          }),
                         }))
                       }}
                       required
                     >
-                      <option value="" disabled>Pilih kelas</option>
+                      <option value="" disabled>Pilih kelas/rombel</option>
                       <option>A</option>
                       <option>B</option>
                       <option>C</option>
@@ -1240,14 +1379,20 @@ export default function AdminAcademicPage() {
                       <option>E</option>
                     </select>
                   </FieldRow>
-                  <FieldRow label="Nama Kelas Baru">
-                    <input
-                      className={`${inputClass} w-full`}
-                      value={cloneClassForm.name}
-                      onChange={(event) => setCloneClassForm((form) => ({ ...form, name: event.target.value }))}
-                      placeholder="Nama kelas lengkap"
-                      required
-                    />
+                  <FieldRow label="Nama Kelas Otomatis">
+                    <div>
+                      <input
+                        className={`${inputClass} w-full bg-gray-50 text-gray-700`}
+                        value={cloneClassForm.name}
+                        disabled
+                        readOnly
+                        placeholder="Nama kelas akan digenerate otomatis"
+                        required
+                      />
+                      <p className="mt-1 text-xs font-normal text-gray-500">
+                        Nama kelas dibuat otomatis dari mata kuliah, kelas/rombel, tahun akademik, dan semester aktif.
+                      </p>
+                    </div>
                   </FieldRow>
                   <FieldRow label="Dosen Pengampu">
                     <select
@@ -1348,7 +1493,7 @@ export default function AdminAcademicPage() {
 
                   {hasSemesterMismatch && (
                     <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 font-medium">
-                      Kelas dari semester {selectedTemplateClass?.academic_term || (clonePreview && clonePreview.source_class.academic_term)} tidak dapat diduplikasi ke semester {selectedCloneSemester?.term}.
+                      Kelas dari semester {selectedTemplateClass?.academic_term || (clonePreview && clonePreview.source_class.academic_term)} tidak dapat diduplikasi ke semester {activeSemester?.term}.
                     </div>
                   )}
                   {clonePreview && !hasSemesterMismatch && (
@@ -1365,7 +1510,7 @@ export default function AdminAcademicPage() {
                           <p className="text-xs font-semibold uppercase text-gray-500">Kelas Baru</p>
                           <p className="mt-1 font-semibold text-gray-900">{cloneClassForm.name || "-"}</p>
                           <p className="text-xs text-gray-500">
-                            {selectedCloneSemester ? `${selectedCloneSemester.year} - ${selectedCloneSemester.term}` : "-"}
+                            {activeSemester ? `${activeSemester.year} - ${activeSemester.term}` : "-"}
                           </p>
                           <p className="mt-1 text-xs text-gray-500">
                             Bahasa: {cloneClassForm.programmingLanguage === "python" ? "Python" : "Java"}

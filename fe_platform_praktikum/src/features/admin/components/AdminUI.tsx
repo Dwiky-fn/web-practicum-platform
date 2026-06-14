@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import { Search } from "lucide-react"
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -182,27 +183,47 @@ export function EmptyState({
 
 export function AdminModal({
   title,
+  description,
   children,
   footer,
   onClose,
 }: {
   title: string
+  description?: string
   children: React.ReactNode
   footer: React.ReactNode
   onClose: () => void
 }) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [])
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-gray-900/50 px-3 py-4">
       <button
         type="button"
         className="absolute inset-0"
         onClick={onClose}
         aria-label="Tutup modal"
       />
-      <div className="relative w-full max-w-xl rounded-lg bg-white p-6 shadow-xl">
-        <h2 className="text-center text-xl font-semibold text-gray-900">{title}</h2>
-        <div className="mt-6">{children}</div>
-        <div className="mt-6 flex justify-center gap-4">{footer}</div>
+      <div className="relative flex max-h-[90vh] w-full max-w-[760px] flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+        <div className="sticky top-0 z-10 border-b border-gray-200 bg-white px-5 py-4">
+          <h2 className="text-center text-xl font-semibold text-gray-900">{title}</h2>
+          {description && (
+            <p className="mt-1 text-center text-sm text-gray-500">{description}</p>
+          )}
+        </div>
+        <div className="max-h-[calc(90vh-140px)] overflow-y-auto px-5 py-4 pr-6">
+          {children}
+        </div>
+        <div className="sticky bottom-0 z-10 flex justify-end gap-3 border-t border-gray-200 bg-white px-5 py-4">
+          {footer}
+        </div>
       </div>
     </div>
   )

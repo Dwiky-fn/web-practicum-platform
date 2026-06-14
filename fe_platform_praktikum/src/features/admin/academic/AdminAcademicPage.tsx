@@ -298,6 +298,39 @@ export default function AdminAcademicPage() {
     () => departments.find((dept) => dept.id === cloneDepartmentId)?.studyPrograms || [],
     [cloneDepartmentId, departments],
   )
+  const selectedTemplateClass = useMemo(
+    () => templateClasses.find((item) => item.id === cloneClassForm.sourceClassId),
+    [cloneClassForm.sourceClassId, templateClasses],
+  )
+  const selectedCloneSemester = useMemo(
+    () => semesters.find((semester) => semester.id === cloneClassForm.academicPeriodId),
+    [cloneClassForm.academicPeriodId, semesters],
+  )
+  const buildCloneClassName = useCallback((
+    template?: ClassTemplate,
+    rombel = "",
+    semester?: AcademicSemester,
+  ) => {
+    if (!template) return rombel
+
+    return [
+      template.course_name,
+      rombel || template.name,
+      semester ? `${semester.year} - ${semester.term}` : "",
+    ].filter(Boolean).join(" - ")
+  }, [])
+  const cloneSubmitDisabled = classCreationMode === "template" && (
+    templatesLoading ||
+    !cloneClassForm.sourceClassId ||
+    !cloneClassForm.name.trim() ||
+    !cloneClassForm.academicPeriodId ||
+    !cloneClassForm.lecturerId ||
+    !cloneConfirmed ||
+    (
+      cloneClassForm.autoEnrollStudents &&
+      (!cloneDepartmentId || !cloneClassForm.studyProgramId || !cloneClassForm.generation)
+    )
+  )
   const addClassDisabledReason = !activeSemester
     ? "Belum ada semester akademik aktif."
     : !classCourseOptions.length
@@ -465,7 +498,7 @@ export default function AdminAcademicPage() {
     setCloneClassForm((form) => ({
       ...form,
       sourceClassId: classId,
-      name: template?.name || form.name,
+      name: buildCloneClassName(template, template?.name || form.className, selectedCloneSemester) || form.name,
       lecturerId: template?.lecturer_id || form.lecturerId,
       studyProgramId: template?.study_program_id || form.studyProgramId,
       className: template?.name || form.className,
@@ -943,7 +976,8 @@ export default function AdminAcademicPage() {
 
     return (
       <AdminModal
-        title="Tambah Kelas"
+        title={classCreationMode === "template" ? "Buat Kelas dari Template" : "Tambah Kelas"}
+        description={classCreationMode === "template" ? "Pilih kelas sebelumnya sebagai template untuk membuat kelas baru." : undefined}
         onClose={closeModal}
         footer={
           <>
@@ -951,16 +985,16 @@ export default function AdminAcademicPage() {
             <AdminButton
               type="submit"
               form={classCreationMode === "manual" ? "admin-class-form" : "admin-class-clone-form"}
-              disabled={submitting || (classCreationMode === "template" && templatesLoading)}
+              disabled={submitting || cloneSubmitDisabled}
             >
-              {submitting ? "Menyimpan..." : classCreationMode === "manual" ? "Tambah" : "Buat dari Template"}
+              {submitting ? "Menyimpan..." : classCreationMode === "manual" ? "Tambah" : "Buat Kelas"}
             </AdminButton>
           </>
         }
       >
-        <div className="space-y-4">
+        <div className="space-y-3">
           <FieldRow label="Metode Pembuatan">
-            <div className="inline-flex overflow-hidden rounded-md border border-gray-300 bg-white text-sm">
+            <div className="grid overflow-hidden rounded-md border border-gray-300 bg-white text-sm sm:inline-grid sm:grid-cols-2">
               <button
                 type="button"
                 className={`px-4 py-2 font-semibold ${classCreationMode === "manual" ? "bg-blue-600 text-white" : "text-gray-700 hover:bg-gray-50"}`}
@@ -1020,10 +1054,10 @@ export default function AdminAcademicPage() {
               </FieldRow>
             </form>
           ) : (
-            <form id="admin-class-clone-form" className="space-y-4" onSubmit={handleCloneClassSubmit}>
+            <form id="admin-class-clone-form" className="space-y-3" onSubmit={handleCloneClassSubmit}>
               <FieldRow label="Kelas Sumber">
                 <select
-                  className={inputClass}
+                  className={`${inputClass} w-full`}
                   value={cloneClassForm.sourceClassId}
                   onChange={(event) => handleTemplateClassChange(event.target.value)}
                   required
@@ -1036,11 +1070,18 @@ export default function AdminAcademicPage() {
                   ))}
                 </select>
               </FieldRow>
-              <FieldRow label="Nama Kelas Baru">
+              <FieldRow label="Kelas/Rombel">
                 <select
-                  className={inputClass}
-                  value={cloneClassForm.name}
-                  onChange={(event) => setCloneClassForm((form) => ({ ...form, name: event.target.value, className: event.target.value }))}
+                  className={`${inputClass} w-full`}
+                  value={cloneClassForm.className}
+                  onChange={(event) => {
+                    const rombel = event.target.value
+                    setCloneClassForm((form) => ({
+                      ...form,
+                      className: rombel,
+                      name: buildCloneClassName(selectedTemplateClass, rombel, selectedCloneSemester),
+                    }))
+                  }}
                   required
                 >
                   <option value="" disabled>Pilih kelas</option>
@@ -1051,11 +1092,28 @@ export default function AdminAcademicPage() {
                   <option>E</option>
                 </select>
               </FieldRow>
+              <FieldRow label="Nama Kelas Baru">
+                <input
+                  className={`${inputClass} w-full`}
+                  value={cloneClassForm.name}
+                  onChange={(event) => setCloneClassForm((form) => ({ ...form, name: event.target.value }))}
+                  placeholder="Nama kelas lengkap"
+                  required
+                />
+              </FieldRow>
               <FieldRow label="Tahun Akademik">
                 <select
-                  className={inputClass}
+                  className={`${inputClass} w-full`}
                   value={cloneClassForm.academicPeriodId}
-                  onChange={(event) => setCloneClassForm((form) => ({ ...form, academicPeriodId: event.target.value }))}
+                  onChange={(event) => {
+                    const academicPeriodId = event.target.value
+                    const semester = semesters.find((item) => item.id === academicPeriodId)
+                    setCloneClassForm((form) => ({
+                      ...form,
+                      academicPeriodId,
+                      name: buildCloneClassName(selectedTemplateClass, form.className, semester),
+                    }))
+                  }}
                   required
                 >
                   <option value="" disabled>Pilih tahun akademik</option>
@@ -1066,7 +1124,7 @@ export default function AdminAcademicPage() {
               </FieldRow>
               <FieldRow label="Dosen Pengampu">
                 <select
-                  className={inputClass}
+                  className={`${inputClass} w-full`}
                   value={cloneClassForm.lecturerId}
                   onChange={(event) => setCloneClassForm((form) => ({ ...form, lecturerId: event.target.value }))}
                   required
@@ -1075,99 +1133,104 @@ export default function AdminAcademicPage() {
                   {lecturers.map((lecturer) => <option key={lecturer.id} value={lecturer.id}>{lecturer.fullname}</option>)}
                 </select>
               </FieldRow>
+              <FieldRow label="Jurusan">
+                <select
+                  className={`${inputClass} w-full`}
+                  value={cloneDepartmentId}
+                  onChange={(event) => {
+                    setCloneDepartmentId(event.target.value)
+                    setCloneClassForm((form) => ({ ...form, studyProgramId: "" }))
+                  }}
+                  required={cloneClassForm.autoEnrollStudents}
+                >
+                  <option value="" disabled>Pilih jurusan</option>
+                  {departments.map((dept) => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
+                </select>
+              </FieldRow>
               <FieldRow label="Program Studi">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <select
-                    className={inputClass}
-                    value={cloneDepartmentId}
-                    onChange={(event) => {
-                      setCloneDepartmentId(event.target.value)
-                      setCloneClassForm((form) => ({ ...form, studyProgramId: "" }))
-                    }}
-                    required={cloneClassForm.autoEnrollStudents}
-                  >
-                    <option value="" disabled>Pilih jurusan</option>
-                    {departments.map((dept) => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
-                  </select>
-                  <select
-                    className={inputClass}
-                    value={cloneClassForm.studyProgramId}
-                    onChange={(event) => setCloneClassForm((form) => ({ ...form, studyProgramId: event.target.value }))}
-                    required={cloneClassForm.autoEnrollStudents}
-                    disabled={!cloneDepartmentId}
-                  >
-                    <option value="" disabled>Pilih program studi</option>
-                    {cloneStudyProgramOptions.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
-                  </select>
-                </div>
+                <select
+                  className={`${inputClass} w-full`}
+                  value={cloneClassForm.studyProgramId}
+                  onChange={(event) => setCloneClassForm((form) => ({ ...form, studyProgramId: event.target.value }))}
+                  required={cloneClassForm.autoEnrollStudents}
+                  disabled={!cloneDepartmentId}
+                >
+                  <option value="" disabled>{cloneDepartmentId ? "Pilih program studi" : "Pilih jurusan terlebih dahulu"}</option>
+                  {cloneStudyProgramOptions.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
+                </select>
               </FieldRow>
               <FieldRow label="Angkatan">
                 <input
-                  className={inputClass}
+                  className={`${inputClass} w-full`}
                   value={cloneClassForm.generation}
                   onChange={(event) => setCloneClassForm((form) => ({ ...form, generation: event.target.value }))}
                   placeholder="2026"
                   required={cloneClassForm.autoEnrollStudents}
                 />
               </FieldRow>
-              <FieldRow label="Kelas Mahasiswa">
-                <input
-                  className={inputClass}
-                  value={cloneClassForm.className}
-                  onChange={(event) => setCloneClassForm((form) => ({ ...form, className: event.target.value }))}
-                  placeholder="A"
-                />
-              </FieldRow>
-              <FieldRow label="Opsi">
-                <div className="space-y-3 text-sm text-gray-700">
-                  <label className="flex items-center gap-2">
+              <FieldRow label="Opsi Duplikasi">
+                <div className="grid gap-2">
+                  <label className="flex items-start gap-3 rounded-md border border-gray-200 bg-white p-3">
                     <input
                       type="checkbox"
+                      className="mt-1"
                       checked={cloneClassForm.copyJobsheets}
                       onChange={(event) => setCloneClassForm((form) => ({ ...form, copyJobsheets: event.target.checked }))}
                     />
-                    Salin jobsheet dari kelas sumber
+                    <span>
+                      <span className="block font-semibold text-gray-800">Salin jobsheet dari kelas sumber</span>
+                      <span className="block text-xs font-normal text-gray-500">Jobsheet dan struktur praktikum akan disalin ke kelas baru.</span>
+                    </span>
                   </label>
-                  <label className="flex items-center gap-2">
+                  <label className="flex items-start gap-3 rounded-md border border-gray-200 bg-white p-3">
                     <input
                       type="checkbox"
+                      className="mt-1"
                       checked={cloneClassForm.autoEnrollStudents}
                       onChange={(event) => setCloneClassForm((form) => ({ ...form, autoEnrollStudents: event.target.checked }))}
                     />
-                    Masukkan mahasiswa otomatis berdasarkan program studi dan angkatan
+                    <span>
+                      <span className="block font-semibold text-gray-800">Masukkan mahasiswa otomatis</span>
+                      <span className="block text-xs font-normal text-gray-500">Mahasiswa diambil berdasarkan program studi, angkatan, dan rombel.</span>
+                    </span>
                   </label>
                 </div>
               </FieldRow>
-
+              {templatesLoading && (
+                <div className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                  Memuat data template...
+                </div>
+              )}
               {clonePreview && (
-                <div className="rounded-md border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div>
-                      <p className="font-semibold text-gray-900">Kelas Sumber</p>
-                      <p>{clonePreview.source_class.course_name} - {clonePreview.source_class.name}</p>
-                      <p className="text-gray-500">{clonePreview.source_class.academic_year}</p>
+                <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+                  <p className="font-semibold text-gray-900">Preview Duplikasi</p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <div className="rounded-md bg-white p-3">
+                      <p className="text-xs font-semibold uppercase text-gray-500">Kelas Sumber</p>
+                      <p className="mt-1 font-semibold text-gray-900">{clonePreview.source_class.course_name} - {clonePreview.source_class.name}</p>
+                      <p className="text-xs text-gray-500">{clonePreview.source_class.academic_year}</p>
                     </div>
-                    <div>
-                      <p className="font-semibold text-gray-900">Kelas Baru</p>
-                      <p>{cloneClassForm.name || "-"}</p>
-                      <p className="text-gray-500">
-                        {semesters.find((semester) => semester.id === cloneClassForm.academicPeriodId)?.year || "-"}
+                    <div className="rounded-md bg-white p-3">
+                      <p className="text-xs font-semibold uppercase text-gray-500">Kelas Baru</p>
+                      <p className="mt-1 font-semibold text-gray-900">{cloneClassForm.name || "-"}</p>
+                      <p className="text-xs text-gray-500">
+                        {selectedCloneSemester ? `${selectedCloneSemester.year} - ${selectedCloneSemester.term}` : "-"}
                       </p>
                     </div>
                   </div>
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <div>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <div className="rounded-md bg-white p-3">
                       <p className="font-semibold text-gray-900">Yang akan disalin</p>
-                      <ul className="mt-2 space-y-1">
+                      <ul className="mt-2 space-y-1 text-xs">
                         <li>Mata kuliah</li>
                         <li>Dosen pengampu</li>
                         <li>Pengaturan praktikum</li>
                         <li>Jobsheet: {cloneClassForm.copyJobsheets ? clonePreview.copyable_data.jobsheets : 0}</li>
                       </ul>
                     </div>
-                    <div>
+                    <div className="rounded-md bg-white p-3">
                       <p className="font-semibold text-gray-900">Yang tidak disalin</p>
-                      <ul className="mt-2 space-y-1">
+                      <ul className="mt-2 space-y-1 text-xs">
                         <li>Mahasiswa kelas lama</li>
                         <li>Submission, nilai, feedback</li>
                         <li>Progress mahasiswa</li>
@@ -1175,7 +1238,7 @@ export default function AdminAcademicPage() {
                       </ul>
                     </div>
                   </div>
-                  <label className="mt-4 flex items-start gap-2 border-t border-gray-200 pt-3">
+                  <label className="mt-3 flex items-start gap-2 border-t border-gray-200 pt-3 text-xs">
                     <input
                       type="checkbox"
                       className="mt-1"

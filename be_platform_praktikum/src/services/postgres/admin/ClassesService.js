@@ -442,7 +442,7 @@ class ClassesService {
   async _cloneJobsheetsToClass(client, sourceClassId, targetClassId) {
     const sourceJobsheets = await client.query(
       `
-      SELECT jc.*, j.course_id, j.status AS jobsheet_status
+      SELECT jc.*, j.course_id, j.status AS jobsheet_status, j.programming_language, j.editor_mode
       FROM jobsheet_classes jc
       JOIN jobsheets j ON j.id = jc.jobsheet_id
       WHERE jc.class_id = $1
@@ -478,8 +478,8 @@ class ClassesService {
       const clonedContent = replaceIdsInJson(jobsheetClass.content || {}, idMap);
       await client.query(
         `
-        INSERT INTO jobsheets (id, course_id, title, description, goal, content, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO jobsheets (id, course_id, title, description, goal, content, status, programming_language, editor_mode)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `,
         [
           newJobsheetId,
@@ -489,6 +489,8 @@ class ClassesService {
           jobsheetClass.goal || '',
           JSON.stringify(clonedContent),
           jobsheetClass.jobsheet_status || 'DRAFT',
+          jobsheetClass.programming_language || 'java',
+          jobsheetClass.editor_mode || 'mini_ide',
         ],
       );
 

@@ -97,6 +97,7 @@ export type RawJobsheet = {
   programming_language?: string;
   programming_language_display_name?: string;
   programming_language_file_extension?: string;
+  editor_mode?: string;
 
   title: string;
   description: string;
@@ -119,6 +120,7 @@ export interface Jobsheet {
   programmingLanguage?: string;
   programmingLanguageDisplayName?: string;
   programmingLanguageFileExtension?: string;
+  editorMode?: string;
 
   title: string;
   description: string;

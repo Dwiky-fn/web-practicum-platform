@@ -21,6 +21,8 @@ class JobsheetsService {
 
     return {
       ...row,
+      editorMode: row.editor_mode || 'mini_ide',
+      editor_mode: row.editor_mode || 'mini_ide',
       summary: content.summary || emptyDoc,
       theory: content.theory || [],
       task: content.task || {
@@ -50,6 +52,7 @@ class JobsheetsService {
         j.content,
         j.status,
         j.programming_language,
+        j.editor_mode,
         MIN(jc.deadline) AS deadline
       FROM jobsheets j
       LEFT JOIN jobsheet_classes jc ON jc.jobsheet_id = j.id
@@ -129,6 +132,7 @@ class JobsheetsService {
         j.content,
         j.status,
         j.programming_language,
+        j.editor_mode,
         MIN(jc.deadline) AS deadline
       FROM jobsheets j
       LEFT JOIN jobsheet_classes jc ON jc.jobsheet_id = j.id

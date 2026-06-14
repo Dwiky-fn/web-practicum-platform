@@ -33,7 +33,7 @@ type ClassTab = "summary" | "modules" | "students" | "evaluation"
 
 const tabs: Array<{ id: ClassTab; label: string }> = [
   { id: "summary", label: "Ringkasan Kelas" },
-  { id: "modules", label: "Modul Praktikum" },
+  { id: "modules", label: "Jobsheet" },
   { id: "students", label: "Mahasiswa" },
   { id: "evaluation", label: "Evaluasi & Nilai" },
 ]

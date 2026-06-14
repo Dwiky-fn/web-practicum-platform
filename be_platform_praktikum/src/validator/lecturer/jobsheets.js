@@ -1,0 +1,10 @@
+const Joi = require('joi');
+
+const jobsheetPayloadSchema = Joi.object({
+  editorMode: Joi.string().valid('mini_ide', 'simple').default('mini_ide'),
+  editor_mode: Joi.string().valid('mini_ide', 'simple').default('mini_ide'),
+}).unknown(true);
+
+module.exports = {
+  validateJobsheetPayload: (payload) => jobsheetPayloadSchema.validate(payload),
+};

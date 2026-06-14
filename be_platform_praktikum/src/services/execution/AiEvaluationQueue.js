@@ -2,6 +2,23 @@ const pool = require('../postgres');
 const { randomUUID } = require('crypto');
 const http = require('http');
 
+function parseTemplateFiles(templateCode, defaultFileName) {
+  if (!templateCode) {
+    return { [defaultFileName]: '' };
+  }
+  try {
+    if (templateCode.trim().startsWith('{')) {
+      const parsed = JSON.parse(templateCode);
+      if (typeof parsed === 'object' && parsed !== null) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    // not JSON
+  }
+  return { [defaultFileName]: templateCode };
+}
+
 function extractTextFromTiptap(node) {
   if (!node) return '';
   if (typeof node === 'string') return node;
@@ -459,11 +476,14 @@ class AiEvaluationQueue {
         }));
 
         if (files.length === 0) {
-          files.push({
-            id: defaultFileName,
-            path: defaultFileName,
-            language: sub.programming_language || 'java',
-            content: exp.template_code || ''
+          const templateFiles = parseTemplateFiles(exp.template_code, defaultFileName);
+          Object.entries(templateFiles).forEach(([filename, content]) => {
+            files.push({
+              id: filename,
+              path: filename,
+              language: sub.programming_language || 'java',
+              content: content || ''
+            });
           });
         }
 
@@ -519,11 +539,14 @@ class AiEvaluationQueue {
       }));
 
       if (files.length === 0) {
-        files.push({
-          id: defaultFileName,
-          path: defaultFileName,
-          language: sub.programming_language || 'java',
-          content: exe.template_code || ''
+        const templateFiles = parseTemplateFiles(exe.template_code, defaultFileName);
+        Object.entries(templateFiles).forEach(([filename, content]) => {
+          files.push({
+            id: filename,
+            path: filename,
+            language: sub.programming_language || 'java',
+            content: content || ''
+          });
         });
       }
 

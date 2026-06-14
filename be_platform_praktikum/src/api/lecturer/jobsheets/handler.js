@@ -1,5 +1,6 @@
 const autoBind = require('auto-bind');
 const { created, ok, handleAdminError } = require('../../admin/utils');
+const LecturerJobsheetsValidator = require('../../../validator/lecturer/jobsheets');
 
 class LecturerJobsheetsHandler {
   constructor(service) {
@@ -9,6 +10,14 @@ class LecturerJobsheetsHandler {
 
   async postJobsheetHandler(req, res) {
     try {
+      const validation = LecturerJobsheetsValidator.validateJobsheetPayload(req.body);
+      if (validation.error) {
+        return res.status(400).json({
+          status: 'fail',
+          message: validation.error.details[0].message,
+        });
+      }
+
       const { courseId } = req.params;
       const result = await this._service.createJobsheet(
         courseId,
@@ -24,6 +33,14 @@ class LecturerJobsheetsHandler {
 
   async putJobsheetHandler(req, res) {
     try {
+      const validation = LecturerJobsheetsValidator.validateJobsheetPayload(req.body);
+      if (validation.error) {
+        return res.status(400).json({
+          status: 'fail',
+          message: validation.error.details[0].message,
+        });
+      }
+
       const { courseId, jobsheetId } = req.params;
       const result = await this._service.updateJobsheet(
         courseId,

@@ -66,6 +66,7 @@ export const mapJobsheet = (data: RawJobsheet): Jobsheet => {
     programmingLanguage: data.programming_language || "java",
     programmingLanguageDisplayName: data.programming_language_display_name || "Java",
     programmingLanguageFileExtension: data.programming_language_file_extension || "java",
+    editorMode: data.editor_mode || "mini_ide",
 
     title: data.title,
     description: data.description || "",

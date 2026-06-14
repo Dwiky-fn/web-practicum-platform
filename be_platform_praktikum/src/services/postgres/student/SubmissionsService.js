@@ -130,6 +130,23 @@ class SubmissionsService {
     return result.rows[0]?.programming_language || 'java';
   }
 
+  _parseTemplateFiles(templateCode, defaultFileName) {
+    if (!templateCode) {
+      return { [defaultFileName]: '' };
+    }
+    try {
+      if (templateCode.trim().startsWith('{')) {
+        const parsed = JSON.parse(templateCode);
+        if (typeof parsed === 'object' && parsed !== null) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      // not JSON
+    }
+    return { [defaultFileName]: templateCode };
+  }
+
   _generateInitialReport(jobsheet) {
     const defaultFileName = this._getDefaultFileName(
       jobsheet.programming_language || 'java',
@@ -142,9 +159,7 @@ class SubmissionsService {
           {
             steps: [
               {
-                files: {
-                  [defaultFileName]: exp.default_template_code || '',
-                },
+                files: this._parseTemplateFiles(exp.default_template_code, defaultFileName),
                 output: '',
                 analysis: { type: 'doc', content: [] },
               },
@@ -157,9 +172,7 @@ class SubmissionsService {
         (jobsheet.exercises || []).map((exe) => [
           exe.id,
           {
-            files: {
-              [defaultFileName]: exe.default_template_code || '',
-            },
+            files: this._parseTemplateFiles(exe.default_template_code, defaultFileName),
             output: '',
             analysis: { type: 'doc', content: [] },
           },

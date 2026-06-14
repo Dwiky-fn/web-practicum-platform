@@ -378,9 +378,11 @@ class AiEvaluationQueue {
     // Ambil submission, jobsheet, dan data kelas
     console.log(`[AI Queue] [${submissionId}] Mengambil data submission dan jobsheet dari database...`);
     const submissionRes = await pool.query(
-      `SELECT ts.*, j.title as jobsheet_title, j.description as jobsheet_description, j.content as jobsheet_content
+      `SELECT ts.*, j.title as jobsheet_title, j.description as jobsheet_description,
+        j.content as jobsheet_content, co.name AS course_name
        FROM task_submissions ts
        JOIN jobsheets j ON j.id = ts.jobsheet_id
+       JOIN courses co ON co.id = j.course_id
        WHERE ts.id = $1 LIMIT 1`,
       [submissionId]
     );
@@ -395,14 +397,21 @@ class AiEvaluationQueue {
     // Dapatkan lecturer_id kelas mahasiswa tersebut
     console.log(`[AI Queue] [${submissionId}] Mengambil lecturer ID kelas mahasiswa...`);
     const classRes = await pool.query(
-      `SELECT c.lecturer_id 
+      `SELECT c.id AS class_id, c.lecturer_id, c.programming_language
        FROM classes c
        JOIN class_students cs ON cs.class_id = c.id
-       WHERE cs.student_id = $1 AND cs.status = 'AKTIF' AND c.status = 'AKTIF'
+       JOIN jobsheets j ON j.course_id = c.course_id
+       WHERE cs.student_id = $1
+         AND j.id = $2
+         AND cs.status = 'AKTIF'
+         AND c.status = 'AKTIF'
        LIMIT 1`,
-      [sub.student_id]
+      [sub.student_id, sub.jobsheet_id]
     );
     const lecturerId = classRes.rows[0]?.lecturer_id || 'dosen-1';
+    sub.class_id = classRes.rows[0]?.class_id || null;
+    sub.programming_language = classRes.rows[0]?.programming_language || 'java';
+    const defaultFileName = sub.programming_language === 'python' ? 'main.py' : 'Main.java';
 
     // Ambil daftar experiments dari database untuk jobsheet ini
     console.log(`[AI Queue] [${submissionId}] Mengambil daftar percobaan untuk jobsheet ${sub.jobsheet_id}...`);
@@ -451,8 +460,8 @@ class AiEvaluationQueue {
 
         if (files.length === 0) {
           files.push({
-            id: 'Main.java',
-            path: 'Main.java',
+            id: defaultFileName,
+            path: defaultFileName,
             language: sub.programming_language || 'java',
             content: exp.template_code || ''
           });
@@ -511,8 +520,8 @@ class AiEvaluationQueue {
 
       if (files.length === 0) {
         files.push({
-          id: 'Main.java',
-          path: 'Main.java',
+          id: defaultFileName,
+          path: defaultFileName,
           language: sub.programming_language || 'java',
           content: exe.template_code || ''
         });
@@ -575,6 +584,9 @@ class AiEvaluationQueue {
     const payload = {
       scope: 'jobsheet',
       submissionId: submissionId,
+      class_id: sub.class_id,
+      course_name: sub.course_name,
+      programming_language: sub.programming_language,
       jobsheet: {
         id: sub.jobsheet_id,
         title: sub.jobsheet_title,

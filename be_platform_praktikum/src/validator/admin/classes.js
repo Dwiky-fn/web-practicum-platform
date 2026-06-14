@@ -19,6 +19,7 @@ const cloneClassPayloadSchema = Joi.object({
   }),
   class_name: Joi.string().allow('', null),
   lecturer_id: Joi.string().allow('', null),
+  programming_language: Joi.string().valid('java', 'python').default('java'),
   copy_jobsheets: Joi.boolean().default(true),
   auto_enroll_students: Joi.boolean().default(false),
 });

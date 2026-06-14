@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom"
+import { useParams, useSearchParams } from "react-router-dom"
 import { useEffect, useMemo, useState } from "react"
 import { getJobsheetById } from "../../../../../../../services/jobsheet/service"
 import { getSubmissionByJobsheetId } from "../../../../../../../services/submission/service"
@@ -25,6 +25,8 @@ const emptyDoc = { type: "doc" as const, content: [] }
 
 export default function ReviewPage() {
   const { courseId, jobsheetId } = useParams()
+  const [searchParams] = useSearchParams()
+  const classId = searchParams.get("classId") || undefined
   const { user } = useCurrentUser()
 
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null)
@@ -45,7 +47,7 @@ export default function ReviewPage() {
       setError("")
 
       try {
-        const selected = await getJobsheetById(courseId, jobsheetId)
+        const selected = await getJobsheetById(courseId, jobsheetId, classId)
         const sub = await getSubmissionByJobsheetId(courseId, jobsheetId, user.id)
 
         setJobsheet(selected || null)
@@ -78,7 +80,7 @@ export default function ReviewPage() {
     }
 
     loadData()
-  }, [courseId, jobsheetId, user])
+  }, [classId, courseId, jobsheetId, user])
 
   const experimentReports = useMemo(() => {
     if (!jobsheet || !submission) return []

@@ -29,6 +29,16 @@ const dbTerm = (value) => value === 'Ganjil' ? 'GANJIL' : 'GENAP';
 
 const createId = (prefix) => `${prefix}-${crypto.randomBytes(5).toString('hex')}`;
 
+const normalizeProgrammingLanguage = (value, fallback = 'java') => {
+  const normalized = String(value || fallback).toLowerCase();
+  return ['java', 'python'].includes(normalized) ? normalized : fallback;
+};
+
+const displayProgrammingLanguage = (value) => {
+  const normalized = normalizeProgrammingLanguage(value);
+  return normalized === 'python' ? 'Python' : 'Java';
+};
+
 const mapStudent = (row) => ({
   id: row.id,
   nim: row.nim || '',
@@ -68,16 +78,20 @@ const mapClass = (row) => ({
   academicPeriodId: row.academic_period_id,
   semesterYear: `${row.year} - ${displayTerm(row.semester_type)}`,
   studentSemester: row.student_semester,
+  programmingLanguage: normalizeProgrammingLanguage(row.programming_language),
+  programmingLanguageDisplayName: displayProgrammingLanguage(row.programming_language),
   status: displayStatus(row.status),
 });
 
 module.exports = {
   createId,
   dbTerm,
+  displayProgrammingLanguage,
   displayStatus,
   displayTerm,
   mapClass,
   mapLecturer,
   mapStudent,
+  normalizeProgrammingLanguage,
   normalizeStatus,
 };

@@ -51,7 +51,7 @@ export default function StudentDashboardPage() {
 
         const jobsheetResponses = await Promise.all(
           courseData.map((course) =>
-            getJobsheets(course.id)
+            getJobsheets(course.id, course.classId || course.class_id)
           )
         );
 
@@ -187,9 +187,10 @@ export default function StudentDashboardPage() {
                     key={course.id}
                     course={course}
                     jobsheetCount={jobsheetCountByCourse[course.id] ?? 0}
-                    onClick={() =>
-                      navigate(`/courses/${course.id}`)
-                    }
+                    onClick={() => {
+                      const classId = course.classId || course.class_id
+                      navigate(`/courses/${course.id}${classId ? `?classId=${encodeURIComponent(classId)}` : ""}`)
+                    }}
                   />
                 ))
               )}

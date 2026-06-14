@@ -120,7 +120,10 @@ export default function StudentCoursePage() {
               <CourseCard
                 key={course.id}
                 course={course}
-                onClick={() => navigate(`/courses/${course.id}`)}
+                onClick={() => {
+                  const classId = course.classId || course.class_id
+                  navigate(`/courses/${course.id}${classId ? `?classId=${encodeURIComponent(classId)}` : ""}`)
+                }}
               />
             ))}
           </div>

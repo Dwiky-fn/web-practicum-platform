@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { getCourseById } from "../../../services/course/service";
 import { getJobsheets } from "../../../services/jobsheet/service";
 import { getMappedSubmissionByJobsheetId } from "../../../services/submission/service";
@@ -14,6 +15,8 @@ import { useCurrentUser } from "../../../services/user/useCurrentUser";
 
 export default function CourseDetailPage() {
   const { courseId } = useParams<{ courseId: string }>();
+  const [searchParams] = useSearchParams();
+  const classId = searchParams.get("classId") || undefined;
   const { user } = useCurrentUser();
 
   const [jobsheets, setJobsheets] = useState<Jobsheet[]>([]);
@@ -39,7 +42,7 @@ export default function CourseDetailPage() {
         const selectedCourse = await getCourseById(currentCourseId);
         setCourse(selectedCourse);
 
-        const jobsheetData = await getJobsheets(currentCourseId);
+        const jobsheetData = await getJobsheets(currentCourseId, classId);
         setJobsheets(jobsheetData);
 
         const submissionList = await Promise.all(
@@ -69,7 +72,7 @@ export default function CourseDetailPage() {
     }
 
     loadData();
-  }, [courseId, user]);
+  }, [classId, courseId, user]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -120,7 +123,7 @@ export default function CourseDetailPage() {
                     jobsheet={jobsheet}
                     submission={submission}
                     onClick={() =>
-                      navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}/works`)
+                      navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}/works${classId ? `?classId=${encodeURIComponent(classId)}` : ""}`)
                     }
                   />
                 );

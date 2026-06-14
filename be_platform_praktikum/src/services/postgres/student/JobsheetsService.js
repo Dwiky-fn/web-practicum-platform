@@ -2,6 +2,15 @@ const pool = require('..');
 
 const emptyDoc = { type: 'doc', content: [] };
 
+const languageMeta = (language) => {
+  const normalized = language === 'python' ? 'python' : 'java';
+  return {
+    programming_language: normalized,
+    programming_language_display_name: normalized === 'python' ? 'Python' : 'Java',
+    programming_language_file_extension: normalized === 'python' ? 'py' : 'java',
+  };
+};
+
 class JobsheetsService {
   constructor() {
     this._pool = pool;
@@ -26,13 +35,11 @@ class JobsheetsService {
       },
       experiments,
       exercises,
-      programming_language: 'java',
-      programming_language_display_name: 'Java',
-      programming_language_file_extension: 'java',
+      ...languageMeta(row.programming_language),
     };
   }
 
-  async getJobsheetsByCourse(courseId) {
+  async getJobsheetsByCourse(courseId, classId = null) {
     const jobsheetsRes = await this._pool.query(
       `SELECT
         j.id,
@@ -42,13 +49,15 @@ class JobsheetsService {
         j.goal,
         j.content,
         j.status,
-        MIN(jc.deadline) AS deadline
+        MIN(jc.deadline) AS deadline,
+        COALESCE(MAX(cl.programming_language), 'java') AS programming_language
       FROM jobsheets j
       LEFT JOIN jobsheet_classes jc ON jc.jobsheet_id = j.id
+      LEFT JOIN classes cl ON cl.id = jc.class_id AND ($2::varchar IS NULL OR cl.id = $2)
       WHERE j.course_id = $1
       GROUP BY j.id
       ORDER BY MIN(jc.deadline) ASC NULLS LAST, j.id ASC`,
-      [courseId],
+      [courseId, classId],
     );
 
     const jobsheetIds = jobsheetsRes.rows.map((jobsheet) => jobsheet.id);
@@ -109,7 +118,7 @@ class JobsheetsService {
     ));
   }
 
-  async getJobsheetFullById(jobsheetId, courseId) {
+  async getJobsheetFullById(jobsheetId, courseId, classId = null) {
     const jobsheetRes = await this._pool.query(
       `SELECT
         j.id,
@@ -119,12 +128,14 @@ class JobsheetsService {
         j.goal,
         j.content,
         j.status,
-        MIN(jc.deadline) AS deadline
+        MIN(jc.deadline) AS deadline,
+        COALESCE(MAX(cl.programming_language), 'java') AS programming_language
       FROM jobsheets j
       LEFT JOIN jobsheet_classes jc ON jc.jobsheet_id = j.id
+      LEFT JOIN classes cl ON cl.id = jc.class_id AND ($3::varchar IS NULL OR cl.id = $3)
       WHERE j.id = $1 AND j.course_id = $2
       GROUP BY j.id`,
-      [jobsheetId, courseId],
+      [jobsheetId, courseId, classId],
     );
 
     if (!jobsheetRes.rows.length) {

@@ -57,6 +57,7 @@ export default function AdminClassDetailPage() {
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([])
   const [classForm, setClassForm] = useState({
     lecturerId: "",
+    programmingLanguage: "java" as "java" | "python",
     status: "" as EditableClassStatus | "",
   })
   const [activationWarning, setActivationWarning] = useState(false)
@@ -155,6 +156,7 @@ export default function AdminClassDetailPage() {
       setClassDetail(detail)
       setClassForm({
         lecturerId: detail.lecturerId,
+        programmingLanguage: detail.programmingLanguage || "java",
         status: toEditableClassStatus(detail.status),
       })
       setLecturers(lecturerData as AdminLecturer[])
@@ -262,11 +264,13 @@ export default function AdminClassDetailPage() {
         courseId: selectedClass.courseId,
         name: selectedClass.name,
         lecturerId: classForm.lecturerId,
+        programmingLanguage: classForm.programmingLanguage,
         status: classForm.status,
       })
       setClassDetail(updated)
       setClassForm({
         lecturerId: updated.lecturerId,
+        programmingLanguage: updated.programmingLanguage || "java",
         status: toEditableClassStatus(updated.status),
       })
     } catch (err) {
@@ -316,6 +320,7 @@ export default function AdminClassDetailPage() {
           </h1>
           <p className="mt-3 text-sm text-gray-600">Semester Akademik: {selectedClass.semesterYear}</p>
           <p className="text-sm text-gray-600">Semester Mahasiswa: {selectedClass.studentSemester}</p>
+          <p className="text-sm text-gray-600">Bahasa Pemrograman: {selectedClass.programmingLanguageDisplayName || "Java"}</p>
         </div>
         <span className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-100 px-5 text-sm font-semibold text-blue-800">
           {selectedClass.status}
@@ -443,6 +448,7 @@ export default function AdminClassDetailPage() {
                   <dt className="text-gray-600">Semester Akademik</dt><dd className="font-medium">{selectedClass.semesterYear}</dd>
                   <dt className="text-gray-600">Semester Mahasiswa</dt><dd className="font-medium">{selectedClass.studentSemester}</dd>
                   <dt className="text-gray-600">Nama Kelas</dt><dd className="font-medium">{selectedClass.name}</dd>
+                  <dt className="text-gray-600">Bahasa Pemrograman</dt><dd className="font-medium">{selectedClass.programmingLanguageDisplayName || "Java"}</dd>
                 </dl>
               </section>
               <section className="border-b border-gray-200 py-5">
@@ -457,6 +463,22 @@ export default function AdminClassDetailPage() {
                     }))}
                   >
                     {lecturers.map((lecturer) => <option key={lecturer.id} value={lecturer.id}>{lecturer.fullname}</option>)}
+                  </select>
+                </FieldRow>
+              </section>
+              <section className="border-b border-gray-200 py-5">
+                <h2 className="text-lg font-semibold text-gray-900">Bahasa Pemrograman</h2>
+                <FieldRow label="Pilih Bahasa">
+                  <select
+                    className={`${inputClass} max-w-sm`}
+                    value={classForm.programmingLanguage}
+                    onChange={(event) => setClassForm((form) => ({
+                      ...form,
+                      programmingLanguage: event.target.value as "java" | "python",
+                    }))}
+                  >
+                    <option value="java">Java</option>
+                    <option value="python">Python</option>
                   </select>
                 </FieldRow>
               </section>
@@ -484,6 +506,7 @@ export default function AdminClassDetailPage() {
                     disabled={saving}
                     onClick={() => setClassForm({
                       lecturerId: selectedClass.lecturerId,
+                      programmingLanguage: selectedClass.programmingLanguage || "java",
                       status: toEditableClassStatus(selectedClass.status),
                     })}
                   >

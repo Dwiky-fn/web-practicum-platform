@@ -58,6 +58,8 @@ export interface AcademicClass {
   academicPeriodId: string
   semesterYear: string
   studentSemester: number
+  programmingLanguage: "java" | "python"
+  programmingLanguageDisplayName: "Java" | "Python"
   status: "Aktif" | "Nonaktif" | "Draft" | "Arsip" | "Selesai"
 }
 
@@ -68,6 +70,8 @@ export interface ClassTemplate {
   course_name: string
   lecturer_id: string
   lecturer_name: string
+  programming_language: "java" | "python"
+  programming_language_display_name: "Java" | "Python"
   study_program_id?: string
   study_program_name?: string
   semester: number
@@ -83,6 +87,8 @@ export interface ClassClonePreview {
     name: string
     course_name: string
     lecturer_name: string
+    programming_language: "java" | "python"
+    programming_language_display_name: "Java" | "Python"
     semester: number
     academic_year: string
   }
@@ -190,6 +196,7 @@ export interface CreateClassPayload {
   name: string
   lecturerId: string
   academicPeriodId?: string
+  programmingLanguage?: "java" | "python"
   status?: "Aktif" | "Nonaktif" | "Arsip"
 }
 
@@ -203,6 +210,7 @@ export interface CloneClassPayload {
   generation?: number
   class_name?: string
   lecturer_id?: string
+  programming_language?: "java" | "python"
   copy_jobsheets: boolean
   auto_enroll_students: boolean
 }
@@ -217,5 +225,6 @@ export interface UpdateClassPayload {
   courseId: string
   name: string
   lecturerId: string
+  programmingLanguage?: "java" | "python"
   status: "Aktif" | "Nonaktif" | "Arsip"
 }

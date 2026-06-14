@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { useEffect, useState, useCallback } from "react"
 import { getJobsheetById } from "../../../../../../../services/jobsheet/service"
 import { getSubmissionByJobsheetIdPreview, submitSubmission, updateSubmission } from "../../../../../../../services/submission/service"
@@ -20,6 +20,8 @@ import { useCurrentUser } from "../../../../../../../services/user/useCurrentUse
 export default function PreviewPage() {
 
   const { courseId, jobsheetId } = useParams()
+  const [searchParams] = useSearchParams()
+  const classId = searchParams.get("classId") || undefined
   const { user } = useCurrentUser()
   const navigate = useNavigate()
 
@@ -98,7 +100,7 @@ export default function PreviewPage() {
       setError("")
 
       try {
-        const jobsheets = await getJobsheetById(courseId, jobsheetId)
+        const jobsheets = await getJobsheetById(courseId, jobsheetId, classId)
 
         setJobsheet(jobsheets)
 
@@ -118,7 +120,7 @@ export default function PreviewPage() {
     }
 
     loadData()
-  }, [courseId, jobsheetId, user])
+  }, [classId, courseId, jobsheetId, user])
 
   if (loading) {
     return <TopProgressBar />

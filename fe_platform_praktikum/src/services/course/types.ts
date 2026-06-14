@@ -10,6 +10,8 @@ export interface Course {
   status?: string;
   created_at?: string;
   progress?: number;
+  class_id?: string;
+  classId?: string;
   jobsheetCount?: number;
   jobsheet_count?: number;
   programmingLanguage?: string;

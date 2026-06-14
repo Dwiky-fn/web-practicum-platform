@@ -63,6 +63,8 @@ class CoursesService {
         c.sks,
         c.status,
         c.created_at,
+        cl.id AS class_id,
+        cl.programming_language,
         u.fullname AS lecturer,
         COALESCE(ROUND(AVG(sp.progress)::numeric), 0)::int AS progress,
         COUNT(DISTINCT j.id)::int AS jobsheet_count
@@ -88,6 +90,8 @@ class CoursesService {
         c.sks,
         c.status,
         c.created_at,
+        cl.id,
+        cl.programming_language,
         u.fullname
       ORDER BY c.semester ASC, c.name ASC
       `,

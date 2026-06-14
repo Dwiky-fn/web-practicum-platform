@@ -71,6 +71,7 @@ type ClassFormState = {
   courseId: string
   name: string
   lecturerId: string
+  programmingLanguage: "java" | "python"
   status: "Aktif" | "Nonaktif" | "Arsip" | ""
 }
 
@@ -81,6 +82,7 @@ type CloneClassFormState = {
   name: string
   academicPeriodId: string
   lecturerId: string
+  programmingLanguage: "java" | "python"
   studyProgramId: string
   generation: string
   className: string
@@ -128,6 +130,7 @@ export default function AdminAcademicPage() {
     courseId: "",
     name: "",
     lecturerId: "",
+    programmingLanguage: "java",
     status: "",
   })
   const [classCreationMode, setClassCreationMode] = useState<ClassCreationMode>("manual")
@@ -136,6 +139,7 @@ export default function AdminAcademicPage() {
     name: "",
     academicPeriodId: "",
     lecturerId: "",
+    programmingLanguage: "java",
     studyProgramId: "",
     generation: "",
     className: "",
@@ -357,6 +361,7 @@ export default function AdminAcademicPage() {
       courseId: "",
       name: "",
       lecturerId: "",
+      programmingLanguage: "java",
       status: "",
     })
     setClassCreationMode("manual")
@@ -365,6 +370,7 @@ export default function AdminAcademicPage() {
       name: "",
       academicPeriodId: activeSemester?.id || "",
       lecturerId: "",
+      programmingLanguage: "java",
       studyProgramId: "",
       generation: "",
       className: "",
@@ -500,6 +506,7 @@ export default function AdminAcademicPage() {
       sourceClassId: classId,
       name: buildCloneClassName(template, template?.name || form.className, selectedCloneSemester) || form.name,
       lecturerId: template?.lecturer_id || form.lecturerId,
+      programmingLanguage: template?.programming_language || "java",
       studyProgramId: template?.study_program_id || form.studyProgramId,
       className: template?.name || form.className,
     }))
@@ -533,6 +540,7 @@ export default function AdminAcademicPage() {
         name: String(form.get("name") || ""),
         lecturerId: String(form.get("lecturerId") || ""),
         academicPeriodId: activeSemester?.id,
+        programmingLanguage: String(form.get("programmingLanguage") || "java") as "java" | "python",
         status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
       })
       closeModal()
@@ -575,6 +583,7 @@ export default function AdminAcademicPage() {
         generation: cloneClassForm.generation ? Number(cloneClassForm.generation) : undefined,
         class_name: cloneClassForm.className,
         lecturer_id: cloneClassForm.lecturerId,
+        programming_language: cloneClassForm.programmingLanguage,
         copy_jobsheets: cloneClassForm.copyJobsheets,
         auto_enroll_students: cloneClassForm.autoEnrollStudents,
       })
@@ -599,6 +608,7 @@ export default function AdminAcademicPage() {
       courseId: classItem.courseId,
       name: classItem.name,
       lecturerId: classItem.lecturerId,
+      programmingLanguage: classItem.programmingLanguage || "java",
       status: classItem.status === "Arsip" ? "Arsip" : classItem.status === "Aktif" ? "Aktif" : "Nonaktif",
     })
     setModal("class-edit")
@@ -625,6 +635,7 @@ export default function AdminAcademicPage() {
         courseId: classForm.courseId,
         name: classForm.name,
         lecturerId: classForm.lecturerId,
+        programmingLanguage: classForm.programmingLanguage,
         status: classForm.status as "Aktif" | "Nonaktif" | "Arsip",
       })
       closeModal()
@@ -952,6 +963,21 @@ export default function AdminAcademicPage() {
                 {lecturers.map((lecturer) => <option key={lecturer.id} value={lecturer.id}>{lecturer.fullname}</option>)}
               </select>
             </FieldRow>
+            <FieldRow label="Bahasa Pemrograman">
+              <select
+                name="programmingLanguage"
+                className={inputClass}
+                value={classForm.programmingLanguage}
+                onChange={(event) => setClassForm((form) => ({
+                  ...form,
+                  programmingLanguage: event.target.value as "java" | "python",
+                }))}
+                required
+              >
+                <option value="java">Java</option>
+                <option value="python">Python</option>
+              </select>
+            </FieldRow>
             <FieldRow label="Status">
               <div className="flex gap-5">
                 {(["Nonaktif", "Aktif", "Arsip"] as const).map((status) => (
@@ -1045,6 +1071,12 @@ export default function AdminAcademicPage() {
                   {lecturers.map((lecturer) => <option key={lecturer.id} value={lecturer.id}>{lecturer.fullname}</option>)}
                 </select>
               </FieldRow>
+              <FieldRow label="Bahasa Pemrograman">
+                <select name="programmingLanguage" className={inputClass} defaultValue="java" required>
+                  <option value="java">Java</option>
+                  <option value="python">Python</option>
+                </select>
+              </FieldRow>
               <FieldRow label="Status">
                 <div className="flex gap-5">
                   <label className="flex items-center gap-2"><input type="radio" name="status" value="Nonaktif" required /> Nonaktif</label>
@@ -1133,6 +1165,20 @@ export default function AdminAcademicPage() {
                   {lecturers.map((lecturer) => <option key={lecturer.id} value={lecturer.id}>{lecturer.fullname}</option>)}
                 </select>
               </FieldRow>
+              <FieldRow label="Bahasa Pemrograman">
+                <select
+                  className={`${inputClass} w-full`}
+                  value={cloneClassForm.programmingLanguage}
+                  onChange={(event) => setCloneClassForm((form) => ({
+                    ...form,
+                    programmingLanguage: event.target.value as "java" | "python",
+                  }))}
+                  required
+                >
+                  <option value="java">Java</option>
+                  <option value="python">Python</option>
+                </select>
+              </FieldRow>
               <FieldRow label="Jurusan">
                 <select
                   className={`${inputClass} w-full`}
@@ -1209,12 +1255,16 @@ export default function AdminAcademicPage() {
                       <p className="text-xs font-semibold uppercase text-gray-500">Kelas Sumber</p>
                       <p className="mt-1 font-semibold text-gray-900">{clonePreview.source_class.course_name} - {clonePreview.source_class.name}</p>
                       <p className="text-xs text-gray-500">{clonePreview.source_class.academic_year}</p>
+                      <p className="mt-1 text-xs text-gray-500">Bahasa: {clonePreview.source_class.programming_language_display_name}</p>
                     </div>
                     <div className="rounded-md bg-white p-3">
                       <p className="text-xs font-semibold uppercase text-gray-500">Kelas Baru</p>
                       <p className="mt-1 font-semibold text-gray-900">{cloneClassForm.name || "-"}</p>
                       <p className="text-xs text-gray-500">
                         {selectedCloneSemester ? `${selectedCloneSemester.year} - ${selectedCloneSemester.term}` : "-"}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Bahasa: {cloneClassForm.programmingLanguage === "python" ? "Python" : "Java"}
                       </p>
                     </div>
                   </div>
@@ -1533,7 +1583,7 @@ export default function AdminAcademicPage() {
               )}
 
               {filteredClasses.length ? (
-                <AdminTable headers={selectedAcademicIds.classes.length > 0 ? ["", "Kelas", "Mata Kuliah", "Dosen", "Status", "Aksi"] : ["Kelas", "Mata Kuliah", "Dosen", "Status", "Aksi"]}>
+                <AdminTable headers={selectedAcademicIds.classes.length > 0 ? ["", "Kelas", "Mata Kuliah", "Dosen", "Bahasa", "Status", "Aksi"] : ["Kelas", "Mata Kuliah", "Dosen", "Bahasa", "Status", "Aksi"]}>
                   {filteredClasses.map((item) => (
                     <tr
                       key={item.id}
@@ -1562,6 +1612,7 @@ export default function AdminAcademicPage() {
                       <td className="px-4 py-3">{item.name}</td>
                       <td className="px-4 py-3">{item.courseName}</td>
                       <td className="px-4 py-3">{item.lecturer}</td>
+                      <td className="px-4 py-3">{item.programmingLanguageDisplayName || "Java"}</td>
                       <td className="px-4 py-3">{item.status}</td>
                       <AdminActionCell>
                         <AdminButton

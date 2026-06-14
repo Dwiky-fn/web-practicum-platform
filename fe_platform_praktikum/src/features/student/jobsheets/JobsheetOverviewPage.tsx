@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { getSubmissionByJobsheetId } from "../../../services/submission/service";
 import type { Jobsheet } from "../../../services/jobsheet/types";
 import type { JobsheetSubmission } from "../../../services/submission/types";
@@ -17,6 +17,8 @@ import { useCurrentUser } from "../../../services/user/useCurrentUser";
 
 export default function JobsheetOverviewPage() {
   const { user } = useCurrentUser();
+  const [searchParams] = useSearchParams();
+  const classId = searchParams.get("classId") || undefined;
   const { courseId, jobsheetId } = useParams<{
     courseId: string;
     jobsheetId: string;
@@ -35,7 +37,7 @@ export default function JobsheetOverviewPage() {
 
     async function loadData() {
       const [raw, sub] = await Promise.all([
-        getJobsheetById(cId, jId),
+        getJobsheetById(cId, jId, classId),
         getSubmissionByJobsheetId(cId, jId, studentId)
       ]);
 
@@ -47,7 +49,7 @@ export default function JobsheetOverviewPage() {
     }
 
     loadData();
-  }, [courseId, jobsheetId, user]);
+  }, [classId, courseId, jobsheetId, user]);
 
   return (
     <div className="min-h-screen bg-gray-50">

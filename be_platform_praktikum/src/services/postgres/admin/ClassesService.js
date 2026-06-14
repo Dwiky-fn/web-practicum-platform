@@ -5,6 +5,7 @@ const {
   displayTerm,
   mapClass,
   mapStudent,
+  normalizeProgrammingLanguage,
   normalizeStatus,
 } = require('./utils');
 
@@ -30,6 +31,15 @@ const normalizeAcademicTerm = (value) => {
   const numberValue = Number(value);
   if (!Number.isNaN(numberValue)) return numberValue % 2 === 0 ? 'GENAP' : 'GANJIL';
   return null;
+};
+
+const resolveProgrammingLanguage = (value, fallback = 'java') => {
+  if (value === undefined || value === null || value === '') return fallback;
+  const normalized = String(value).toLowerCase();
+  if (!['java', 'python'].includes(normalized)) {
+    throw new Error('PROGRAMMING_LANGUAGE_INVALID');
+  }
+  return normalized;
 };
 
 class ClassesService {
@@ -61,7 +71,7 @@ class ClassesService {
 
     const result = await this._pool.query(
       `
-      SELECT cl.id, cl.name, cl.status,
+      SELECT cl.id, cl.name, cl.status, cl.programming_language,
         c.id AS course_id, c.name AS course_name, c.semester AS student_semester,
         u.id AS lecturer_id, u.fullname AS lecturer,
         ap.id AS academic_period_id, ap.year, ap.semester_type
@@ -92,6 +102,9 @@ class ClassesService {
     const courseId = payload.courseId || payload.course_id;
     const name = payload.name;
     const lecturerId = payload.lecturerId || payload.lecturer_id;
+    const programmingLanguage = resolveProgrammingLanguage(
+      payload.programmingLanguage || payload.programming_language,
+    );
     await this.ensureCourseAvailableForClass(courseId);
     await this.ensureClassUnique({
       courseId,
@@ -100,8 +113,10 @@ class ClassesService {
     });
 
     await this._pool.query(
-      `INSERT INTO classes (id, course_id, name, lecturer_id, academic_period_id, status)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO classes (
+        id, course_id, name, lecturer_id, academic_period_id, status, programming_language
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         id,
         courseId,
@@ -109,6 +124,7 @@ class ClassesService {
         lecturerId,
         activeSemester,
         normalizeStatus(payload.status, 'AKTIF'),
+        programmingLanguage,
       ],
     );
 
@@ -136,6 +152,9 @@ class ClassesService {
     const status = payload.status;
     const courseId = payload.courseId || payload.course_id;
     const name = payload.name;
+    const programmingLanguage = resolveProgrammingLanguage(
+      payload.programmingLanguage || payload.programming_language,
+    );
 
     const existing = await this._pool.query(
       'SELECT id, course_id, name, academic_period_id FROM classes WHERE id = $1',
@@ -162,9 +181,9 @@ class ClassesService {
 
     await this._pool.query(
       `UPDATE classes
-       SET course_id = $1, name = $2, lecturer_id = $3, status = $4
-       WHERE id = $5`,
-      [nextCourseId, nextName, lecturerId, normalizedStatus, id],
+       SET course_id = $1, name = $2, lecturer_id = $3, status = $4, programming_language = $5
+       WHERE id = $6`,
+      [nextCourseId, nextName, lecturerId, normalizedStatus, programmingLanguage, id],
     );
 
     return this.getClassDetail(id);
@@ -224,7 +243,7 @@ class ClassesService {
     const keyword = `%${(filters.keyword || '').toLowerCase()}%`;
     const result = await this._pool.query(
       `
-      SELECT cl.id, cl.name,
+      SELECT cl.id, cl.name, cl.programming_language,
         c.id AS course_id, c.name AS course_name, c.semester AS student_semester,
         u.id AS lecturer_id, u.fullname AS lecturer_name,
         ap.id AS academic_period_id, ap.year, ap.semester_type,
@@ -261,6 +280,10 @@ class ClassesService {
       course_name: row.course_name,
       lecturer_id: row.lecturer_id,
       lecturer_name: row.lecturer_name,
+      programming_language: normalizeProgrammingLanguage(row.programming_language),
+      programming_language_display_name: normalizeProgrammingLanguage(row.programming_language) === 'python'
+        ? 'Python'
+        : 'Java',
       study_program_id: row.study_program_id,
       study_program_name: row.study_program_name,
       semester: row.student_semester,
@@ -274,7 +297,8 @@ class ClassesService {
   async getClassClonePreview(classId) {
     const source = await this._pool.query(
       `
-      SELECT cl.id, cl.name, c.name AS course_name, u.fullname AS lecturer_name,
+      SELECT cl.id, cl.name, cl.programming_language,
+        c.name AS course_name, u.fullname AS lecturer_name,
         c.semester, ap.year, ap.semester_type,
         COUNT(DISTINCT jc.id)::int AS jobsheet_count
       FROM classes cl
@@ -297,6 +321,10 @@ class ClassesService {
         name: row.name,
         course_name: row.course_name,
         lecturer_name: row.lecturer_name,
+        programming_language: normalizeProgrammingLanguage(row.programming_language),
+        programming_language_display_name: normalizeProgrammingLanguage(row.programming_language) === 'python'
+          ? 'Python'
+          : 'Java',
         semester: row.semester,
         academic_year: `${row.year} - ${displayTerm(row.semester_type)}`,
       },
@@ -570,6 +598,9 @@ class ClassesService {
       const academicPeriodId = await this._resolveAcademicPeriod(client, payload);
       const newClassId = createId('kelas');
       const lecturerId = payload.lecturer_id || sourceClass.lecturer_id;
+      const programmingLanguage = resolveProgrammingLanguage(
+        payload.programming_language || sourceClass.programming_language,
+      );
 
       await this.ensureCourseAvailableForClass(sourceClass.course_id, client, academicPeriodId);
       await this.ensureClassUnique({
@@ -580,10 +611,12 @@ class ClassesService {
 
       await client.query(
         `
-        INSERT INTO classes (id, course_id, name, lecturer_id, academic_period_id, status)
-        VALUES ($1, $2, $3, $4, $5, 'AKTIF')
+        INSERT INTO classes (
+          id, course_id, name, lecturer_id, academic_period_id, status, programming_language
+        )
+        VALUES ($1, $2, $3, $4, $5, 'AKTIF', $6)
         `,
-        [newClassId, sourceClass.course_id, payload.name, lecturerId, academicPeriodId],
+        [newClassId, sourceClass.course_id, payload.name, lecturerId, academicPeriodId, programmingLanguage],
       );
 
       const jobsheetsCopied = payload.copy_jobsheets

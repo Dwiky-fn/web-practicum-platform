@@ -54,6 +54,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
 
   const navigate = useNavigate()
   const location = useLocation()
+  const classId = new URLSearchParams(location.search).get("classId") || undefined
 
   const jobsheetIdRef = useRef(jobsheetId)
   const isMountedRef = useRef(true)
@@ -196,7 +197,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
 
       try {
         // 1. Jobsheet
-        const jobsheetData = await getJobsheetById(courseId, jobsheetId)
+        const jobsheetData = await getJobsheetById(courseId, jobsheetId, classId)
         if (!isMountedRef.current) return
         setJobsheet(jobsheetData)
 
@@ -231,7 +232,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
     }
 
     loadData()
-  }, [courseId, jobsheetId, user])
+  }, [classId, courseId, jobsheetId, user])
 
   // MANUAL SAVE
   const saveSubmission = useCallback(async (updatedSubmission: JobsheetSubmission) => {

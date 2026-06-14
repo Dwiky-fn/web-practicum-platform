@@ -109,7 +109,25 @@ class SubmissionsService {
   }
 
   _getDefaultFileName(language) {
-    return 'Main.java';
+    return language === 'python' ? 'main.py' : 'Main.java';
+  }
+
+  async _getStudentClassProgrammingLanguage(studentId, courseId) {
+    const result = await this._pool.query(
+      `
+      SELECT cl.programming_language
+      FROM class_students cs
+      JOIN classes cl ON cl.id = cs.class_id
+      WHERE cs.student_id = $1
+        AND cl.course_id = $2
+        AND cs.status = 'AKTIF'
+        AND cl.status = 'AKTIF'
+      LIMIT 1
+      `,
+      [studentId, courseId],
+    );
+
+    return result.rows[0]?.programming_language || 'java';
   }
 
   _generateInitialReport(jobsheet) {
@@ -162,6 +180,10 @@ class SubmissionsService {
 
     const jobsheet = await this._jobsheetService.getJobsheetFullById(
       jobsheetId,
+      courseId,
+    );
+    jobsheet.programming_language = await this._getStudentClassProgrammingLanguage(
+      studentId,
       courseId,
     );
 
@@ -220,6 +242,10 @@ class SubmissionsService {
       if (jobsheetQuery.rows.length) {
         const courseId = jobsheetQuery.rows[0].course_id;
         const jobsheet = await this._jobsheetService.getJobsheetFullById(jobsheetId, courseId);
+        jobsheet.programming_language = await this._getStudentClassProgrammingLanguage(
+          studentId,
+          courseId,
+        );
         
         if (report && report.experiments) {
           for (const exp of (jobsheet.experiments || [])) {
@@ -340,6 +366,10 @@ class SubmissionsService {
         submission.jobsheet_id,
         courseId
       );
+      jobsheet.programming_language = await this._getStudentClassProgrammingLanguage(
+        submission.student_id,
+        courseId,
+      );
 
       const report = submission.report;
       if (!report.experiments) report.experiments = {};
@@ -439,6 +469,10 @@ class SubmissionsService {
     }
 
     const jobsheet = await this._jobsheetService.getJobsheetFullById(jobsheetId, courseId);
+    jobsheet.programming_language = await this._getStudentClassProgrammingLanguage(
+      studentId,
+      courseId,
+    );
     if (!jobsheet) {
       throw new Error('Jobsheet tidak ditemukan');
     }

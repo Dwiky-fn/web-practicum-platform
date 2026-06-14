@@ -202,10 +202,12 @@ class LecturerJobsheetsService {
       const description = payload.description || '';
       const goal = payload.goal || extractTextContent(payload.goalContent);
 
+      const programmingLanguage = payload.programmingLanguage || payload.programming_language || 'java';
+
       await client.query(
         `
-        INSERT INTO jobsheets (id, course_id, title, description, goal, content, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO jobsheets (id, course_id, title, description, goal, content, status, programming_language)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `,
         [
           jobsheetId,
@@ -215,6 +217,7 @@ class LecturerJobsheetsService {
           goal,
           JSON.stringify(content),
           'DRAFT',
+          programmingLanguage,
         ],
       );
 
@@ -250,6 +253,8 @@ class LecturerJobsheetsService {
       const description = payload.description || '';
       const goal = payload.goal || extractTextContent(payload.goalContent);
 
+      const programmingLanguage = payload.programmingLanguage || payload.programming_language || existing.programming_language || 'java';
+
       await client.query(
         `
         UPDATE jobsheets
@@ -257,7 +262,8 @@ class LecturerJobsheetsService {
           title = $3,
           description = $4,
           goal = $5,
-          content = $6
+          content = $6,
+          programming_language = $7
         WHERE id = $1 AND course_id = $2
         `,
         [
@@ -267,6 +273,7 @@ class LecturerJobsheetsService {
           description,
           goal,
           JSON.stringify(content),
+          programmingLanguage,
         ],
       );
 

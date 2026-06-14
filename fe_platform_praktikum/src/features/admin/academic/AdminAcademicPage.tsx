@@ -20,10 +20,10 @@ import {
 import {
   activateAdminCourse,
   activateAdminSemester,
+  advanceAdminSemester,
   cloneAdminClass,
   createAdminClass,
   createAdminCourse,
-  createAdminSemester,
   deleteAdminClass,
   deleteAdminCourse,
   deleteAdminSemester,
@@ -52,7 +52,7 @@ import {
   getStudentSemesterOptions,
 } from "./semesterOptions"
 
-type ModalMode = "semester" | "course" | "course-edit" | "class" | "class-edit" | "activate" | null
+type ModalMode = "semester" | "course" | "course-edit" | "class" | "class-edit" | "activate" | "advance-semester" | null
 type ConfirmTarget =
   | { type: "semester"; item: AcademicSemester }
   | { type: "course"; item: AcademicCourse }
@@ -106,7 +106,7 @@ function generateClassName({
     .join(" - ")
 }
 
-function getRombelFromClassName(fullName: string, courseName: string) {
+function getRombelFromClassName(fullName: string, _courseName: string) {
   if (!fullName) return ""
   const parts = fullName.split(" - ")
   if (parts.length > 1) {
@@ -178,7 +178,7 @@ export default function AdminAcademicPage() {
   const [manualRombel, setManualRombel] = useState("")
   const [manualLecturerId, setManualLecturerId] = useState("")
   const [manualProgLang, setManualProgLang] = useState<"java" | "python">("java")
-  const [manualStatus, setManualStatus] = useState<"Aktif" | "Nonaktif" | "">("Nonaktif")
+  const [manualStatus, setManualStatus] = useState<"Aktif" | "Nonaktif" | "Arsip" | "">("Nonaktif")
   const [clonePreview, setClonePreview] = useState<ClassClonePreview | null>(null)
   const [templateClasses, setTemplateClasses] = useState<ClassTemplate[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(false)
@@ -302,6 +302,32 @@ export default function AdminAcademicPage() {
   const activeSemester = getActiveSemester(semesters)
   const activeSemesterTerm = activeSemester?.term
 
+  const nextSemesterPreview = useMemo(() => {
+    if (!activeSemester) return null
+    const currentYear = activeSemester.year
+    const currentTerm = activeSemester.term
+
+    if (currentTerm === "Ganjil") {
+      return {
+        year: currentYear,
+        term: "Genap" as const
+      }
+    } else {
+      const parts = currentYear.split("/")
+      if (parts.length === 2) {
+        const startYear = Number(parts[0])
+        const endYear = Number(parts[1])
+        if (!Number.isNaN(startYear) && !Number.isNaN(endYear)) {
+          return {
+            year: `${startYear + 1}/${endYear + 1}`,
+            term: "Ganjil" as const
+          }
+        }
+      }
+    }
+    return null
+  }, [activeSemester])
+
   useEffect(() => {
     if (!activeSemesterTerm) return
 
@@ -357,12 +383,7 @@ export default function AdminAcademicPage() {
       semester: activeSemester.term,
     })
   }, [manualSelectedCourse, manualRombel, activeSemester])
-  const cloneSemesterOptions = useMemo(
-    () => targetSemester
-      ? semesters.filter((semester) => semester.term === targetSemester)
-      : semesters,
-    [targetSemester, semesters],
-  )
+
   const hasSemesterMismatch = useMemo(() => {
     if (!selectedTemplateClass || !selectedCloneSemester) return false
     if (selectedCloneSemester.term !== selectedTemplateClass.academic_term) return true
@@ -436,28 +457,7 @@ export default function AdminAcademicPage() {
     setManualStatus("Nonaktif")
   }
 
-  const handleSemesterSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const form = new FormData(event.currentTarget)
-    const startYear = String(form.get("startYear") || "")
-    const endYear = String(form.get("endYear") || "")
 
-    try {
-      setSubmitting(true)
-      setError("")
-      await createAdminSemester({
-        year: `${startYear}/${endYear}`,
-        term: String(form.get("term") || "") as "Ganjil" | "Genap",
-        status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
-      })
-      closeModal()
-      fetchAcademicData()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menyimpan semester")
-    } finally {
-      setSubmitting(false)
-    }
-  }
 
   const handleCourseSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -824,6 +824,24 @@ export default function AdminAcademicPage() {
     }
   }
 
+  const handleAdvanceSemester = async () => {
+    try {
+      setSubmitting(true)
+      setError("")
+      setSuccess("")
+      const result = await advanceAdminSemester()
+      closeModal()
+      setSuccess(
+        `Semester berikutnya berhasil diaktifkan. Semester aktif sekarang: ${result.active_semester.year} - ${result.active_semester.term}.`
+      )
+      fetchAcademicData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal membuka semester berikutnya")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const renderModal = () => {
     if (!modal) return null
 
@@ -849,41 +867,35 @@ export default function AdminAcademicPage() {
       )
     }
 
-    if (modal === "semester") {
+    if (modal === "advance-semester") {
       return (
         <AdminModal
-          title="Tambah Semester"
+          title="Buka Semester Berikutnya?"
           onClose={closeModal}
           footer={
             <>
               <AdminButton variant="secondary" onClick={closeModal} disabled={submitting}>Batal</AdminButton>
-              <AdminButton type="submit" form="admin-semester-form" disabled={submitting}>
-                {submitting ? "Menyimpan..." : "Tambah"}
+              <AdminButton onClick={handleAdvanceSemester} disabled={submitting}>
+                {submitting ? "Membuka semester..." : "Ya, Buka Semester Berikutnya"}
               </AdminButton>
             </>
           }
         >
-          <form id="admin-semester-form" className="space-y-4" onSubmit={handleSemesterSubmit}>
-            <FieldRow label="Tahun Ajaran">
-              <div className="flex items-center gap-2">
-                <input name="startYear" className={`${inputClass} w-28`} placeholder="2025" required />
-                <span>/</span>
-                <input name="endYear" className={`${inputClass} w-28`} placeholder="2026" required />
+          <div className="space-y-4 text-center text-sm text-gray-700">
+            <p>Semester aktif saat ini akan dinonaktifkan dan semester baru berikut akan diaktifkan secara otomatis.</p>
+            <div className="flex flex-col items-center justify-center gap-2 rounded-lg bg-gray-50 p-4 font-semibold text-gray-800">
+              <div className="text-gray-500">Dari:</div>
+              <div className="text-base text-red-600">{activeSemester?.year} - {activeSemester?.term}</div>
+              <div className="text-gray-400">↓</div>
+              <div className="text-gray-500">Menjadi:</div>
+              <div className="text-base text-green-600">
+                {nextSemesterPreview ? `${nextSemesterPreview.year} - ${nextSemesterPreview.term}` : "-"}
               </div>
-            </FieldRow>
-            <FieldRow label="Semester">
-              <div className="flex gap-5">
-                <label className="flex items-center gap-2"><input type="radio" name="term" value="Genap" required /> Genap</label>
-                <label className="flex items-center gap-2"><input type="radio" name="term" value="Ganjil" /> Ganjil</label>
-              </div>
-            </FieldRow>
-            <FieldRow label="Status">
-              <div className="flex gap-5">
-                <label className="flex items-center gap-2"><input type="radio" name="status" value="Aktif" required /> Aktif</label>
-                <label className="flex items-center gap-2"><input type="radio" name="status" value="Nonaktif" /> Nonaktif</label>
-              </div>
-            </FieldRow>
-          </form>
+            </div>
+            <p className="text-xs text-gray-500">
+              Jika semester berikutnya belum ada di database, sistem akan membuatnya secara otomatis.
+            </p>
+          </div>
         </AdminModal>
       )
     }
@@ -1596,12 +1608,12 @@ export default function AdminAcademicPage() {
                   </dl>
                 </div>
               ) : (
-                <EmptyState title="Belum ada data semester" action={<AdminButton onClick={() => setModal("semester")}><Plus size={16} />Tambah Semester</AdminButton>} />
+                <EmptyState title="Belum ada data semester" action={<AdminButton onClick={() => setModal("advance-semester")}><Plus size={16} />Buka Semester Berikutnya</AdminButton>} />
               )}
 
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Daftar Semester</h2>
-                <AdminButton onClick={() => setModal("semester")}><Plus size={16} />Tambah Semester</AdminButton>
+                <AdminButton onClick={() => setModal("advance-semester")}><Plus size={16} />Buka Semester Berikutnya</AdminButton>
               </div>
               <AdminTable headers={selectedAcademicIds.semester.length > 0 ? ["", "Tahun Ajaran", "Semester", "Status", "Aksi"] : ["Tahun Ajaran", "Semester", "Status", "Aksi"]}>
                 {semesters.map((semester) => (
@@ -1636,16 +1648,16 @@ export default function AdminAcademicPage() {
                       <AdminButton
                         variant="ghost"
                         className="h-8 px-2"
-                        disabled={submitting}
+                        disabled={submitting || semester.status === "Aktif"}
                         onMouseDown={stopRowSelection}
                         onTouchStart={stopRowSelection}
                         onClick={(event) => {
                           event.stopPropagation()
                           setSelectedSemester(semester)
-                          setModal(semester.status === "Aktif" ? "semester" : "activate")
+                          setModal(semester.status === "Aktif" ? null : "activate")
                         }}
                       >
-                        {semester.status === "Aktif" ? "Edit" : "Aktifkan"}
+                        {semester.status === "Aktif" ? "Aktif" : "Aktifkan"}
                       </AdminButton>
                       <AdminButton
                         variant="danger"

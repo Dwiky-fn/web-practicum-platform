@@ -6,6 +6,7 @@ import RichTextEditor from "../../../components/editor/RichTextEditor"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
 import LecturerLayout from "../components/LecturerLayout"
+import LecturerTemplateWorkspace from "../components/LecturerTemplateWorkspace"
 import {
   createLecturerJobsheet,
   getLecturerCourseDataset,
@@ -67,23 +68,31 @@ function createTheoryItem(index: number): LecturerTheoryInput {
   }
 }
 
-function createExperimentItem(index: number): PracticeEditorItem {
+function createExperimentItem(index: number, language: "java" | "python" = "java"): PracticeEditorItem {
   return {
     id: createLocalId("exp"),
     title: `Percobaan ${index}`,
     instructionContent: emptyDoc,
-    templateCode: "",
+    templateCode: language === "python" ? 'print("Hello, Python!")' : `public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, Java!");
+    }
+}`,
     isReported: true,
     rubric: 0,
   }
 }
 
-function createExerciseItem(index: number): PracticeEditorItem {
+function createExerciseItem(index: number, language: "java" | "python" = "java"): PracticeEditorItem {
   return {
     id: createLocalId("exe"),
     title: `Latihan ${index}`,
     instructionContent: emptyDoc,
-    templateCode: "",
+    templateCode: language === "python" ? 'print("Hello, Python!")' : `public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, Java!");
+    }
+}`,
     isReported: true,
     rubric: 0,
   }
@@ -106,9 +115,10 @@ export default function LecturerJobsheetEditorPage() {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [goalContent, setGoalContent] = useState<JSONContent>(emptyDoc)
+  const [programmingLanguage, setProgrammingLanguage] = useState<"java" | "python" | "">("")
   const [theoryItems, setTheoryItems] = useState<LecturerTheoryInput[]>([createTheoryItem(1)])
-  const [experiments, setExperiments] = useState<PracticeEditorItem[]>([createExperimentItem(1)])
-  const [exercises, setExercises] = useState<PracticeEditorItem[]>([createExerciseItem(1)])
+  const [experiments, setExperiments] = useState<PracticeEditorItem[]>([])
+  const [exercises, setExercises] = useState<PracticeEditorItem[]>([])
   const [taskInstruction, setTaskInstruction] = useState<JSONContent>(emptyDoc)
   const [taskAdditionalNote, setTaskAdditionalNote] = useState<JSONContent>(emptyDoc)
   const [requireSelfDeclaration, setRequireSelfDeclaration] = useState(false)
@@ -148,6 +158,8 @@ export default function LecturerJobsheetEditorPage() {
                 }
               : emptyDoc,
           )
+          const lang = (selectedJobsheet.programmingLanguage || "java") as "java" | "python"
+          setProgrammingLanguage(lang)
           setTheoryItems(
             selectedJobsheet.theory.length
               ? selectedJobsheet.theory.map((item) => ({
@@ -167,7 +179,7 @@ export default function LecturerJobsheetEditorPage() {
                   isReported: item.isReported,
                   rubric: item.rubric ?? 0,
                 }))
-              : [createExperimentItem(1)],
+              : [createExperimentItem(1, lang)],
           )
           setExercises(
             selectedJobsheet.exercises.length
@@ -179,7 +191,7 @@ export default function LecturerJobsheetEditorPage() {
                   isReported: item.isReported,
                   rubric: item.rubric ?? 0,
                 }))
-              : [createExerciseItem(1)],
+              : [createExerciseItem(1, lang)],
           )
           setTaskInstruction(selectedJobsheet.task.instructionContent ?? emptyDoc)
           setTaskAdditionalNote(selectedJobsheet.task.additionalNoteContent ?? emptyDoc)
@@ -202,6 +214,11 @@ export default function LecturerJobsheetEditorPage() {
 
           setPublishSettings(classSettings)
         } else {
+          const firstClass = nextDataset?.course.classes?.[0]
+          const defaultLang = firstClass?.programmingLanguage || "java"
+          setProgrammingLanguage(defaultLang)
+          setExperiments([createExperimentItem(1, defaultLang)])
+          setExercises([createExerciseItem(1, defaultLang)])
           setPublishSettings(
             (nextDataset?.course.classes ?? []).map((classItem) => ({
               classId: classItem.id,
@@ -233,6 +250,7 @@ export default function LecturerJobsheetEditorPage() {
       title,
       description,
       goal: extractTextContent(goalContent).trim(),
+      programmingLanguage: programmingLanguage || "java",
       theory: theoryItems.map((item, index) => ({
         id: item.id,
         title: item.title || `Subtopik ${index + 1}`,
@@ -346,6 +364,38 @@ export default function LecturerJobsheetEditorPage() {
     }
   }
 
+  const handleLanguageChange = (newLang: "java" | "python") => {
+    if (programmingLanguage && programmingLanguage !== newLang) {
+      const confirm = window.confirm(
+        "Apakah Anda yakin ingin mengubah bahasa pemrograman? Kode template percobaan/latihan yang belum disimpan akan di-reset ke default bahasa baru."
+      )
+      if (!confirm) return
+
+      // Auto-update templates to default code of the new language
+      setExperiments((current) =>
+        current.map((item) => ({
+          ...item,
+          templateCode: newLang === "python" ? 'print("Hello, Python!")' : `public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, Java!");
+    }
+}`,
+        }))
+      )
+      setExercises((current) =>
+        current.map((item) => ({
+          ...item,
+          templateCode: newLang === "python" ? 'print("Hello, Python!")' : `public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, Java!");
+    }
+}`,
+        }))
+      )
+    }
+    setProgrammingLanguage(newLang)
+  }
+
   if (loading) {
     return <TopProgressBar />
   }
@@ -403,6 +453,17 @@ export default function LecturerJobsheetEditorPage() {
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder="Masukkan deskripsi singkat"
               />
+            </FieldRow>
+            <FieldRow label="Bahasa Pemrograman">
+              <select
+                className={inputClass}
+                value={programmingLanguage}
+                onChange={(event) => handleLanguageChange(event.target.value as "java" | "python")}
+              >
+                {programmingLanguage === "" && <option value="">Pilih Bahasa...</option>}
+                <option value="java">Java</option>
+                <option value="python">Python</option>
+              </select>
             </FieldRow>
           </div>
         </LecturerPanel>
@@ -530,17 +591,17 @@ export default function LecturerJobsheetEditorPage() {
                       placeholder="Tulis instruksi percobaan dengan format lengkap..."
                     />
                   </div>
-                  <textarea
-                    className="min-h-28 w-full rounded-md border border-gray-300 p-3 font-mono text-xs"
+                  <LecturerTemplateWorkspace
+                    language={programmingLanguage as "java" | "python" || "java"}
                     value={item.templateCode}
-                    onChange={(event) =>
+                    onChange={(val) =>
                       setExperiments((current) =>
                         current.map((entry, currentIndex) =>
-                          currentIndex === index ? { ...entry, templateCode: event.target.value } : entry,
+                          currentIndex === index ? { ...entry, templateCode: val } : entry,
                         ),
                       )
                     }
-                    placeholder="Template kode awal"
+                    label={`Percobaan ${index + 1}`}
                   />
                 </div>
               </div>
@@ -549,7 +610,7 @@ export default function LecturerJobsheetEditorPage() {
           <div className="mt-4 flex justify-start">
             <LecturerButton
               variant="secondary"
-              onClick={() => setExperiments((current) => [...current, createExperimentItem(current.length + 1)])}
+              onClick={() => setExperiments((current) => [...current, createExperimentItem(current.length + 1, (programmingLanguage || "java") as "java" | "python")])}
             >
               <Plus size={16} />
               Tambah Percobaan
@@ -608,17 +669,17 @@ export default function LecturerJobsheetEditorPage() {
                       placeholder="Tulis instruksi latihan dengan format lengkap..."
                     />
                   </div>
-                  <textarea
-                    className="min-h-28 w-full rounded-md border border-gray-300 p-3 font-mono text-xs"
+                  <LecturerTemplateWorkspace
+                    language={programmingLanguage as "java" | "python" || "java"}
                     value={item.templateCode}
-                    onChange={(event) =>
+                    onChange={(val) =>
                       setExercises((current) =>
                         current.map((entry, currentIndex) =>
-                          currentIndex === index ? { ...entry, templateCode: event.target.value } : entry,
+                          currentIndex === index ? { ...entry, templateCode: val } : entry,
                         ),
                       )
                     }
-                    placeholder="Template kode awal"
+                    label={`Latihan ${index + 1}`}
                   />
                 </div>
               </div>
@@ -627,7 +688,7 @@ export default function LecturerJobsheetEditorPage() {
           <div className="mt-4 flex justify-start">
             <LecturerButton
               variant="secondary"
-              onClick={() => setExercises((current) => [...current, createExerciseItem(current.length + 1)])}
+              onClick={() => setExercises((current) => [...current, createExerciseItem(current.length + 1, (programmingLanguage || "java") as "java" | "python")])}
             >
               <Plus size={16} />
               Tambah Latihan

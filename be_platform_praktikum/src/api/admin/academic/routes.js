@@ -5,6 +5,11 @@ const routes = (handler) => {
   const router = express.Router();
 
   router.get('/admin/academic/semesters', requireRoles('ADMIN'), handler.getSemestersHandler);
+  router.post(
+    '/admin/academic/semesters/advance',
+    requireRoles('ADMIN'),
+    handler.advanceSemesterHandler,
+  );
   router.post('/admin/academic/semesters', requireRoles('ADMIN'), handler.createSemesterHandler);
   router.post(
     '/admin/academic/semesters/:id/activate',

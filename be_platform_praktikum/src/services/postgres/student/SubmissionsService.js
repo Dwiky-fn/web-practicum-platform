@@ -182,10 +182,12 @@ class SubmissionsService {
       jobsheetId,
       courseId,
     );
-    jobsheet.programming_language = await this._getStudentClassProgrammingLanguage(
-      studentId,
-      courseId,
-    );
+    if (!jobsheet.programming_language) {
+      jobsheet.programming_language = await this._getStudentClassProgrammingLanguage(
+        studentId,
+        courseId,
+      );
+    }
 
     const report = this._generateInitialReport(jobsheet);
 
@@ -366,10 +368,12 @@ class SubmissionsService {
         submission.jobsheet_id,
         courseId
       );
-      jobsheet.programming_language = await this._getStudentClassProgrammingLanguage(
-        submission.student_id,
-        courseId,
-      );
+      if (!jobsheet.programming_language) {
+        jobsheet.programming_language = await this._getStudentClassProgrammingLanguage(
+          submission.student_id,
+          courseId,
+        );
+      }
 
       const report = submission.report;
       if (!report.experiments) report.experiments = {};
@@ -469,10 +473,12 @@ class SubmissionsService {
     }
 
     const jobsheet = await this._jobsheetService.getJobsheetFullById(jobsheetId, courseId);
-    jobsheet.programming_language = await this._getStudentClassProgrammingLanguage(
-      studentId,
-      courseId,
-    );
+    if (!jobsheet.programming_language) {
+      jobsheet.programming_language = await this._getStudentClassProgrammingLanguage(
+        studentId,
+        courseId,
+      );
+    }
     if (!jobsheet) {
       throw new Error('Jobsheet tidak ditemukan');
     }

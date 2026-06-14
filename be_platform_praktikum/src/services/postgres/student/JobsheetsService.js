@@ -49,8 +49,8 @@ class JobsheetsService {
         j.goal,
         j.content,
         j.status,
-        MIN(jc.deadline) AS deadline,
-        COALESCE(MAX(cl.programming_language), 'java') AS programming_language
+        j.programming_language,
+        MIN(jc.deadline) AS deadline
       FROM jobsheets j
       LEFT JOIN jobsheet_classes jc ON jc.jobsheet_id = j.id
       LEFT JOIN classes cl ON cl.id = jc.class_id AND ($2::varchar IS NULL OR cl.id = $2)
@@ -128,8 +128,8 @@ class JobsheetsService {
         j.goal,
         j.content,
         j.status,
-        MIN(jc.deadline) AS deadline,
-        COALESCE(MAX(cl.programming_language), 'java') AS programming_language
+        j.programming_language,
+        MIN(jc.deadline) AS deadline
       FROM jobsheets j
       LEFT JOIN jobsheet_classes jc ON jc.jobsheet_id = j.id
       LEFT JOIN classes cl ON cl.id = jc.class_id AND ($3::varchar IS NULL OR cl.id = $3)

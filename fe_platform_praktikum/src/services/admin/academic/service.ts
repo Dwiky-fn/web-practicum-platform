@@ -22,6 +22,24 @@ export const createAdminSemester = async (
   return res.data.semester
 }
 
+export const advanceAdminSemester = async (): Promise<{
+  previous_semester: { academic_year: string; semester: string; name: string }
+  active_semester: AcademicSemester
+}> => {
+  const res = await apiFetch("/admin/academic/semesters/advance", {
+    method: "POST",
+  })
+  return {
+    previous_semester: res.data.previous_semester,
+    active_semester: {
+      id: res.data.active_semester.id,
+      year: res.data.active_semester.academic_year,
+      term: res.data.active_semester.semester as "Ganjil" | "Genap",
+      status: res.data.active_semester.is_active ? "Aktif" : "Nonaktif",
+    },
+  }
+}
+
 export const activateAdminSemester = async (id: string): Promise<void> => {
   await apiFetch(`/admin/academic/semesters/${id}/activate`, {
     method: "POST",

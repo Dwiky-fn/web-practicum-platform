@@ -27,17 +27,34 @@ class ExecutionGatewayService {
   }
 
   _handleRun(message, sendToClient) {
-    const hasFiles = Array.isArray(message.files) && message.files.length > 0;
-    const hasCode = typeof message.code === 'string' && message.code.trim() !== '';
-
-    if (!hasFiles && !hasCode) {
-      throw new Error('Kode program tidak boleh kosong');
+    const language = message.language;
+    if (!language || (language !== 'java' && language !== 'python')) {
+      throw new Error('Bahasa pemrograman tidak didukung');
     }
 
+    const hasFiles = Array.isArray(message.files) && message.files.length > 0;
+    if (!hasFiles) {
+      throw new Error('Files wajib ada dan tidak boleh kosong');
+    }
+
+    if (language === 'java') {
+      const invalidFile = message.files.find(file => !(file.path || file.name || '').endsWith('.java'));
+      if (invalidFile) {
+        throw new Error('Bahasa Java hanya mendukung file dengan ekstensi .java');
+      }
+    } else if (language === 'python') {
+      const invalidFile = message.files.find(file => !(file.path || file.name || '').endsWith('.py'));
+      if (invalidFile) {
+        throw new Error('Bahasa Python hanya mendukung file dengan ekstensi .py');
+      }
+    }
+
+    const hasCode = typeof message.code === 'string' && message.code.trim() !== '';
+
     this._runnerClient.run({
-      language: message.language || 'python',
+      language: message.language,
       code: message.code || '',
-      files: hasFiles ? message.files : undefined,
+      files: message.files,
       mainClass: message.mainClass,
       entryFile: message.entryFile,
     }, {

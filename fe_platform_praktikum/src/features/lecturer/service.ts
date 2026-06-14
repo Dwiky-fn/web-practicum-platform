@@ -95,6 +95,7 @@ export type LecturerJobsheetPayload = {
   theory: LecturerTheoryInput[]
   experiments: LecturerPracticeInput[]
   exercises: LecturerPracticeInput[]
+  programmingLanguage: string
   task: {
     instructionContent: JSONContent
     additionalNoteContent?: JSONContent

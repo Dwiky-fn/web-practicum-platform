@@ -24,6 +24,15 @@ class AcademicHandler {
     }
   }
 
+  async advanceSemesterHandler(req, res) {
+    try {
+      const result = await this._service.advanceSemester();
+      return ok(res, result, 'Semester berikutnya berhasil diaktifkan');
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
+
   async activateSemesterHandler(req, res) {
     try {
       await this._service.activateSemester(req.params.id);

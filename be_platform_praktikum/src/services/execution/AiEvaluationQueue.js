@@ -379,7 +379,7 @@ class AiEvaluationQueue {
     console.log(`[AI Queue] [${submissionId}] Mengambil data submission dan jobsheet dari database...`);
     const submissionRes = await pool.query(
       `SELECT ts.*, j.title as jobsheet_title, j.description as jobsheet_description,
-        j.content as jobsheet_content, co.name AS course_name
+        j.content as jobsheet_content, j.programming_language as jobsheet_language, co.name AS course_name
        FROM task_submissions ts
        JOIN jobsheets j ON j.id = ts.jobsheet_id
        JOIN courses co ON co.id = j.course_id
@@ -410,7 +410,7 @@ class AiEvaluationQueue {
     );
     const lecturerId = classRes.rows[0]?.lecturer_id || 'dosen-1';
     sub.class_id = classRes.rows[0]?.class_id || null;
-    sub.programming_language = classRes.rows[0]?.programming_language || 'java';
+    sub.programming_language = sub.jobsheet_language || classRes.rows[0]?.programming_language || 'java';
     const defaultFileName = sub.programming_language === 'python' ? 'main.py' : 'Main.java';
 
     // Ambil daftar experiments dari database untuk jobsheet ini

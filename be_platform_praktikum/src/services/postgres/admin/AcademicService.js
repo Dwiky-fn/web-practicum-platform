@@ -12,6 +12,12 @@ const activeStudentSemestersByTerm = {
   GENAP: [2, 4, 6],
 };
 
+const createClientError = (message, statusCode = 400) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
+
 class AcademicService {
   constructor() {
     this._pool = pool;
@@ -220,6 +226,97 @@ class AcademicService {
     );
 
     if (duplicate.rows.length) throw new Error('COURSE_DUPLICATE');
+  }
+
+  async advanceSemester() {
+    const client = await this._pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const activeResult = await client.query(
+        'SELECT id, year, semester_type FROM academic_periods WHERE is_active = true LIMIT 1'
+      );
+      const activePeriod = activeResult.rows[0];
+      if (!activePeriod) {
+        throw createClientError('Semester aktif belum tersedia', 400);
+      }
+
+      const currentYear = activePeriod.year;
+      const currentType = activePeriod.semester_type;
+
+      let nextYear = currentYear;
+      let nextType = '';
+
+      if (currentType === 'GANJIL') {
+        nextType = 'GENAP';
+      } else if (currentType === 'GENAP') {
+        nextType = 'GANJIL';
+        const parts = currentYear.split('/');
+        if (parts.length === 2) {
+          const startYear = Number(parts[0]);
+          const endYear = Number(parts[1]);
+          if (!Number.isNaN(startYear) && !Number.isNaN(endYear)) {
+            nextYear = `${startYear + 1}/${endYear + 1}`;
+          } else {
+            throw createClientError('Tahun akademik saat ini tidak valid', 400);
+          }
+        } else {
+          throw createClientError('Format tahun akademik saat ini tidak valid', 400);
+        }
+      } else {
+        throw createClientError('Semester aktif tidak valid', 400);
+      }
+
+      let nextPeriodId = '';
+      const checkResult = await client.query(
+        'SELECT id, year, semester_type, is_active FROM academic_periods WHERE year = $1 AND semester_type = $2 LIMIT 1',
+        [nextYear, nextType]
+      );
+
+      let nextPeriod = checkResult.rows[0];
+      if (!nextPeriod) {
+        nextPeriodId = createId('ap');
+        await client.query(
+          `INSERT INTO academic_periods (id, year, semester_type, is_active)
+           VALUES ($1, $2, $3, $4)`,
+          [nextPeriodId, nextYear, nextType, false]
+        );
+        nextPeriod = {
+          id: nextPeriodId,
+          year: nextYear,
+          semester_type: nextType,
+          is_active: false
+        };
+      } else {
+        nextPeriodId = nextPeriod.id;
+      }
+
+      await client.query('UPDATE academic_periods SET is_active = false');
+      await client.query('UPDATE academic_periods SET is_active = true WHERE id = $1', [nextPeriodId]);
+
+      await client.query('COMMIT');
+
+      return {
+        previous_semester: {
+          academic_year: activePeriod.year,
+          semester: displayTerm(activePeriod.semester_type),
+          name: `${activePeriod.year} - ${displayTerm(activePeriod.semester_type)}`
+        },
+        active_semester: {
+          id: nextPeriodId,
+          academic_year: nextPeriod.year,
+          semester: displayTerm(nextPeriod.semester_type),
+          name: `${nextPeriod.year} - ${displayTerm(nextPeriod.semester_type)}`,
+          is_active: true
+        }
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 

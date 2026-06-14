@@ -75,6 +75,8 @@ export interface ClassTemplate {
   study_program_id?: string
   study_program_name?: string
   semester: number
+  academic_term: "Ganjil" | "Genap"
+  academic_term_value: "GANJIL" | "GENAP"
   academic_period_id: string
   academic_year: string
   jobsheet_count: number
@@ -90,6 +92,8 @@ export interface ClassClonePreview {
     programming_language: "java" | "python"
     programming_language_display_name: "Java" | "Python"
     semester: number
+    academic_term: "Ganjil" | "Genap"
+    academic_term_value: "GANJIL" | "GENAP"
     academic_year: string
   }
   copyable_data: {

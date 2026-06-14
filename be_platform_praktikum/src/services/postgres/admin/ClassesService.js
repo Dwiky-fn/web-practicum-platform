@@ -42,6 +42,12 @@ const resolveProgrammingLanguage = (value, fallback = 'java') => {
   return normalized;
 };
 
+const createClientError = (message, statusCode = 400) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
+
 class ClassesService {
   constructor() {
     this._pool = pool;
@@ -241,6 +247,17 @@ class ClassesService {
 
   async getClassTemplates(filters = {}) {
     const keyword = `%${(filters.keyword || '').toLowerCase()}%`;
+    const params = [keyword];
+    let semesterClause = '';
+
+    if (filters.semester) {
+      const term = normalizeAcademicTerm(filters.semester);
+      if (term) {
+        params.push(term);
+        semesterClause = `AND ap.semester_type = $${params.length}`;
+      }
+    }
+
     const result = await this._pool.query(
       `
       SELECT cl.id, cl.name, cl.programming_language,
@@ -267,10 +284,11 @@ class ClassesService {
         LIMIT 1
       ) tsp ON true
       WHERE ($1 = '%%' OR LOWER(cl.name) LIKE $1 OR LOWER(c.name) LIKE $1 OR LOWER(u.fullname) LIKE $1)
+        ${semesterClause}
       GROUP BY cl.id, c.id, u.id, ap.id, tsp.study_program_id, tsp.study_program_name
       ORDER BY ap.year DESC, ap.semester_type ASC, c.name ASC, cl.name ASC
       `,
-      [keyword],
+      params,
     );
 
     return result.rows.map((row) => ({
@@ -287,6 +305,8 @@ class ClassesService {
       study_program_id: row.study_program_id,
       study_program_name: row.study_program_name,
       semester: row.student_semester,
+      academic_term: displayTerm(row.semester_type),
+      academic_term_value: row.semester_type,
       academic_period_id: row.academic_period_id,
       academic_year: `${row.year} - ${displayTerm(row.semester_type)}`,
       jobsheet_count: row.jobsheet_count,
@@ -326,6 +346,8 @@ class ClassesService {
           ? 'Python'
           : 'Java',
         semester: row.semester,
+        academic_term: displayTerm(row.semester_type),
+        academic_term_value: row.semester_type,
         academic_year: `${row.year} - ${displayTerm(row.semester_type)}`,
       },
       copyable_data: {
@@ -352,26 +374,26 @@ class ClassesService {
   async _resolveAcademicPeriod(client, payload) {
     const academicPeriodId = payload.academicPeriodId || payload.academic_period_id;
     if (academicPeriodId) {
-      const result = await client.query('SELECT id FROM academic_periods WHERE id = $1 LIMIT 1', [
+      const result = await client.query('SELECT id, year, semester_type FROM academic_periods WHERE id = $1 LIMIT 1', [
         academicPeriodId,
       ]);
       if (!result.rows.length) throw new Error('CLONE_ACADEMIC_PERIOD_NOT_FOUND');
-      return result.rows[0].id;
+      return result.rows[0];
     }
 
     if (payload.academic_year && payload.semester) {
       const term = normalizeAcademicTerm(payload.semester);
       const result = await client.query(
-        'SELECT id FROM academic_periods WHERE year = $1 AND semester_type = $2 LIMIT 1',
+        'SELECT id, year, semester_type FROM academic_periods WHERE year = $1 AND semester_type = $2 LIMIT 1',
         [payload.academic_year, term],
       );
       if (!result.rows.length) throw new Error('CLONE_ACADEMIC_PERIOD_NOT_FOUND');
-      return result.rows[0].id;
+      return result.rows[0];
     }
 
-    const active = await client.query('SELECT id FROM academic_periods WHERE is_active = true LIMIT 1');
+    const active = await client.query('SELECT id, year, semester_type FROM academic_periods WHERE is_active = true LIMIT 1');
     if (!active.rows.length) throw new Error('ACTIVE_SEMESTER_NOT_FOUND');
-    return active.rows[0].id;
+    return active.rows[0];
   }
 
   async _cloneJobsheetsToClass(client, sourceClassId, targetClassId) {
@@ -584,9 +606,10 @@ class ClassesService {
 
       const sourceResult = await client.query(
         `
-        SELECT cl.*, c.semester AS course_semester
+        SELECT cl.*, c.semester AS course_semester, ap.semester_type AS source_semester_type
         FROM classes cl
         JOIN courses c ON c.id = cl.course_id
+        JOIN academic_periods ap ON ap.id = cl.academic_period_id
         WHERE cl.id = $1
         LIMIT 1
         `,
@@ -595,12 +618,37 @@ class ClassesService {
       if (!sourceResult.rows.length) throw new Error('CLONE_SOURCE_CLASS_NOT_FOUND');
 
       const sourceClass = sourceResult.rows[0];
-      const academicPeriodId = await this._resolveAcademicPeriod(client, payload);
+      const targetAcademicPeriod = await this._resolveAcademicPeriod(client, payload);
+      const academicPeriodId = targetAcademicPeriod.id;
       const newClassId = createId('kelas');
       const lecturerId = payload.lecturer_id || sourceClass.lecturer_id;
       const programmingLanguage = resolveProgrammingLanguage(
         payload.programming_language || sourceClass.programming_language,
       );
+      const sourceTerm = sourceClass.source_semester_type;
+      const targetTerm = targetAcademicPeriod.semester_type;
+
+      if (targetTerm !== sourceTerm) {
+        throw createClientError(
+          `Kelas semester ${displayTerm(sourceTerm)} tidak dapat digunakan sebagai template untuk semester ${displayTerm(targetTerm)}`,
+        );
+      }
+
+      const requestedTerm = payload.semester ? normalizeAcademicTerm(payload.semester) : sourceTerm;
+      if (requestedTerm && requestedTerm !== sourceTerm) {
+        throw createClientError(
+          `Kelas semester ${displayTerm(sourceTerm)} tidak dapat digunakan sebagai template untuk semester ${displayTerm(requestedTerm)}`,
+        );
+      }
+
+      if (
+        payload.copy_jobsheets &&
+        programmingLanguage !== normalizeProgrammingLanguage(sourceClass.programming_language)
+      ) {
+        throw createClientError(
+          'Bahasa pemrograman harus sama dengan kelas sumber jika jobsheet ikut disalin',
+        );
+      }
 
       await this.ensureCourseAvailableForClass(sourceClass.course_id, client, academicPeriodId);
       await this.ensureClassUnique({

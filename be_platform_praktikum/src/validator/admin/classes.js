@@ -6,7 +6,7 @@ const cloneClassPayloadSchema = Joi.object({
   academic_period_id: Joi.string().allow('', null),
   academicPeriodId: Joi.string().allow('', null),
   academic_year: Joi.string().trim().allow('', null),
-  semester: Joi.alternatives().try(Joi.string(), Joi.number()).allow('', null),
+  semester: Joi.string().valid('Ganjil', 'Genap', 'ganjil', 'genap', 'GANJIL', 'GENAP').allow('', null),
   study_program_id: Joi.when('auto_enroll_students', {
     is: true,
     then: Joi.string().required(),
@@ -24,6 +24,12 @@ const cloneClassPayloadSchema = Joi.object({
   auto_enroll_students: Joi.boolean().default(false),
 });
 
+const getClassTemplatesQuerySchema = Joi.object({
+  semester: Joi.string().valid('Ganjil', 'Genap', 'ganjil', 'genap', 'GANJIL', 'GENAP').required(),
+  keyword: Joi.string().allow('', null),
+});
+
 module.exports = {
   validateCloneClassPayload: (payload) => cloneClassPayloadSchema.validate(payload),
+  validateGetClassTemplatesQuery: (query) => getClassTemplatesQuerySchema.validate(query),
 };

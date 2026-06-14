@@ -133,7 +133,7 @@ export function AdminTable({
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-200">
-      <table className="w-full min-w-[720px] border-collapse bg-white text-sm">
+      <table className="w-full min-w-180 border-collapse bg-white text-sm">
         <thead>
           <tr className="bg-blue-50 text-left text-gray-800">
             {headers.map((header) => (
@@ -174,7 +174,7 @@ export function EmptyState({
   action?: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-[360px] flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white px-6 text-center">
+    <div className="flex min-h-90 flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white px-6 text-center">
       <p className="text-lg font-medium text-gray-700">{title}</p>
       {action && <div className="mt-4">{action}</div>}
     </div>
@@ -211,7 +211,7 @@ export function AdminModal({
         onClick={onClose}
         aria-label="Tutup modal"
       />
-      <div className="relative flex max-h-[90vh] w-full max-w-[760px] flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+      <div className="relative flex max-h-[90vh] w-full max-w-190 flex-col overflow-hidden rounded-lg bg-white shadow-xl">
         <div className="sticky top-0 z-10 border-b border-gray-200 bg-white px-5 py-4">
           <h2 className="text-center text-xl font-semibold text-gray-900">{title}</h2>
           {description && (

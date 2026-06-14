@@ -29,8 +29,10 @@ export const createAdminClass = async (
   return res.data.class
 }
 
-export const getAdminClassTemplates = async (): Promise<ClassTemplate[]> => {
-  const res = await apiFetch("/admin/classes/templates")
+export const getAdminClassTemplates = async (
+  filters: { semester?: string } = {},
+): Promise<ClassTemplate[]> => {
+  const res = await apiFetch(`/admin/classes/templates${queryString(filters)}`)
   return res.data.classes
 }
 

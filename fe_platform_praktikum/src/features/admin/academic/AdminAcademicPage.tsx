@@ -151,6 +151,7 @@ export default function AdminAcademicPage() {
   const [templateClasses, setTemplateClasses] = useState<ClassTemplate[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(false)
   const [cloneConfirmed, setCloneConfirmed] = useState(false)
+  const [targetSemester, setTargetSemester] = useState<"Ganjil" | "Genap" | "">("")
   const [semesters, setSemesters] = useState<AcademicSemester[]>([])
   const [courses, setCourses] = useState<AcademicCourse[]>([])
   const [classes, setClasses] = useState<AcademicClass[]>([])
@@ -281,12 +282,13 @@ export default function AdminAcademicPage() {
   }, [activeSemesterTerm])
 
   useEffect(() => {
-    if (!activeSemester?.id) return
+    if (!activeSemester) return
     setCloneClassForm((form) => ({
       ...form,
       academicPeriodId: form.academicPeriodId || activeSemester.id,
     }))
-  }, [activeSemester?.id])
+    setTargetSemester((prev) => prev || activeSemester.term || "")
+  }, [activeSemester])
 
   const studentSemesterOptions = useMemo(
     () => getStudentSemesterOptions(activeSemesterTerm),
@@ -310,6 +312,18 @@ export default function AdminAcademicPage() {
     () => semesters.find((semester) => semester.id === cloneClassForm.academicPeriodId),
     [cloneClassForm.academicPeriodId, semesters],
   )
+  const cloneSemesterOptions = useMemo(
+    () => targetSemester
+      ? semesters.filter((semester) => semester.term === targetSemester)
+      : semesters,
+    [targetSemester, semesters],
+  )
+  const hasSemesterMismatch = useMemo(() => {
+    if (!selectedTemplateClass || !selectedCloneSemester) return false
+    if (selectedCloneSemester.term !== selectedTemplateClass.academic_term) return true
+    if (clonePreview && clonePreview.source_class.academic_term !== selectedCloneSemester.term) return true
+    return false
+  }, [selectedTemplateClass, selectedCloneSemester, clonePreview])
   const buildCloneClassName = useCallback((
     template?: ClassTemplate,
     rombel = "",
@@ -317,9 +331,11 @@ export default function AdminAcademicPage() {
   ) => {
     if (!template) return rombel
 
+    const cleanRombel = (rombel || template.name || "").replace(/^Kelas\s+/i, "")
+
     return [
       template.course_name,
-      rombel || template.name,
+      cleanRombel,
       semester ? `${semester.year} - ${semester.term}` : "",
     ].filter(Boolean).join(" - ")
   }, [])
@@ -328,6 +344,7 @@ export default function AdminAcademicPage() {
     !cloneClassForm.sourceClassId ||
     !cloneClassForm.name.trim() ||
     !cloneClassForm.academicPeriodId ||
+    hasSemesterMismatch ||
     !cloneClassForm.lecturerId ||
     !cloneConfirmed ||
     (
@@ -380,6 +397,7 @@ export default function AdminAcademicPage() {
     setCloneDepartmentId("")
     setClonePreview(null)
     setCloneConfirmed(false)
+    setTargetSemester(activeSemester?.term || "")
   }
 
   const handleSemesterSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -476,11 +494,12 @@ export default function AdminAcademicPage() {
     }
   }
 
-  const fetchTemplateClasses = useCallback(async () => {
+  const fetchTemplateClasses = useCallback(async (semesterVal?: string) => {
     try {
       setTemplatesLoading(true)
       setError("")
-      const data = await getAdminClassTemplates()
+      const filter = semesterVal ? { semester: semesterVal } : {}
+      const data = await getAdminClassTemplates(filter)
       setTemplateClasses(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat daftar kelas template")
@@ -490,10 +509,28 @@ export default function AdminAcademicPage() {
   }, [])
 
   useEffect(() => {
-    if (modal === "class" && classCreationMode === "template" && !templateClasses.length) {
-      fetchTemplateClasses()
+    if (modal === "class" && classCreationMode === "template" && targetSemester) {
+      setCloneClassForm((form) => {
+        const currentPeriod = semesters.find((s) => s.id === form.academicPeriodId)
+        const isCompatible = currentPeriod?.term === targetSemester
+        const nextPeriod = isCompatible
+          ? currentPeriod
+          : (
+            semesters.find((s) => s.status === "Aktif" && s.term === targetSemester) ||
+            semesters.find((s) => s.term === targetSemester)
+          )
+        return {
+          ...form,
+          sourceClassId: "",
+          academicPeriodId: nextPeriod?.id || "",
+        }
+      })
+      setClonePreview(null)
+      setCloneConfirmed(false)
+
+      fetchTemplateClasses(targetSemester)
     }
-  }, [classCreationMode, fetchTemplateClasses, modal, templateClasses.length])
+  }, [classCreationMode, fetchTemplateClasses, modal, targetSemester, semesters])
 
   const handleTemplateClassChange = async (classId: string) => {
     const template = templateClasses.find((item) => item.id === classId)
@@ -501,14 +538,16 @@ export default function AdminAcademicPage() {
       dept.studyPrograms.some((program) => program.id === template?.study_program_id),
     )
 
+    const cleanRombel = template?.name?.replace(/^Kelas\s+/i, "") || ""
+
     setCloneClassForm((form) => ({
       ...form,
       sourceClassId: classId,
-      name: buildCloneClassName(template, template?.name || form.className, selectedCloneSemester) || form.name,
+      name: buildCloneClassName(template, cleanRombel || form.className, selectedCloneSemester) || form.name,
       lecturerId: template?.lecturer_id || form.lecturerId,
       programmingLanguage: template?.programming_language || "java",
       studyProgramId: template?.study_program_id || form.studyProgramId,
-      className: template?.name || form.className,
+      className: cleanRombel || form.className,
     }))
     setCloneDepartmentId(department?.id || "")
     setClonePreview(null)
@@ -1087,52 +1126,6 @@ export default function AdminAcademicPage() {
             </form>
           ) : (
             <form id="admin-class-clone-form" className="space-y-3" onSubmit={handleCloneClassSubmit}>
-              <FieldRow label="Kelas Sumber">
-                <select
-                  className={`${inputClass} w-full`}
-                  value={cloneClassForm.sourceClassId}
-                  onChange={(event) => handleTemplateClassChange(event.target.value)}
-                  required
-                >
-                  <option value="" disabled>{templatesLoading ? "Memuat template..." : "Pilih kelas sumber"}</option>
-                  {templateClasses.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.course_name} - {item.name} - {item.academic_year}
-                    </option>
-                  ))}
-                </select>
-              </FieldRow>
-              <FieldRow label="Kelas/Rombel">
-                <select
-                  className={`${inputClass} w-full`}
-                  value={cloneClassForm.className}
-                  onChange={(event) => {
-                    const rombel = event.target.value
-                    setCloneClassForm((form) => ({
-                      ...form,
-                      className: rombel,
-                      name: buildCloneClassName(selectedTemplateClass, rombel, selectedCloneSemester),
-                    }))
-                  }}
-                  required
-                >
-                  <option value="" disabled>Pilih kelas</option>
-                  <option>A</option>
-                  <option>B</option>
-                  <option>C</option>
-                  <option>D</option>
-                  <option>E</option>
-                </select>
-              </FieldRow>
-              <FieldRow label="Nama Kelas Baru">
-                <input
-                  className={`${inputClass} w-full`}
-                  value={cloneClassForm.name}
-                  onChange={(event) => setCloneClassForm((form) => ({ ...form, name: event.target.value }))}
-                  placeholder="Nama kelas lengkap"
-                  required
-                />
-              </FieldRow>
               <FieldRow label="Tahun Akademik">
                 <select
                   className={`${inputClass} w-full`}
@@ -1149,156 +1142,269 @@ export default function AdminAcademicPage() {
                   required
                 >
                   <option value="" disabled>Pilih tahun akademik</option>
-                  {semesters.map((semester) => (
+                  {cloneSemesterOptions.map((semester) => (
                     <option key={semester.id} value={semester.id}>{semester.year} - {semester.term}</option>
                   ))}
                 </select>
               </FieldRow>
-              <FieldRow label="Dosen Pengampu">
+
+              <FieldRow label="Semester Target">
                 <select
                   className={`${inputClass} w-full`}
-                  value={cloneClassForm.lecturerId}
-                  onChange={(event) => setCloneClassForm((form) => ({ ...form, lecturerId: event.target.value }))}
+                  value={targetSemester}
+                  onChange={(event) => setTargetSemester(event.target.value as "Ganjil" | "Genap")}
                   required
                 >
-                  <option value="" disabled>Pilih dosen pengampu</option>
-                  {lecturers.map((lecturer) => <option key={lecturer.id} value={lecturer.id}>{lecturer.fullname}</option>)}
+                  <option value="" disabled>Pilih semester target</option>
+                  <option value="Ganjil">Ganjil</option>
+                  <option value="Genap">Genap</option>
                 </select>
               </FieldRow>
-              <FieldRow label="Bahasa Pemrograman">
+
+              <FieldRow label="Kelas Sumber">
                 <select
                   className={`${inputClass} w-full`}
-                  value={cloneClassForm.programmingLanguage}
-                  onChange={(event) => setCloneClassForm((form) => ({
-                    ...form,
-                    programmingLanguage: event.target.value as "java" | "python",
-                  }))}
+                  value={cloneClassForm.sourceClassId}
+                  onChange={(event) => handleTemplateClassChange(event.target.value)}
                   required
+                  disabled={!targetSemester || templatesLoading}
                 >
-                  <option value="java">Java</option>
-                  <option value="python">Python</option>
+                  <option value="" disabled>
+                    {templatesLoading
+                      ? "Memuat template..."
+                      : !targetSemester
+                      ? "Pilih semester target terlebih dahulu"
+                      : templateClasses.length === 0
+                      ? `Tidak ada kelas semester ${targetSemester} yang tersedia sebagai template.`
+                      : `Pilih kelas sumber semester ${targetSemester}`}
+                  </option>
+                  {templateClasses.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.course_name} - {item.name} - {item.academic_year}
+                    </option>
+                  ))}
                 </select>
               </FieldRow>
-              <FieldRow label="Jurusan">
-                <select
-                  className={`${inputClass} w-full`}
-                  value={cloneDepartmentId}
-                  onChange={(event) => {
-                    setCloneDepartmentId(event.target.value)
-                    setCloneClassForm((form) => ({ ...form, studyProgramId: "" }))
-                  }}
-                  required={cloneClassForm.autoEnrollStudents}
-                >
-                  <option value="" disabled>Pilih jurusan</option>
-                  {departments.map((dept) => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
-                </select>
-              </FieldRow>
-              <FieldRow label="Program Studi">
-                <select
-                  className={`${inputClass} w-full`}
-                  value={cloneClassForm.studyProgramId}
-                  onChange={(event) => setCloneClassForm((form) => ({ ...form, studyProgramId: event.target.value }))}
-                  required={cloneClassForm.autoEnrollStudents}
-                  disabled={!cloneDepartmentId}
-                >
-                  <option value="" disabled>{cloneDepartmentId ? "Pilih program studi" : "Pilih jurusan terlebih dahulu"}</option>
-                  {cloneStudyProgramOptions.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
-                </select>
-              </FieldRow>
-              <FieldRow label="Angkatan">
-                <input
-                  className={`${inputClass} w-full`}
-                  value={cloneClassForm.generation}
-                  onChange={(event) => setCloneClassForm((form) => ({ ...form, generation: event.target.value }))}
-                  placeholder="2026"
-                  required={cloneClassForm.autoEnrollStudents}
-                />
-              </FieldRow>
-              <FieldRow label="Opsi Duplikasi">
-                <div className="grid gap-2">
-                  <label className="flex items-start gap-3 rounded-md border border-gray-200 bg-white p-3">
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={cloneClassForm.copyJobsheets}
-                      onChange={(event) => setCloneClassForm((form) => ({ ...form, copyJobsheets: event.target.checked }))}
-                    />
-                    <span>
-                      <span className="block font-semibold text-gray-800">Salin jobsheet dari kelas sumber</span>
-                      <span className="block text-xs font-normal text-gray-500">Jobsheet dan struktur praktikum akan disalin ke kelas baru.</span>
-                    </span>
-                  </label>
-                  <label className="flex items-start gap-3 rounded-md border border-gray-200 bg-white p-3">
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={cloneClassForm.autoEnrollStudents}
-                      onChange={(event) => setCloneClassForm((form) => ({ ...form, autoEnrollStudents: event.target.checked }))}
-                    />
-                    <span>
-                      <span className="block font-semibold text-gray-800">Masukkan mahasiswa otomatis</span>
-                      <span className="block text-xs font-normal text-gray-500">Mahasiswa diambil berdasarkan program studi, angkatan, dan rombel.</span>
-                    </span>
-                  </label>
-                </div>
-              </FieldRow>
-              {templatesLoading && (
-                <div className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
-                  Memuat data template...
+
+              {targetSemester && templateClasses.length === 0 && !templatesLoading && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                  Belum ada kelas semester {targetSemester} yang bisa digunakan sebagai template. Silakan pilih semester lain atau buat kelas secara manual.
                 </div>
               )}
-              {clonePreview && (
-                <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
-                  <p className="font-semibold text-gray-900">Preview Duplikasi</p>
-                  <div className="mt-3 grid gap-3 md:grid-cols-2">
-                    <div className="rounded-md bg-white p-3">
-                      <p className="text-xs font-semibold uppercase text-gray-500">Kelas Sumber</p>
-                      <p className="mt-1 font-semibold text-gray-900">{clonePreview.source_class.course_name} - {clonePreview.source_class.name}</p>
-                      <p className="text-xs text-gray-500">{clonePreview.source_class.academic_year}</p>
-                      <p className="mt-1 text-xs text-gray-500">Bahasa: {clonePreview.source_class.programming_language_display_name}</p>
-                    </div>
-                    <div className="rounded-md bg-white p-3">
-                      <p className="text-xs font-semibold uppercase text-gray-500">Kelas Baru</p>
-                      <p className="mt-1 font-semibold text-gray-900">{cloneClassForm.name || "-"}</p>
-                      <p className="text-xs text-gray-500">
-                        {selectedCloneSemester ? `${selectedCloneSemester.year} - ${selectedCloneSemester.term}` : "-"}
-                      </p>
-                      <p className="mt-1 text-xs text-gray-500">
-                        Bahasa: {cloneClassForm.programmingLanguage === "python" ? "Python" : "Java"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid gap-3 md:grid-cols-2">
-                    <div className="rounded-md bg-white p-3">
-                      <p className="font-semibold text-gray-900">Yang akan disalin</p>
-                      <ul className="mt-2 space-y-1 text-xs">
-                        <li>Mata kuliah</li>
-                        <li>Dosen pengampu</li>
-                        <li>Pengaturan praktikum</li>
-                        <li>Jobsheet: {cloneClassForm.copyJobsheets ? clonePreview.copyable_data.jobsheets : 0}</li>
-                      </ul>
-                    </div>
-                    <div className="rounded-md bg-white p-3">
-                      <p className="font-semibold text-gray-900">Yang tidak disalin</p>
-                      <ul className="mt-2 space-y-1 text-xs">
-                        <li>Mahasiswa kelas lama</li>
-                        <li>Submission, nilai, feedback</li>
-                        <li>Progress mahasiswa</li>
-                        <li>Riwayat eksekusi kode</li>
-                      </ul>
-                    </div>
-                  </div>
-                  <label className="mt-3 flex items-start gap-2 border-t border-gray-200 pt-3 text-xs">
+
+              {selectedTemplateClass && (
+                <>
+                  <FieldRow label="Mata Kuliah">
                     <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={cloneConfirmed}
-                      onChange={(event) => setCloneConfirmed(event.target.checked)}
+                      className={`${inputClass} w-full bg-gray-50 text-gray-700`}
+                      value={selectedTemplateClass.course_name}
+                      disabled
+                      readOnly
+                    />
+                  </FieldRow>
+                  <FieldRow label="Semester">
+                    <div>
+                      <input
+                        className={`${inputClass} w-full bg-gray-50 text-gray-700`}
+                        value={selectedTemplateClass.academic_term}
+                        disabled
+                        readOnly
+                      />
+                      <p className="mt-1 text-xs font-normal text-gray-500">
+                        Semester mengikuti kelas sumber agar struktur praktikum tetap sesuai.
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-blue-600">
+                        Semester kelas baru dikunci ke {selectedTemplateClass.academic_term} karena mengikuti kelas sumber.
+                      </p>
+                    </div>
+                  </FieldRow>
+                  <FieldRow label="Kelas/Rombel">
+                    <select
+                      className={`${inputClass} w-full`}
+                      value={cloneClassForm.className}
+                      onChange={(event) => {
+                        const rombel = event.target.value
+                        setCloneClassForm((form) => ({
+                          ...form,
+                          className: rombel,
+                          name: buildCloneClassName(selectedTemplateClass, rombel, selectedCloneSemester),
+                        }))
+                      }}
+                      required
+                    >
+                      <option value="" disabled>Pilih kelas</option>
+                      <option>A</option>
+                      <option>B</option>
+                      <option>C</option>
+                      <option>D</option>
+                      <option>E</option>
+                    </select>
+                  </FieldRow>
+                  <FieldRow label="Nama Kelas Baru">
+                    <input
+                      className={`${inputClass} w-full`}
+                      value={cloneClassForm.name}
+                      onChange={(event) => setCloneClassForm((form) => ({ ...form, name: event.target.value }))}
+                      placeholder="Nama kelas lengkap"
                       required
                     />
-                    <span>Saya sudah memeriksa preview dan memahami bahwa aktivitas mahasiswa lama tidak akan disalin.</span>
-                  </label>
-                </div>
+                  </FieldRow>
+                  <FieldRow label="Dosen Pengampu">
+                    <select
+                      className={`${inputClass} w-full`}
+                      value={cloneClassForm.lecturerId}
+                      onChange={(event) => setCloneClassForm((form) => ({ ...form, lecturerId: event.target.value }))}
+                      required
+                    >
+                      <option value="" disabled>Pilih dosen pengampu</option>
+                      {lecturers.map((lecturer) => <option key={lecturer.id} value={lecturer.id}>{lecturer.fullname}</option>)}
+                    </select>
+                  </FieldRow>
+                  <FieldRow label="Jurusan">
+                    <select
+                      className={`${inputClass} w-full`}
+                      value={cloneDepartmentId}
+                      onChange={(event) => {
+                        setCloneDepartmentId(event.target.value)
+                        setCloneClassForm((form) => ({ ...form, studyProgramId: "" }))
+                      }}
+                      required={cloneClassForm.autoEnrollStudents}
+                    >
+                      <option value="" disabled>Pilih jurusan</option>
+                      {departments.map((dept) => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
+                    </select>
+                  </FieldRow>
+                  <FieldRow label="Program Studi">
+                    <select
+                      className={`${inputClass} w-full`}
+                      value={cloneClassForm.studyProgramId}
+                      onChange={(event) => setCloneClassForm((form) => ({ ...form, studyProgramId: event.target.value }))}
+                      required={cloneClassForm.autoEnrollStudents}
+                      disabled={!cloneDepartmentId}
+                    >
+                      <option value="" disabled>{cloneDepartmentId ? "Pilih program studi" : "Pilih jurusan terlebih dahulu"}</option>
+                      {cloneStudyProgramOptions.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
+                    </select>
+                  </FieldRow>
+                  <FieldRow label="Angkatan">
+                    <input
+                      className={`${inputClass} w-full`}
+                      value={cloneClassForm.generation}
+                      onChange={(event) => setCloneClassForm((form) => ({ ...form, generation: event.target.value }))}
+                      placeholder="2026"
+                      required={cloneClassForm.autoEnrollStudents}
+                    />
+                  </FieldRow>
+                  <FieldRow label="Bahasa Pemrograman">
+                    <div>
+                      <select
+                        className={`${inputClass} w-full ${cloneClassForm.copyJobsheets ? "bg-gray-50 text-gray-700" : ""}`}
+                        value={cloneClassForm.programmingLanguage}
+                        onChange={(event) => setCloneClassForm((form) => ({
+                          ...form,
+                          programmingLanguage: event.target.value as "java" | "python",
+                        }))}
+                        disabled={cloneClassForm.copyJobsheets}
+                        required
+                      >
+                        <option value="java">Java</option>
+                        <option value="python">Python</option>
+                      </select>
+                      {cloneClassForm.copyJobsheets && (
+                        <p className="mt-1 text-xs font-normal text-gray-500">
+                          Bahasa pemrograman mengikuti kelas sumber saat jobsheet ikut disalin.
+                        </p>
+                      )}
+                    </div>
+                  </FieldRow>
+                  <FieldRow label="Opsi Duplikasi">
+                    <div className="grid gap-2">
+                      <label className="flex items-start gap-3 rounded-md border border-gray-200 bg-white p-3">
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={cloneClassForm.copyJobsheets}
+                          onChange={(event) => setCloneClassForm((form) => ({ ...form, copyJobsheets: event.target.checked }))}
+                        />
+                        <span>
+                          <span className="block font-semibold text-gray-800">Salin jobsheet dari kelas sumber</span>
+                          <span className="block text-xs font-normal text-gray-500">Jobsheet dan struktur praktikum akan disalin ke kelas baru.</span>
+                        </span>
+                      </label>
+                      <label className="flex items-start gap-3 rounded-md border border-gray-200 bg-white p-3">
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={cloneClassForm.autoEnrollStudents}
+                          onChange={(event) => setCloneClassForm((form) => ({ ...form, autoEnrollStudents: event.target.checked }))}
+                        />
+                        <span>
+                          <span className="block font-semibold text-gray-800">Masukkan mahasiswa otomatis</span>
+                          <span className="block text-xs font-normal text-gray-500">Mahasiswa diambil berdasarkan program studi, angkatan, dan rombel.</span>
+                        </span>
+                      </label>
+                    </div>
+                  </FieldRow>
+
+                  {hasSemesterMismatch && (
+                    <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 font-medium">
+                      Kelas dari semester {selectedTemplateClass?.academic_term || (clonePreview && clonePreview.source_class.academic_term)} tidak dapat diduplikasi ke semester {selectedCloneSemester?.term}.
+                    </div>
+                  )}
+                  {clonePreview && !hasSemesterMismatch && (
+                    <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+                      <p className="font-semibold text-gray-900">Preview Duplikasi</p>
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <div className="rounded-md bg-white p-3">
+                          <p className="text-xs font-semibold uppercase text-gray-500">Kelas Sumber</p>
+                          <p className="mt-1 font-semibold text-gray-900">{clonePreview.source_class.course_name} - {clonePreview.source_class.name}</p>
+                          <p className="text-xs text-gray-500">{clonePreview.source_class.academic_year}</p>
+                          <p className="mt-1 text-xs text-gray-500">Bahasa: {clonePreview.source_class.programming_language_display_name}</p>
+                        </div>
+                        <div className="rounded-md bg-white p-3">
+                          <p className="text-xs font-semibold uppercase text-gray-500">Kelas Baru</p>
+                          <p className="mt-1 font-semibold text-gray-900">{cloneClassForm.name || "-"}</p>
+                          <p className="text-xs text-gray-500">
+                            {selectedCloneSemester ? `${selectedCloneSemester.year} - ${selectedCloneSemester.term}` : "-"}
+                          </p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            Bahasa: {cloneClassForm.programmingLanguage === "python" ? "Python" : "Java"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <div className="rounded-md bg-white p-3">
+                          <p className="font-semibold text-gray-900">Yang akan disalin</p>
+                          <ul className="mt-2 space-y-1 text-xs">
+                            <li>Mata kuliah</li>
+                            <li>Dosen pengampu</li>
+                            <li>Pengaturan praktikum</li>
+                            <li>Jobsheet: {cloneClassForm.copyJobsheets ? clonePreview.copyable_data.jobsheets : 0}</li>
+                          </ul>
+                        </div>
+                        <div className="rounded-md bg-white p-3">
+                          <p className="font-semibold text-gray-900">Yang tidak disalin</p>
+                          <ul className="mt-2 space-y-1 text-xs">
+                            <li>Mahasiswa kelas lama</li>
+                            <li>Submission, nilai, feedback</li>
+                            <li>Progress mahasiswa</li>
+                            <li>Riwayat eksekusi kode</li>
+                          </ul>
+                        </div>
+                      </div>
+                      <label className="mt-3 flex items-start gap-2 border-t border-gray-200 pt-3 text-xs">
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={cloneConfirmed}
+                          onChange={(event) => setCloneConfirmed(event.target.checked)}
+                          required
+                        />
+                        <span>Saya sudah memeriksa preview dan memahami bahwa aktivitas mahasiswa lama tidak akan disalin.</span>
+                      </label>
+                    </div>
+                  )}
+                </>
               )}
             </form>
           )}

@@ -7,6 +7,13 @@ function created(res, data, message) {
 }
 
 function handleAdminError(error, res) {
+  if (error.statusCode) {
+    return res.status(error.statusCode).json({
+      status: 'fail',
+      message: error.message,
+    });
+  }
+
   const errors = {
     USER_NOT_FOUND: [404, 'User tidak ditemukan'],
     USER_DUPLICATE: [409, 'Email, NIM, atau NIP sudah digunakan'],

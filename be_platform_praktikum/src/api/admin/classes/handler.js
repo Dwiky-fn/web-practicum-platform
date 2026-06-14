@@ -32,7 +32,14 @@ class ClassesHandler {
 
   async getClassTemplatesHandler(req, res) {
     try {
-      const classes = await this._service.getClassTemplates(req.query);
+      const validation = ClassesValidator.validateGetClassTemplatesQuery(req.query);
+      if (validation.error) {
+        return res.status(400).json({
+          status: 'fail',
+          message: validation.error.message,
+        });
+      }
+      const classes = await this._service.getClassTemplates(validation.value);
       return ok(res, { classes });
     } catch (error) {
       return handleAdminError(error, res);

@@ -6,6 +6,7 @@ import WorkFooterNav from "./components/WorkFooterNav"
 import WorkSidebar from "./components/sidebar/WorkSidebar"
 import TopProgressBar from "../../../../components/loading/TopProgressBar"
 import NotFoundPage from "../../../not-found/NotFoundPage"
+import ScrollToTopButton from "../../../../components/ScrollToTopButton"
 
 export default function WorkPage() {
   const { courseId, jobsheetId } = useParams()
@@ -125,6 +126,7 @@ export default function WorkPage() {
         savedProgress={savedProgress}
         completedItems={completedItems}
       />
+      <ScrollToTopButton targetRef={scrollContainerRef} />
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Play, RotateCcw, Save, Square } from "lucide-re
 import CodeEditorPanel from "../../../../../../../components/code-editor/CodeEditorPanel"
 import AnalysisEditor from "./workSpace/AnalysisEditor"
 import { ExecutionClient } from "../../../../../../../services/execution/executionClient"
+import Editor from "@monaco-editor/react"
 
 interface Props {
   title: string
@@ -23,6 +24,7 @@ interface Props {
   }[]
   onRun?: () => void
   onSave?: () => void
+  editorMode?: string
 }
 
 type BottomPanelTab = "terminal" | "analysis"
@@ -73,6 +75,7 @@ export default function InstructionWorkspaceCard({
   initialSteps,
   onRun,
   onSave,
+  editorMode = "mini_ide",
 }: Props) {
   const defaultFileName = getDefaultFileName(language)
   const totalSteps = Math.max(instructions.length, initialSteps?.length || 0, 1)
@@ -348,6 +351,70 @@ export default function InstructionWorkspaceCard({
     if (nextActiveFile) setActiveFile(nextActiveFile)
   }, [activeIndex])
 
+  const handleSimpleAddFile = () => {
+    const filename = window.prompt("Masukkan nama file baru:")
+    if (!filename) return
+    const trimmed = filename.trim()
+    if (!trimmed) return
+
+    const ext = language === "python" ? ".py" : ".java"
+    if (!trimmed.endsWith(ext)) {
+      alert(`Bahasa ${language === "python" ? "Python" : "Java"} hanya mendukung file berekstensi ${ext}`)
+      return
+    }
+
+    const currentFiles = codeMap[activeIndex] || {}
+    if (currentFiles[trimmed] !== undefined) {
+      alert("File dengan nama tersebut sudah ada!")
+      return
+    }
+
+    const nextFiles = { ...currentFiles, [trimmed]: "" }
+    handleFilesChange(nextFiles, trimmed)
+  }
+
+  const handleSimpleRenameFile = () => {
+    const newName = window.prompt(`Rename file ${activeFile} menjadi:`, activeFile)
+    if (!newName) return
+    const trimmed = newName.trim()
+    if (!trimmed || trimmed === activeFile) return
+
+    const ext = language === "python" ? ".py" : ".java"
+    if (!trimmed.endsWith(ext)) {
+      alert(`Bahasa ${language === "python" ? "Python" : "Java"} hanya mendukung file berekstensi ${ext}`)
+      return
+    }
+
+    const currentFiles = codeMap[activeIndex] || {}
+    if (currentFiles[trimmed] !== undefined) {
+      alert("File dengan nama tersebut sudah ada!")
+      return
+    }
+
+    const nextFiles = { ...currentFiles }
+    const code = nextFiles[activeFile]
+    delete nextFiles[activeFile]
+    nextFiles[trimmed] = code
+
+    handleFilesChange(nextFiles, trimmed)
+  }
+
+  const handleSimpleDeleteFile = () => {
+    const currentFiles = codeMap[activeIndex] || {}
+    if (Object.keys(currentFiles).length <= 1) {
+      alert("Minimal harus ada satu file pada template kode.")
+      return
+    }
+    const confirm = window.confirm(`Apakah Anda yakin ingin menghapus file ${activeFile}?`)
+    if (!confirm) return
+
+    const nextFiles = { ...currentFiles }
+    delete nextFiles[activeFile]
+
+    const remaining = Object.keys(nextFiles)
+    handleFilesChange(nextFiles, remaining[0])
+  }
+
   const handleBottomPanelResize = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault()
     const containerHeight = codingBodyRef.current?.clientHeight || 720
@@ -460,9 +527,81 @@ export default function InstructionWorkspaceCard({
             </div>
 
             <div ref={codingBodyRef} className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="min-h-0 flex-1">
-                <CodeEditorPanel key={`${activeIndex}-${editorVersionMap[activeIndex] || 0}`} {...codeEditorProps} />
-              </div>
+              {editorMode === "simple" ? (
+                <div className="flex flex-col h-full bg-[#1e1e1e] overflow-hidden">
+                  {/* File bar */}
+                  <div className="flex shrink-0 items-center justify-between border-b border-[#2d2d2d] bg-[#252526] px-3 py-1.5 gap-2 select-none">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-400 font-semibold">
+                      <span>File:</span>
+                      <select
+                        value={activeFile}
+                        onChange={(e) => setActiveFile(e.target.value)}
+                        className="bg-[#2d2d2d] text-white text-xs rounded border border-[#3c3c3c] px-2 py-0.5 outline-none font-mono"
+                      >
+                        {Object.keys(codeMap[activeIndex] || {}).map((filename) => (
+                          <option key={filename} value={filename}>{filename}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={handleSimpleAddFile}
+                        className="rounded bg-[#2d2d2d] border border-[#3c3c3c] hover:bg-[#3c3c3c] hover:text-white text-gray-300 px-2 py-0.5 text-[11px] font-semibold"
+                      >
+                        + Tambah File
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSimpleRenameFile}
+                        className="rounded bg-[#2d2d2d] border border-[#3c3c3c] hover:bg-[#3c3c3c] hover:text-white text-gray-300 px-2 py-0.5 text-[11px] font-semibold"
+                      >
+                        Rename
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSimpleDeleteFile}
+                        disabled={Object.keys(codeMap[activeIndex] || {}).length <= 1}
+                        className="rounded bg-[#2d2d2d] border border-[#3c3c3c] hover:bg-[#3c3c3c] hover:text-white text-gray-300 px-2 py-0.5 text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Simple Editor */}
+                  <div className="flex-1 min-h-0 relative">
+                    <Editor
+                      height="100%"
+                      language={language}
+                      path={`student-${label}-${language}-${activeIndex}-${activeFile}`}
+                      value={(codeMap[activeIndex] || {})[activeFile] ?? ""}
+                      theme="vs-dark"
+                      onChange={(val) => {
+                        setIsDirty(true)
+                        setCodeMap(prev => ({
+                          ...prev,
+                          [activeIndex]: {
+                            ...(prev[activeIndex] || {}),
+                            [activeFile]: val || "",
+                          },
+                        }))
+                      }}
+                      options={{
+                        fontSize: 13,
+                        minimap: { enabled: false },
+                        scrollBeyondLastLine: false,
+                        wordWrap: "on",
+                        padding: { top: 8, bottom: 8 },
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="min-h-0 flex-1">
+                  <CodeEditorPanel key={`${activeIndex}-${editorVersionMap[activeIndex] || 0}`} {...codeEditorProps} />
+                </div>
+              )}
               <div
                 className="min-h-9 max-h-[45%] shrink-0 overflow-hidden border-t border-[#2b2b2b] bg-[#1e1e1e]"
                 style={{ height: isBottomPanelExpanded ? `${bottomPanelHeight}px` : "40px" }}

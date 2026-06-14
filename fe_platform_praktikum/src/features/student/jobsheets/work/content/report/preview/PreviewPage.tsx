@@ -16,6 +16,7 @@ import TopProgressBar from "../../../../../../../components/loading/TopProgressB
 import { CheckCircle } from "lucide-react"
 import { buildReport } from "../../../../../../../services/submission/buildReport"
 import { useCurrentUser } from "../../../../../../../services/user/useCurrentUser"
+import ScrollToTopButton from "../../../../../../../components/ScrollToTopButton"
 
 export default function PreviewPage() {
 
@@ -229,6 +230,7 @@ export default function PreviewPage() {
       </div>
 
     </div>
+    <ScrollToTopButton />
   </>
 )
 }

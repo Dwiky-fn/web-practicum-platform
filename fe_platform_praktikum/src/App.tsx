@@ -31,7 +31,6 @@ import LecturerJobsheetEditorPage from "./features/lecturer/pages/LecturerJobshe
 import LecturerJobsheetDetailPage from "./features/lecturer/pages/LecturerJobsheetDetailPage"
 import LecturerMonitoringPage from "./features/lecturer/pages/LecturerMonitoringPage"
 import LecturerReviewPage from "./features/lecturer/pages/LecturerReviewPage"
-import ScrollToTopButton from "./components/ScrollToTopButton"
 
 function AppContent() {
   const { user, loading } = useCurrentUser()
@@ -169,7 +168,6 @@ export default function App() {
     <CurrentUserProvider>
       <TopProgressBar />
       <AppContent />
-      <ScrollToTopButton />
     </CurrentUserProvider>
   )
 }

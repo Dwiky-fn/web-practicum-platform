@@ -10,6 +10,7 @@ import TopProgressBar from "../../../../../../../components/loading/TopProgressB
 import ConclusionEditor from "../components/ConclusionEditor"
 import { useCurrentUser } from "../../../../../../../services/user/useCurrentUser"
 import Navbar from "../../../../../../../components/navbar/Navbar"
+import ScrollToTopButton from "../../../../../../../components/ScrollToTopButton"
 import ReviewSummaryBanner from "./components/ReviewSummaryBanner"
 import StudentReviewPanel from "./components/StudentReviewPanel"
 import ExperimentReviewCard from "../../../../../../lecturer/components/review/ExperimentReviewCard"
@@ -296,6 +297,7 @@ export default function ReviewPage() {
           </div>
         </div>
       </div>
+      <ScrollToTopButton />
     </div>
   )
 }

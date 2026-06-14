@@ -32,6 +32,13 @@ export type LecturerJobsheetStatus =
   | "Arsip"
   | "Selesai"
 
+export type LecturerJobsheetSummaryClassSetting = {
+  classId: string
+  className: string
+  isActive: boolean
+  deadline: string
+}
+
 export type LecturerJobsheetSummary = {
   id: string
   classJobsheetId: string
@@ -43,6 +50,7 @@ export type LecturerJobsheetSummary = {
   usedIn: string[]
   submitted: number
   total: number
+  classSettings: LecturerJobsheetSummaryClassSetting[]
 }
 
 export type LecturerSubmissionMatrixItem = {
@@ -248,10 +256,21 @@ export function buildLecturerJobsheetSummaries(
   students: AdminStudent[],
   matrix: LecturerSubmissionMatrixItem[],
   className?: string,
+  classId?: string,
 ): LecturerJobsheetSummary[] {
   return jobsheets.map((jobsheet, index) => {
     const related = matrix.filter((item) => item.jobsheet.id === jobsheet.id)
     const submitted = related.filter((item) => isSubmittedSubmission(item.submission)).length
+
+    const isActive = jobsheet.status === "Aktif"
+    const deadlineVal = jobsheet.deadline && jobsheet.deadline !== "-" ? jobsheet.deadline : ""
+
+    const setting: LecturerJobsheetSummaryClassSetting = {
+      classId: classId || "",
+      className: className || "",
+      isActive,
+      deadline: deadlineVal,
+    }
 
     return {
       id: jobsheet.id,
@@ -261,9 +280,10 @@ export function buildLecturerJobsheetSummaries(
       title: jobsheet.title,
       status: toLecturerJobsheetStatus(jobsheet.status),
       deadline: jobsheet.deadline,
-      usedIn: className ? [className] : [],
+      usedIn: className && isActive ? [className] : [],
       submitted,
       total: students.length,
+      classSettings: [setting],
     }
   })
 }
@@ -293,12 +313,14 @@ export async function getLecturerCourseDataset(
       classDetail.students,
       matrix,
       classDetail.name,
+      classDetail.id,
     )
 
     for (const summary of summaries) {
       const current = jobsheetMap.get(summary.id)
 
       if (current) {
+        current.classSettings = [...current.classSettings, ...summary.classSettings]
         current.usedIn = Array.from(new Set([...current.usedIn, ...summary.usedIn]))
         current.submitted += summary.submitted
         current.total += summary.total

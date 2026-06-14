@@ -42,8 +42,8 @@ class JobsheetsService {
   }
 
   async getJobsheetsByCourse(courseId, classId = null) {
-    const jobsheetsRes = await this._pool.query(
-      `SELECT
+    let query = `
+      SELECT
         j.id,
         j.course_id,
         j.title,
@@ -55,13 +55,27 @@ class JobsheetsService {
         j.editor_mode,
         MIN(jc.deadline) AS deadline
       FROM jobsheets j
-      LEFT JOIN jobsheet_classes jc ON jc.jobsheet_id = j.id
-      LEFT JOIN classes cl ON cl.id = jc.class_id AND ($2::varchar IS NULL OR cl.id = $2)
+    `;
+    const params = [courseId];
+
+    if (classId) {
+      query += `
+        INNER JOIN jobsheet_classes jc ON jc.jobsheet_id = j.id AND jc.class_id = $2 AND jc.is_active = true AND jc.status = 'PUBLISHED'
+      `;
+      params.push(classId);
+    } else {
+      query += `
+        LEFT JOIN jobsheet_classes jc ON jc.jobsheet_id = j.id AND jc.is_active = true
+      `;
+    }
+
+    query += `
       WHERE j.course_id = $1
       GROUP BY j.id
-      ORDER BY MIN(jc.deadline) ASC NULLS LAST, j.id ASC`,
-      [courseId, classId],
-    );
+      ORDER BY MIN(jc.deadline) ASC NULLS LAST, j.id ASC
+    `;
+
+    const jobsheetsRes = await this._pool.query(query, params);
 
     const jobsheetIds = jobsheetsRes.rows.map((jobsheet) => jobsheet.id);
 
@@ -122,8 +136,8 @@ class JobsheetsService {
   }
 
   async getJobsheetFullById(jobsheetId, courseId, classId = null) {
-    const jobsheetRes = await this._pool.query(
-      `SELECT
+    let query = `
+      SELECT
         j.id,
         j.course_id,
         j.title,
@@ -135,12 +149,26 @@ class JobsheetsService {
         j.editor_mode,
         MIN(jc.deadline) AS deadline
       FROM jobsheets j
-      LEFT JOIN jobsheet_classes jc ON jc.jobsheet_id = j.id
-      LEFT JOIN classes cl ON cl.id = jc.class_id AND ($3::varchar IS NULL OR cl.id = $3)
+    `;
+    const params = [jobsheetId, courseId];
+
+    if (classId) {
+      query += `
+        INNER JOIN jobsheet_classes jc ON jc.jobsheet_id = j.id AND jc.class_id = $3 AND jc.is_active = true AND jc.status = 'PUBLISHED'
+      `;
+      params.push(classId);
+    } else {
+      query += `
+        LEFT JOIN jobsheet_classes jc ON jc.jobsheet_id = j.id AND jc.is_active = true
+      `;
+    }
+
+    query += `
       WHERE j.id = $1 AND j.course_id = $2
-      GROUP BY j.id`,
-      [jobsheetId, courseId, classId],
-    );
+      GROUP BY j.id
+    `;
+
+    const jobsheetRes = await this._pool.query(query, params);
 
     if (!jobsheetRes.rows.length) {
       throw new Error('Jobsheet tidak ditemukan');

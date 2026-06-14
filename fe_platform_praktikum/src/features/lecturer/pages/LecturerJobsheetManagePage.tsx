@@ -36,6 +36,58 @@ function toDatetimeLocal(value: string | undefined) {
   return local.toISOString().slice(0, 16)
 }
 
+function renderUsedIn(jobsheet: LecturerJobsheetSummary) {
+  const activeSettings = jobsheet.classSettings?.filter((s) => s.isActive) || []
+  if (activeSettings.length === 0) {
+    return "Belum digunakan di kelas mana pun"
+  }
+  const sortedClassNames = [...activeSettings]
+    .sort((a, b) => a.className.localeCompare(b.className, "id-ID", { numeric: true, sensitivity: "base" }))
+    .map((s) => `Kelas ${s.className}`)
+  return `Digunakan di: ${sortedClassNames.join(", ")}`
+}
+
+function renderDeadline(jobsheet: LecturerJobsheetSummary) {
+  const activeSettings = jobsheet.classSettings?.filter((s) => s.isActive) || []
+  
+  if (activeSettings.length === 0) {
+    return <p className="text-sm text-gray-700">Deadline: Belum diatur</p>
+  }
+
+  const settingsWithDeadline = activeSettings.filter((s) => s.deadline && s.deadline !== "-")
+
+  if (settingsWithDeadline.length === 0) {
+    return <p className="text-sm text-gray-700">Deadline: Belum diatur</p>
+  }
+
+  const firstDeadline = settingsWithDeadline[0].deadline
+  const allSame = settingsWithDeadline.every((s) => s.deadline === firstDeadline) && settingsWithDeadline.length === activeSettings.length
+
+  if (allSame) {
+    return <p className="text-sm text-gray-700">Deadline: {firstDeadline}</p>
+  }
+
+  const sortedSettings = [...activeSettings].sort((a, b) =>
+    a.className.localeCompare(b.className, "id-ID", { numeric: true, sensitivity: "base" })
+  )
+
+  return (
+    <div className="text-sm text-gray-700">
+      <span>Deadline:</span>
+      <ul className="ml-4 mt-1 list-disc space-y-0.5">
+        {sortedSettings.map((s) => {
+          const deadlineText = s.deadline && s.deadline !== "-" ? s.deadline : "Belum diatur"
+          return (
+            <li key={s.classId}>
+              Kelas {s.className}: {deadlineText}
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
 export default function LecturerJobsheetManagePage() {
   const navigate = useNavigate()
   const { user } = useCurrentUser()
@@ -82,12 +134,18 @@ export default function LecturerJobsheetManagePage() {
     if (!publishTarget || !dataset) return
 
     setPublishSettings(
-      dataset.course.classes.map((item) => ({
-        classId: item.id,
-        className: item.name,
-        isActive: publishTarget.usedIn.includes(item.name),
-        deadline: toDatetimeLocal(publishTarget.deadline),
-      })),
+      dataset.course.classes.map((item) => {
+        const existing = publishTarget.classSettings?.find(
+          (setting) => setting.classId === item.id,
+        )
+
+        return {
+          classId: item.id,
+          className: item.name,
+          isActive: existing ? existing.isActive : false,
+          deadline: existing?.deadline ? toDatetimeLocal(existing.deadline) : "",
+        }
+      }),
     )
   }, [dataset, publishTarget])
 
@@ -192,10 +250,10 @@ export default function LecturerJobsheetManagePage() {
                   </h2>
                   <p className="mt-2 text-sm text-gray-700">Status: {jobsheet.status}</p>
                   <p className="text-sm text-gray-700">
-                    Digunakan di: {jobsheet.usedIn.length ? [...jobsheet.usedIn].sort((left, right) => left.localeCompare(right, "id-ID", { numeric: true, sensitivity: "base" })).map((item) => `Kelas ${item}`).join(", ") : "-"}
+                    {renderUsedIn(jobsheet)}
                   </p>
                   <p className="text-sm text-gray-700">Submit: {jobsheet.submitted}/{jobsheet.total} mahasiswa</p>
-                  <p className="text-sm text-gray-700">Deadline: {jobsheet.deadline}</p>
+                  {renderDeadline(jobsheet)}
                   <div className="mt-5 flex flex-wrap gap-3">
                     <LecturerButton variant="secondary" onClick={() => navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}/edit`)}>
                       Edit
@@ -236,7 +294,9 @@ export default function LecturerJobsheetManagePage() {
                       onChange={() =>
                         setPublishSettings((current) =>
                           current.map((entry, currentIndex) =>
-                            currentIndex === index ? { ...entry, isActive: !entry.isActive } : entry,
+                            currentIndex === index
+                              ? { ...entry, isActive: !entry.isActive, deadline: !entry.isActive ? entry.deadline : "" }
+                              : entry,
                           ),
                         )
                       }
@@ -252,6 +312,7 @@ export default function LecturerJobsheetManagePage() {
                     key={item.classId}
                     type="datetime-local"
                     value={item.deadline}
+                    disabled={!item.isActive}
                     onChange={(event) =>
                       setPublishSettings((current) =>
                         current.map((entry, currentIndex) =>
@@ -259,7 +320,7 @@ export default function LecturerJobsheetManagePage() {
                         ),
                       )
                     }
-                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm"
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm disabled:bg-gray-100 disabled:text-gray-400"
                     aria-label={`Deadline kelas ${item.className}`}
                   />
                 ))}

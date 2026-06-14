@@ -914,7 +914,7 @@ class ClassesService {
       `
       SELECT jc.id, jc.jobsheet_id, jc.title, jc.deadline, jc.status
       FROM jobsheet_classes jc
-      WHERE jc.class_id = $1
+      WHERE jc.class_id = $1 AND jc.is_active = true
       ORDER BY jc.deadline ASC NULLS LAST, jc.title ASC
       `,
       [classId],

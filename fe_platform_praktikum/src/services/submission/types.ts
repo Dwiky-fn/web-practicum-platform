@@ -35,6 +35,8 @@ export interface JobsheetSubmission {
   score?: number
   aiEvaluationStatus?: string
   aiEvaluationError?: string
+  aiEvaluationStartedAt?: string
+  aiEvaluationFinishedAt?: string
 
   report: {
     experiments?: Record<string, {

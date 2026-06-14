@@ -45,7 +45,13 @@ async function evaluateSubmission(payload) {
     experimentId: payload.experiment?.id || null,
     scope: payload.scope,
     durationMs: Date.now() - startedAt,
-    feedbackCount: result.codeFeedbacks?.length || result.experimentEvaluations?.length || 0,
+    sectionFeedbackCount: countSectionFeedbacks(result),
+    commentCount: countComments(result),
+    codeFeedbackCount: countCodeFeedbacks(result),
+    rubricScoreCount: result.rubricScores?.length || 0,
+    totalScoreRecommendation: result.totalScoreRecommendation || 0,
+    totalMaxScore: result.totalMaxScore || 0,
+    finalGradeRecommendation: result.finalGradeRecommendation || 0,
   });
 
   return result;
@@ -72,19 +78,27 @@ async function evaluateJobsheetFull(payload) {
       const expResult = await evaluateExperiment(expPayload);
       
       experimentEvaluations.push({
-        experimentId: exp.id,
+        experimentId: getCanonicalExperimentId(exp),
+        step: exp.step || null,
         status: 'completed',
-        codeFeedbacks: expResult.codeFeedbacks || [],
+        codeFeedbacks: addSectionMetadataToCodeFeedbacks(
+          expResult.codeFeedbacks || [],
+          getCanonicalExperimentId(exp),
+          exp.step || null,
+        ),
         feedback: expResult.experimentFeedback,
         rubricScores: expResult.rubricScores || [],
-        totalScoreRecommendation: expResult.totalScoreRecommendation || 0
+        totalScoreRecommendation: expResult.totalScoreRecommendation || 0,
+        totalMaxScore: expResult.totalMaxScore || 0,
+        finalGradeRecommendation: expResult.finalGradeRecommendation || 0
       });
       successfulResultsCount += 1;
     } catch (err) {
       console.error(`[AI Service] Gagal mengevaluasi percobaan ${exp.id}:`, err);
       overallSuccess = false;
       experimentEvaluations.push({
-        experimentId: exp.id,
+        experimentId: getCanonicalExperimentId(exp),
+        step: exp.step || null,
         status: 'failed',
         error: err.message || 'Gagal mengevaluasi percobaan'
       });
@@ -142,7 +156,7 @@ async function evaluateJobsheetFull(payload) {
     .filter(item => item.status === 'completed')
     .map(item => ({
       experimentId: item.experimentId,
-      title: payload.experiments.find(e => e.id === item.experimentId)?.title || 'Percobaan',
+      title: payload.experiments.find(e => getCanonicalExperimentId(e) === item.experimentId && (e.step || null) === (item.step || null))?.title || 'Percobaan',
       summary: item.feedback.summary || '',
       strengths: item.feedback.strengths || [],
       issues: item.feedback.issues || [],
@@ -161,6 +175,16 @@ async function evaluateJobsheetFull(payload) {
       suggestions: item.feedback.suggestions || [],
       rubricScores: item.rubricScores
     }));
+
+  if (process.env.AI_REVIEW_MODE === 'fast') {
+    return buildJobsheetSummaryFromSectionResults({
+      submissionId: payload.submissionId,
+      jobsheetId: payload.jobsheet.id,
+      experimentEvaluations,
+      exerciseEvaluations,
+      overallSuccess,
+    });
+  }
 
   // Panggil model untuk menghasilkan feedback keseluruhan jobsheet
   const jobsheetSummaryPayload = {
@@ -188,6 +212,8 @@ async function evaluateJobsheetFull(payload) {
     jobsheetFeedback: jobsheetModelResult.jobsheetFeedback,
     rubricScores: jobsheetModelResult.rubricScores || [],
     totalScoreRecommendation: jobsheetModelResult.totalScoreRecommendation || 0,
+    totalMaxScore: jobsheetModelResult.totalMaxScore || 0,
+    finalGradeRecommendation: jobsheetModelResult.finalGradeRecommendation || 0,
     source: 'ai',
     status: 'draft',
     requiresLecturerReview: true
@@ -275,10 +301,24 @@ async function requestValidModelResult(payload) {
   });
 }
 
-function calculateTotalScore(rubricScores = []) {
-  return rubricScores.reduce((total, item) => {
+function calculateScoreSummary(rubricScores = []) {
+  const totalScoreRecommendation = rubricScores.reduce((total, item) => {
     return total + Number(item.score || 0);
   }, 0);
+
+  const totalMaxScore = rubricScores.reduce((total, item) => {
+    return total + Number(item.maxScore || 0);
+  }, 0);
+
+  const finalGradeRecommendation = totalMaxScore > 0
+    ? Math.round((totalScoreRecommendation / totalMaxScore) * 100)
+    : 0;
+
+  return {
+    totalScoreRecommendation,
+    totalMaxScore,
+    finalGradeRecommendation: Math.min(100, Math.max(0, finalGradeRecommendation)),
+  };
 }
 
 function normalizeEvaluationResult(result) {
@@ -286,9 +326,11 @@ function normalizeEvaluationResult(result) {
     ? result.rubricScores
     : [];
 
+  const scoreSummary = calculateScoreSummary(rubricScores);
+
   return {
     ...result,
-    totalScoreRecommendation: calculateTotalScore(rubricScores),
+    ...scoreSummary,
     source: 'ai',
     status: 'draft',
     requiresLecturerReview: true,
@@ -385,7 +427,7 @@ function validateResultAgainstPayload(result, payload) {
 
   if (
     payload.scope === 'experiment'
-    && result.experimentId !== payload.experiment.id
+    && !getValidExperimentResponseIds(payload.experiment).has(result.experimentId)
   ) {
     errors.push(
       domainError('experimentId', 'experimentId response tidak sesuai request'),
@@ -446,6 +488,16 @@ function validateResultAgainstPayload(result, payload) {
         );
       }
     });
+
+    result.codeFeedbacks = result.codeFeedbacks.map((feedback) => ({
+      ...feedback,
+      experimentId: payload.scope === 'experiment'
+        ? getCanonicalExperimentId(payload.experiment)
+        : feedback.experimentId,
+      step: payload.scope === 'experiment'
+        ? payload.experiment.step || feedback.step
+        : feedback.step,
+    }));
   }
 
   const criteria = new Map(
@@ -561,10 +613,13 @@ function sanitizeEvaluationResult(result, originalPayload) {
     const file = filesById.get(feedback.fileId);
     const lineCount = file ? String(file.content).split(/\r?\n/).length : 0;
     const samePath = file && file.path === feedback.filePath;
+    const lineOffset = Number(file?._lineOffset) || 0;
+    const firstLine = lineOffset + 1;
+    const lastLine = lineOffset + lineCount;
     const validRange =
-      feedback.startLine >= 1
+      feedback.startLine >= firstLine
       && feedback.endLine >= feedback.startLine
-      && feedback.endLine <= lineCount;
+      && feedback.endLine <= lastLine;
 
     if (!file || !samePath || !validRange) {
       logger.warn('Invalid code feedback discarded', {
@@ -580,7 +635,7 @@ function sanitizeEvaluationResult(result, originalPayload) {
 
     const expectedSelectedCode = String(file.content)
       .split(/\r?\n/)
-      .slice(feedback.startLine - 1, feedback.endLine)
+      .slice(feedback.startLine - firstLine, feedback.endLine - firstLine + 1)
       .join('\n');
 
     if (
@@ -599,12 +654,24 @@ function sanitizeEvaluationResult(result, originalPayload) {
 
     validFeedbacks.push({
       ...feedback,
+      experimentId: originalPayload.scope === 'experiment'
+        ? getCanonicalExperimentId(targetObj)
+        : feedback.experimentId,
+      step: originalPayload.scope === 'experiment'
+        ? targetObj.step || feedback.step
+        : feedback.step,
       selectedCode: expectedSelectedCode,
     });
   });
 
   return {
     ...result,
+    ...(originalPayload.scope === 'experiment'
+      ? {
+          experimentId: getCanonicalExperimentId(targetObj),
+          ...(targetObj.step ? { step: targetObj.step } : {}),
+        }
+      : {}),
     codeFeedbacks: deduplicateCodeFeedbacks(validFeedbacks),
   };
 }
@@ -714,6 +781,7 @@ function mergeExerciseResults(results, payload) {
       (total, item) => total + item.score,
       0,
     ),
+    ...calculateScoreSummary(rubricScores),
     source: 'ai',
     status: 'draft',
     requiresLecturerReview: true,
@@ -784,7 +852,7 @@ function mergeExperimentResults(results, payload) {
   return {
     scope: 'experiment',
     submissionId: payload.submissionId,
-    experimentId: payload.experiment.id,
+    experimentId: getCanonicalExperimentId(payload.experiment),
     codeFeedbacks: results.flatMap((item) => item.codeFeedbacks),
     experimentFeedback,
     rubricScores,
@@ -792,6 +860,7 @@ function mergeExperimentResults(results, payload) {
       (total, item) => total + item.score,
       0,
     ),
+    ...calculateScoreSummary(rubricScores),
     source: 'ai',
     status: 'draft',
     requiresLecturerReview: true,
@@ -869,6 +938,131 @@ function normalizeNewlines(value) {
   return String(value).replace(/\r\n/g, '\n');
 }
 
+function getCanonicalExperimentId(experiment = {}) {
+  return experiment.experimentId || experiment.id;
+}
+
+function getValidExperimentResponseIds(experiment = {}) {
+  return new Set([
+    experiment.id,
+    experiment.experimentId,
+  ].filter(Boolean));
+}
+
+function addSectionMetadataToCodeFeedbacks(feedbacks, experimentId, step) {
+  return feedbacks.map((feedback) => ({
+    ...feedback,
+    experimentId,
+    step: step || feedback.step,
+  }));
+}
+
+function countSectionFeedbacks(result) {
+  if (Array.isArray(result.experimentEvaluations) || Array.isArray(result.exerciseEvaluations)) {
+    return [
+      ...(result.experimentEvaluations || []),
+      ...(result.exerciseEvaluations || []),
+    ].filter((item) => item.feedback || item.status === 'completed').length;
+  }
+
+  if (result.experimentFeedback || result.exerciseFeedback || result.jobsheetFeedback) {
+    return 1;
+  }
+
+  return 0;
+}
+
+function countComments(result) {
+  return Array.isArray(result.comments) ? result.comments.length : 0;
+}
+
+function countCodeFeedbacks(result) {
+  if (Array.isArray(result.codeFeedbacks)) {
+    return result.codeFeedbacks.length;
+  }
+
+  return [
+    ...(result.experimentEvaluations || []),
+    ...(result.exerciseEvaluations || []),
+  ].reduce((total, item) => total + (item.codeFeedbacks?.length || 0), 0);
+}
+
+function buildJobsheetSummaryFromSectionResults({
+  submissionId,
+  jobsheetId,
+  experimentEvaluations,
+  exerciseEvaluations,
+  overallSuccess,
+}) {
+  const completedExperiments = experimentEvaluations.filter((item) => item.status === 'completed');
+  const completedExercises = exerciseEvaluations.filter((item) => item.status === 'completed');
+  const failedSections = [
+    ...experimentEvaluations,
+    ...exerciseEvaluations,
+  ].filter((item) => item.status === 'failed');
+  const rubricScores = [
+    ...completedExperiments.flatMap((item) => item.rubricScores || []),
+    ...completedExercises.flatMap((item) => item.rubricScores || []),
+  ];
+  const scoreSummary = calculateScoreSummary(rubricScores);
+
+  const experimentAttention = completedExperiments.flatMap((item) => {
+    const issues = item.feedback?.issues || [];
+    return issues.map((issue) => ({
+      experimentId: item.experimentId,
+      reason: `${item.step ? `[Langkah ${item.step}] ` : ''}${issue}`,
+    }));
+  });
+
+  const exerciseAttention = completedExercises.flatMap((item) => {
+    const issues = item.feedback?.issues || [];
+    return issues.map((issue) => ({
+      exerciseId: item.exerciseId,
+      reason: issue,
+    }));
+  });
+
+  return {
+    scope: 'jobsheet',
+    submissionId,
+    jobsheetId,
+    evaluationStatus: overallSuccess ? 'completed' : 'partially_failed',
+    experimentEvaluations,
+    exerciseEvaluations,
+    jobsheetFeedback: {
+      summary: failedSections.length > 0
+        ? 'Evaluasi jobsheet selesai sebagian. Beberapa bagian gagal dievaluasi otomatis.'
+        : 'Evaluasi jobsheet selesai berdasarkan hasil evaluasi percobaan dan latihan.',
+      overallUnderstanding: uniqueStrings([
+        ...completedExperiments.map((item) => item.feedback?.summary),
+        ...completedExercises.map((item) => item.feedback?.summary),
+      ]).join('\n\n'),
+      strengths: uniqueStrings([
+        ...completedExperiments.flatMap((item) => item.feedback?.strengths || []),
+        ...completedExercises.flatMap((item) => item.feedback?.strengths || []),
+      ]),
+      issues: uniqueStrings([
+        ...completedExperiments.flatMap((item) => item.feedback?.issues || []),
+        ...completedExercises.flatMap((item) => item.feedback?.issues || []),
+        ...failedSections.map((item) => item.error),
+      ]),
+      consistencyEvaluation: 'Mode cepat menyusun evaluasi keseluruhan dari hasil per percobaan dan latihan tanpa panggilan model tambahan.',
+      conclusionEvaluation: 'Kesimpulan mahasiswa dinilai pada evaluasi per bagian yang tersedia.',
+      experimentsNeedingAttention: experimentAttention,
+      exercisesNeedingAttention: exerciseAttention,
+      learningSuggestions: uniqueStrings([
+        ...completedExperiments.flatMap((item) => item.feedback?.suggestions || []),
+        ...completedExercises.flatMap((item) => item.feedback?.suggestions || []),
+      ]),
+    },
+    rubricScores,
+    ...scoreSummary,
+    source: 'ai',
+    status: 'draft',
+    requiresLecturerReview: true,
+  };
+}
+
 module.exports = {
   evaluateSubmission,
   evaluateExercise,
@@ -879,4 +1073,6 @@ module.exports = {
   mergeExperimentResults,
   mergeExerciseResults,
   deduplicateCodeFeedbacks,
+  calculateScoreSummary,
+  buildJobsheetSummaryFromSectionResults,
 };

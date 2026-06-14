@@ -35,5 +35,12 @@ module.exports = (handler) => {
     (req, res) => handler.postRetryAiHandler(req, res),
   );
 
+  router.delete(
+    '/lecturer/submissions/:submissionId/ai-feedback',
+    requireAuth,
+    requireRoles('DOSEN'),
+    (req, res) => handler.deleteAiFeedbackHandler(req, res),
+  );
+
   return router;
 };

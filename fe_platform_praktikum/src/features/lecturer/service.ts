@@ -390,6 +390,13 @@ export async function retryAiReview(submissionId: string): Promise<any> {
   return response.data
 }
 
+export async function deleteAiFeedback(submissionId: string): Promise<any> {
+  const response = await apiFetch(`/lecturer/submissions/${submissionId}/ai-feedback`, {
+    method: "DELETE",
+  })
+  return response.data
+}
+
 export function getStudentReportCount(
   studentId: string,
   matrix: LecturerSubmissionMatrixItem[],

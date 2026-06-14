@@ -3,6 +3,7 @@ function buildJobsheetPrompt(payload) {
     submissionId: payload.submissionId,
     jobsheet: payload.jobsheet,
     experimentResults: payload.experimentResults,
+    exerciseResults: payload.exerciseResults || [],
     studentConclusion: payload.studentConclusion,
     rubric: payload.rubric,
     options: payload.options,

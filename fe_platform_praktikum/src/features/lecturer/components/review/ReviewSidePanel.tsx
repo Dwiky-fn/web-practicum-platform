@@ -30,6 +30,11 @@ interface Props {
   submissionId: string
   readOnly?: boolean
   aiScore?: number
+  aiScoreSummary?: {
+    totalScoreRecommendation?: number
+    totalMaxScore?: number
+    finalGradeRecommendation?: number
+  }
 }
 
 export default function ReviewSidePanel({
@@ -43,7 +48,6 @@ export default function ReviewSidePanel({
   onCreateFeedback,
   onUpdateFeedback,
   onDeleteFeedback,
-  onPublishMultipleFeedbacks,
 
   activeExperimentId,
   onSetActiveExperimentId,
@@ -56,6 +60,7 @@ export default function ReviewSidePanel({
   submissionId,
   readOnly = false,
   aiScore,
+  aiScoreSummary,
 }: Props) {
   // ── Inline code comment editor state ──
   const [inlineComment, setInlineComment] = useState("")
@@ -140,7 +145,7 @@ export default function ReviewSidePanel({
         setExpSuggestions("")
       }
     }
-  }, [activeExperimentId, activeTab])
+  }, [activeExperimentId, activeTab, feedbacks])
 
   // ── Load jobsheet feedback when jobsheet tab becomes active ──
   useEffect(() => {
@@ -158,7 +163,7 @@ export default function ReviewSidePanel({
         setJobSuggestions("")
       }
     }
-  }, [activeTab])
+  }, [activeTab, feedbacks])
 
   // ── Auto-save experiment feedback on blur ──
   const handleExpBlur = async () => {
@@ -612,8 +617,14 @@ export default function ReviewSidePanel({
                 <div>
                   <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Nilai AI</span>
                   <span className="text-lg font-extrabold text-purple-700 flex items-center gap-1.5 mt-0.5">
-                    {aiScore != null ? Math.min(100, Math.max(0, aiScore)) : "-"}
+                    {aiScoreSummary?.finalGradeRecommendation ?? (aiScore != null ? Math.min(100, Math.max(0, aiScore)) : "-")}
+                    {aiScore != null || aiScoreSummary?.finalGradeRecommendation != null ? <span className="text-xs font-bold text-purple-500">/100</span> : null}
                   </span>
+                  {aiScoreSummary?.totalMaxScore ? (
+                    <span className="mt-0.5 block text-[10px] font-semibold text-gray-500">
+                      Total poin: {aiScoreSummary.totalScoreRecommendation ?? 0}/{aiScoreSummary.totalMaxScore}
+                    </span>
+                  ) : null}
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Nilai Akhir</label>

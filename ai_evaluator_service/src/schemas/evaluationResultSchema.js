@@ -40,6 +40,8 @@ const codeFeedbackSchema = Joi.object({
   startLine: Joi.number().integer().min(1).required(),
   endLine: Joi.number().integer().min(1).required(),
   selectedCode: Joi.string().allow('').max(20000).default(''),
+  experimentId: Joi.string().trim().min(1).max(200).optional(),
+  step: Joi.number().integer().min(1).optional(),
   category: Joi.string().valid(...categories).default('logic'),
   severity: Joi.string().valid('low', 'medium', 'high').default('medium'),
   message: Joi.string().trim().min(1).max(10000).required(),
@@ -99,10 +101,13 @@ const experimentResultSchema = Joi.object({
   scope: Joi.string().valid('experiment').required(),
   submissionId: Joi.string().trim().min(1).max(200).required(),
   experimentId: Joi.string().trim().min(1).max(200).required(),
+  step: Joi.number().integer().min(1).optional(),
   codeFeedbacks: Joi.array().items(codeFeedbackSchema).max(1000).default([]),
   experimentFeedback: experimentFeedbackSchema,
   rubricScores: Joi.array().items(rubricScoreSchema).max(100).default([]),
   totalScoreRecommendation: Joi.number().min(0).optional(),
+  totalMaxScore: Joi.number().min(0).optional(),
+  finalGradeRecommendation: Joi.number().min(0).max(100).optional(),
   source: Joi.string().valid('ai').required(),
   status: Joi.string().valid('draft').required(),
   requiresLecturerReview: Joi.boolean().valid(true).required(),
@@ -116,6 +121,8 @@ const exerciseResultSchema = Joi.object({
   exerciseFeedback: experimentFeedbackSchema,
   rubricScores: Joi.array().items(rubricScoreSchema).max(100).default([]),
   totalScoreRecommendation: Joi.number().min(0).optional(),
+  totalMaxScore: Joi.number().min(0).optional(),
+  finalGradeRecommendation: Joi.number().min(0).max(100).optional(),
   source: Joi.string().valid('ai').required(),
   status: Joi.string().valid('draft').required(),
   requiresLecturerReview: Joi.boolean().valid(true).required(),
@@ -128,6 +135,8 @@ const jobsheetResultSchema = Joi.object({
   jobsheetFeedback: jobsheetFeedbackSchema,
   rubricScores: Joi.array().items(rubricScoreSchema).max(100).default([]),
   totalScoreRecommendation: Joi.number().min(0).optional(),
+  totalMaxScore: Joi.number().min(0).optional(),
+  finalGradeRecommendation: Joi.number().min(0).max(100).optional(),
   source: Joi.string().valid('ai').required(),
   status: Joi.string().valid('draft').required(),
   requiresLecturerReview: Joi.boolean().valid(true).required(),
@@ -140,6 +149,8 @@ const experimentEvaluationResultSchema = Joi.object({
   feedback: experimentFeedbackSchema.optional(),
   rubricScores: Joi.array().items(rubricScoreSchema).max(100).optional().default([]),
   totalScoreRecommendation: Joi.number().min(0).optional(),
+  totalMaxScore: Joi.number().min(0).optional(),
+  finalGradeRecommendation: Joi.number().min(0).max(100).optional(),
   error: Joi.string().allow('').max(10000).optional()
 });
 
@@ -150,6 +161,8 @@ const exerciseEvaluationResultSchema = Joi.object({
   feedback: experimentFeedbackSchema.optional(),
   rubricScores: Joi.array().items(rubricScoreSchema).max(100).optional().default([]),
   totalScoreRecommendation: Joi.number().min(0).optional(),
+  totalMaxScore: Joi.number().min(0).optional(),
+  finalGradeRecommendation: Joi.number().min(0).max(100).optional(),
   error: Joi.string().allow('').max(10000).optional()
 });
 
@@ -163,6 +176,8 @@ const jobsheetFullResultSchema = Joi.object({
   jobsheetFeedback: jobsheetFeedbackSchema,
   rubricScores: Joi.array().items(rubricScoreSchema).max(100).default([]),
   totalScoreRecommendation: Joi.number().min(0).optional(),
+  totalMaxScore: Joi.number().min(0).optional(),
+  finalGradeRecommendation: Joi.number().min(0).max(100).optional(),
   source: Joi.string().valid('ai').required(),
   status: Joi.string().valid('draft').required(),
   requiresLecturerReview: Joi.boolean().valid(true).required(),
@@ -215,4 +230,3 @@ module.exports = {
   validateEvaluationResult,
   validateFullJobsheetResult,
 };
-

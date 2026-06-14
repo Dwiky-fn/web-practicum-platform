@@ -126,6 +126,24 @@ class LecturerReviewsService {
       client.release();
     }
   }
+
+  async deleteAiFeedbackForSubmission(submissionId) {
+    const result = await this._pool.query(
+      `
+      UPDATE submission_reviews
+      SET
+        ai_score = NULL,
+        ai_feedback = NULL
+      WHERE submission_id = $1
+      RETURNING id
+      `,
+      [submissionId],
+    );
+
+    return {
+      affectedReviews: result.rowCount,
+    };
+  }
 }
 
 module.exports = LecturerReviewsService;

@@ -258,10 +258,18 @@ class AiEvaluationQueue {
         };
       }
 
+      if (options.force === true) {
+        await this._clearPreviousAiReview(submissionId);
+      }
+
       // Set status di DB menjadi queued
       await pool.query(
         `UPDATE task_submissions 
-         SET ai_evaluation_status = 'queued', ai_evaluation_error = NULL 
+         SET
+           ai_evaluation_status = 'queued',
+           ai_evaluation_error = NULL,
+           ai_evaluation_started_at = NULL,
+           ai_evaluation_finished_at = NULL
          WHERE id = $1`,
         [submissionId]
       );
@@ -302,7 +310,10 @@ class AiEvaluationQueue {
       const errorMessage = getErrorMessage(error);
       await pool.query(
         `UPDATE task_submissions 
-         SET ai_evaluation_status = 'failed', ai_evaluation_error = $2
+         SET
+           ai_evaluation_status = 'failed',
+           ai_evaluation_error = $2,
+           ai_evaluation_finished_at = CURRENT_TIMESTAMP
          WHERE id = $1`,
         [submissionId, errorMessage]
       );
@@ -328,9 +339,25 @@ class AiEvaluationQueue {
       `UPDATE task_submissions
        SET
          ai_evaluation_status = 'failed',
-         ai_evaluation_error = $2
+         ai_evaluation_error = $2,
+         ai_evaluation_finished_at = CURRENT_TIMESTAMP
        WHERE id = $1`,
       [submissionId, errorMessage]
+    );
+  }
+
+  async _clearPreviousAiReview(submissionId) {
+    console.log(`[AI Queue] [${submissionId}] Retry manual: membersihkan draft AI lama sebelum evaluasi ulang.`);
+    await pool.query(
+      `UPDATE submission_reviews
+       SET
+         ai_score = NULL,
+         ai_feedback = NULL,
+         final_score = NULL,
+         feedback = NULL,
+         decision = 'PENDING'
+       WHERE submission_id = $1`,
+      [submissionId]
     );
   }
 
@@ -340,7 +367,10 @@ class AiEvaluationQueue {
     // Update status di DB menjadi processing
     await pool.query(
       `UPDATE task_submissions 
-       SET ai_evaluation_status = 'processing' 
+       SET
+         ai_evaluation_status = 'processing',
+         ai_evaluation_started_at = COALESCE(ai_evaluation_started_at, CURRENT_TIMESTAMP),
+         ai_evaluation_finished_at = NULL
        WHERE id = $1`,
       [submissionId]
     );
@@ -435,6 +465,8 @@ class AiEvaluationQueue {
 
         payloadExperiments.push({
           id: `${exp.id}:${stepNumber}`,
+          experimentId: exp.id,
+          step: stepNumber,
           title: `${exp.title} - Langkah ${stepNumber}`,
           objective: '',
           instruction: instructionText,
@@ -594,6 +626,7 @@ class AiEvaluationQueue {
 
     const result = responseData.data;
     console.log(`[AI Queue] [${submissionId}] Response data AI Service valid. Status evaluasi: ${result.evaluationStatus}`);
+    console.log(`[AI Queue] [${submissionId}] Menyimpan feedback AI`);
 
     // Extract experiment evaluations from the unified response, grouping them by real experiment ID
     const comments = [];
@@ -601,8 +634,9 @@ class AiEvaluationQueue {
     let overallSuccess = true;
 
     (result.experimentEvaluations || []).forEach((expEval) => {
-      const [realExpId, stepStr] = expEval.experimentId.split(':');
-      const stepNumber = parseInt(stepStr, 10) || 1;
+      const [legacyExpId, legacyStepStr] = String(expEval.experimentId || '').split(':');
+      const realExpId = legacyExpId;
+      const stepNumber = Number(expEval.step || legacyStepStr || 1);
       const expTitle = experiments.find(e => e.id === realExpId)?.title || 'Percobaan';
 
       if (!experimentResultsMap.has(realExpId)) {
@@ -716,8 +750,9 @@ class AiEvaluationQueue {
     (result.experimentEvaluations || [])
       .filter(e => e.status === 'completed')
       .forEach(e => {
-        const [realExpId, stepStr] = e.experimentId.split(':');
-        const stepNumber = parseInt(stepStr, 10) || 1;
+        const [legacyExpId, legacyStepStr] = String(e.experimentId || '').split(':');
+        const realExpId = legacyExpId;
+        const stepNumber = Number(e.step || legacyStepStr || 1);
         (e.codeFeedbacks || []).forEach(fb => {
           mergedCodeFeedbacks.push({
             experimentId: realExpId,
@@ -743,14 +778,14 @@ class AiEvaluationQueue {
     if (result.jobsheetFeedback.experimentsNeedingAttention) {
       const seen = new Set();
       result.jobsheetFeedback.experimentsNeedingAttention.forEach((item) => {
-        const [realExpId, stepStr] = item.experimentId.split(':');
-        const stepLabel = stepStr ? ` (Langkah ${stepStr})` : '';
+        const [realExpId, stepStr] = String(item.experimentId || '').split(':');
+        const stepLabel = stepStr ? `Langkah ${stepStr}` : '';
         const key = `${realExpId}:${item.reason}`;
         if (!seen.has(key)) {
           seen.add(key);
           experimentsNeedingAttention.push({
             experimentId: realExpId,
-            reason: `${stepLabel ? `[Langkah ${stepStr}] ` : ''}${item.reason}`
+            reason: `${stepLabel ? `[${stepLabel}] ` : ''}${item.reason}`
           });
         }
       });
@@ -785,8 +820,18 @@ class AiEvaluationQueue {
       codeFeedbacks: mergedCodeFeedbacks
     };
 
-    const totalScore = Math.min(100, Math.max(0, result.totalScoreRecommendation || 0));
-    console.log(`[AI Queue] [${submissionId}] Total score rekomendasi AI (clamped): ${totalScore}. Menyimpan ke submission_reviews...`);
+    aiFeedback.scoreSummary = {
+      totalScoreRecommendation: Number(result.totalScoreRecommendation || 0),
+      totalMaxScore: Number(result.totalMaxScore || 0),
+      finalGradeRecommendation: Number(result.finalGradeRecommendation || 0)
+    };
+
+    const totalScore = Math.min(100, Math.max(0, Number(
+      result.finalGradeRecommendation
+      ?? result.totalScoreRecommendation
+      ?? 0
+    )));
+    console.log(`[AI Queue] [${submissionId}] Nilai akhir rekomendasi AI: ${totalScore}/100. Total poin: ${aiFeedback.scoreSummary.totalScoreRecommendation}/${aiFeedback.scoreSummary.totalMaxScore}. Menyimpan ke submission_reviews...`);
 
     // Simpan ke database submission_reviews sebagai draft AI dan update status menggunakan Transaksi
     const client = await pool.connect();
@@ -822,12 +867,16 @@ class AiEvaluationQueue {
       console.log(`[AI Queue] [${submissionId}] Mengupdate ai_evaluation_status di task_submissions menjadi '${finalStatus}'...`);
       await client.query(
         `UPDATE task_submissions 
-         SET ai_evaluation_status = $2 
+         SET
+           ai_evaluation_status = $2,
+           ai_evaluation_error = NULL,
+           ai_evaluation_finished_at = CURRENT_TIMESTAMP
          WHERE id = $1`,
         [submissionId, finalStatus]
       );
 
       await client.query('COMMIT');
+      console.log(`[AI Queue] [${submissionId}] Feedback AI berhasil disimpan`);
       console.log(`[AI Queue] [${submissionId}] Evaluasi submission selesai dengan status: ${finalStatus}`);
     } catch (dbError) {
       await client.query('ROLLBACK');

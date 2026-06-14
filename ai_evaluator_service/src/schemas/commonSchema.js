@@ -113,6 +113,8 @@ const instructionSchema = Joi.alternatives()
 
 const experimentSchema = Joi.object({
   id: idSchema,
+  experimentId: Joi.string().trim().min(1).max(200).optional(),
+  step: Joi.number().integer().min(1).optional(),
   title: titleSchema,
   objective: Joi.string().allow('').max(50000).default(''),
   instruction: instructionSchema,

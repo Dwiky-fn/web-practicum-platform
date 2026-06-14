@@ -9,6 +9,7 @@ function buildExperimentPrompt(payload) {
     rubric: payload.rubric,
     options: payload.options,
     contextChunk: payload._contextChunk || null,
+    step: payload.experiment.step || null,
   };
 
   return `
@@ -33,11 +34,49 @@ Aturan evaluasi kode:
 6. Jika kode sudah tepat, codeFeedbacks boleh berupa array kosong.
 7. PENTING: Perhatikan konteks instruksi percobaan dengan seksama. Jika instruksi percobaan memang secara sengaja menyuruh mahasiswa untuk membuat/menguji kode yang menghasilkan compiler error, runtime error, atau tipe data yang tidak kompatibel (misalnya memasukkan nilai melebihi kapasitas tipe data untuk mengamati apa yang terjadi), maka kode yang menghasilkan error tersebut adalah BENAR dan sesuai instruksi. JANGAN memberikan rekomendasi nilai rendah atau menganggap kode tersebut salah jika perilakunya sudah sesuai dengan tujuan instruksi tersebut.
 
+Aturan konteks eksperimen:
+Dalam jobsheet praktikum, beberapa instruksi sengaja meminta mahasiswa membuat perubahan kode yang dapat menyebabkan compile error atau output berbeda.
+
+Jangan otomatis menganggap compile error sebagai kesalahan mahasiswa.
+
+Nilailah berdasarkan:
+1. Apakah mahasiswa mengikuti instruksi langkah tersebut.
+2. Apakah output/error yang muncul sesuai dengan konsep yang sedang diuji.
+3. Apakah mahasiswa memberikan analisis yang benar tentang penyebab output/error.
+4. Apakah kode yang dikumpulkan sesuai dengan modifikasi yang diminta.
+
+Jika compile error memang konsekuensi yang diharapkan dari instruksi, beri feedback edukatif, bukan langsung menyalahkan mahasiswa.
+
+Untuk percobaan berbasis observasi, error kompilasi bisa menjadi hasil yang valid jika:
+- mahasiswa memang mengikuti instruksi,
+- error tersebut sesuai dengan konsep yang diuji,
+- mahasiswa mampu menjelaskan penyebab error dengan benar.
+
+Jangan memberi skor rendah hanya karena program error, jika instruksi memang meminta mahasiswa mengamati error tersebut.
+
+Panduan konsep Java yang sering muncul:
+1. Jika instruksi meminta nilaiA bertipe byte diubah menjadi -129 atau 128, bahas variabel nilaiA dan rentang byte -128 sampai 127. Jangan membahas hargaA untuk kasus ini.
+2. Jika instruksi meminta hargaB bertipe long diubah menjadi 3000000000, jelaskan bahwa literal bilangan bulat tanpa suffix L dianggap int dan 3000000000 melebihi batas int. Saran teknis boleh berupa 3000000000L, tetapi jangan menyalahkan total jika tujuan langkah adalah observasi error.
+3. Jika instruksi meminta ips bertipe float diubah menjadi 3.5, jelaskan bahwa literal desimal default-nya double dan assignment ke float perlu suffix f, misalnya ips = 3.5f.
+
+Aturan codeFeedbacks:
+1. selectedCode harus sama persis dengan baris kode mahasiswa pada numberedContent, termasuk spasi indentasi.
+2. startLine dan endLine harus sesuai posisi selectedCode.
+3. message harus menjelaskan masalah pada selectedCode.
+4. suggestion harus memperbaiki selectedCode, bukan baris lain.
+5. Jika tidak yakin selectedCode cocok dengan kode mahasiswa, jangan buat codeFeedbacks; masukkan feedback umum ke experimentFeedback.issues atau suggestions.
+6. Jika selectedCode adalah "        ips = 3.5;", suggestion harus memperbaiki assignment itu, misalnya "Ubah menjadi: ips = 3.5f;". Jangan menyarankan deklarasi "float ips = 3.5f;" kecuali selectedCode memang baris deklarasi.
+
 Aturan nomor baris:
 1. Gunakan nomor yang ditampilkan pada numberedContent.
 2. startLine tidak boleh lebih besar daripada endLine.
 3. fileId dan filePath harus cocok dengan data file.
 4. selectedCode harus sesuai dengan rentang baris yang dikomentari.
+
+Aturan identitas percobaan:
+1. Jika data experiment memiliki field experimentId, gunakan field tersebut sebagai output experimentId.
+2. Jika data experiment memiliki field step, sertakan field step pada output utama dan setiap codeFeedbacks yang relevan.
+3. Field id pada experiment dapat berupa ID internal unik per langkah. Jangan gunakan ID internal gabungan jika experimentId asli tersedia.
 
 Kategori yang diperbolehkan:
 syntax, logic, runtime, output, test_case, code_quality, readability,
@@ -58,6 +97,7 @@ Format output wajib:
   "scope": "experiment",
   "submissionId": "string",
   "experimentId": "string",
+  "step": 1,
   "codeFeedbacks": [
     {
       "fileId": "string",
@@ -65,6 +105,8 @@ Format output wajib:
       "startLine": 1,
       "endLine": 1,
       "selectedCode": "string",
+      "experimentId": "string",
+      "step": 1,
       "category": "logic",
       "severity": "medium",
       "message": "string",

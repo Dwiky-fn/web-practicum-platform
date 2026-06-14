@@ -17,6 +17,7 @@ import {
   getSubmissionReviewStatus,
   triggerAiReview,
   retryAiReview,
+  deleteAiFeedback,
 } from "../service"
 import {
   getFeedbacks,
@@ -33,6 +34,29 @@ import type { SelectedLineRange } from "../components/review/CodeReviewBlock"
 import ExperimentReviewCard from "../components/review/ExperimentReviewCard"
 
 import ReviewSidePanel from "../components/review/ReviewSidePanel"
+
+function isAiDerivedFeedback(item: ReviewFeedback) {
+  return item.source === "ai" || item.source === "ai_edited_by_lecturer"
+}
+
+function hasAiFeedbackPayload(aiFeedback: any) {
+  return Boolean(
+    aiFeedback &&
+      typeof aiFeedback === "object" &&
+      Object.keys(aiFeedback).length > 0,
+  )
+}
+
+function removeAiDerivedFeedbacks(submissionId: string) {
+  const all = getStoredFeedbacks()
+  saveStoredFeedbacks(
+    all.filter(
+      (item) =>
+        item.submissionId !== submissionId ||
+        !isAiDerivedFeedback(item),
+    ),
+  )
+}
 
 
 
@@ -63,6 +87,7 @@ export default function LecturerReviewPage() {
   const [activeTab, setActiveTab] = useState<"percobaan" | "komentar_kode" | "jobsheet">("percobaan")
   const [isEditingReview, setIsEditingReview] = useState(false)
   const [triggeringAi, setTriggeringAi] = useState(false)
+  const [deletingAiFeedback, setDeletingAiFeedback] = useState(false)
 
   useEffect(() => {
     async function loadData() {
@@ -98,6 +123,12 @@ export default function LecturerReviewPage() {
 
         if (selectedSubmission) {
           let reviewFeedbacks = await getFeedbacks(selectedSubmission.id)
+          const hasAiFeedback = hasAiFeedbackPayload(selectedSubmission.review?.aiFeedback)
+
+          if (!hasAiFeedback) {
+            removeAiDerivedFeedbacks(selectedSubmission.id)
+            reviewFeedbacks = reviewFeedbacks.filter((item) => !isAiDerivedFeedback(item))
+          }
           
           if (reviewFeedbacks.length === 0 && selectedSubmission.review?.aiFeedback?.feedbacks) {
             reviewFeedbacks = selectedSubmission.review.aiFeedback.feedbacks;
@@ -216,8 +247,51 @@ export default function LecturerReviewPage() {
     }
   }
 
+  async function handleDeleteAiFeedback() {
+    if (!submission) return
+
+    const confirmed = window.confirm(
+      "Hapus feedback AI untuk submission ini? Data jobsheet dan task submission tidak akan diubah.",
+    )
+    if (!confirmed) return
+
+    try {
+      setDeletingAiFeedback(true)
+      setError("")
+      setSuccessMessage("")
+
+      await deleteAiFeedback(submission.id)
+
+      removeAiDerivedFeedbacks(submission.id)
+
+      setFeedbacks((prev) =>
+        prev.filter((item) => !isAiDerivedFeedback(item)),
+      )
+      setSubmission((prev) =>
+        prev
+          ? {
+              ...prev,
+              score: undefined,
+              review: prev.review
+                ? {
+                    ...prev.review,
+                    aiFeedback: undefined,
+                  }
+                : prev.review,
+            }
+          : null,
+      )
+      setActiveFeedbackId(null)
+      setSuccessMessage("Feedback AI berhasil dihapus. Data jobsheet dan task submission tidak diubah.")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menghapus feedback AI.")
+    } finally {
+      setDeletingAiFeedback(false)
+    }
+  }
+
   useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null
+    let intervalId: ReturnType<typeof setInterval> | null = null
 
     if (
       submission &&
@@ -241,6 +315,13 @@ export default function LecturerReviewPage() {
 
               // Load the feedbacks
               let reviewFeedbacks = await getFeedbacks(refreshedSubmission.id)
+              const hasAiFeedback = hasAiFeedbackPayload(refreshedSubmission.review?.aiFeedback)
+
+              if (!hasAiFeedback) {
+                removeAiDerivedFeedbacks(refreshedSubmission.id)
+                reviewFeedbacks = reviewFeedbacks.filter((item) => !isAiDerivedFeedback(item))
+              }
+
               if (reviewFeedbacks.length === 0 && refreshedSubmission.review?.aiFeedback?.feedbacks) {
                 reviewFeedbacks = refreshedSubmission.review.aiFeedback.feedbacks
                 saveStoredFeedbacks([...filtered, ...reviewFeedbacks])
@@ -672,7 +753,7 @@ export default function LecturerReviewPage() {
                         <button
                           type="button"
                           onClick={handleTriggerAiReview}
-                          disabled={triggeringAi || submission.aiEvaluationStatus === "queued" || submission.aiEvaluationStatus === "processing"}
+                          disabled={triggeringAi || deletingAiFeedback || submission.aiEvaluationStatus === "queued" || submission.aiEvaluationStatus === "processing"}
                           className={`text-xs font-semibold px-4 py-2.5 rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
                             submission.aiEvaluationStatus === "queued" || submission.aiEvaluationStatus === "processing"
                               ? "bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed"
@@ -694,6 +775,20 @@ export default function LecturerReviewPage() {
                           ) : (
                             "Mulai Review dengan AI"
                           )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDeleteAiFeedback}
+                          disabled={
+                            deletingAiFeedback ||
+                            triggeringAi ||
+                            submission.aiEvaluationStatus === "queued" ||
+                            submission.aiEvaluationStatus === "processing" ||
+                            (!submission.review?.aiFeedback && submission.score == null)
+                          }
+                          className="text-xs font-semibold px-4 py-2.5 rounded-lg border border-red-200 bg-white text-red-700 hover:bg-red-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed"
+                        >
+                          {deletingAiFeedback ? "Menghapus Feedback AI..." : "Hapus Feedback AI"}
                         </button>
                         
                         <span className="text-[10px] bg-amber-50 text-amber-700 font-semibold px-2 py-1 rounded border border-amber-200 uppercase tracking-wider">
@@ -840,6 +935,7 @@ export default function LecturerReviewPage() {
                   onTabChange={setActiveTab}
                   readOnly={isReadOnly}
                   aiScore={submission.score}
+                  aiScoreSummary={submission.review?.aiFeedback?.scoreSummary}
                 />
               )}
             </aside>

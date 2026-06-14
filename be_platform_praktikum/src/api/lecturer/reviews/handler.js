@@ -52,6 +52,21 @@ class LecturerReviewsHandler {
       return handleAdminError(error, res);
     }
   }
+
+  async deleteAiFeedbackHandler(req, res) {
+    try {
+      const { submissionId } = req.params;
+      const result = await this._service.deleteAiFeedbackForSubmission(submissionId);
+
+      return ok(
+        res,
+        result,
+        'Feedback AI berhasil dihapus dari review submission',
+      );
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
 }
 
 module.exports = LecturerReviewsHandler;

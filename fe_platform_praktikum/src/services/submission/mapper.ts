@@ -41,6 +41,8 @@ type RawSubmission = {
   report_html?: string | null
   ai_evaluation_status?: string
   ai_evaluation_error?: string | null
+  ai_evaluation_started_at?: string | null
+  ai_evaluation_finished_at?: string | null
   review?: {
     id?: string
     ai_score?: number | null
@@ -56,6 +58,13 @@ type RawSubmission = {
       }>
     }
   } | null
+}
+
+type RawAiFeedback = NonNullable<NonNullable<RawSubmission["review"]>["ai_feedback"]>
+
+function hasMeaningfulAiFeedback(value?: RawAiFeedback | null) {
+  if (!value || typeof value !== "object") return false
+  return Object.keys(value as Record<string, unknown>).length > 0
 }
 
 /* ================= HELPER ================= */
@@ -87,6 +96,8 @@ export function mapSubmission(data: RawSubmission): JobsheetSubmission {
     updatedAt: timestamp,
     aiEvaluationStatus: data.ai_evaluation_status ?? "none",
     aiEvaluationError: data.ai_evaluation_error ?? undefined,
+    aiEvaluationStartedAt: data.ai_evaluation_started_at ?? undefined,
+    aiEvaluationFinishedAt: data.ai_evaluation_finished_at ?? undefined,
 
     experiments: Object.entries(experimentsObj).map(
       ([experimentId, value]) => ({
@@ -123,7 +134,9 @@ export function mapSubmission(data: RawSubmission): JobsheetSubmission {
               step: item.step,
               comment: item.comment ?? "",
             })),
-          aiFeedback: data.review.ai_feedback ?? undefined,
+          aiFeedback: hasMeaningfulAiFeedback(data.review.ai_feedback)
+            ? data.review.ai_feedback
+            : undefined,
         }
       : undefined,
   }

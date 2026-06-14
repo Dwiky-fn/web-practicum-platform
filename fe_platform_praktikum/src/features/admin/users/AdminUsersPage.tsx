@@ -141,6 +141,30 @@ export default function AdminUsersPage() {
     handleMouseUp(userId)
   }
 
+  const handleConfirmAction = async () => {
+    if (!confirm) return
+    const key = `${confirm.action}-${confirm.user.id}`
+    setActionLoading(key)
+    try {
+      if (confirm.action === "activate") {
+        await activateAdminUser(confirm.user.id)
+        toast.success("Pengguna berhasil diaktifkan.")
+      } else if (confirm.action === "deactivate") {
+        await deactivateAdminUser(confirm.user.id)
+        toast.success("Pengguna berhasil dinonaktifkan.")
+      } else {
+        await deleteAdminUser(confirm.user.id)
+        toast.success("Pengguna berhasil dihapus.")
+      }
+      setConfirm(null)
+      fetchUsers()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal memproses aksi")
+    } finally {
+      setActionLoading("")
+    }
+  }
+
   const handleBulkActionSubmit = async () => {
     if (!bulkConfirm) return
     try {

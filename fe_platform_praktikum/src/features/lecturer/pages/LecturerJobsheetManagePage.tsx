@@ -288,7 +288,7 @@ export default function LecturerJobsheetManagePage() {
                         setPublishSettings((current) =>
                           current.map((entry, currentIndex) =>
                             currentIndex === index
-                              ? { ...entry, isActive: !entry.isActive, deadline: !entry.isActive ? entry.deadline : "" }
+                              ? { ...entry, isActive: !entry.isActive }
                               : entry,
                           ),
                         )

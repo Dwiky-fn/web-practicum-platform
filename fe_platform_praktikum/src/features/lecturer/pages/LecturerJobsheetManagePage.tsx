@@ -19,6 +19,7 @@ import {
   type LecturerCourseDataset,
   type LecturerJobsheetSummary,
 } from "../service"
+import { toast } from "../../../components/toast/toastStore"
 
 type PublishClassSetting = {
   classId: string
@@ -95,7 +96,6 @@ export default function LecturerJobsheetManagePage() {
   const [loading, setLoading] = useState(true)
   const [savingPublish, setSavingPublish] = useState(false)
   const [error, setError] = useState("")
-  const [successMessage, setSuccessMessage] = useState("")
   const [keyword, setKeyword] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [dataset, setDataset] = useState<LecturerCourseDataset | null>(null)
@@ -155,7 +155,6 @@ export default function LecturerJobsheetManagePage() {
     try {
       setSavingPublish(true)
       setError("")
-      setSuccessMessage("")
 
       await publishLecturerJobsheet(courseId, publishTarget.id, {
         lecturerId: user.id,
@@ -167,10 +166,10 @@ export default function LecturerJobsheetManagePage() {
       })
 
       setPublishTarget(null)
-      setSuccessMessage("Pengaturan jobsheet berhasil diperbarui.")
+      toast.success("Pengaturan jobsheet berhasil diperbarui.")
       await loadDataset()
     } catch (publishError) {
-      setError(publishError instanceof Error ? publishError.message : "Gagal menyimpan pengaturan jobsheet.")
+      toast.error(publishError instanceof Error ? publishError.message : "Gagal menyimpan pengaturan jobsheet.")
     } finally {
       setSavingPublish(false)
     }
@@ -205,12 +204,6 @@ export default function LecturerJobsheetManagePage() {
       {error && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
-        </div>
-      )}
-
-      {successMessage && (
-        <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {successMessage}
         </div>
       )}
 

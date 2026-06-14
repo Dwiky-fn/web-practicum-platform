@@ -26,6 +26,7 @@ import {
   getAdminUsers,
   getAdminDepartments,
 } from "../../../services/admin/service"
+import { toast } from "../../../components/toast/toastStore"
 import type {
   AcademicSemester,
   AdminLecturer,
@@ -72,7 +73,6 @@ export default function AdminUsersPage() {
   const [submitting, setSubmitting] = useState(false)
   const [actionLoading, setActionLoading] = useState("")
   const [error, setError] = useState("")
-  const [successMessage, setSuccessMessage] = useState("")
   const isStudent = role === "students"
 
   // Department & Study Program states
@@ -146,27 +146,27 @@ export default function AdminUsersPage() {
     try {
       setSubmitting(true)
       setError("")
-      setSuccessMessage("")
       const { action, ids } = bulkConfirm
       if (action === "activate") {
         await Promise.all(ids.map((id) => activateAdminUser(id)))
-        setSuccessMessage(`${ids.length} pengguna berhasil diaktifkan.`)
+        toast.success(`${ids.length} pengguna berhasil diaktifkan.`)
       } else if (action === "deactivate") {
         await Promise.all(ids.map((id) => deactivateAdminUser(id)))
-        setSuccessMessage(`${ids.length} pengguna berhasil dinonaktifkan.`)
+        toast.success(`${ids.length} pengguna berhasil dinonaktifkan.`)
       } else {
         await Promise.all(ids.map((id) => deleteAdminUser(id)))
-        setSuccessMessage(`${ids.length} pengguna berhasil dihapus.`)
+        toast.success(`${ids.length} pengguna berhasil dihapus.`)
       }
       setSelectedIds([])
       setBulkConfirm(null)
       fetchUsers()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal memproses aksi massal")
+      toast.error(err instanceof Error ? err.message : "Gagal memproses aksi massal")
     } finally {
       setSubmitting(false)
     }
   }
+
   const activeSemester = getActiveSemester(semesters)
   const studentSemesterOptions = getStudentSemesterOptions(activeSemester?.term)
 
@@ -247,7 +247,6 @@ export default function AdminUsersPage() {
     try {
       setSubmitting(true)
       setError("")
-      setSuccessMessage("")
       if (isStudent) {
         await createAdminStudent({
           nim: String(form.get("identifier") || ""),
@@ -258,6 +257,7 @@ export default function AdminUsersPage() {
           status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
           studyProgramId: selectedProdiId,
         })
+        toast.success("Mahasiswa berhasil ditambahkan.")
       } else {
         const lecturer = await createAdminLecturer({
           nip: String(form.get("identifier") || ""),
@@ -266,14 +266,16 @@ export default function AdminUsersPage() {
           status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
         })
         if (lecturer.initialPassword) {
-          setSuccessMessage(`Dosen berhasil ditambahkan. Password awal: ${lecturer.initialPassword}`)
+          toast.success(`Dosen berhasil ditambahkan. Password awal: ${lecturer.initialPassword}`, 15000)
+        } else {
+          toast.success("Dosen berhasil ditambahkan.")
         }
       }
 
       setModal(null)
       fetchUsers()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menyimpan pengguna")
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan pengguna")
     } finally {
       setSubmitting(false)
     }
@@ -346,7 +348,6 @@ export default function AdminUsersPage() {
     try {
       setSubmitting(true)
       setError("")
-      setSuccessMessage("")
       let rows: string[][] = []
       const extension = importFile.name.split(".").pop()?.toLowerCase()
       if (extension === "xlsx" || extension === "xls") {
@@ -363,7 +364,7 @@ export default function AdminUsersPage() {
       const normalizedRows = rows[0]?.[0]?.toLowerCase().includes(isStudent ? "nim" : "nip")
         ? rows.slice(1)
         : rows
-
+ 
       for (const row of normalizedRows) {
         if (isStudent) {
           const [nim, fullname, angkatan, semesterValue, email, programStudi, jurusan] = row
@@ -390,9 +391,10 @@ export default function AdminUsersPage() {
 
       setImportFile(null)
       setModal(null)
+      toast.success(`Berhasil mengimport data ${isStudent ? "mahasiswa" : "dosen"}.`)
       fetchUsers()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal mengimport pengguna")
+      toast.error(err instanceof Error ? err.message : "Gagal mengimport pengguna")
     } finally {
       setSubmitting(false)
     }
@@ -400,28 +402,6 @@ export default function AdminUsersPage() {
 
   const closeUserModal = () => {
     setModal(null)
-  }
-
-  const handleConfirmAction = async () => {
-    if (!confirm) return
-    try {
-      setActionLoading(`${confirm.action}-${confirm.user.id}`)
-      setError("")
-      if (confirm.action === "activate") {
-        await activateAdminUser(confirm.user.id)
-      } else if (confirm.action === "deactivate") {
-        await deactivateAdminUser(confirm.user.id)
-      } else {
-        await deleteAdminUser(confirm.user.id)
-      }
-
-      setConfirm(null)
-      fetchUsers()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal memproses pengguna")
-    } finally {
-      setActionLoading("")
-    }
   }
 
   const renderAddModal = () => {
@@ -676,11 +656,6 @@ export default function AdminUsersPage() {
       {error && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
-        </div>
-      )}
-      {successMessage && (
-        <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          {successMessage}
         </div>
       )}
 

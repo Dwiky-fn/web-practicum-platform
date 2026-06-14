@@ -21,14 +21,15 @@ export default function WorkHeader({ title, backTo, course, jobsheet }: WorkHead
   return (
     <header className="shrink-0 border-b bg-white px-4 py-2 sm:px-5">
       <div className="flex min-w-0 items-center gap-3">
-        <button
-          type="button"
-          onClick={() => navigate(backTo)}
-          className="flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
-        >
-          <ArrowLeft size={17} className="shrink-0" />
-          Kembali
-        </button>
+<button
+  type="button"
+  onClick={() => navigate(backTo)}
+  aria-label="Kembali"
+  title="Kembali"
+  className="flex h-8 shrink-0 items-center rounded-md p-2 text-gray-700 hover:bg-gray-100"
+>
+  <ArrowLeft size={17} className="shrink-0" />
+</button>
 
         <h1 className="min-w-0 truncate text-base font-semibold text-gray-900">
           {activeTitle}

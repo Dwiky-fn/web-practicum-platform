@@ -28,6 +28,7 @@ import {
 } from "../components/LecturerUI"
 
 const emptyDoc: JSONContent = { type: "doc", content: [] }
+import { toast } from "../../../components/toast/toastStore"
 
 type PracticeEditorItem = LecturerPracticeInput & {
   isReported: boolean
@@ -106,7 +107,6 @@ export default function LecturerJobsheetEditorPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
-  const [successMessage, setSuccessMessage] = useState("")
   const [publishOpen, setPublishOpen] = useState(false)
   const [courseName, setCourseName] = useState("")
   const [dataset, setDataset] = useState<LecturerCourseDataset | null>(null)
@@ -136,7 +136,6 @@ export default function LecturerJobsheetEditorPage() {
 
       setLoading(true)
       setError("")
-      setSuccessMessage("")
 
       try {
         const [course, nextDataset] = await Promise.all([
@@ -320,16 +319,15 @@ export default function LecturerJobsheetEditorPage() {
     try {
       setSaving(true)
       setError("")
-      setSuccessMessage("")
 
       const nextId = await ensureSaved()
-      setSuccessMessage("Draft jobsheet berhasil disimpan.")
+      toast.success("Draft jobsheet berhasil disimpan.")
 
       if (isCreate && nextId) {
         navigate(`/courses/${courseId}/jobsheets/${nextId}/edit`, { replace: true })
       }
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Gagal menyimpan draft jobsheet.")
+      toast.error(saveError instanceof Error ? saveError.message : "Gagal menyimpan draft jobsheet.")
     } finally {
       setSaving(false)
     }
@@ -348,7 +346,6 @@ export default function LecturerJobsheetEditorPage() {
     try {
       setSaving(true)
       setError("")
-      setSuccessMessage("")
 
       const nextId = await ensureSaved()
       await publishLecturerJobsheet(courseId, nextId, {
@@ -361,9 +358,10 @@ export default function LecturerJobsheetEditorPage() {
       })
 
       setPublishOpen(false)
+      toast.success("Jobsheet berhasil dipublikasikan.")
       navigate(`/courses/${courseId}/jobsheets`)
     } catch (publishError) {
-      setError(publishError instanceof Error ? publishError.message : "Gagal mempublikasikan jobsheet.")
+      toast.error(publishError instanceof Error ? publishError.message : "Gagal mempublikasikan jobsheet.")
     } finally {
       setSaving(false)
     }
@@ -429,12 +427,6 @@ export default function LecturerJobsheetEditorPage() {
       {error && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
-        </div>
-      )}
-
-      {successMessage && (
-        <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {successMessage}
         </div>
       )}
 

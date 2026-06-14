@@ -34,6 +34,7 @@ import type { SelectedLineRange } from "../components/review/CodeReviewBlock"
 import ExperimentReviewCard from "../components/review/ExperimentReviewCard"
 
 import ReviewSidePanel from "../components/review/ReviewSidePanel"
+import { toast } from "../../../components/toast/toastStore"
 
 function isAiDerivedFeedback(item: ReviewFeedback) {
   return item.source === "ai" || item.source === "ai_edited_by_lecturer"
@@ -76,7 +77,6 @@ export default function LecturerReviewPage() {
   const [submission, setSubmission] = useState<JobsheetSubmission | null>(null)
   const [student, setStudent] = useState<{ fullname: string; nim: string } | null>(null)
   const [saving, setSaving] = useState(false)
-  const [successMessage, setSuccessMessage] = useState("")
   const [successDecision, setSuccessDecision] = useState<"ACCEPTED" | null>(null)
 
   // Review feedbacks states
@@ -99,7 +99,6 @@ export default function LecturerReviewPage() {
 
       setLoading(true)
       setError("")
-      setSuccessMessage("")
 
       try {
         const [selectedJobsheet, selectedSubmission] = await Promise.all([
@@ -258,7 +257,6 @@ export default function LecturerReviewPage() {
     try {
       setDeletingAiFeedback(true)
       setError("")
-      setSuccessMessage("")
 
       await deleteAiFeedback(submission.id)
 
@@ -282,9 +280,9 @@ export default function LecturerReviewPage() {
           : null,
       )
       setActiveFeedbackId(null)
-      setSuccessMessage("Feedback AI berhasil dihapus. Data jobsheet dan task submission tidak diubah.")
+      toast.success("Feedback AI berhasil dihapus. Data jobsheet dan task submission tidak diubah.")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menghapus feedback AI.")
+      toast.error(err instanceof Error ? err.message : "Gagal menghapus feedback AI.")
     } finally {
       setDeletingAiFeedback(false)
     }
@@ -523,7 +521,6 @@ export default function LecturerReviewPage() {
     try {
       setSaving(true)
       setError("")
-      setSuccessMessage("")
 
       await saveLecturerSubmissionReview(submission.id, {
         lecturerId: user.id,
@@ -539,10 +536,10 @@ export default function LecturerReviewPage() {
       const refreshedSubmission = await getLecturerSubmission(courseId, jobsheetId, studentId)
       setSubmission(refreshedSubmission)
       setSuccessDecision(nextDecision)
-      setSuccessMessage("Review berhasil disimpan dan submission diterima.")
+      toast.success("Review berhasil disimpan dan submission diterima.")
       setIsEditingReview(false)
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Gagal menyimpan review dosen.")
+      toast.error(saveError instanceof Error ? saveError.message : "Gagal menyimpan review dosen.")
     } finally {
       setSaving(false)
     }
@@ -575,12 +572,6 @@ export default function LecturerReviewPage() {
       {error && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
-        </div>
-      )}
-
-      {successMessage && (
-        <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {successMessage}
         </div>
       )}
 

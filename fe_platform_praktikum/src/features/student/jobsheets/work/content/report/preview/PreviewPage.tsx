@@ -17,6 +17,7 @@ import { CheckCircle } from "lucide-react"
 import { buildReport } from "../../../../../../../services/submission/buildReport"
 import { useCurrentUser } from "../../../../../../../services/user/useCurrentUser"
 import ScrollToTopButton from "../../../../../../../components/ScrollToTopButton"
+import { toast } from "../../../../../../../components/toast/toastStore"
 
 export default function PreviewPage() {
 
@@ -33,20 +34,17 @@ export default function PreviewPage() {
   const [submitting, setSubmitting] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
   const [error, setError] = useState("")
-  const [successMessage, setSuccessMessage] = useState("")
 
   const handleSaveDraft = async () => {
     if (!courseId || !jobsheetId || !submission || !user) return
     try {
       setSavingDraft(true)
       setError("")
-      setSuccessMessage("")
       await updateSubmission(courseId, jobsheetId, user.id, buildReport(submission))
-      setSuccessMessage("Draf laporan berhasil disimpan.")
-      setTimeout(() => setSuccessMessage(""), 3000)
+      toast.success("Draf laporan berhasil disimpan.")
     } catch (err) {
       console.error("Save draft error:", err)
-      setError(err instanceof Error ? err.message : "Gagal menyimpan draf.")
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan draf.")
     } finally {
       setSavingDraft(false)
     }
@@ -153,10 +151,13 @@ export default function PreviewPage() {
             Laporan kamu telah berhasil dikirim.
           </p>
           <button
+            type="button"
             onClick={() => navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/works/task`)}
-            className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
+            aria-label="Kembali"
+            title="Kembali"
+            className="w-full flex items-center justify-center py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
           >
-            Kembali ke Tugas
+            <ArrowLeft size={20} />
           </button>
         </div>
       </div>
@@ -175,12 +176,6 @@ export default function PreviewPage() {
         {error && (
           <div className="mx-auto mb-6 max-w-6xl rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
-          </div>
-        )}
-
-        {successMessage && (
-          <div className="mx-auto mb-6 max-w-6xl rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-            {successMessage}
           </div>
         )}
 

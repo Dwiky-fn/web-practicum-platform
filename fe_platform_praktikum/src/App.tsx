@@ -31,6 +31,7 @@ import LecturerJobsheetEditorPage from "./features/lecturer/pages/LecturerJobshe
 import LecturerJobsheetDetailPage from "./features/lecturer/pages/LecturerJobsheetDetailPage"
 import LecturerMonitoringPage from "./features/lecturer/pages/LecturerMonitoringPage"
 import LecturerReviewPage from "./features/lecturer/pages/LecturerReviewPage"
+import ToastContainer from "./components/toast/ToastContainer"
 
 function AppContent() {
   const { user, loading } = useCurrentUser()
@@ -168,6 +169,7 @@ export default function App() {
     <CurrentUserProvider>
       <TopProgressBar />
       <AppContent />
+      <ToastContainer />
     </CurrentUserProvider>
   )
 }

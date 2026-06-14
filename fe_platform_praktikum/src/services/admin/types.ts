@@ -61,6 +61,40 @@ export interface AcademicClass {
   status: "Aktif" | "Nonaktif" | "Draft" | "Arsip" | "Selesai"
 }
 
+export interface ClassTemplate {
+  id: string
+  name: string
+  course_id: string
+  course_name: string
+  lecturer_id: string
+  lecturer_name: string
+  study_program_id?: string
+  study_program_name?: string
+  semester: number
+  academic_period_id: string
+  academic_year: string
+  jobsheet_count: number
+  student_count: number
+}
+
+export interface ClassClonePreview {
+  source_class: {
+    id: string
+    name: string
+    course_name: string
+    lecturer_name: string
+    semester: number
+    academic_year: string
+  }
+  copyable_data: {
+    course: boolean
+    lecturer: boolean
+    jobsheets: number
+    settings: boolean
+  }
+  excluded_data: string[]
+}
+
 export interface ClassJobsheet {
   id: string
   classJobsheetId: string
@@ -157,6 +191,26 @@ export interface CreateClassPayload {
   lecturerId: string
   academicPeriodId?: string
   status?: "Aktif" | "Nonaktif" | "Arsip"
+}
+
+export interface CloneClassPayload {
+  source_class_id: string
+  name: string
+  academic_period_id?: string
+  academic_year?: string
+  semester?: string | number
+  study_program_id?: string
+  generation?: number
+  class_name?: string
+  lecturer_id?: string
+  copy_jobsheets: boolean
+  auto_enroll_students: boolean
+}
+
+export interface CloneClassResult {
+  class_id: string
+  students_added: number
+  jobsheets_copied: number
 }
 
 export interface UpdateClassPayload {

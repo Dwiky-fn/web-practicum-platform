@@ -1,5 +1,6 @@
 const autoBind = require('auto-bind');
 const { created, handleAdminError, ok } = require('../utils');
+const ClassesValidator = require('../../../validator/admin/classes');
 
 class ClassesHandler {
   constructor(service) {
@@ -24,6 +25,45 @@ class ClassesHandler {
     try {
       const classItem = await this._service.createClass(req.body);
       return created(res, { class: classItem }, 'Kelas berhasil ditambahkan');
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
+
+  async getClassTemplatesHandler(req, res) {
+    try {
+      const classes = await this._service.getClassTemplates(req.query);
+      return ok(res, { classes });
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
+
+  async getClassClonePreviewHandler(req, res) {
+    try {
+      const preview = await this._service.getClassClonePreview(req.params.id);
+      return ok(res, preview);
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
+
+  async cloneClassHandler(req, res) {
+    try {
+      const validation = ClassesValidator.validateCloneClassPayload(req.body);
+      if (validation.error) {
+        return res.status(400).json({
+          status: 'fail',
+          message: validation.error.message,
+        });
+      }
+
+      const result = await this._service.cloneClass(validation.value);
+      const message = result.students_added === 0 && validation.value.auto_enroll_students
+        ? 'Kelas berhasil dibuat, tetapi tidak ada mahasiswa yang cocok dengan filter.'
+        : 'Kelas berhasil dibuat dari template';
+
+      return created(res, result, message);
     } catch (error) {
       return handleAdminError(error, res);
     }

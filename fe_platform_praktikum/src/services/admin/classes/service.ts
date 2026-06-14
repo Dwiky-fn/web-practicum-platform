@@ -4,6 +4,10 @@ import type {
   AcademicClass,
   AdminClassDetail,
   AdminStudent,
+  ClassClonePreview,
+  ClassTemplate,
+  CloneClassPayload,
+  CloneClassResult,
   CreateClassPayload,
   UpdateClassPayload,
 } from "../types"
@@ -23,6 +27,28 @@ export const createAdminClass = async (
     body: JSON.stringify(payload),
   })
   return res.data.class
+}
+
+export const getAdminClassTemplates = async (): Promise<ClassTemplate[]> => {
+  const res = await apiFetch("/admin/classes/templates")
+  return res.data.classes
+}
+
+export const getAdminClassClonePreview = async (
+  classId: string,
+): Promise<ClassClonePreview> => {
+  const res = await apiFetch(`/admin/classes/${classId}/clone-preview`)
+  return res.data
+}
+
+export const cloneAdminClass = async (
+  payload: CloneClassPayload,
+): Promise<CloneClassResult> => {
+  const res = await apiFetch("/admin/classes/clone", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+  return res.data
 }
 
 export const getAdminClassById = async (

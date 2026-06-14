@@ -6,6 +6,13 @@ const routes = (handler) => {
 
   router.get('/admin/academic/classes', requireRoles('ADMIN', 'DOSEN'), handler.getClassesHandler);
   router.post('/admin/academic/classes', requireRoles('ADMIN'), handler.createClassHandler);
+  router.get('/admin/classes/templates', requireRoles('ADMIN'), handler.getClassTemplatesHandler);
+  router.get(
+    '/admin/classes/:id/clone-preview',
+    requireRoles('ADMIN'),
+    handler.getClassClonePreviewHandler,
+  );
+  router.post('/admin/classes/clone', requireRoles('ADMIN'), handler.cloneClassHandler);
   router.get('/admin/classes/:id', requireRoles('ADMIN', 'DOSEN'), handler.getClassByIdHandler);
   router.put('/admin/classes/:id', requireRoles('ADMIN'), handler.updateClassHandler);
   router.delete('/admin/classes/:id', requireRoles('ADMIN'), handler.deleteClassHandler);

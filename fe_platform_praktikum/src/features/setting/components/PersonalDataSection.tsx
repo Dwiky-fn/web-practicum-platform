@@ -1,22 +1,13 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState, type FormEvent } from "react";
 import type { PersonalData } from "../../../services/user/types";
+import { formatDateOnlyForInput } from "../../../shared/utils/dateOnly";
 
 interface Props {
   data: PersonalData;
   saving?: boolean;
   message?: string;
   onSave: (data: PersonalData) => Promise<void>;
-}
-
-function toDateInputValue(value: string) {
-  if (!value) return "";
-
-  const dateOnlyMatch = value.match(/^\d{4}-\d{2}-\d{2}/);
-
-  if (dateOnlyMatch) return dateOnlyMatch[0];
-
-  return value;
 }
 
 export default function PersonalDataSection({
@@ -27,13 +18,13 @@ export default function PersonalDataSection({
 }: Props) {
   const [form, setForm] = useState<PersonalData>({
     ...data,
-    tanggal_lahir: toDateInputValue(data.tanggal_lahir),
+    tanggal_lahir: formatDateOnlyForInput(data.tanggal_lahir),
   });
 
   useEffect(() => {
     setForm({
       ...data,
-      tanggal_lahir: toDateInputValue(data.tanggal_lahir),
+      tanggal_lahir: formatDateOnlyForInput(data.tanggal_lahir),
     });
   }, [data]);
 
@@ -111,7 +102,7 @@ export default function PersonalDataSection({
             onClick={() =>
               setForm({
                 ...data,
-                tanggal_lahir: toDateInputValue(data.tanggal_lahir),
+                tanggal_lahir: formatDateOnlyForInput(data.tanggal_lahir),
               })
             }
             className="px-4 py-2 rounded-lg border text-gray-700 hover:bg-gray-50"

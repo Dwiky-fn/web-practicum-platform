@@ -512,14 +512,14 @@ class UsersService {
         sp.avatar_url,
         sp.no_telepon,
         sp.tempat_lahir,
-        sp.tanggal_lahir,
+        TO_CHAR(sp.tanggal_lahir, 'YYYY-MM-DD') AS tanggal_lahir,
         sp.kota,
         -- Lecturer Profile
         lp.nip,
         lp.avatar_url AS lp_avatar_url,
         lp.no_telepon AS lp_no_telepon,
         lp.tempat_lahir AS lp_tempat_lahir,
-        lp.tanggal_lahir AS lp_tanggal_lahir,
+        TO_CHAR(lp.tanggal_lahir, 'YYYY-MM-DD') AS lp_tanggal_lahir,
         lp.kota AS lp_kota
       FROM users u
       LEFT JOIN student_profiles sp ON sp.user_id = u.id

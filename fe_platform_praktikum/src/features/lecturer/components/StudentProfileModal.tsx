@@ -6,6 +6,7 @@ import { getAdminSemesters, updateAdminUser } from "../../../services/admin/serv
 import type { User } from "../../../services/user/types"
 import type { AcademicSemester, AdminStudent, AdminLecturer } from "../../../services/admin/types"
 import { getAcademicYearOptions, getActiveSemester, getStudentSemesterOptions } from "../../admin/academic/semesterOptions"
+import { formatDateOnlyIndonesian } from "../../../shared/utils/dateOnly"
 
 interface StudentProfileModalProps {
   studentId: string
@@ -153,6 +154,11 @@ export default function StudentProfileModal({ studentId, onClose, isInline = fal
     .sort((a, b) => a - b)
 
   const isStudent = profile?.role === "MAHASISWA"
+  const birthDateText = formatDateOnlyIndonesian(profile?.personalData?.tanggal_lahir)
+  const birthInfo = [
+    profile?.personalData?.tempat_lahir,
+    birthDateText === "-" ? "" : birthDateText,
+  ].filter(Boolean).join(", ") || "-"
 
   const renderContent = () => {
     if (loading) {
@@ -381,7 +387,7 @@ export default function StudentProfileModal({ studentId, onClose, isInline = fal
               <div>
                 <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tempat, Tanggal Lahir</span>
                 <span className="text-sm text-gray-700">
-                  {[profile.personalData?.tempat_lahir, profile.personalData?.tanggal_lahir].filter(Boolean).join(", ") || "-"}
+                  {birthInfo}
                 </span>
               </div>
             </div>

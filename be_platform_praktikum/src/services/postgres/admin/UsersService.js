@@ -42,7 +42,9 @@ class AdminUsersService {
         `
         SELECT u.id, u.fullname, u.email, u.is_active,
           lp.nip, lp.program_studi, lp.jurusan, lp.status, lp.avatar_url,
-          lp.no_telepon, lp.tempat_lahir, lp.tanggal_lahir, lp.kota
+          lp.no_telepon, lp.tempat_lahir,
+          TO_CHAR(lp.tanggal_lahir, 'YYYY-MM-DD') AS tanggal_lahir,
+          lp.kota
         FROM users u
         LEFT JOIN lecturer_profiles lp ON lp.user_id = u.id
         WHERE u.role = 'DOSEN'
@@ -71,7 +73,8 @@ class AdminUsersService {
         sp.study_program_id,
         sp.angkatan, sp.semester,
         sp.status, sp.avatar_url, sp.no_telepon, sp.tempat_lahir,
-        sp.tanggal_lahir, sp.kota
+        TO_CHAR(sp.tanggal_lahir, 'YYYY-MM-DD') AS tanggal_lahir,
+        sp.kota
       FROM users u
       LEFT JOIN student_profiles sp ON sp.user_id = u.id
       LEFT JOIN study_programs prog ON prog.id = sp.study_program_id

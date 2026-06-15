@@ -1,16 +1,11 @@
 import type { User, UserResponse } from "./types"
+import { formatDateOnlyForInput } from "../../shared/utils/dateOnly"
 
 const emptyPersonalData = {
   no_telepon: "",
   tempat_lahir: "",
   tanggal_lahir: "",
   kota: "",
-}
-
-function toDateOnly(value?: string) {
-  if (!value) return emptyPersonalData.tanggal_lahir
-
-  return value.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? value
 }
 
 export const mapUserResponse = (data: UserResponse): User => {
@@ -25,7 +20,7 @@ export const mapUserResponse = (data: UserResponse): User => {
     personalData: {
       no_telepon: data.no_telepon ?? emptyPersonalData.no_telepon,
       tempat_lahir: data.tempat_lahir ?? emptyPersonalData.tempat_lahir,
-      tanggal_lahir: toDateOnly(data.tanggal_lahir),
+      tanggal_lahir: formatDateOnlyForInput(data.tanggal_lahir),
       kota: data.kota ?? emptyPersonalData.kota,
     },
   }

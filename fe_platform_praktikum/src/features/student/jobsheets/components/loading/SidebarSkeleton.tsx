@@ -1,6 +1,6 @@
 export default function SidebarCardSkeleton() {
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6 mb-6 animate-pulse">
+    <div className="w-full bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6 animate-pulse">
       
       {/* STATUS */}
       <div className="flex justify-between">

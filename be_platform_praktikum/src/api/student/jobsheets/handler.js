@@ -9,7 +9,11 @@ class JobsheetsHandler {
   async getJobsheetsByCourseHandler(req, res) {
     try {
       const { courseId } = req.params;
-      const jobsheets = await this._service.getJobsheetsByCourse(courseId, req.query.classId);
+      const jobsheets = await this._service.getJobsheetsByCourse(
+        courseId,
+        req.query.classId,
+        req.user,
+      );
 
       return res.json({
         status: 'success',
@@ -34,6 +38,7 @@ class JobsheetsHandler {
         jobsheetId,
         courseId,
         req.query.classId,
+        req.user,
       );
 
       return res.json({

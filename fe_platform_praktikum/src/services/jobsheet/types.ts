@@ -102,6 +102,9 @@ export type RawJobsheet = {
   title: string;
   description: string;
   summary?: JSONContent;
+  material_summary?: JSONContent;
+  ringkasan_materi?: JSONContent;
+  overview?: JSONContent;
   goal?: string;
   deadline: string;
 

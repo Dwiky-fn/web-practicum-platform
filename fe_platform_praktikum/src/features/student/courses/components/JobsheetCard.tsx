@@ -67,23 +67,6 @@ function getProgressTone(completed: number, total: number) {
   return "bg-yellow-50 text-yellow-700 border-yellow-200";
 }
 
-function getActionLabel(status?: SubmissionStatus) {
-  if (!status) return "Mulai kerjakan";
-
-  switch (status) {
-    case "DRAFT":
-      return "Lanjutkan";
-    case "REVISION":
-      return "Kerjakan revisi";
-    case "SUBMITTED":
-    case "REVIEWING":
-    case "ACCEPTED":
-      return "Lihat pekerjaan";
-    default:
-      return "Detail";
-  }
-}
-
 function getLatestReviewComment(submission?: JobsheetSubmission) {
   const comments = submission?.review?.comments ?? [];
   const latestComment = comments[comments.length - 1]?.comment?.trim();
@@ -96,7 +79,6 @@ export default function JobsheetCard({
   submission,
   onClick,
 }: JobsheetCardProps) {
-  const deadlineDate = new Date(jobsheet.deadline);
   const now = new Date();
   const deadlineState = getDeadlineState(jobsheet.deadline, now);
 
@@ -141,10 +123,24 @@ export default function JobsheetCard({
 
   const isDisabled = isUnpublished;
 
+  function handleCardClick() {
+    if (isDisabled) return;
+    onClick?.();
+  }
+
   return (
     <div
+      role={!isDisabled ? "button" : undefined}
+      tabIndex={!isDisabled ? 0 : undefined}
+      onClick={handleCardClick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          handleCardClick();
+        }
+      }}
       className={`bg-white rounded-xl p-6 shadow-sm border border-gray-100
-      ${isDisabled ? "opacity-60" : ""}`}
+      ${isDisabled ? "opacity-60" : "cursor-pointer hover:shadow-md active:shadow-md transition"}`}
     >
       {/* TOP */}
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -181,7 +177,9 @@ export default function JobsheetCard({
                   }
                 >
                   Deadline:{" "}
-                  {deadlineDate.toLocaleDateString("id-ID")} - {deadlineState.label}
+                  {deadlineState.date
+                    ? `${deadlineState.date.toLocaleDateString("id-ID")} - ${deadlineState.label}`
+                    : deadlineState.label}
                 </span>
               </>
             )}
@@ -260,10 +258,13 @@ export default function JobsheetCard({
         {/* ACTION */}
         {!isDisabled && (
           <button
-            onClick={onClick}
+            onClick={(event) => {
+              event.stopPropagation();
+              onClick?.();
+            }}
             className="text-sm px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-700 transition cursor-pointer"
           >
-            {getActionLabel(status)}
+            Lihat Detail
           </button>
         )}
       </div>

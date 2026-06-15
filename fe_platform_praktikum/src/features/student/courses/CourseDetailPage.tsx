@@ -123,7 +123,7 @@ export default function CourseDetailPage() {
                     jobsheet={jobsheet}
                     submission={submission}
                     onClick={() =>
-                      navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}/works${classId ? `?classId=${encodeURIComponent(classId)}` : ""}`)
+                      navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}${classId ? `?classId=${encodeURIComponent(classId)}` : ""}`)
                     }
                   />
                 );

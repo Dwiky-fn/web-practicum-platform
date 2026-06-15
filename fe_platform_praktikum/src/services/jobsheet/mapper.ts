@@ -70,7 +70,7 @@ export const mapJobsheet = (data: RawJobsheet): Jobsheet => {
 
     title: data.title,
     description: data.description || "",
-    summary: data.summary || emptyDoc,
+    summary: data.summary ?? data.material_summary ?? data.ringkasan_materi ?? data.overview ?? emptyDoc,
     goal: data.goal || "",
     deadline: data.deadline || "",
     task,

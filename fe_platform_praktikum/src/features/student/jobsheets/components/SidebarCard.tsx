@@ -8,6 +8,7 @@ interface Props {
   submission: JobsheetSubmission | null;
   courseId: string;
   jobsheetId: string;
+  classId?: string;
 }
 
 export default function SidebarCard({
@@ -15,18 +16,29 @@ export default function SidebarCard({
   submission,
   courseId,
   jobsheetId,
+  classId,
 }: Props) {
   const navigate = useNavigate();
 
-  const deadlineDate = new Date(jobsheet.deadline);
   const now = new Date();
   const deadlineState = getDeadlineState(jobsheet.deadline, now);
   const isOverdue = deadlineState.isOverdue;
   const status = submission?.status;
   const displayScore = submission?.review?.finalScore ?? submission?.score;
+  const query = classId ? `?classId=${encodeURIComponent(classId)}` : "";
 
   function goTo() {
-    navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/works`)
+    if (status === "REVIEWING" || status === "ACCEPTED") {
+      navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/review${query}`)
+      return
+    }
+
+    if (status === "SUBMITTED") {
+      navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/preview${query}`)
+      return
+    }
+
+    navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/works${query}`)
   }
 
   function getStatusStyle(status?: SubmissionStatus) {
@@ -52,15 +64,15 @@ export default function SidebarCard({
 
     switch (status) {
       case "DRAFT":
-        return "Lanjutkan";
+        return "Lanjutkan Pengerjaan";
       case "REVISION":
-        return "Kerjakan Revisi";
+        return "Lanjutkan Revisi";
       case "SUBMITTED":
-        return "Lihat Pekerjaan";
+        return "Lihat Submission";
       case "ACCEPTED":
-        return "Lihat Pekerjaan";
+        return "Lihat Review";
       case "REVIEWING":
-        return "Lihat Pekerjaan";
+        return "Lihat Review";
       default:
         return "Mulai Kerjakan";
     }
@@ -97,11 +109,12 @@ export default function SidebarCard({
   const latestReviewComment = getLatestReviewComment();
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6 mb-6">
+    <div className="w-full rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+      <div className="space-y-6">
       
       {/* STATUS */}
       <div className="flex justify-between">
-        <p className="text-sm text-gray-500">Status</p>
+        <p className="text-sm text-gray-500">Status Pengerjaan</p>
         <span className={`text-sm font-medium ${getStatusStyle(status)}`}>
           {getStatusLabel(status)}
         </span>
@@ -120,11 +133,19 @@ export default function SidebarCard({
                 : "text-gray-800"
             }`}
           >
-            {deadlineDate.toLocaleDateString("id-ID")}
+            {deadlineState.date
+              ? deadlineState.date.toLocaleDateString("id-ID", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "Belum diatur"}
           </p>
         </div>
 
-        {!isOverdue && (
+        {!isOverdue && deadlineState.date && (
           <p className="text-xs text-gray-400 text-right mt-1">
             {deadlineState.label}
           </p>
@@ -139,7 +160,25 @@ export default function SidebarCard({
         </p>
       </div>
 
-      <div className="space-y-3">
+      {submission && (
+        <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          <p className="font-medium text-gray-700">Informasi Submission</p>
+          <p className="mt-1">
+            Update terakhir:{" "}
+            {submission.updatedAt
+              ? new Date(submission.updatedAt).toLocaleDateString("id-ID", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "-"}
+          </p>
+        </div>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2">
         <div>
           <p className="text-sm font-medium text-gray-700">Percobaan untuk laporan</p>
           <div className="mt-2 space-y-1">
@@ -187,6 +226,7 @@ export default function SidebarCard({
       >
         {getActionLabel(status)}
       </button>
+      </div>
     </div>
   );
 }

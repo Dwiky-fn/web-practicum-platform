@@ -1,22 +1,21 @@
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { getSubmissionByJobsheetId } from "../../../services/submission/service";
 import type { Jobsheet } from "../../../services/jobsheet/types";
 import type { JobsheetSubmission } from "../../../services/submission/types";
 import Navbar from "../../../components/navbar/Navbar";
 import GoalCard from "./components/GoalCard";
-import SummaryCard from "./components/SummaryCard";
 import SidebarCard from "./components/SidebarCard";
 import TopProgressBar from "../../../components/loading/TopProgressBar";
 import GoalCardSkeleton from "./components/loading/GoalSkeleton";
-import SummaryCardSkeleton from "./components/loading/SummarySkeleton";
 import SidebarCardSkeleton from "./components/loading/SidebarSkeleton";
-import HistoryCardSkeleton from "./components/loading/HistorySkeleton";
 import { getJobsheetById } from "../../../services/jobsheet/service";
 import { useCurrentUser } from "../../../services/user/useCurrentUser";
 
 export default function JobsheetOverviewPage() {
   const { user } = useCurrentUser();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const classId = searchParams.get("classId") || undefined;
   const { courseId, jobsheetId } = useParams<{
@@ -27,29 +26,45 @@ export default function JobsheetOverviewPage() {
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null);
   const [submission, setSubmission] = useState<JobsheetSubmission | null>(null)
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!courseId || !jobsheetId || !user) return;
+    if (!courseId || !jobsheetId || !user) {
+      setLoading(false);
+      return;
+    }
 
     const cId = courseId;
     const jId = jobsheetId;
     const studentId = user.id;
 
     async function loadData() {
-      const [raw, sub] = await Promise.all([
-        getJobsheetById(cId, jId, classId),
-        getSubmissionByJobsheetId(cId, jId, studentId)
-      ]);
+      try {
+        setError("");
+        setLoading(true);
+        const [raw, sub] = await Promise.all([
+          getJobsheetById(cId, jId, classId),
+          getSubmissionByJobsheetId(cId, jId, studentId),
+        ]);
 
-      // const mapped = mapJobsheet(raw);
-
-      setJobsheet(raw);
-      setSubmission(sub);
-      setLoading(false);
+        setJobsheet(raw);
+        setSubmission(sub);
+      } catch (error) {
+        console.error(error);
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Jobsheet tidak tersedia untuk kelas Anda."
+        );
+      } finally {
+        setLoading(false);
+      }
     }
 
     loadData();
   }, [classId, courseId, jobsheetId, user]);
+
+  const coursePath = `/courses/${courseId}${classId ? `?classId=${encodeURIComponent(classId)}` : ""}`;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -57,12 +72,23 @@ export default function JobsheetOverviewPage() {
       <TopProgressBar />
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
-          
-          {/* LEFT CONTENT */}
-          <div className="lg:col-span-3 space-y-8">
+        <button
+          type="button"
+          onClick={() => navigate(coursePath)}
+          className="mb-6 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-white hover:text-blue-600 active:bg-white active:text-blue-600 transition"
+        >
+          <ArrowLeft size={18} />
+          Kembali
+        </button>
 
-            {/* Header Section */}
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {!error && (
+          <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
             <div>
               {loading ? (
                 <>
@@ -74,9 +100,12 @@ export default function JobsheetOverviewPage() {
                   <h1 className="text-2xl font-semibold text-gray-800">
                     {jobsheet?.title}
                   </h1>
-                  <p className="text-gray-500 mt-2">
-                    {jobsheet?.description}
-                  </p>
+                  <div className="mt-6 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                    <h2 className="font-semibold text-gray-800">Deskripsi</h2>
+                    <p className="mt-3 text-sm leading-6 text-gray-600">
+                      {jobsheet?.description || "Deskripsi jobsheet belum tersedia."}
+                    </p>
+                  </div>
                 </>
               )}
             </div>
@@ -84,36 +113,22 @@ export default function JobsheetOverviewPage() {
             {loading ? (
               <>
                 <GoalCardSkeleton />
-                <SummaryCardSkeleton />
+                <SidebarCardSkeleton />
               </>
             ) : (
               <>
                 <GoalCard goal={jobsheet!.goal} />
-                <SummaryCard summary={jobsheet!.summary} />
-              </>
-            )}
-          </div>
-
-          {/* RIGHT SIDEBAR */}
-          <div className="lg:col-span-1 lg:mt-20">
-            {loading ? (
-              <>
-                <SidebarCardSkeleton />
-                <HistoryCardSkeleton />
-              </>
-            ) : (
-              <>
                 <SidebarCard
                   jobsheet={jobsheet!}
                   courseId={courseId!}
                   jobsheetId={jobsheetId!}
                   submission={submission}
+                  classId={classId}
                 />
               </>
             )}
           </div>
-
-        </div>
+        )}
       </main>
     </div>
   );

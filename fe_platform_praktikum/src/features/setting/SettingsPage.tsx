@@ -16,6 +16,35 @@ import PersonalDataSection from "./components/PersonalDataSection";
 import AccountSection from "./components/AccountSection";
 import TopProgressBar from "../../components/loading/TopProgressBar";
 import AdminLayout from "../admin/components/AdminLayout";
+import { toast } from "../../components/toast/toastStore";
+import type { User } from "../../services/user/types";
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
+function showSettingsError(message: string) {
+  const warningPatterns = [
+    "sudah digunakan",
+    "tidak sama",
+    "minimal",
+    "wajib",
+    "format",
+    "tidak valid",
+  ];
+  const normalized = message.toLowerCase();
+
+  if (warningPatterns.some((pattern) => normalized.includes(pattern))) {
+    toast.warning(message);
+    return;
+  }
+
+  toast.error(message);
+}
 
 export default function SettingsPage() {
   const { user, setUser } = useCurrentUser();
@@ -23,10 +52,6 @@ export default function SettingsPage() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [emailSaving, setEmailSaving] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
-  const [message, setMessage] = useState("");
-  const [emailMessage, setEmailMessage] = useState("");
-  const [passwordMessage, setPasswordMessage] = useState("");
-  const [showPasswordSuccessModal, setShowPasswordSuccessModal] = useState(false);
   const [pendingEmailChange, setPendingEmailChange] = useState<{
     email: string;
     currentPassword: string;
@@ -44,17 +69,21 @@ export default function SettingsPage() {
         : { fullname: user.fullname, ...user.adminProfile };
   const isAdmin = user.role === "ADMIN";
 
+  const applyUser = (updatedUser: User) => {
+    setUser(updatedUser);
+    localStorage.setItem("authUser", JSON.stringify(updatedUser));
+  };
+
   const saveUser = async (payload: UpdateUserPayload, successMessage: string) => {
     setProfileSaving(true);
-    setMessage("");
 
     try {
       const updatedUser = await updateUser(user.id, payload);
-      setUser(updatedUser);
-      setMessage(successMessage);
+      applyUser(updatedUser);
+      toast.success(successMessage);
     } catch (error) {
       console.error(error);
-      setMessage("Gagal menyimpan perubahan.");
+      showSettingsError(getErrorMessage(error, "Gagal memperbarui data pribadi."));
     } finally {
       setProfileSaving(false);
     }
@@ -62,15 +91,14 @@ export default function SettingsPage() {
 
   const handleUploadAvatar = async (file: File) => {
     setProfileSaving(true);
-    setMessage("");
 
     try {
       const updatedUser = await uploadUserAvatar(user.id, file);
-      setUser(updatedUser);
-      setMessage("Foto profil berhasil diupload.");
+      applyUser(updatedUser);
+      toast.success("Foto profil berhasil diperbarui.");
     } catch (error) {
       console.error(error);
-      setMessage("Gagal mengupload foto profil.");
+      showSettingsError(getErrorMessage(error, "Gagal memperbarui foto profil."));
     } finally {
       setProfileSaving(false);
     }
@@ -79,7 +107,7 @@ export default function SettingsPage() {
   const handleSavePersonalData = async (personalData: PersonalData) => {
     await saveUser(
       { personalData },
-      "Data pribadi berhasil disimpan.",
+      "Data pribadi berhasil diperbarui.",
     );
   };
 
@@ -88,18 +116,13 @@ export default function SettingsPage() {
     currentPassword: string;
   }) => {
     setEmailSaving(true);
-    setEmailMessage("");
-    setPasswordMessage("");
 
     try {
       await verifyUserPassword(user.id, payload.currentPassword);
       setPendingEmailChange(payload);
-      setEmailMessage("");
     } catch (error) {
       console.error(error);
-      setEmailMessage(
-        error instanceof Error ? error.message : "Gagal memverifikasi password.",
-      );
+      showSettingsError(getErrorMessage(error, "Gagal memverifikasi password."));
       throw error;
     } finally {
       setEmailSaving(false);
@@ -112,17 +135,13 @@ export default function SettingsPage() {
     }
 
     setEmailSaving(true);
-    setEmailMessage("");
-    setPasswordMessage("");
 
     try {
       await requestUserEmailChangeOtp(user.id, pendingEmailChange);
-      setEmailMessage("Kode OTP telah dikirim ke email baru.");
+      toast.info("Kode OTP telah dikirim ke email baru.");
     } catch (error) {
       console.error(error);
-      setEmailMessage(
-        error instanceof Error ? error.message : "Gagal mengirim OTP.",
-      );
+      showSettingsError(getErrorMessage(error, "Gagal mengirim OTP."));
       throw error;
     } finally {
       setEmailSaving(false);
@@ -135,8 +154,6 @@ export default function SettingsPage() {
     otp: string;
   }) => {
     setEmailSaving(true);
-    setEmailMessage("");
-    setPasswordMessage("");
 
     try {
       const otpCode = payload.otp.trim();
@@ -149,14 +166,12 @@ export default function SettingsPage() {
         otp: otpCode,
       });
 
-      setUser(updatedUser);
+      applyUser(updatedUser);
       setPendingEmailChange(null);
-      setEmailMessage("Email berhasil diperbarui.");
+      toast.success("Email berhasil diperbarui.");
     } catch (error) {
       console.error(error);
-      setEmailMessage(
-        error instanceof Error ? error.message : "Gagal memperbarui email.",
-      );
+      showSettingsError(getErrorMessage(error, "Gagal memperbarui email."));
       throw error;
     } finally {
       setEmailSaving(false);
@@ -169,45 +184,18 @@ export default function SettingsPage() {
     confirmPassword: string;
   }) => {
     setPasswordSaving(true);
-    setPasswordMessage("");
-    setEmailMessage("");
 
     try {
       await updateUserPassword(user.id, payload);
-      setPasswordMessage("Password berhasil diperbarui.");
-      setShowPasswordSuccessModal(true);
+      toast.success("Password berhasil diperbarui.");
     } catch (error) {
       console.error(error);
-      setPasswordMessage(
-        error instanceof Error ? error.message : "Gagal memperbarui password.",
-      );
+      showSettingsError(getErrorMessage(error, "Gagal memperbarui password."));
       throw error;
     } finally {
       setPasswordSaving(false);
     }
   };
-
-  const successModal = showPasswordSuccessModal && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 border border-gray-100 flex flex-col items-center text-center shadow-xl">
-        <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center text-green-500 mb-4">
-          <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5"></path>
-          </svg>
-        </div>
-        <h3 className="text-xl font-bold text-gray-900 mb-2">Password Diperbarui!</h3>
-        <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-          Password Anda telah berhasil diperbarui.
-        </p>
-        <button
-          onClick={() => setShowPasswordSuccessModal(false)}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-xl transition duration-200 cursor-pointer"
-        >
-          Mengerti
-        </button>
-      </div>
-    </div>
-  );
 
   const settingsContent = (
     <>
@@ -221,7 +209,6 @@ export default function SettingsPage() {
             avatarUrl={user.avatarUrl}
             data={profileData}
             saving={profileSaving}
-            message={message}
             onUploadAvatar={handleUploadAvatar}
           />
         )}
@@ -230,7 +217,6 @@ export default function SettingsPage() {
           <PersonalDataSection
             data={user.personalData}
             saving={profileSaving}
-            message={message}
             onSave={handleSavePersonalData}
           />
         )}
@@ -240,8 +226,6 @@ export default function SettingsPage() {
             email={user.email}
             emailSaving={emailSaving}
             passwordSaving={passwordSaving}
-            emailMessage={emailMessage}
-            passwordMessage={passwordMessage}
             onRequestEmailChange={handleRequestEmailChange}
             onSendEmailOtp={handleSendEmailOtp}
             onVerifyEmailChange={handleVerifyEmailChange}
@@ -249,7 +233,6 @@ export default function SettingsPage() {
           />
         )}
       </SettingsLayout>
-      {successModal}
     </>
   );
 

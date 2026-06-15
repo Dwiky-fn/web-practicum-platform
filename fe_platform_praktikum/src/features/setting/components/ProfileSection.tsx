@@ -2,6 +2,7 @@ import { useRef } from "react";
 import type { Role } from "../../../services/user/types";
 import { profileFieldByRole } from "../config/fieldConfig";
 import Avatar from "../../../components/Avatar";
+import { toast } from "../../../components/toast/toastStore";
 
 const MAX_AVATAR_SIZE_MB = 2;
 const MAX_AVATAR_SIZE_BYTES = MAX_AVATAR_SIZE_MB * 1024 * 1024;
@@ -12,7 +13,6 @@ interface Props {
   data: Record<string, string | number>;
   avatarUrl?: string;
   saving?: boolean;
-  message?: string;
   onUploadAvatar: (file: File) => Promise<void>;
 }
 
@@ -21,7 +21,6 @@ export default function ProfileSection({
   data,
   avatarUrl,
   saving = false,
-  message,
   onUploadAvatar,
 }: Props) {
   const fields = profileFieldByRole[role];
@@ -32,12 +31,12 @@ export default function ProfileSection({
     if (!file) return;
 
     if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
-      window.alert("Format gambar tidak didukung. Gunakan JPG, PNG, atau WebP.");
+      toast.warning("Format gambar tidak didukung. Gunakan JPG, PNG, atau WebP.");
       return;
     }
 
     if (file.size > MAX_AVATAR_SIZE_BYTES) {
-      window.alert(`Ukuran foto maksimal ${MAX_AVATAR_SIZE_MB} MB.`);
+      toast.warning(`Ukuran foto maksimal ${MAX_AVATAR_SIZE_MB} MB.`);
       return;
     }
 
@@ -75,11 +74,6 @@ export default function ProfileSection({
           <p className="mt-2 text-xs text-gray-500">
             Format JPG, PNG, atau WebP. Maksimal {MAX_AVATAR_SIZE_MB} MB.
           </p>
-          {message && (
-            <p className="mt-2 text-sm text-gray-500">
-              {message}
-            </p>
-          )}
         </div>
       </div>
 

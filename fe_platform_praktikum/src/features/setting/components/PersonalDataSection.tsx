@@ -6,14 +6,12 @@ import { formatDateOnlyForInput } from "../../../shared/utils/dateOnly";
 interface Props {
   data: PersonalData;
   saving?: boolean;
-  message?: string;
   onSave: (data: PersonalData) => Promise<void>;
 }
 
 export default function PersonalDataSection({
   data,
   saving = false,
-  message,
   onSave,
 }: Props) {
   const [form, setForm] = useState<PersonalData>({
@@ -94,8 +92,7 @@ export default function PersonalDataSection({
 
       </div>
 
-      <div className="mt-6 flex items-center justify-between gap-4">
-        <p className="text-sm text-gray-500">{message}</p>
+      <div className="mt-6 flex items-center justify-end gap-4">
         <div className="flex gap-3">
           <button
             type="button"

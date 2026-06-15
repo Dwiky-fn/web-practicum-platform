@@ -3,13 +3,12 @@ import {
   AdminButton,
   AdminModal,
 } from "../../admin/components/AdminUI";
+import { toast } from "../../../components/toast/toastStore";
 
 interface Props {
   email: string;
   emailSaving?: boolean;
   passwordSaving?: boolean;
-  emailMessage?: string;
-  passwordMessage?: string;
   onRequestEmailChange?: (payload: {
     email: string;
     currentPassword: string;
@@ -31,8 +30,6 @@ export default function AccountSection({
   email,
   emailSaving = false,
   passwordSaving = false,
-  emailMessage,
-  passwordMessage,
   onRequestEmailChange,
   onSendEmailOtp,
   onVerifyEmailChange,
@@ -43,12 +40,10 @@ export default function AccountSection({
   const [emailPassword, setEmailPassword] = useState("");
   const [otpInput, setOtpInput] = useState("");
   const [otpModalOpen, setOtpModalOpen] = useState(false);
-  const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [pendingEmail, setPendingEmail] = useState("");
   const [pendingOldEmail, setPendingOldEmail] = useState("");
   const [otpCountdown, setOtpCountdown] = useState(0);
   const [otpSent, setOtpSent] = useState(false);
-  const [otpMessage, setOtpMessage] = useState("");
   const [oldPassword, setOldPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -89,7 +84,6 @@ export default function AccountSection({
       setOtpInput("");
       setOtpCountdown(0);
       setOtpSent(false);
-      setOtpMessage("");
       setOtpModalOpen(true);
     } catch {
       return;
@@ -105,11 +99,6 @@ export default function AccountSection({
       await onSendEmailOtp?.();
 
       setOtpSent(true);
-      setOtpMessage(
-        otpSent
-          ? `OTP baru telah dikirim ke ${pendingEmail}.`
-          : `OTP telah dikirim ke ${pendingEmail}.`,
-      );
       setOtpCountdown(OTP_RESEND_INTERVAL);
     } catch {
       return;
@@ -125,7 +114,6 @@ export default function AccountSection({
       });
 
       setOtpModalOpen(false);
-      setSuccessModalOpen(true);
       setEmailPassword("");
       setOtpInput("");
       setOtpSent(false);
@@ -139,6 +127,7 @@ export default function AccountSection({
     event.preventDefault();
 
     if (password !== confirmPassword) {
+      toast.warning("Password baru dan konfirmasi password tidak sama.");
       return;
     }
 
@@ -218,9 +207,6 @@ export default function AccountSection({
             >
               {emailSaving ? "Memproses..." : "Lanjut Verifikasi"}
             </button>
-            {emailMessage && (
-              <p className="mt-3 text-sm text-gray-500">{emailMessage}</p>
-            )}
           </form>
         </section>
 
@@ -266,9 +252,6 @@ export default function AccountSection({
             >
               {passwordSaving ? "Menyimpan..." : "Simpan Password"}
             </button>
-            {passwordMessage && (
-              <p className="mt-3 text-sm text-gray-500">{passwordMessage}</p>
-            )}
           </form>
         </section>
       </div>
@@ -341,29 +324,8 @@ export default function AccountSection({
               </AdminButton>
             </div>
             <p className="text-xs text-gray-500">{otpCountdownLabel}</p>
-            {otpMessage && (
-              <p className="text-xs font-medium text-blue-700">{otpMessage}</p>
-            )}
           </div>
         </div>
-      </AdminModal>
-    )}
-    {successModalOpen && (
-      <AdminModal
-        title="Email Berhasil Diganti"
-        onClose={() => setSuccessModalOpen(false)}
-        footer={
-          <AdminButton onClick={() => setSuccessModalOpen(false)}>
-            Tutup
-          </AdminButton>
-        }
-      >
-        <p className="text-center text-sm text-gray-700">
-          Email berhasil diganti dari{" "}
-          <span className="font-semibold text-gray-900">{pendingOldEmail}</span>{" "}
-          ke{" "}
-          <span className="font-semibold text-gray-900">{pendingEmail}</span>.
-        </p>
       </AdminModal>
     )}
     </>

@@ -41,7 +41,8 @@ class AdminUsersService {
       const result = await this._pool.query(
         `
         SELECT u.id, u.fullname, u.email, u.is_active,
-          lp.nip, lp.program_studi, lp.jurusan, lp.status, lp.avatar_url,
+          lp.nip, lp.program_studi, lp.jurusan, lp.status,
+          u.avatar_url,
           lp.no_telepon, lp.tempat_lahir,
           TO_CHAR(lp.tanggal_lahir, 'YYYY-MM-DD') AS tanggal_lahir,
           lp.kota
@@ -72,7 +73,7 @@ class AdminUsersService {
         COALESCE(dept.name, sp.jurusan) AS jurusan, 
         sp.study_program_id,
         sp.angkatan, sp.semester,
-        sp.status, sp.avatar_url, sp.no_telepon, sp.tempat_lahir,
+        sp.status, u.avatar_url, sp.no_telepon, sp.tempat_lahir,
         TO_CHAR(sp.tanggal_lahir, 'YYYY-MM-DD') AS tanggal_lahir,
         sp.kota
       FROM users u

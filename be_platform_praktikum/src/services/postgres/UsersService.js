@@ -158,23 +158,12 @@ class UsersService {
       return;
     }
 
-    if (role === 'MAHASISWA') {
-      await this._pool.query(
-        `UPDATE student_profiles
+    await this._pool.query(
+      `UPDATE users
        SET avatar_url = COALESCE(avatar_url, $2)
-       WHERE user_id = $1`,
-        [userId, avatarUrl],
-      );
-    }
-
-    if (role === 'DOSEN') {
-      await this._pool.query(
-        `UPDATE lecturer_profiles
-       SET avatar_url = COALESCE(avatar_url, $2)
-       WHERE user_id = $1`,
-        [userId, avatarUrl],
-      );
-    }
+       WHERE id = $1`,
+      [userId, avatarUrl],
+    );
   }
 
   async requestUpdateEmailOtp(userId, payload) {
@@ -509,14 +498,13 @@ class UsersService {
         sp.semester,
         sp.status,
         sp.status AS student_status,
-        sp.avatar_url,
+        u.avatar_url,
         sp.no_telepon,
         sp.tempat_lahir,
         TO_CHAR(sp.tanggal_lahir, 'YYYY-MM-DD') AS tanggal_lahir,
         sp.kota,
         -- Lecturer Profile
         lp.nip,
-        lp.avatar_url AS lp_avatar_url,
         lp.no_telepon AS lp_no_telepon,
         lp.tempat_lahir AS lp_tempat_lahir,
         TO_CHAR(lp.tanggal_lahir, 'YYYY-MM-DD') AS lp_tanggal_lahir,
@@ -538,7 +526,6 @@ class UsersService {
 
     // Normalize: ambil avatar & personal data dari profil yang sesuai role
     if (row.role === 'DOSEN') {
-      row.avatar_url = row.lp_avatar_url;
       row.no_telepon = row.lp_no_telepon;
       row.tempat_lahir = row.lp_tempat_lahir;
       row.tanggal_lahir = row.lp_tanggal_lahir;
@@ -569,11 +556,13 @@ class UsersService {
       await client.query(
         `UPDATE users
          SET
-          is_active = COALESCE($2, is_active)
+          is_active = COALESCE($2, is_active),
+          avatar_url = COALESCE($3, avatar_url)
          WHERE id = $1`,
         [
           userId,
           typeof payload.isActive === 'boolean' ? payload.isActive : null,
+          payload.avatarUrl ?? payload.avatar_url ?? null,
         ],
       );
 
@@ -581,15 +570,13 @@ class UsersService {
         await client.query(
           `UPDATE student_profiles
            SET
-            avatar_url = COALESCE($2, avatar_url),
-            no_telepon = COALESCE($3, no_telepon),
-            tempat_lahir = COALESCE($4, tempat_lahir),
-            tanggal_lahir = COALESCE($5, tanggal_lahir),
-            kota = COALESCE($6, kota)
+            no_telepon = COALESCE($2, no_telepon),
+            tempat_lahir = COALESCE($3, tempat_lahir),
+            tanggal_lahir = COALESCE($4, tanggal_lahir),
+            kota = COALESCE($5, kota)
            WHERE user_id = $1`,
           [
             userId,
-            payload.avatarUrl ?? payload.avatar_url ?? null,
             personalData.no_telepon ?? null,
             personalData.tempat_lahir ?? null,
             personalData.tanggal_lahir || null,
@@ -602,15 +589,13 @@ class UsersService {
         await client.query(
           `UPDATE lecturer_profiles
            SET
-            avatar_url = COALESCE($2, avatar_url),
-            no_telepon = COALESCE($3, no_telepon),
-            tempat_lahir = COALESCE($4, tempat_lahir),
-            tanggal_lahir = COALESCE($5, tanggal_lahir),
-            kota = COALESCE($6, kota)
+            no_telepon = COALESCE($2, no_telepon),
+            tempat_lahir = COALESCE($3, tempat_lahir),
+            tanggal_lahir = COALESCE($4, tanggal_lahir),
+            kota = COALESCE($5, kota)
            WHERE user_id = $1`,
           [
             userId,
-            payload.avatarUrl ?? payload.avatar_url ?? null,
             personalData.no_telepon ?? null,
             personalData.tempat_lahir ?? null,
             personalData.tanggal_lahir || null,
@@ -832,23 +817,12 @@ class UsersService {
 
     const role = currentResult.rows[0].role;
 
-    if (role === 'MAHASISWA') {
-      await this._pool.query(
-        `UPDATE student_profiles
-         SET avatar_url = $2
-         WHERE user_id = $1`,
-        [userId, avatarUrl],
-      );
-    }
-
-    if (role === 'DOSEN') {
-      await this._pool.query(
-        `UPDATE lecturer_profiles
-         SET avatar_url = $2
-         WHERE user_id = $1`,
-        [userId, avatarUrl],
-      );
-    }
+    await this._pool.query(
+      `UPDATE users
+       SET avatar_url = $2
+       WHERE id = $1`,
+      [userId, avatarUrl],
+    );
 
     return this.getUserById(userId);
   }

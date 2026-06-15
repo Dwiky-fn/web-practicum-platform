@@ -5,6 +5,7 @@ import Avatar from "../../../components/Avatar";
 
 const MAX_AVATAR_SIZE_MB = 2;
 const MAX_AVATAR_SIZE_BYTES = MAX_AVATAR_SIZE_MB * 1024 * 1024;
+const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 interface Props {
   role: Role;
@@ -30,8 +31,8 @@ export default function ProfileSection({
   const handleFileChange = async (file?: File) => {
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      window.alert("File harus berupa gambar.");
+    if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+      window.alert("Format gambar tidak didukung. Gunakan JPG, PNG, atau WebP.");
       return;
     }
 

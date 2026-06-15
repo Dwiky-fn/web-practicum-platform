@@ -49,7 +49,7 @@ class CloudinaryService {
       throw new Error('INVALID_IMAGE');
     }
 
-    if (!image.startsWith('data:image/')) {
+    if (!/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(image)) {
       throw new Error('INVALID_IMAGE');
     }
 

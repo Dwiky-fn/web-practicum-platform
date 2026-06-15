@@ -198,7 +198,7 @@ class StudentJobsheetProgressService {
         u.id AS student_id,
         u.fullname,
         sp.nim,
-        sp.avatar_url,
+        u.avatar_url,
         sjp.current_experiment_id,
         sjp.current_instruction_id,
         COALESCE(sjp.completed_steps, 0) AS completed_steps,
@@ -289,7 +289,7 @@ class StudentJobsheetProgressService {
 
     // 1. Fetch student info
     const studentRes = await this._pool.query(
-      `SELECT u.fullname, u.email, sp.nim, sp.avatar_url
+      `SELECT u.fullname, u.email, sp.nim, u.avatar_url
        FROM users u
        LEFT JOIN student_profiles sp ON u.id = sp.user_id
        WHERE u.id = $1`,

@@ -382,7 +382,9 @@ class UsersHandler {
 
       return res.status(200).json({
         status: 'success',
+        message: 'Foto profil berhasil diperbarui',
         data: {
+          avatar_url: avatarUrl,
           avatarUrl,
           user,
         },

@@ -768,7 +768,7 @@ class ClassesService {
       `
       SELECT u.id, u.fullname, u.email, u.is_active,
         sp.nim, sp.program_studi, sp.jurusan, sp.angkatan, sp.semester,
-        sp.status, sp.avatar_url
+        sp.status, u.avatar_url
       FROM class_students cs
       JOIN users u ON u.id = cs.student_id
       LEFT JOIN student_profiles sp ON sp.user_id = u.id
@@ -810,7 +810,7 @@ class ClassesService {
       `
       SELECT u.id, u.fullname, u.email, u.is_active,
         sp.nim, sp.program_studi, sp.jurusan, sp.angkatan, sp.semester,
-        sp.status, sp.avatar_url
+        sp.status, u.avatar_url
       FROM users u
       LEFT JOIN student_profiles sp ON sp.user_id = u.id
       WHERE u.role = 'MAHASISWA'

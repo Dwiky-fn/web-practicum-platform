@@ -6,7 +6,7 @@ class DepartmentsHandler {
     autoBind(this);
   }
 
-  async getDepartmentsHandler(req, res) {
+  async getDepartmentsHandler(req, res, next) {
     try {
       const departments = await this._service.getDepartments();
       return res.status(200).json({
@@ -14,11 +14,7 @@ class DepartmentsHandler {
         data: { departments },
       });
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({
-        status: 'error',
-        message: 'Terjadi kesalahan server',
-      });
+      return next(error);
     }
   }
 }

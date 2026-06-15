@@ -6,7 +6,7 @@ class ActivitiesHandler {
     autoBind(this);
   }
 
-  async getRecentActivitiesHandler(req, res) {
+  async getRecentActivitiesHandler(req, res, next) {
     try {
       const { userId } = req.params;
 
@@ -17,12 +17,7 @@ class ActivitiesHandler {
         data: { activities },
       });
     } catch (error) {
-      console.error(error);
-
-      return res.status(500).json({
-        status: 'error',
-        message: 'Terjadi kesalahan server',
-      });
+      return next(error);
     }
   }
 }

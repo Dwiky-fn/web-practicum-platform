@@ -1,3 +1,5 @@
+const ExecutionValidator = require('../../validator/execution');
+
 class ExecutionGatewayService {
   constructor(runnerClient) {
     this._runnerClient = runnerClient;
@@ -8,13 +10,17 @@ class ExecutionGatewayService {
 
     switch (message.type) {
       case 'run':
-        this._handleRun(message, sendToClient);
+        this._handleRun(ExecutionValidator.validateRunMessage(message), sendToClient);
         break;
       case 'input':
       case 'stdin':
-        this._runnerClient.sendInput(message.data ?? message.value ?? '');
+        {
+          const payload = ExecutionValidator.validateInputMessage(message);
+          this._runnerClient.sendInput(payload.data ?? payload.value ?? '');
+        }
         break;
       case 'stop':
+        ExecutionValidator.validateStopMessage(message);
         this._runnerClient.stop();
         break;
       default:

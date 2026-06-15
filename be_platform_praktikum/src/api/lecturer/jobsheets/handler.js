@@ -10,19 +10,13 @@ class LecturerJobsheetsHandler {
 
   async postJobsheetHandler(req, res) {
     try {
-      const validation = LecturerJobsheetsValidator.validateJobsheetPayload(req.body);
-      if (validation.error) {
-        return res.status(400).json({
-          status: 'fail',
-          message: validation.error.details[0].message,
-        });
-      }
+      const payload = LecturerJobsheetsValidator.validateJobsheetPayload(req.body);
 
       const { courseId } = req.params;
       const result = await this._service.createJobsheet(
         courseId,
-        req.body.lecturerId,
-        req.body,
+        payload.lecturerId,
+        payload,
       );
 
       return created(res, { jobsheet: result }, 'Jobsheet berhasil dibuat');
@@ -33,20 +27,14 @@ class LecturerJobsheetsHandler {
 
   async putJobsheetHandler(req, res) {
     try {
-      const validation = LecturerJobsheetsValidator.validateJobsheetPayload(req.body);
-      if (validation.error) {
-        return res.status(400).json({
-          status: 'fail',
-          message: validation.error.details[0].message,
-        });
-      }
+      const payload = LecturerJobsheetsValidator.validateJobsheetPayload(req.body);
 
       const { courseId, jobsheetId } = req.params;
       const result = await this._service.updateJobsheet(
         courseId,
         jobsheetId,
-        req.body.lecturerId,
-        req.body,
+        payload.lecturerId,
+        payload,
       );
 
       return ok(res, { jobsheet: result }, 'Jobsheet berhasil diperbarui');

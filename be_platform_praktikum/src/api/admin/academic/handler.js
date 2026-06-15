@@ -1,5 +1,6 @@
 const autoBind = require('auto-bind');
 const { created, handleAdminError, ok } = require('../utils');
+const AcademicValidator = require('../../../validator/admin/academic');
 
 class AcademicHandler {
   constructor(service) {
@@ -17,7 +18,8 @@ class AcademicHandler {
 
   async createSemesterHandler(req, res) {
     try {
-      const semester = await this._service.createSemester(req.body);
+      const payload = AcademicValidator.validateCreateSemesterPayload(req.body);
+      const semester = await this._service.createSemester(payload);
       return created(res, { semester }, 'Semester berhasil ditambahkan');
     } catch (error) {
       return handleAdminError(error, res);
@@ -53,7 +55,8 @@ class AcademicHandler {
 
   async getCoursesHandler(req, res) {
     try {
-      return ok(res, { courses: await this._service.getCourses(req.query) });
+      const query = AcademicValidator.validateCoursesQuery(req.query);
+      return ok(res, { courses: await this._service.getCourses(query) });
     } catch (error) {
       return handleAdminError(error, res);
     }
@@ -61,7 +64,8 @@ class AcademicHandler {
 
   async createCourseHandler(req, res) {
     try {
-      const course = await this._service.createCourse(req.body);
+      const payload = AcademicValidator.validateCreateCoursePayload(req.body);
+      const course = await this._service.createCourse(payload);
       return created(res, { course }, 'Mata kuliah berhasil ditambahkan');
     } catch (error) {
       return handleAdminError(error, res);
@@ -70,7 +74,8 @@ class AcademicHandler {
 
   async updateCourseHandler(req, res) {
     try {
-      const course = await this._service.updateCourse(req.params.id, req.body);
+      const payload = AcademicValidator.validateUpdateCoursePayload(req.body);
+      const course = await this._service.updateCourse(req.params.id, payload);
       return ok(res, { course }, 'Mata kuliah berhasil diperbarui');
     } catch (error) {
       return handleAdminError(error, res);

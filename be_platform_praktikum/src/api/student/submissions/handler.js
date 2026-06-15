@@ -1,4 +1,5 @@
 const autoBind = require('auto-bind');
+const { InvariantError } = require('../../../exceptions');
 const SubmissionsValidator = require('../../../validator/submissions');
 
 class SubmissionsHandler {
@@ -11,15 +12,11 @@ class SubmissionsHandler {
     return req.query?.studentId || req.body?.studentId;
   }
 
-  _requireStudentId(req, res) {
+  _requireStudentId(req) {
     const studentId = this._getStudentId(req);
 
     if (!studentId) {
-      res.status(400).json({
-        status: 'fail',
-        message: 'studentId wajib diisi',
-      });
-      return null;
+      throw new InvariantError('studentId wajib diisi');
     }
 
     return studentId;
@@ -69,7 +66,7 @@ class SubmissionsHandler {
     return result;
   }
 
-  async postSubmissionHandler(req, res) {
+  async postSubmissionHandler(req, res, next) {
     try {
       const payload = req.body;
 
@@ -80,19 +77,13 @@ class SubmissionsHandler {
         data: { submission },
       });
     } catch (error) {
-      console.error(error);
-
-      return res.status(500).json({
-        status: 'fail',
-        message: 'Terjadi kesalahan saat membuat submission',
-      });
+      return next(error);
     }
   }
 
   async getSubmissionHandler(req, res) {
     const { jobsheetId } = req.params;
-    const studentId = this._requireStudentId(req, res);
-    if (!studentId) return;
+    const studentId = this._requireStudentId(req);
 
     const submission = await this._service.getSubmissionByJobsheetId(
       jobsheetId,
@@ -109,8 +100,7 @@ class SubmissionsHandler {
 
   async getOrCreateSubmissionHandler(req, res) {
     const { jobsheetId, courseId } = req.params;
-    const studentId = this._requireStudentId(req, res);
-    if (!studentId) return;
+    const studentId = this._requireStudentId(req);
 
     const submission = await this._service.getOrCreateSubmission(
       jobsheetId,
@@ -128,24 +118,17 @@ class SubmissionsHandler {
 
   async putSubmissionHandler(req, res) {
     const { jobsheetId, courseId } = req.params;
-    const studentId = this._requireStudentId(req, res);
-    if (!studentId) return;
+    const studentId = this._requireStudentId(req);
 
     if (req.body.experimentId !== undefined || req.body.instructionId !== undefined) {
-      const validationResult = SubmissionsValidator.validateStepPayload(req.body);
-      if (validationResult.error) {
-        return res.status(400).json({
-          status: 'fail',
-          message: validationResult.error.details[0].message,
-        });
-      }
+      const stepPayload = SubmissionsValidator.validateStepPayload(req.body);
 
       try {
         const submission = await this._service.updateSubmissionStep({
           jobsheetId,
           studentId,
           courseId,
-          stepPayload: req.body,
+          stepPayload,
         });
 
         return res.json({
@@ -153,11 +136,11 @@ class SubmissionsHandler {
           data: { submission },
         });
       } catch (error) {
-        console.error(error);
-        return res.status(400).json({
-          status: 'fail',
-          message: error.message || 'Gagal memperbarui step submission',
-        });
+        if (error.statusCode) {
+          throw error;
+        }
+
+        throw new InvariantError(error.message || 'Gagal memperbarui step submission');
       }
     }
 
@@ -176,34 +159,22 @@ class SubmissionsHandler {
         data: { submission },
       });
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({
-        status: 'fail',
-        message: 'Terjadi kesalahan saat memperbarui submission',
-      });
+      throw error;
     }
   }
 
   async submitSubmissionHandler(req, res) {
-    try {
-      const { jobsheetId } = req.params;
-      const studentId = this._requireStudentId(req, res);
-      if (!studentId) return;
+    const { jobsheetId } = req.params;
+    const studentId = this._requireStudentId(req);
 
-      const submission = await this._service.submitSubmission(
-        jobsheetId,
-        studentId,
-      );
+    const submission = await this._service.submitSubmission(
+      jobsheetId,
+      studentId,
+    );
 
-      const filtered = this._filterSubmissionForStudent(submission, req.user?.role);
+    const filtered = this._filterSubmissionForStudent(submission, req.user?.role);
 
-      return res.json({ status: 'success', data: { submission: filtered } });
-    } catch (error) {
-      console.error(error);
-      return res
-        .status(500)
-        .json({ status: 'fail', message: 'Terjadi kesalahan saat submit' });
-    }
+    return res.json({ status: 'success', data: { submission: filtered } });
   }
 }
 

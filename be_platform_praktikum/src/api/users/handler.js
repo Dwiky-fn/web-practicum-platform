@@ -1,4 +1,6 @@
 const autoBind = require('auto-bind');
+const { ClientError } = require('../../exceptions');
+const UsersValidator = require('../../validator/users');
 
 class UsersHandler {
   constructor(service, cloudinaryService) {
@@ -9,7 +11,8 @@ class UsersHandler {
 
   async loginHandler(req, res) {
     try {
-      const { token, user } = await this._service.login(req.body);
+      const payload = UsersValidator.validateLoginPayload(req.body);
+      const { token, user } = await this._service.login(payload);
 
       return res.status(200).json({
         status: 'success',
@@ -20,6 +23,10 @@ class UsersHandler {
         },
       });
     } catch (error) {
+      if (error instanceof ClientError) {
+        return this._sendClientError(error, res);
+      }
+
       const errors = {
         LOGIN_IDENTIFIER_REQUIRED: [400, 'Email atau NIM wajib diisi'],
         LOGIN_PASSWORD_REQUIRED: [400, 'Password wajib diisi'],
@@ -30,26 +37,22 @@ class UsersHandler {
       const detail = errors[error.message];
 
       if (detail) {
-        const [statusCode, message] = detail;
-
-        return res.status(statusCode).json({
-          status: 'fail',
-          message,
-        });
+        return this._sendMappedError(detail, res);
       }
 
       console.error(error);
 
       return res.status(500).json({
         status: 'error',
-        message: 'Terjadi kesalahan server',
+        message: 'Terjadi kesalahan pada server',
       });
     }
   }
 
   async googleLoginHandler(req, res) {
     try {
-      const { token, user } = await this._service.loginWithGoogle(req.body);
+      const payload = UsersValidator.validateGoogleLoginPayload(req.body);
+      const { token, user } = await this._service.loginWithGoogle(payload);
 
       return res.status(200).json({
         status: 'success',
@@ -60,6 +63,10 @@ class UsersHandler {
         },
       });
     } catch (error) {
+      if (error instanceof ClientError) {
+        return this._sendClientError(error, res);
+      }
+
       const errors = {
         GOOGLE_CREDENTIAL_REQUIRED: [400, 'Credential Google wajib diisi'],
         GOOGLE_INVALID: [401, 'Login Google tidak valid'],
@@ -78,26 +85,22 @@ class UsersHandler {
       const detail = errors[error.message];
 
       if (detail) {
-        const [statusCode, message] = detail;
-
-        return res.status(statusCode).json({
-          status: 'fail',
-          message,
-        });
+        return this._sendMappedError(detail, res);
       }
 
       console.error(error);
 
       return res.status(500).json({
         status: 'error',
-        message: 'Terjadi kesalahan server',
+        message: 'Terjadi kesalahan pada server',
       });
     }
   }
 
   async requestPasswordResetOtpHandler(req, res) {
     try {
-      await this._service.requestPasswordResetOtp(req.body);
+      const payload = UsersValidator.validatePasswordResetRequestPayload(req.body);
+      await this._service.requestPasswordResetOtp(payload);
 
       return res.status(200).json({
         status: 'success',
@@ -110,7 +113,8 @@ class UsersHandler {
 
   async resetPasswordWithOtpHandler(req, res) {
     try {
-      await this._service.resetPasswordWithOtp(req.body);
+      const payload = UsersValidator.validateResetForgottenPasswordPayload(req.body);
+      await this._service.resetPasswordWithOtp(payload);
 
       return res.status(200).json({
         status: 'success',
@@ -123,7 +127,8 @@ class UsersHandler {
 
   async verifyPasswordResetOtpHandler(req, res) {
     try {
-      const { resetToken } = await this._service.verifyPasswordResetOtp(req.body);
+      const payload = UsersValidator.validateVerifyPasswordResetOtpPayload(req.body);
+      const { resetToken } = await this._service.verifyPasswordResetOtp(payload);
 
       return res.status(200).json({
         status: 'success',
@@ -139,7 +144,8 @@ class UsersHandler {
 
   async resetForgottenPasswordHandler(req, res) {
     try {
-      await this._service.resetForgottenPassword(req.body);
+      const payload = UsersValidator.validateResetForgottenPasswordPayload(req.body);
+      await this._service.resetForgottenPassword(payload);
 
       return res.status(200).json({
         status: 'success',
@@ -153,8 +159,9 @@ class UsersHandler {
   async requestUpdateEmailOtpHandler(req, res) {
     try {
       const userId = this._getRequestUserId(req);
+      const payload = UsersValidator.validateUpdateEmailRequestPayload(req.body);
 
-      await this._service.requestUpdateEmailOtp(userId, req.body);
+      await this._service.requestUpdateEmailOtp(userId, payload);
 
       return res.status(200).json({
         status: 'success',
@@ -168,8 +175,9 @@ class UsersHandler {
   async verifyUpdateEmailOtpHandler(req, res) {
     try {
       const userId = this._getRequestUserId(req);
+      const payload = UsersValidator.validateVerifyEmailOtpPayload(req.body);
 
-      const user = await this._service.verifyUpdateEmailOtp(userId, req.body);
+      const user = await this._service.verifyUpdateEmailOtp(userId, payload);
 
       return res.status(200).json({
         status: 'success',
@@ -192,6 +200,10 @@ class UsersHandler {
         data: { user },
       });
     } catch (error) {
+      if (error instanceof ClientError) {
+        return this._sendClientError(error, res);
+      }
+
       if (error.message === 'USER_NOT_FOUND') {
         return res.status(404).json({
           status: 'fail',
@@ -203,7 +215,7 @@ class UsersHandler {
 
       return res.status(500).json({
         status: 'error',
-        message: 'Terjadi kesalahan server',
+        message: 'Terjadi kesalahan pada server',
       });
     }
   }
@@ -211,14 +223,19 @@ class UsersHandler {
   async updateUserByIdHandler(req, res) {
     try {
       const { id } = req.params;
+      const payload = UsersValidator.validateUpdateUserPayload(req.body);
 
-      const user = await this._service.updateUser(id, req.body);
+      const user = await this._service.updateUser(id, payload);
 
       return res.status(200).json({
         status: 'success',
         data: { user },
       });
     } catch (error) {
+      if (error instanceof ClientError) {
+        return this._sendClientError(error, res);
+      }
+
       if (error.message === 'USER_NOT_FOUND') {
         return res.status(404).json({
           status: 'fail',
@@ -237,7 +254,7 @@ class UsersHandler {
 
       return res.status(500).json({
         status: 'error',
-        message: 'Terjadi kesalahan server',
+        message: 'Terjadi kesalahan pada server',
       });
     }
   }
@@ -246,7 +263,27 @@ class UsersHandler {
     return req.user?.id || req.params.id;
   }
 
+  _sendClientError(error, res) {
+    return res.status(error.statusCode).json({
+      status: 'fail',
+      message: error.message,
+    });
+  }
+
+  _sendMappedError(detail, res) {
+    const [statusCode, message] = detail;
+
+    return res.status(statusCode).json({
+      status: statusCode >= 500 ? 'error' : 'fail',
+      message,
+    });
+  }
+
   _handleAccountError(error, res) {
+    if (error instanceof ClientError) {
+      return this._sendClientError(error, res);
+    }
+
     const errors = {
       USER_NOT_FOUND: [404, 'User tidak ditemukan'],
       USER_EMAIL_NOT_FOUND: [404, 'Akun dengan email tersebut tidak ditemukan'],
@@ -274,26 +311,22 @@ class UsersHandler {
     const detail = errors[error.message];
 
     if (detail) {
-      const [statusCode, message] = detail;
-
-      return res.status(statusCode).json({
-        status: 'fail',
-        message,
-      });
+      return this._sendMappedError(detail, res);
     }
 
     console.error(error);
 
     return res.status(500).json({
       status: 'error',
-      message: 'Terjadi kesalahan server',
+      message: 'Terjadi kesalahan pada server',
     });
   }
 
   async updateUserEmailHandler(req, res) {
     try {
       const userId = this._getRequestUserId(req);
-      const user = await this._service.updateEmail(userId, req.body);
+      const payload = UsersValidator.validateUpdateEmailRequestPayload(req.body);
+      const user = await this._service.updateEmail(userId, payload);
 
       return res.status(200).json({
         status: 'success',
@@ -308,7 +341,8 @@ class UsersHandler {
   async verifyCurrentPasswordHandler(req, res) {
     try {
       const userId = this._getRequestUserId(req);
-      await this._service.verifyCurrentPassword(userId, req.body);
+      const payload = UsersValidator.validateVerifyCurrentPasswordPayload(req.body);
+      await this._service.verifyCurrentPassword(userId, payload);
 
       return res.status(200).json({
         status: 'success',
@@ -322,7 +356,8 @@ class UsersHandler {
   async updateUserPasswordHandler(req, res) {
     try {
       const userId = this._getRequestUserId(req);
-      await this._service.updatePassword(userId, req.body);
+      const payload = UsersValidator.validateUpdatePasswordPayload(req.body);
+      await this._service.updatePassword(userId, payload);
 
       return res.status(200).json({
         status: 'success',
@@ -336,32 +371,9 @@ class UsersHandler {
   async changeAuthenticatedUserPasswordHandler(req, res) {
     try {
       const userId = req.user.id;
-      const {
-        currentPassword,
-        newPassword,
-        confirmPassword,
-      } = req.body;
+      const payload = UsersValidator.validateUpdatePasswordPayload(req.body);
 
-      if (!currentPassword || !newPassword || !confirmPassword) {
-        return res.status(400).json({
-          status: 'fail',
-          message:
-            'Password lama, password baru, dan konfirmasi password wajib diisi',
-        });
-      }
-
-      if (newPassword !== confirmPassword) {
-        return res.status(400).json({
-          status: 'fail',
-          message: 'Konfirmasi password tidak sesuai',
-        });
-      }
-
-      await this._service.changeAuthenticatedUserPassword(userId, {
-        currentPassword,
-        newPassword,
-        confirmPassword,
-      });
+      await this._service.changeAuthenticatedUserPassword(userId, payload);
 
       return res.status(200).json({
         status: 'success',
@@ -375,7 +387,7 @@ class UsersHandler {
   async uploadUserAvatarHandler(req, res) {
     try {
       const { id } = req.params;
-      const { image } = req.body;
+      const { image } = UsersValidator.validateUploadAvatarPayload(req.body);
 
       const avatarUrl = await this._cloudinaryService.uploadImage(image);
       const user = await this._service.updateAvatarUrl(id, avatarUrl);
@@ -390,6 +402,10 @@ class UsersHandler {
         },
       });
     } catch (error) {
+      if (error instanceof ClientError) {
+        return this._sendClientError(error, res);
+      }
+
       if (error.message === 'USER_NOT_FOUND') {
         return res.status(404).json({
           status: 'fail',
@@ -432,7 +448,7 @@ class UsersHandler {
 
       return res.status(500).json({
         status: 'error',
-        message: 'Terjadi kesalahan server',
+        message: 'Terjadi kesalahan pada server',
       });
     }
   }
@@ -459,7 +475,7 @@ class UsersHandler {
 
       return res.status(500).json({
         status: 'error',
-        message: 'Terjadi kesalahan server',
+        message: 'Terjadi kesalahan pada server',
       });
     }
   }

@@ -3,6 +3,7 @@ const {
   requireRoles,
   requireTargetUserOrRoles,
 } = require('../../../middlewares/auth');
+const asyncHandler = require('../../../utils/asyncHandler');
 
 const routes = (handler) => {
   const router = express.Router();
@@ -11,34 +12,34 @@ const routes = (handler) => {
     '/courses/:courseId/submissions',
     requireRoles('MAHASISWA'),
     requireTargetUserOrRoles('studentId'),
-    handler.postSubmissionHandler,
+    asyncHandler(handler.postSubmissionHandler),
   );
 
   router.get(
     '/courses/:courseId/submissions/:jobsheetId',
     requireTargetUserOrRoles('studentId', 'DOSEN', 'ADMIN'),
-    handler.getSubmissionHandler,
+    asyncHandler(handler.getSubmissionHandler),
   );
 
   router.get(
     '/courses/:courseId/submissions/:jobsheetId/ensure',
     requireRoles('MAHASISWA'),
     requireTargetUserOrRoles('studentId'),
-    handler.getOrCreateSubmissionHandler,
+    asyncHandler(handler.getOrCreateSubmissionHandler),
   );
 
   router.put(
     '/courses/:courseId/submissions/:jobsheetId',
     requireRoles('MAHASISWA'),
     requireTargetUserOrRoles('studentId'),
-    handler.putSubmissionHandler,
+    asyncHandler(handler.putSubmissionHandler),
   );
 
   router.patch(
     '/courses/:courseId/submissions/:jobsheetId/submit',
     requireRoles('MAHASISWA'),
     requireTargetUserOrRoles('studentId'),
-    handler.submitSubmissionHandler,
+    asyncHandler(handler.submitSubmissionHandler),
   );
   return router;
 };

@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const { validateWithSchema } = require('../utils');
 
 const stepPayloadSchema = Joi.object({
   experimentId: Joi.string().required(),
@@ -12,9 +13,7 @@ const stepPayloadSchema = Joi.object({
 });
 
 const SubmissionsValidator = {
-  validateStepPayload: (payload) => {
-    return stepPayloadSchema.validate(payload);
-  },
+  validateStepPayload: (payload) => validateWithSchema(stepPayloadSchema, payload),
 };
 
 module.exports = SubmissionsValidator;

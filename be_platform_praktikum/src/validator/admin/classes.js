@@ -1,4 +1,81 @@
 const Joi = require('joi');
+const { validateWithSchema } = require('../utils');
+
+const statusSchema = Joi.string().valid(
+  'Aktif',
+  'Nonaktif',
+  'Arsip',
+  'AKTIF',
+  'NONAKTIF',
+  'ARSIP',
+  'aktif',
+  'nonaktif',
+  'arsip',
+);
+
+const classesQuerySchema = Joi.object({
+  keyword: Joi.string().allow('', null),
+  status: Joi.string().allow('', null),
+  courseId: Joi.string().allow('', null),
+  lecturerId: Joi.string().allow('', null),
+});
+
+const classPayloadSchema = Joi.object({
+  id: Joi.string().allow('', null),
+  courseId: Joi.string().allow('', null),
+  course_id: Joi.string().allow('', null),
+  lecturerId: Joi.string().allow('', null),
+  lecturer_id: Joi.string().allow('', null),
+  name: Joi.string().trim().allow('', null),
+  className: Joi.string().trim().allow('', null),
+  class_name: Joi.string().trim().allow('', null),
+  rombel: Joi.string().trim().allow('', null),
+  status: statusSchema.default('Aktif'),
+  programmingLanguage: Joi.string().valid('java', 'python').default('java'),
+  programming_language: Joi.string().valid('java', 'python').default('java'),
+}).custom((value, helpers) => {
+  if (!value.courseId && !value.course_id) {
+    return helpers.error('any.custom', { message: 'Mata kuliah wajib dipilih' });
+  }
+
+  if (!value.lecturerId && !value.lecturer_id) {
+    return helpers.error('any.custom', { message: 'Dosen pengampu wajib dipilih' });
+  }
+
+  if (!value.name && !value.className && !value.class_name && !value.rombel) {
+    return helpers.error('any.custom', { message: 'Kelas/Rombel wajib diisi' });
+  }
+
+  return value;
+}).messages({
+  'any.custom': '{{#message}}',
+});
+
+const updateClassPayloadSchema = Joi.object({
+  courseId: Joi.string().allow('', null),
+  course_id: Joi.string().allow('', null),
+  lecturerId: Joi.string().allow('', null),
+  lecturer_id: Joi.string().allow('', null),
+  name: Joi.string().trim().allow('', null),
+  className: Joi.string().trim().allow('', null),
+  class_name: Joi.string().trim().allow('', null),
+  rombel: Joi.string().trim().allow('', null),
+  status: statusSchema.required(),
+  programmingLanguage: Joi.string().valid('java', 'python').default('java'),
+  programming_language: Joi.string().valid('java', 'python').default('java'),
+}).custom((value, helpers) => {
+  if (!value.lecturerId && !value.lecturer_id) {
+    return helpers.error('any.custom', { message: 'Dosen pengampu wajib dipilih' });
+  }
+
+  return value;
+}).messages({
+  'any.custom': '{{#message}}',
+});
+
+const assignStudentsPayloadSchema = Joi.object({
+  studentIds: Joi.array().items(Joi.string().required()).min(1).required(),
+});
 
 const cloneClassPayloadSchema = Joi.object({
   source_class_id: Joi.string().required(),
@@ -30,6 +107,10 @@ const getClassTemplatesQuerySchema = Joi.object({
 });
 
 module.exports = {
-  validateCloneClassPayload: (payload) => cloneClassPayloadSchema.validate(payload),
-  validateGetClassTemplatesQuery: (query) => getClassTemplatesQuerySchema.validate(query),
+  validateClassesQuery: (query) => validateWithSchema(classesQuerySchema, query),
+  validateCreateClassPayload: (payload) => validateWithSchema(classPayloadSchema, payload),
+  validateUpdateClassPayload: (payload) => validateWithSchema(updateClassPayloadSchema, payload),
+  validateAssignStudentsPayload: (payload) => validateWithSchema(assignStudentsPayloadSchema, payload),
+  validateCloneClassPayload: (payload) => validateWithSchema(cloneClassPayloadSchema, payload),
+  validateGetClassTemplatesQuery: (query) => validateWithSchema(getClassTemplatesQuerySchema, query),
 };

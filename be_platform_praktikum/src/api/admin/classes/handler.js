@@ -1,5 +1,6 @@
 const autoBind = require('auto-bind');
 const { created, handleAdminError, ok } = require('../utils');
+const { AuthorizationError } = require('../../../exceptions');
 const ClassesValidator = require('../../../validator/admin/classes');
 
 class ClassesHandler {
@@ -10,9 +11,10 @@ class ClassesHandler {
 
   async getClassesHandler(req, res) {
     try {
+      const query = ClassesValidator.validateClassesQuery(req.query);
       const filters = {
-        ...req.query,
-        lecturerId: req.user.role === 'DOSEN' ? req.user.id : req.query.lecturerId,
+        ...query,
+        lecturerId: req.user.role === 'DOSEN' ? req.user.id : query.lecturerId,
       };
 
       return ok(res, { classes: await this._service.getClasses(filters) });
@@ -23,7 +25,8 @@ class ClassesHandler {
 
   async createClassHandler(req, res) {
     try {
-      const classItem = await this._service.createClass(req.body);
+      const payload = ClassesValidator.validateCreateClassPayload(req.body);
+      const classItem = await this._service.createClass(payload);
       return created(res, { class: classItem }, 'Kelas berhasil ditambahkan');
     } catch (error) {
       return handleAdminError(error, res);
@@ -32,14 +35,8 @@ class ClassesHandler {
 
   async getClassTemplatesHandler(req, res) {
     try {
-      const validation = ClassesValidator.validateGetClassTemplatesQuery(req.query);
-      if (validation.error) {
-        return res.status(400).json({
-          status: 'fail',
-          message: validation.error.message,
-        });
-      }
-      const classes = await this._service.getClassTemplates(validation.value);
+      const query = ClassesValidator.validateGetClassTemplatesQuery(req.query);
+      const classes = await this._service.getClassTemplates(query);
       return ok(res, { classes });
     } catch (error) {
       return handleAdminError(error, res);
@@ -57,16 +54,10 @@ class ClassesHandler {
 
   async cloneClassHandler(req, res) {
     try {
-      const validation = ClassesValidator.validateCloneClassPayload(req.body);
-      if (validation.error) {
-        return res.status(400).json({
-          status: 'fail',
-          message: validation.error.message,
-        });
-      }
+      const payload = ClassesValidator.validateCloneClassPayload(req.body);
 
-      const result = await this._service.cloneClass(validation.value);
-      const message = result.students_added === 0 && validation.value.auto_enroll_students
+      const result = await this._service.cloneClass(payload);
+      const message = result.students_added === 0 && payload.auto_enroll_students
         ? 'Kelas berhasil dibuat, tetapi tidak ada mahasiswa yang cocok dengan filter.'
         : 'Kelas berhasil dibuat dari template';
 
@@ -81,10 +72,7 @@ class ClassesHandler {
       const classItem = await this._service.getClassDetail(req.params.id);
 
       if (req.user.role === 'DOSEN' && classItem.lecturerId !== req.user.id) {
-        return res.status(403).json({
-          status: 'fail',
-          message: 'Anda hanya dapat mengakses kelas yang diampu',
-        });
+        throw new AuthorizationError('Anda hanya dapat mengakses kelas yang diampu');
       }
 
       return ok(res, { class: classItem });
@@ -95,7 +83,8 @@ class ClassesHandler {
 
   async updateClassHandler(req, res) {
     try {
-      const classItem = await this._service.updateClass(req.params.id, req.body);
+      const payload = ClassesValidator.validateUpdateClassPayload(req.body);
+      const classItem = await this._service.updateClass(req.params.id, payload);
       return ok(res, { class: classItem }, 'Kelas berhasil diperbarui');
     } catch (error) {
       return handleAdminError(error, res);
@@ -122,9 +111,10 @@ class ClassesHandler {
 
   async assignStudentsHandler(req, res) {
     try {
+      const payload = ClassesValidator.validateAssignStudentsPayload(req.body);
       const students = await this._service.assignStudentsToClass(
         req.params.id,
-        req.body.studentIds || [],
+        payload.studentIds,
       );
       return ok(res, { students }, 'Mahasiswa berhasil di-assign');
     } catch (error) {

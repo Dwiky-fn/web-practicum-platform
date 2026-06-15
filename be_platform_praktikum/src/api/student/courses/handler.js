@@ -1,4 +1,5 @@
 const autoBind = require('auto-bind');
+const { NotFoundError } = require('../../../exceptions');
 
 class CoursesHandler {
   constructor(service) {
@@ -7,7 +8,7 @@ class CoursesHandler {
     autoBind(this);
   }
 
-  async getAllCoursesHandler(req, res) {
+  async getAllCoursesHandler(req, res, next) {
     try {
       const courses = await this._service.getAllCourses();
 
@@ -18,16 +19,11 @@ class CoursesHandler {
         },
       });
     } catch (error) {
-      console.error(error);
-
-      return res.status(500).json({
-        status: 'error',
-        message: 'Terjadi kesalahan server',
-      });
+      return next(error);
     }
   }
 
-  async getCoursesByStudentIdHandler(req, res) {
+  async getCoursesByStudentIdHandler(req, res, next) {
     try {
       const { studentId } = req.params;
 
@@ -40,16 +36,11 @@ class CoursesHandler {
         },
       });
     } catch (error) {
-      console.error(error);
-
-      return res.status(500).json({
-        status: 'error',
-        message: 'Terjadi kesalahan server',
-      });
+      return next(error);
     }
   }
 
-  async getCourseByIdHandler(req, res) {
+  async getCourseByIdHandler(req, res, next) {
     try {
       const { id } = req.params;
 
@@ -63,18 +54,10 @@ class CoursesHandler {
       });
     } catch (error) {
       if (error.message === 'COURSE_NOT_FOUND') {
-        return res.status(404).json({
-          status: 'fail',
-          message: 'Course tidak ditemukan',
-        });
+        return next(new NotFoundError('Course tidak ditemukan'));
       }
 
-      console.error(error);
-
-      return res.status(500).json({
-        status: 'error',
-        message: 'Terjadi kesalahan server',
-      });
+      return next(error);
     }
   }
 }

@@ -4,6 +4,7 @@ const pool = require('.');
 const GoogleService = require('../auth/GoogleService');
 const MailService = require('../mail/MailService');
 const TokenService = require('../auth/TokenService');
+const { NotFoundError } = require('../../exceptions');
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -519,7 +520,7 @@ class UsersService {
     );
 
     if (!result.rows.length) {
-      throw new Error('USER_NOT_FOUND');
+      throw new NotFoundError('User tidak ditemukan');
     }
 
     const row = result.rows[0];
@@ -547,7 +548,7 @@ class UsersService {
       );
 
       if (!currentResult.rows.length) {
-        throw new Error('USER_NOT_FOUND');
+        throw new NotFoundError('User tidak ditemukan');
       }
 
       const role = currentResult.rows[0].role;
@@ -812,7 +813,7 @@ class UsersService {
     );
 
     if (!currentResult.rows.length) {
-      throw new Error('USER_NOT_FOUND');
+      throw new NotFoundError('User tidak ditemukan');
     }
 
     const role = currentResult.rows[0].role;

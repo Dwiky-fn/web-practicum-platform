@@ -55,7 +55,7 @@ function handleAdminError(error, res) {
   console.error(error);
   return res.status(500).json({
     status: 'error',
-    message: 'Terjadi kesalahan server',
+    message: 'Terjadi kesalahan pada server',
   });
 }
 

@@ -1,6 +1,6 @@
 const autoBind = require('auto-bind');
+const { InvariantError } = require('../../../exceptions');
 const { ok, handleAdminError } = require('../../admin/utils');
-const pool = require('../../../services/postgres');
 
 class LecturerReviewsHandler {
   constructor(service) {
@@ -24,10 +24,7 @@ class LecturerReviewsHandler {
       const AiEvaluationQueue = require('../../../services/execution/AiEvaluationQueue');
       const result = await AiEvaluationQueue.addJob(submissionId, { force: true });
       if (!result.enqueued) {
-        return res.status(400).json({
-          status: 'fail',
-          message: `Gagal menambahkan ke antrean: ${result.reason}`,
-        });
+        throw new InvariantError(`Gagal menambahkan ke antrean: ${result.reason}`);
       }
       return ok(res, {}, 'Evaluasi AI berhasil ditambahkan ke antrean');
     } catch (error) {
@@ -42,10 +39,7 @@ class LecturerReviewsHandler {
       const AiEvaluationQueue = require('../../../services/execution/AiEvaluationQueue');
       const result = await AiEvaluationQueue.addJob(submissionId, { force: true });
       if (!result.enqueued) {
-        return res.status(400).json({
-          status: 'fail',
-          message: `Gagal memasukkan ke antrean: ${result.reason}`,
-        });
+        throw new InvariantError(`Gagal memasukkan ke antrean: ${result.reason}`);
       }
       return ok(res, {}, 'Evaluasi AI berhasil dimasukkan ulang ke antrean');
     } catch (error) {

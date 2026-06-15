@@ -1,4 +1,5 @@
 const autoBind = require('auto-bind');
+const { InvariantError } = require('../../../exceptions');
 
 class LecturerProgressHandler {
   constructor(service) {
@@ -6,16 +7,13 @@ class LecturerProgressHandler {
     autoBind(this);
   }
 
-  async getClassProgressHandler(req, res) {
+  async getClassProgressHandler(req, res, next) {
     try {
       const { jobsheetId } = req.params;
       const { classId } = req.query;
 
       if (!classId) {
-        return res.status(400).json({
-          status: 'fail',
-          message: 'classId wajib disertakan sebagai query parameter',
-        });
+        throw new InvariantError('classId wajib disertakan sebagai query parameter');
       }
 
       const result = await this._service.getClassProgress(jobsheetId, classId);
@@ -24,16 +22,12 @@ class LecturerProgressHandler {
         status: 'success',
         data: result,
       });
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({
-        status: 'fail',
-        message: 'Gagal memuat monitoring progress kelas',
-      });
+    } catch (error) {
+      return next(error);
     }
   }
 
-  async getStudentDetailProgressHandler(req, res) {
+  async getStudentDetailProgressHandler(req, res, next) {
     try {
       const { jobsheetId, studentId } = req.params;
       const { classId } = req.query;
@@ -44,12 +38,8 @@ class LecturerProgressHandler {
         status: 'success',
         data: result,
       });
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({
-        status: 'fail',
-        message: 'Gagal memuat detail progress mahasiswa',
-      });
+    } catch (error) {
+      return next(error);
     }
   }
 }

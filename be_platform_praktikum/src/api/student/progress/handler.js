@@ -1,4 +1,5 @@
 const autoBind = require('auto-bind');
+const { InvariantError } = require('../../../exceptions');
 
 class StudentProgressHandler {
   constructor(service, jobsheetProgressService) {
@@ -7,16 +8,13 @@ class StudentProgressHandler {
     autoBind(this);
   }
 
-  async getProgressHandler(req, res) {
+  async getProgressHandler(req, res, next) {
     try {
       const { jobsheetId } = req.params;
       const { classId, studentId } = req.query;
 
       if (!studentId) {
-        return res.status(400).json({
-          status: 'fail',
-          message: 'studentId wajib diisi',
-        });
+        throw new InvariantError('studentId wajib diisi');
       }
 
       const progress = await this._service.getProgress(
@@ -29,24 +27,18 @@ class StudentProgressHandler {
         status: 'success',
         data: { progress },
       });
-    } catch (err) {
-      console.error(err);
-      return res
-        .status(500)
-        .json({ status: 'fail', message: 'Gagal mengambil progress' });
+    } catch (error) {
+      return next(error);
     }
   }
 
-  async upsertProgressHandler(req, res) {
+  async upsertProgressHandler(req, res, next) {
     try {
       const { jobsheetId } = req.params;
       const { studentId, classId, progress, lastPage, status, completedItems } = req.body;
 
       if (!studentId) {
-        return res.status(400).json({
-          status: 'fail',
-          message: 'studentId wajib diisi',
-        });
+        throw new InvariantError('studentId wajib diisi');
       }
 
       const result = await this._service.upsertProgress({
@@ -63,31 +55,22 @@ class StudentProgressHandler {
         status: 'success',
         data: { progress: result },
       });
-    } catch (err) {
-      console.error(err);
-      return res
-        .status(500)
-        .json({ status: 'fail', message: 'Gagal menyimpan progress' });
+    } catch (error) {
+      return next(error);
     }
   }
 
-  async updateJobsheetProgressHandler(req, res) {
+  async updateJobsheetProgressHandler(req, res, next) {
     try {
       const { jobsheetId } = req.params;
       const { studentId, classId, experimentId, instructionId, activityType, metadata } = req.body;
 
       if (!studentId) {
-        return res.status(400).json({
-          status: 'fail',
-          message: 'studentId wajib diisi',
-        });
+        throw new InvariantError('studentId wajib diisi');
       }
 
       if (!activityType) {
-        return res.status(400).json({
-          status: 'fail',
-          message: 'activityType wajib diisi',
-        });
+        throw new InvariantError('activityType wajib diisi');
       }
 
       const result = await this._jobsheetProgressService.updateProgress({
@@ -104,11 +87,8 @@ class StudentProgressHandler {
         status: 'success',
         data: { progress: result },
       });
-    } catch (err) {
-      console.error(err);
-      return res
-        .status(500)
-        .json({ status: 'fail', message: 'Gagal memperbarui progress/aktivitas' });
+    } catch (error) {
+      return next(error);
     }
   }
 }

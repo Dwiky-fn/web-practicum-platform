@@ -1,16 +1,17 @@
 const pool = require('../services/postgres');
 const TokenService = require('../services/auth/TokenService');
+const {
+  AuthenticationError,
+  AuthorizationError,
+} = require('../exceptions');
 
 const tokenService = new TokenService();
 
 function sendUnauthorized(
-  res,
+  next,
   message = 'Sesi tidak valid, silakan login ulang',
 ) {
-  return res.status(401).json({
-    status: 'fail',
-    message,
-  });
+  return next(new AuthenticationError(message));
 }
 
 function getBearerToken(req) {
@@ -29,13 +30,13 @@ async function requireAuth(req, res, next) {
     const token = getBearerToken(req);
 
     if (!token) {
-      return sendUnauthorized(res);
+      return sendUnauthorized(next);
     }
 
     const user = await authenticateToken(token);
 
     if (!user) {
-      return sendUnauthorized(res);
+      return sendUnauthorized(next);
     }
 
     req.user = user;
@@ -46,15 +47,10 @@ async function requireAuth(req, res, next) {
       error.message === 'AUTH_TOKEN_INVALID' ||
       error.message === 'AUTH_TOKEN_EXPIRED'
     ) {
-      return sendUnauthorized(res);
+      return sendUnauthorized(next);
     }
 
-    console.error(error);
-
-    return res.status(500).json({
-      status: 'error',
-      message: 'Terjadi kesalahan server',
-    });
+    return next(error);
   }
 }
 
@@ -78,7 +74,7 @@ async function authenticateToken(token) {
 function requireRoles(...roles) {
   return (req, res, next) => {
     if (!req.user) {
-      return sendUnauthorized(res);
+      return sendUnauthorized(next);
     }
 
     if (!roles.includes(req.user.role)) {
@@ -90,10 +86,7 @@ function requireRoles(...roles) {
         allowedRoles: roles,
       });
 
-      return res.status(403).json({
-        status: 'fail',
-        message: 'Anda tidak memiliki akses ke fitur ini',
-      });
+      return next(new AuthorizationError('Anda tidak memiliki akses ke fitur ini'));
     }
 
     return next();
@@ -103,7 +96,7 @@ function requireRoles(...roles) {
 function requireSelfOrRoles(...roles) {
   return (req, res, next) => {
     if (!req.user) {
-      return sendUnauthorized(res);
+      return sendUnauthorized(next);
     }
 
     if (req.params.id === req.user.id || req.params.userId === req.user.id) {
@@ -114,17 +107,14 @@ function requireSelfOrRoles(...roles) {
       return next();
     }
 
-    return res.status(403).json({
-      status: 'fail',
-      message: 'Anda hanya dapat mengakses data akun sendiri',
-    });
+    return next(new AuthorizationError('Anda hanya dapat mengakses data akun sendiri'));
   };
 }
 
 function requireTargetUserOrRoles(targetKeys, ...roles) {
   return (req, res, next) => {
     if (!req.user) {
-      return sendUnauthorized(res);
+      return sendUnauthorized(next);
     }
 
     if (roles.includes(req.user.role)) {
@@ -140,10 +130,7 @@ function requireTargetUserOrRoles(targetKeys, ...roles) {
       return next();
     }
 
-    return res.status(403).json({
-      status: 'fail',
-      message: 'Anda hanya dapat mengakses data sendiri',
-    });
+    return next(new AuthorizationError('Anda hanya dapat mengakses data sendiri'));
   };
 }
 

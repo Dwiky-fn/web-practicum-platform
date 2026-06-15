@@ -6,7 +6,7 @@ class NotificationsHandler {
     autoBind(this);
   }
 
-  async getNotificationsHandler(req, res) {
+  async getNotificationsHandler(req, res, next) {
     try {
       const { userId } = req.params;
 
@@ -17,12 +17,7 @@ class NotificationsHandler {
         data: { notifications },
       });
     } catch (error) {
-      console.error(error);
-
-      return res.status(500).json({
-        status: 'error',
-        message: 'Terjadi kesalahan server',
-      });
+      return next(error);
     }
   }
 }

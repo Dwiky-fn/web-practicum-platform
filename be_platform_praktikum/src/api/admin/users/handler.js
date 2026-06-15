@@ -1,5 +1,6 @@
 const autoBind = require('auto-bind');
 const { created, handleAdminError, ok } = require('../utils');
+const AdminUsersValidator = require('../../../validator/admin/users');
 
 class AdminUsersHandler {
   constructor(service) {
@@ -9,7 +10,8 @@ class AdminUsersHandler {
 
   async getUsersHandler(req, res) {
     try {
-      const users = await this._service.getUsers(req.query.role, req.query);
+      const query = AdminUsersValidator.validateUsersQuery(req.query);
+      const users = await this._service.getUsers(query.role, query);
       return ok(res, { users });
     } catch (error) {
       return handleAdminError(error, res);
@@ -27,7 +29,8 @@ class AdminUsersHandler {
 
   async createStudentHandler(req, res) {
     try {
-      const user = await this._service.createUser('MAHASISWA', req.body);
+      const payload = AdminUsersValidator.validateCreateStudentPayload(req.body);
+      const user = await this._service.createUser('MAHASISWA', payload);
       return created(res, { user }, 'Mahasiswa berhasil ditambahkan');
     } catch (error) {
       return handleAdminError(error, res);
@@ -36,7 +39,8 @@ class AdminUsersHandler {
 
   async createLecturerHandler(req, res) {
     try {
-      const user = await this._service.createUser('DOSEN', req.body);
+      const payload = AdminUsersValidator.validateCreateLecturerPayload(req.body);
+      const user = await this._service.createUser('DOSEN', payload);
       return created(res, { user }, 'Dosen berhasil ditambahkan');
     } catch (error) {
       return handleAdminError(error, res);
@@ -45,7 +49,8 @@ class AdminUsersHandler {
 
   async updateUserHandler(req, res) {
     try {
-      const user = await this._service.updateUser(req.params.id, req.body);
+      const payload = AdminUsersValidator.validateUpdateUserPayload(req.body);
+      const user = await this._service.updateUser(req.params.id, payload);
       return ok(res, { user }, 'Pengguna berhasil diperbarui');
     } catch (error) {
       return handleAdminError(error, res);

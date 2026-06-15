@@ -1,4 +1,5 @@
 const autoBind = require('auto-bind');
+const { NotFoundError } = require('../../../exceptions');
 
 class JobsheetsHandler {
   constructor(service) {
@@ -6,7 +7,7 @@ class JobsheetsHandler {
     autoBind(this);
   }
 
-  async getJobsheetsByCourseHandler(req, res) {
+  async getJobsheetsByCourseHandler(req, res, next) {
     try {
       const { courseId } = req.params;
       const jobsheets = await this._service.getJobsheetsByCourse(
@@ -20,16 +21,11 @@ class JobsheetsHandler {
         data: { jobsheets },
       });
     } catch (error) {
-      console.error(error);
-
-      return res.status(500).json({
-        status: 'error',
-        message: 'Terjadi kesalahan server',
-      });
+      return next(error);
     }
   }
 
-  async getJobsheetFullHandler(req, res) {
+  async getJobsheetFullHandler(req, res, next) {
     try {
       const { jobsheetId } = req.params;
       const { courseId } = req.params;
@@ -46,12 +42,7 @@ class JobsheetsHandler {
         data: { jobsheet },
       });
     } catch (error) {
-      console.error(error);
-
-      return res.status(404).json({
-        status: 'fail',
-        message: error.message,
-      });
+      return next(new NotFoundError(error.message));
     }
   }
 }

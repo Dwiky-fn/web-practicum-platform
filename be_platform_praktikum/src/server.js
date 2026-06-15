@@ -10,6 +10,7 @@ const users = require('./api/users');
 const admin = require('./api/admin');
 const lecturer = require('./api/lecturer');
 const departments = require('./api/departments');
+const errorHandler = require('./middlewares/errorHandler');
 const {
   requireAuth,
   requireRoles,
@@ -24,7 +25,7 @@ app.use(express.json({ limit: '10mb' }));
 
 // register routes
 app.use('/admin', requireAuth);
-app.use('/lecturer', requireAuth); // role check handled per sub‑router
+app.use('/lecturer', requireAuth);
 app.use('/students', requireAuth, requireRoles('MAHASISWA', 'ADMIN'));
 app.use('/student-progress', requireAuth, requireRoles('MAHASISWA'));
 app.use('/courses', requireAuth, requireRoles('MAHASISWA', 'DOSEN', 'ADMIN'));
@@ -43,10 +44,11 @@ app.get('/', (req, res) => {
   res.send('API is running');
 });
 
+app.use(errorHandler);
+
 // start server
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
-// Nodemon trigger comment

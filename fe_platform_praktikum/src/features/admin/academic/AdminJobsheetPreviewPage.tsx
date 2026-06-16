@@ -124,21 +124,19 @@ export default function AdminJobsheetPreviewPage() {
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
   const courseId = searchParams.get("courseId")
+  const hasIncompleteParams = !id || !courseId
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(!hasIncompleteParams)
+  const [error, setError] = useState(hasIncompleteParams ? "Data jobsheet tidak lengkap." : "")
 
   useEffect(() => {
-    if (!id || !courseId) {
-      setError("Data jobsheet tidak lengkap.")
-      setLoading(false)
-      return
-    }
+    if (!id || !courseId) return
 
-    setLoading(true)
-    setError("")
     getJobsheetById(courseId, id)
-      .then(setJobsheet)
+      .then((data) => {
+        setJobsheet(data)
+        setError("")
+      })
       .catch((err) => setError(err instanceof Error ? err.message : "Gagal memuat jobsheet."))
       .finally(() => setLoading(false))
   }, [courseId, id])

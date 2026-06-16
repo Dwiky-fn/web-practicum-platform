@@ -233,6 +233,25 @@ class AcademicDataHandler {
     await this._service.deletePengampu(req.params.id);
     return ok(res, {}, 'Pengampu berhasil dihapus');
   }
+
+  async getKelasSemesterHandler(req, res) {
+    return ok(res, { kelas_semester: await this._service.getKelasSemester(req.query) });
+  }
+
+  async createKelasSemesterHandler(req, res) {
+    const payload = Validator.validateKelasSemesterPayload(req.body);
+    return created(res, { kelas_semester: await this._service.createKelasSemester(payload) }, 'Kelas semester berhasil dibuat');
+  }
+
+  async updateKelasSemesterHandler(req, res) {
+    const payload = Validator.validateUpdateKelasSemesterPayload(req.body);
+    return ok(res, { kelas_semester: await this._service.updateKelasSemester(req.params.id, payload) }, 'Kelas semester berhasil diperbarui');
+  }
+
+  async deleteKelasSemesterHandler(req, res) {
+    await this._service.deleteKelasSemester(req.params.id);
+    return ok(res, {}, 'Kelas semester berhasil dihapus');
+  }
 }
 
 module.exports = AcademicDataHandler;

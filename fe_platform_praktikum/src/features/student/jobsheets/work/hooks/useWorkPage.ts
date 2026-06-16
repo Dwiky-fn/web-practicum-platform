@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import type { JSONContent } from "@tiptap/core"
 import type { Jobsheet } from "../../../../../services/jobsheet/types" 
@@ -41,7 +41,7 @@ function isFinishedSubmission(submission?: JobsheetSubmission | null) {
   )
 }
 
-export function useWorkPage(courseId?: string, jobsheetId?: string) {
+export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKuliahId?: string) {
   const { user } = useCurrentUser()
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null)
   const [course, setCourse] = useState<Course | null>(null)
@@ -56,9 +56,12 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
   const location = useLocation()
   const searchParams = new URLSearchParams(location.search)
   const classId = searchParams.get("classId") || undefined
-  const mataKuliahId = searchParams.get("mataKuliahId") || undefined
+  const mataKuliahId = routeMataKuliahId || searchParams.get("mataKuliahId") || undefined
   const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined
-  const academicScope = { classId, mataKuliahId, kelasPraktikumId }
+  const academicScope = useMemo(
+    () => ({ classId, mataKuliahId, kelasPraktikumId }),
+    [classId, mataKuliahId, kelasPraktikumId],
+  )
 
   const jobsheetIdRef = useRef(jobsheetId)
   const isMountedRef = useRef(true)
@@ -89,7 +92,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
         },
       ]
     })
-  }, [user])
+  }, [kelasPraktikumId, user])
 
   useEffect(() => {
     jobsheetIdRef.current = jobsheetId
@@ -104,7 +107,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
 
   const trackActivity = useCallback(async (
     activityType: string,
-    opts?: { experimentId?: string | null; instructionId?: string | null; metadata?: Record<string, any> }
+    opts?: { experimentId?: string | null; instructionId?: string | null; metadata?: Record<string, unknown> }
   ) => {
     if (!jobsheetId || !user) return
 
@@ -112,7 +115,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
     let instructionId = opts?.instructionId
 
     if (experimentId === undefined && instructionId === undefined && jobsheet) {
-      const navItems = buildWorkNavigation(courseId || "", jobsheet, location.search)
+      const navItems = buildWorkNavigation(courseId || "", jobsheet, location.search, academicScope)
       const currentItem = navItems.find((item) => location.pathname.startsWith(item.path.split("?")[0]))
       if (currentItem) {
         if (currentItem.type === "experiment") {
@@ -137,7 +140,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
     } catch (err) {
       console.error("Failed to track activity:", activityType, err)
     }
-  }, [jobsheetId, user, jobsheet, courseId, location.pathname, location.search, kelasPraktikumId])
+  }, [academicScope, jobsheetId, user, jobsheet, courseId, location.pathname, location.search, kelasPraktikumId])
 
   // Track workspace opened and closed
   useEffect(() => {
@@ -165,7 +168,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
     if (location.pathname === lastPathRef.current) return
     lastPathRef.current = location.pathname
 
-    const navItems = buildWorkNavigation(courseId, jobsheet, location.search)
+    const navItems = buildWorkNavigation(courseId, jobsheet, location.search, academicScope)
     const currentItem = navItems.find((item) =>
       location.pathname.startsWith(item.path.split("?")[0])
     )
@@ -189,7 +192,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
         kelasPraktikumId,
       }).catch(console.error)
     }
-  }, [courseId, jobsheetId, jobsheet, user, location.pathname, location.search, loading, kelasPraktikumId])
+  }, [academicScope, courseId, jobsheetId, jobsheet, user, location.pathname, location.search, loading, kelasPraktikumId])
 
   // LOAD DATA
   useEffect(() => {
@@ -243,7 +246,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
     }
 
     loadData()
-  }, [classId, courseId, jobsheetId, kelasPraktikumId, mataKuliahId, user])
+  }, [academicScope, courseId, jobsheetId, kelasPraktikumId, user])
 
   // MANUAL SAVE
   const saveSubmission = useCallback(async (updatedSubmission: JobsheetSubmission) => {
@@ -331,7 +334,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
 
     const isAtRoot = location.pathname.endsWith("/works")
     if (isAtRoot) {
-      const navItems = buildWorkNavigation(courseId, jobsheet, location.search)
+      const navItems = buildWorkNavigation(courseId, jobsheet, location.search, academicScope)
       const lastItem = navItems.find((item) =>
         lastSavedPage ? lastSavedPage.startsWith(item.path) : false
       )
@@ -342,13 +345,13 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
         navigate(targetPath, { replace: true })
       }
     }
-  }, [courseId, jobsheet, lastSavedPage, location.pathname, location.search, navigate])
+  }, [academicScope, courseId, jobsheet, lastSavedPage, location.pathname, location.search, navigate])
 
   useEffect(() => {
     if (!courseId || !jobsheetId || !jobsheet || !user) return
     if (!submission || lastSavedPage === null) return
 
-    const navItems = buildWorkNavigation(courseId, jobsheet, location.search)
+    const navItems = buildWorkNavigation(courseId, jobsheet, location.search, academicScope)
     const currentIndex = navItems.findIndex((item) =>
       location.pathname.startsWith(item.path.split("?")[0])
     )
@@ -388,6 +391,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
     classId,
     kelasPraktikumId,
     location.search,
+    academicScope,
   ])
 
   useEffect(() => {
@@ -395,7 +399,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
     if (!submission || lastSavedPage === null) return
     if (isFinishedSubmission(submission) || savedProgress >= 100) return
 
-    const navItems = buildWorkNavigation(courseId, jobsheet, location.search)
+    const navItems = buildWorkNavigation(courseId, jobsheet, location.search, academicScope)
     const currentIndex = navItems.findIndex((item) =>
       location.pathname.startsWith(item.path.split("?")[0])
     )
@@ -409,12 +413,12 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
     if (firstIncompleteIndex >= 0 && currentIndex > firstIncompleteIndex) {
       navigate(navItems[firstIncompleteIndex].path, { replace: true })
     }
-  }, [courseId, jobsheet, completedItems, location.pathname, location.search, navigate, savedProgress, submission, lastSavedPage])
+  }, [academicScope, courseId, jobsheet, completedItems, location.pathname, location.search, navigate, savedProgress, submission, lastSavedPage])
 
   const completeCurrentProgressItem = useCallback(() => {
     if (!courseId || !jobsheet || !submission) return
 
-    const currentItem = buildWorkNavigation(courseId, jobsheet, location.search).find((item) =>
+    const currentItem = buildWorkNavigation(courseId, jobsheet, location.search, academicScope).find((item) =>
       location.pathname.startsWith(item.path.split("?")[0])
     )
 
@@ -445,7 +449,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string) {
       type: currentItem.type,
       id: currentItem.id,
     })
-  }, [courseId, jobsheet, location.pathname, location.search, markProgressItemCompleted, submission])
+  }, [academicScope, courseId, jobsheet, location.pathname, location.search, markProgressItemCompleted, submission])
 
   return {
     jobsheet,

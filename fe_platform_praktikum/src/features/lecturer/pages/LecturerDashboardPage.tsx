@@ -39,10 +39,24 @@ export default function LecturerDashboardPage() {
 
   const selectedCourse = courseGroups.find((item) => item.id === courseId) ?? null
   const selectedClass = selectedCourse?.classes.find((item) => item.id === classId) ?? null
-  const selectedScope = {
-    mataKuliahId: selectedCourse?.mataKuliahId || selectedCourse?.id,
-    kelasPraktikumId: selectedClass?.kelasPraktikumId || selectedClass?.id_kelas_praktikum,
-  }
+  const selectedScope = useMemo(
+    () => ({
+      mataKuliahId: selectedCourse?.mataKuliahId || selectedCourse?.id,
+      kelasPraktikumId: selectedClass?.kelasPraktikumId || selectedClass?.id_kelas_praktikum,
+    }),
+    [
+      selectedClass?.id_kelas_praktikum,
+      selectedClass?.kelasPraktikumId,
+      selectedCourse?.id,
+      selectedCourse?.mataKuliahId,
+    ],
+  )
+  const selectedClassDetailPath =
+    selectedCourse && selectedClass
+      ? `/kelas-praktikum/${selectedCourse.id}/${selectedClass.id}?tab=evaluation${
+          selectedScope.mataKuliahId ? `&mataKuliahId=${selectedScope.mataKuliahId}` : ""
+        }${selectedScope.kelasPraktikumId ? `&kelasPraktikumId=${selectedScope.kelasPraktikumId}` : ""}`
+      : ""
 
   useEffect(() => {
     async function loadCourses() {
@@ -77,7 +91,7 @@ export default function LecturerDashboardPage() {
       setClassId(selectedCourse.classes[0]?.id || "")
       setJobsheetId("all")
     }
-  }, [classId, selectedCourse])
+  }, [classId, selectedCourse, selectedScope])
 
   useEffect(() => {
     const exists = jobsheets.some((item) => item.id === jobsheetId)
@@ -126,7 +140,7 @@ export default function LecturerDashboardPage() {
     }
 
     loadClassData()
-  }, [classId, selectedCourse])
+  }, [classId, selectedCourse, selectedScope.kelasPraktikumId, selectedScope.mataKuliahId])
 
   const displayedJobsheets = useMemo(() => {
     if (jobsheetId === "all") return jobsheets
@@ -203,12 +217,12 @@ export default function LecturerDashboardPage() {
                   <option key={item.id} value={item.id}>{item.name}</option>
                 ))}
               </NativeSelect>
-              <NativeSelect label="Kelas" value={classId} onChange={(value) => {
+              <NativeSelect label="Kelas Praktikum" value={classId} onChange={(value) => {
                 setClassId(value)
                 setJobsheetId("all")
               }} className="w-full">
                 {(selectedCourse?.classes ?? []).map((item) => (
-                  <option key={item.id} value={item.id}>Kelas {item.name}</option>
+                  <option key={item.id} value={item.id}>{item.name}</option>
                 ))}
               </NativeSelect>
               <NativeSelect label="Jobsheet" value={jobsheetId} onChange={setJobsheetId} className="w-full">
@@ -223,18 +237,18 @@ export default function LecturerDashboardPage() {
           <section className="mb-6 grid gap-4 md:grid-cols-4">
             <StatCard label="Mahasiswa" value={studentCount || selectedClass?.studentCount || 0} />
             <StatCard label="Submit" value={`${submittedCount}/${targetCount || studentCount || 0}`} />
-            <StatCard label="Validasi Review" value={pendingReviewCount} />
+            <StatCard label="Menunggu Review" value={pendingReviewCount} />
             <StatCard label="Revisi" value={revisionCount} />
           </section>
 
           <section className="grid gap-6 lg:grid-cols-[1fr_320px]">
             <LecturerPanel className="p-5">
               <div className="mb-4 flex items-center justify-between border-b border-gray-200 pb-3">
-                <h2 className="text-lg font-semibold text-gray-900">Tugas Terbaru</h2>
+                <h2 className="text-lg font-semibold text-gray-900">Submission Terbaru Kelas Praktikum</h2>
                 {selectedCourse && selectedClass && (
                   <LecturerButton
                     variant="ghost"
-                    onClick={() => navigate(`/classes/${selectedCourse.id}/${selectedClass.id}?tab=evaluation`)}
+                    onClick={() => navigate(selectedClassDetailPath)}
                   >
                     Lihat Semua
                   </LecturerButton>
@@ -248,7 +262,7 @@ export default function LecturerDashboardPage() {
                   <table className="w-full min-w-[560px] text-sm">
                     <thead className="text-left text-gray-600">
                       <tr>
-                        <th className="py-2">Nama</th>
+                        <th className="py-2">Mahasiswa</th>
                         <th className="py-2">Jobsheet</th>
                         <th className="py-2">Status</th>
                         <th className="py-2">Aksi</th>
@@ -261,7 +275,7 @@ export default function LecturerDashboardPage() {
                         return (
                           <tr key={`${item.student.id}-${item.jobsheet.id}`}>
                             <td className="py-3">{item.student.fullname}</td>
-                            <td className="py-3">Jobsheet {jobsheet?.number ?? "-"}</td>
+                            <td className="py-3">{jobsheet?.title ?? `Jobsheet ${jobsheet?.number ?? "-"}`}</td>
                             <td className="py-3">{getSubmissionReviewStatus(item.submission)}</td>
                             <td className="py-3">
                               {selectedCourse && selectedClass && (
@@ -295,8 +309,8 @@ export default function LecturerDashboardPage() {
             </LecturerPanel>
 
             <LecturerPanel className="p-5">
-              <h2 className="mb-4 border-b border-gray-200 pb-3 text-lg font-semibold text-gray-900">
-                Progress Evaluasi
+                  <h2 className="mb-4 border-b border-gray-200 pb-3 text-lg font-semibold text-gray-900">
+                Progress Kelas Praktikum
               </h2>
               <div className="space-y-4">
                 <div>
@@ -304,9 +318,15 @@ export default function LecturerDashboardPage() {
                   <ProgressBar value={progress} />
                 </div>
                 <div>
-                  <p className="mb-2 text-sm font-medium text-gray-700">Validasi Dosen</p>
+                  <p className="mb-2 text-sm font-medium text-gray-700">Review Dosen</p>
                   <ProgressBar value={validationProgress} />
                 </div>
+                {selectedClass && (
+                  <div className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                    <p className="font-medium text-gray-800">{selectedClass.name}</p>
+                    <p>ID kelas praktikum: {selectedScope.kelasPraktikumId ?? "-"}</p>
+                  </div>
+                )}
               </div>
             </LecturerPanel>
           </section>
@@ -322,14 +342,14 @@ export default function LecturerDashboardPage() {
             </LecturerPanel>
 
             <LecturerPanel className="p-5">
-              <h2 className="mb-4 border-b border-gray-200 pb-3 text-lg font-semibold">Jobsheet Aktif</h2>
+              <h2 className="mb-4 border-b border-gray-200 pb-3 text-lg font-semibold">Jobsheet Kelas Praktikum</h2>
               <div className="space-y-3 text-sm">
                 {displayedJobsheets.filter((item) => item.status === "Published").length ? (
                   displayedJobsheets
                     .filter((item) => item.status === "Published")
                     .map((item) => (
-                      <div key={item.id} className="flex items-center justify-between gap-3">
-                        <span>Jobsheet {item.number}</span>
+                      <div key={item.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3">
+                        <span className="truncate">{item.title || `Jobsheet ${item.number}`}</span>
                         <span>{item.deadline}</span>
                         <span>{item.submitted}/{item.total}</span>
                       </div>

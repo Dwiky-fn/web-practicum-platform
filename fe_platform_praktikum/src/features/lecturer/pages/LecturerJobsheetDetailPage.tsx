@@ -38,6 +38,7 @@ import {
   type LecturerClassProgressResponse,
   type LecturerStudentDetailProgressResponse,
 } from "../service"
+import { academicCourseBasePath } from "../../../services/academicScope"
 
 type DetailTab = "detail" | "monitoring" | "students" | "settings"
 
@@ -56,7 +57,8 @@ export default function LecturerJobsheetDetailPage() {
   const classId = searchParams.get("classId") ?? ""
   const mataKuliahId = searchParams.get("mataKuliahId") || undefined
   const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined
-  const nativeScope = { mataKuliahId, kelasPraktikumId }
+  const nativeScope = useMemo(() => ({ mataKuliahId, kelasPraktikumId }), [kelasPraktikumId, mataKuliahId])
+  const jobsheetBasePath = `${academicCourseBasePath(courseId, nativeScope)}/jobsheets`
   const [activeTab, setActiveTab] = useState<DetailTab>("detail")
   const [selectedStudentProfileId, setSelectedStudentProfileId] = useState<string | null>(null)
   const [keyword, setKeyword] = useState("")
@@ -78,7 +80,7 @@ export default function LecturerJobsheetDetailPage() {
 
   // Load progress monitoring data
   useEffect(() => {
-    let intervalId: any = null
+    let intervalId: ReturnType<typeof window.setInterval> | null = null
 
     async function loadMonitoring() {
       if (activeTab !== "monitoring" || !jobsheetId || !classId) return
@@ -250,7 +252,7 @@ export default function LecturerJobsheetDetailPage() {
     }
 
     loadData()
-  }, [classId, courseId, jobsheetId, kelasPraktikumId, mataKuliahId])
+  }, [classId, courseId, jobsheetId, kelasPraktikumId, mataKuliahId, nativeScope])
 
   const filteredStudents = useMemo(() => {
     const normalized = keyword.trim().toLowerCase()
@@ -421,7 +423,7 @@ export default function LecturerJobsheetDetailPage() {
                   </div>
                 </LecturerPanel>
 
-                <LecturerButton onClick={() => navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}/edit`)}>
+                <LecturerButton onClick={() => navigate(`${jobsheetBasePath}/${jobsheet.id}/edit`)}>
                   Edit Jobsheet
                 </LecturerButton>
               </div>
@@ -658,7 +660,7 @@ export default function LecturerJobsheetDetailPage() {
                   <h2 className="mb-3 text-lg font-semibold">Status Jobsheet</h2>
                   <p className="text-sm text-gray-700">Status saat ini: {jobsheet.status}</p>
                   <div className="mt-4">
-                    <LecturerButton onClick={() => navigate(`/courses/${courseId}/jobsheets`)}>
+                    <LecturerButton onClick={() => navigate(jobsheetBasePath)}>
                       Buka Pengaturan Publikasi
                     </LecturerButton>
                   </div>

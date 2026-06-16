@@ -28,6 +28,7 @@ class StudentProgressService {
       if (nativeResult.rows.length) return nativeResult.rows[0];
     }
 
+    // Legacy fallback only. Do not use for new academic flow.
     const params = [studentId, jobsheetId];
     let filter = '';
 
@@ -112,21 +113,20 @@ class StudentProgressService {
 
     const updateResult = await this._pool.query(
       `UPDATE student_progress
-       SET id_kelas_mhs = COALESCE(id_kelas_mhs, $6),
-           status = $7,
-           progress = GREATEST(progress, $8),
-           last_page = $9,
+       SET id_kelas_mhs = COALESCE(id_kelas_mhs, $5),
+           status = $6,
+           progress = GREATEST(progress, $7),
+           last_page = $8,
            last_activity = CURRENT_TIMESTAMP,
-           completed_items = $10::jsonb
-       WHERE student_id = $2
-         AND jobsheet_id = $3
+           completed_items = $9::jsonb
+       WHERE student_id = $1
+         AND jobsheet_id = $2
          AND (
-           ($5::varchar IS NOT NULL AND id_kelas_praktikum = $5)
-           OR ($5::varchar IS NULL AND class_id = $4)
+           ($4::varchar IS NOT NULL AND id_kelas_praktikum = $4)
+           OR ($4::varchar IS NULL AND class_id = $3)
          )
        RETURNING *`,
       [
-        id,
         studentId,
         jobsheetId,
         academicContext.class_id,

@@ -34,13 +34,13 @@ export interface UpdateStudentProgressPayload {
   experimentId?: string | null
   instructionId?: string | null
   activityType: string
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 export const updateStudentProgressApi = async (
   jobsheetId: string,
   payload: UpdateStudentProgressPayload,
-): Promise<any> => {
+): Promise<StudentProgress> => {
   const res = await apiFetch(`/student-progress/${jobsheetId}/update`, {
     method: "POST",
     body: JSON.stringify(payload),

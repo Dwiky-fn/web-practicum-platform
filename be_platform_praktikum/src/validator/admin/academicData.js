@@ -149,6 +149,21 @@ const kelasMahasiswaQuerySchema = Joi.object({
   keyword: Joi.string().allow('', null),
 });
 
+const kelasSemesterPayloadSchema = Joi.object({
+  id: Joi.string().allow('', null),
+  id_tahun_semester: idSchema,
+  id_semester: idSchema,
+  id_kelas: idSchema,
+  status: Joi.string().valid('active', 'inactive', 'archived').default('active'),
+});
+
+const updateKelasSemesterPayloadSchema = Joi.object({
+  id_tahun_semester: Joi.string().trim(),
+  id_semester: Joi.string().trim(),
+  id_kelas: Joi.string().trim(),
+  status: Joi.string().valid('active', 'inactive', 'archived'),
+}).min(1);
+
 module.exports = {
   validateTahunSemesterPayload: (payload) => validateWithSchema(tahunSemesterPayloadSchema, payload),
   validateUpdateTahunSemesterPayload: (payload) => validateWithSchema(updateTahunSemesterPayloadSchema, payload),
@@ -170,4 +185,6 @@ module.exports = {
   validatePengampuPayload: (payload) => validateWithSchema(pengampuPayloadSchema, payload),
   validateUpdatePengampuPayload: (payload) => validateWithSchema(updatePengampuPayloadSchema, payload),
   validateKelasMahasiswaQuery: (query) => validateWithSchema(kelasMahasiswaQuerySchema, query),
+  validateKelasSemesterPayload: (payload) => validateWithSchema(kelasSemesterPayloadSchema, payload),
+  validateUpdateKelasSemesterPayload: (payload) => validateWithSchema(updateKelasSemesterPayloadSchema, payload),
 };

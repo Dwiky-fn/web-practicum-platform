@@ -5,6 +5,7 @@ import AdminLayout from "../components/AdminLayout"
 import { AdminButton, AdminPanel, AdminSectionHeader } from "../components/AdminUI"
 import { getAdminDashboard } from "../../../services/admin/service"
 import type { AdminDashboardSummary } from "../../../services/admin/types"
+import { academicDataApi } from "../../../services/admin/academicData/service"
 
 function StatCard({
   title,
@@ -56,11 +57,38 @@ function SummaryPanel({
 export default function AdminDashboard() {
   const navigate = useNavigate()
   const [dashboard, setDashboard] = useState<AdminDashboardSummary | null>(null)
+  const [activeKurikulumName, setActiveKurikulumName] = useState("Belum ada")
+  const [nativeStats, setNativeStats] = useState({
+    mataKuliahTotal: 0,
+    kelasPraktikumTotal: 0,
+    kelasPraktikumAktif: 0,
+    kelasMahasiswaTotal: 0,
+    kelasMahasiswaAktif: 0,
+    pengampuTotal: 0,
+  })
   const [error, setError] = useState("")
 
   useEffect(() => {
-    getAdminDashboard()
-      .then(setDashboard)
+    Promise.all([
+      getAdminDashboard(),
+      academicDataApi.getKurikulum(),
+      academicDataApi.getMataKuliah(),
+      academicDataApi.getKelasPraktikum(),
+      academicDataApi.getKelasMahasiswa(),
+      academicDataApi.getPengampu(),
+    ])
+      .then(([dashboardData, kurikulumData, mataKuliahData, kelasPraktikumData, kelasMahasiswaData, pengampuData]) => {
+        setDashboard(dashboardData)
+        setActiveKurikulumName(kurikulumData.find((item) => item.status === "active")?.nama_kurikulum ?? "Belum ada")
+        setNativeStats({
+          mataKuliahTotal: mataKuliahData.length,
+          kelasPraktikumTotal: kelasPraktikumData.length,
+          kelasPraktikumAktif: kelasPraktikumData.filter((item) => item.status === "open").length,
+          kelasMahasiswaTotal: kelasMahasiswaData.length,
+          kelasMahasiswaAktif: kelasMahasiswaData.filter((item) => item.status === "active").length,
+          pengampuTotal: pengampuData.length,
+        })
+      })
       .catch((err) => setError(err instanceof Error ? err.message : "Gagal memuat dashboard admin"))
   }, [])
 
@@ -73,9 +101,14 @@ export default function AdminDashboard() {
         title="Dashboard Admin"
         description="Ringkasan kesiapan akademik dan aktivitas sistem praktikum."
         actions={
-          <AdminButton variant="secondary">
-            Semester Aktif: {activeSemester ? `${activeSemester.year} - ${activeSemester.term}` : "Belum ada"}
-          </AdminButton>
+          <div className="flex flex-wrap gap-2">
+            <AdminButton variant="secondary">
+              Semester Aktif: {activeSemester ? `${activeSemester.year} - ${activeSemester.term}` : "Belum ada"}
+            </AdminButton>
+            <span className="inline-flex min-h-10 items-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-700">
+              Kurikulum Aktif: {activeKurikulumName}
+            </span>
+          </div>
         }
       />
 
@@ -100,14 +133,14 @@ export default function AdminDashboard() {
         />
         <StatCard
           title="Mata Kuliah"
-          value={String(stats?.courses.active ?? 0)}
-          caption="Aktif semester ini"
+          value={String(nativeStats.mataKuliahTotal)}
+          caption="Data Akademik native"
           icon={<BookOpen size={24} />}
         />
         <StatCard
-          title="Kelas"
-          value={String(stats?.classes.active ?? 0)}
-          caption="Sedang berjalan"
+          title="Kelas Praktikum"
+          value={String(nativeStats.kelasPraktikumAktif)}
+          caption={`${nativeStats.kelasPraktikumTotal} total kelas praktikum`}
           icon={<Layers size={24} />}
         />
       </div>
@@ -124,26 +157,26 @@ export default function AdminDashboard() {
           <SummaryPanel
             title="Struktur Akademik"
             rows={[
-              ["Mata Kuliah", stats?.courses.total ?? 0],
-              ["Total Kelas", stats?.classes.total ?? 0],
-              ["Kelas Aktif", stats?.classes.active ?? 0],
-              ["Kelas Nonaktif", Math.max((stats?.classes.total ?? 0) - (stats?.classes.active ?? 0), 0)],
+              ["Mata Kuliah Native", nativeStats.mataKuliahTotal],
+              ["Total Kelas Praktikum", nativeStats.kelasPraktikumTotal],
+              ["Kelas Praktikum Aktif", nativeStats.kelasPraktikumAktif],
+              ["Kelas Praktikum Nonaktif", Math.max(nativeStats.kelasPraktikumTotal - nativeStats.kelasPraktikumAktif, 0)],
             ]}
           />
           <SummaryPanel
             title="Dosen Pengampu"
             rows={[
               ["Total Dosen", stats?.lecturers.total ?? 0],
-              ["Sudah Mengajar", stats?.classes.active ?? 0],
-              ["Belum Ter-assign", Math.max((stats?.lecturers.total ?? 0) - (stats?.classes.active ?? 0), 0)],
+              ["Relasi Pengampu", nativeStats.pengampuTotal],
+              ["Kelas Praktikum Berjalan", nativeStats.kelasPraktikumAktif],
             ]}
           />
           <SummaryPanel
             title="Mahasiswa"
             rows={[
               ["Total Mahasiswa", stats?.students.total ?? 0],
-              ["Sudah Masuk Kelas", stats?.assignedStudents ?? 0],
-              ["Belum Masuk Kelas", stats?.unassignedStudents ?? 0],
+              ["Kelas Mahasiswa", nativeStats.kelasMahasiswaTotal],
+              ["Kelas Mahasiswa Aktif", nativeStats.kelasMahasiswaAktif],
             ]}
           />
         </div>
@@ -175,11 +208,11 @@ export default function AdminDashboard() {
         <AdminPanel className="p-5">
           <h2 className="text-lg font-semibold text-gray-900">Quick Access</h2>
           <div className="mt-4 grid gap-3">
-            <AdminButton onClick={() => navigate("/courses?tab=courses")}>
+            <AdminButton onClick={() => navigate("/admin/academic/mata-kuliah")}>
               Tambah Mata Kuliah
             </AdminButton>
-            <AdminButton variant="secondary" onClick={() => navigate("/courses?tab=classes")}>
-              Tambah Kelas
+            <AdminButton variant="secondary" onClick={() => navigate("/admin/academic/kelas-praktikum")}>
+              Tambah Kelas Praktikum
             </AdminButton>
             <AdminButton variant="secondary" onClick={() => navigate("/users/lecturers")}>
               Kelola Dosen

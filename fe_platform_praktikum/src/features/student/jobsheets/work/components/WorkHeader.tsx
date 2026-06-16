@@ -2,6 +2,7 @@ import { ArrowLeft } from "lucide-react"
 import { useLocation, useNavigate } from "react-router-dom"
 import type { Course } from "../../../../../services/course/types"
 import type { Jobsheet } from "../../../../../services/jobsheet/types"
+import type { AcademicScope } from "../../../../../services/academicScope"
 import { buildWorkNavigation } from "../utils/buildNavigation"
 
 interface WorkHeaderProps {
@@ -9,12 +10,13 @@ interface WorkHeaderProps {
   backTo: string
   course?: Course | null
   jobsheet?: Jobsheet | null
+  scope?: AcademicScope
 }
 
-export default function WorkHeader({ title, backTo, course, jobsheet }: WorkHeaderProps) {
+export default function WorkHeader({ title, backTo, course, jobsheet, scope }: WorkHeaderProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const navItems = course && jobsheet ? buildWorkNavigation(course.id, jobsheet) : []
+  const navItems = course && jobsheet ? buildWorkNavigation(course.id, jobsheet, location.search, scope) : []
   const activeItem = navItems.find((item) => location.pathname.startsWith(item.path))
   const activeTitle = activeItem?.label || title
 

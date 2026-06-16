@@ -94,7 +94,8 @@ export default function StudentDashboardPage() {
 
   const totalCourses = courses.length;
   const jobsheetCountByCourse = jobsheets.reduce<Record<string, number>>((acc, jobsheet) => {
-    acc[jobsheet.courseId] = (acc[jobsheet.courseId] ?? 0) + 1;
+    const key = jobsheet.mataKuliahId || jobsheet.courseId;
+    acc[key] = (acc[key] ?? 0) + 1;
     return acc;
   }, {});
 
@@ -194,7 +195,7 @@ export default function StudentDashboardPage() {
                   <CourseCard
                     key={course.id}
                     course={course}
-                    jobsheetCount={jobsheetCountByCourse[course.id] ?? 0}
+                    jobsheetCount={jobsheetCountByCourse[course.mataKuliahId || course.id] ?? 0}
                     onClick={() => navigate(academicCoursePath(course))}
                   />
                 ))

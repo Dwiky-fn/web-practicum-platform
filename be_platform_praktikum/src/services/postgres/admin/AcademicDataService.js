@@ -30,11 +30,28 @@ class AcademicDataService {
     if (result.rows.length) throw new Error(errorCode);
   }
 
+  async _ensureNoRows(query, params, errorCode) {
+    const result = await this._pool.query(query, params);
+    if (result.rows.length) throw new Error(errorCode);
+  }
+
+  async _ensureUniqueTahunSemester(client, tahunSemester, ignoredId = null) {
+    if (!tahunSemester) throw new Error('TAHUN_SEMESTER_REQUIRED');
+    const params = [String(tahunSemester).trim().toLowerCase()];
+    const ignoredClause = ignoredId ? ' AND id <> $2' : '';
+    if (ignoredId) params.push(ignoredId);
+    const result = await client.query(
+      `SELECT 1 FROM tahun_semester WHERE LOWER(tahun_semester) = $1${ignoredClause} LIMIT 1`,
+      params,
+    );
+    if (result.rows.length) throw new Error('TAHUN_SEMESTER_DUPLICATE');
+  }
+
   async getTahunSemester() {
     const result = await this._pool.query(`
       SELECT id, tahun_semester, status, created_at, updated_at
       FROM tahun_semester
-      ORDER BY status = 'active' DESC, tahun_semester DESC
+      ORDER BY created_at ASC, id ASC
     `);
     return result.rows;
   }
@@ -45,6 +62,7 @@ class AcademicDataService {
     const client = await this._pool.connect();
     try {
       await client.query('BEGIN');
+      await this._ensureUniqueTahunSemester(client, payload.tahun_semester);
       if (status === 'active') await client.query("UPDATE tahun_semester SET status = 'inactive', updated_at = CURRENT_TIMESTAMP WHERE status = 'active'");
       await client.query(
         `INSERT INTO tahun_semester (id, tahun_semester, status)
@@ -68,6 +86,7 @@ class AcademicDataService {
     try {
       await client.query('BEGIN');
       await this._ensureExists(client, 'tahun_semester', id, 'TAHUN_SEMESTER_NOT_FOUND');
+      if (payload.tahun_semester) await this._ensureUniqueTahunSemester(client, payload.tahun_semester, id);
       if (status === 'active') await client.query("UPDATE tahun_semester SET status = 'inactive', updated_at = CURRENT_TIMESTAMP WHERE status = 'active' AND id <> $1", [id]);
       await client.query(
         `UPDATE tahun_semester
@@ -93,8 +112,27 @@ class AcademicDataService {
   }
 
   async deleteTahunSemester(id) {
+    await this._ensureUnused('kelas_semester', 'id_tahun_semester', id, 'TAHUN_SEMESTER_USED');
     await this._ensureUnused('kelas_mhs', 'id_tahun_semester', id, 'TAHUN_SEMESTER_USED');
     await this._ensureUnused('kelas_praktikum', 'id_tahun_semester', id, 'TAHUN_SEMESTER_USED');
+    await this._ensureNoRows(
+      `SELECT 1
+       FROM student_progress sp
+       JOIN kelas_praktikum kp ON kp.id = sp.id_kelas_praktikum
+       WHERE kp.id_tahun_semester = $1
+       LIMIT 1`,
+      [id],
+      'TAHUN_SEMESTER_USED',
+    );
+    await this._ensureNoRows(
+      `SELECT 1
+       FROM task_submissions ts
+       JOIN kelas_praktikum kp ON kp.id = ts.id_kelas_praktikum
+       WHERE kp.id_tahun_semester = $1
+       LIMIT 1`,
+      [id],
+      'TAHUN_SEMESTER_USED',
+    );
     const result = await this._pool.query('DELETE FROM tahun_semester WHERE id = $1 RETURNING id', [id]);
     if (!result.rows.length) throw new Error('TAHUN_SEMESTER_NOT_FOUND');
   }
@@ -200,6 +238,7 @@ class AcademicDataService {
 
   async deleteSemester(id) {
     await this._ensureUnused('mata_kuliah', 'id_semester', id, 'MASTER_SEMESTER_USED');
+    await this._ensureUnused('kelas_semester', 'id_semester', id, 'MASTER_SEMESTER_USED');
     await this._ensureUnused('kelas_mhs', 'id_semester', id, 'MASTER_SEMESTER_USED');
     await this._ensureUnused('kelas_praktikum', 'id_semester', id, 'MASTER_SEMESTER_USED');
     const result = await this._pool.query('DELETE FROM semester WHERE id = $1 RETURNING id', [id]);
@@ -237,6 +276,7 @@ class AcademicDataService {
   }
 
   async deleteKelas(id) {
+    await this._ensureUnused('kelas_semester', 'id_kelas', id, 'MASTER_KELAS_USED');
     await this._ensureUnused('kelas_mhs', 'id_kelas', id, 'MASTER_KELAS_USED');
     await this._ensureUnused('kelas_praktikum', 'id_kelas', id, 'MASTER_KELAS_USED');
     const result = await this._pool.query('DELETE FROM kelas WHERE id = $1 RETURNING id', [id]);
@@ -324,6 +364,7 @@ class AcademicDataService {
 
   async deleteMataKuliah(id) {
     await this._ensureUnused('kelas_praktikum', 'id_mata_kuliah', id, 'MATA_KULIAH_USED');
+    await this._ensureUnused('jobsheets', 'id_mata_kuliah', id, 'MATA_KULIAH_USED');
     const result = await this._pool.query('DELETE FROM mata_kuliah WHERE id = $1 RETURNING id', [id]);
     if (!result.rows.length) throw new Error('MATA_KULIAH_NOT_FOUND');
   }
@@ -461,10 +502,26 @@ class AcademicDataService {
       await this._ensureExists(client, 'semester', payload.id_semester, 'MASTER_SEMESTER_NOT_FOUND');
       await this._ensureExists(client, 'kelas', payload.id_kelas, 'MASTER_KELAS_NOT_FOUND');
       await this._ensureExists(client, 'users', payload.id_mahasiswa, 'MAHASISWA_NOT_FOUND', 'MAHASISWA');
+
+      // Fetch or automatically create the corresponding kelas_semester group
+      const groupResult = await client.query(
+        'SELECT id FROM kelas_semester WHERE id_tahun_semester = $1 AND id_semester = $2 AND id_kelas = $3 LIMIT 1',
+        [payload.id_tahun_semester, payload.id_semester, payload.id_kelas]
+      );
+      let id_kelas_semester = groupResult.rows[0]?.id || null;
+      if (!id_kelas_semester) {
+        id_kelas_semester = createId('ks');
+        await client.query(
+          `INSERT INTO kelas_semester (id, id_tahun_semester, id_semester, id_kelas, status)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [id_kelas_semester, payload.id_tahun_semester, payload.id_semester, payload.id_kelas, 'active']
+        );
+      }
+
       await client.query(
-        `INSERT INTO kelas_mhs (id, id_tahun_semester, id_semester, id_kelas, id_mahasiswa, status)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [id, payload.id_tahun_semester, payload.id_semester, payload.id_kelas, payload.id_mahasiswa, normalizeSimpleStatus(payload.status, 'active')],
+        `INSERT INTO kelas_mhs (id, id_tahun_semester, id_semester, id_kelas, id_mahasiswa, status, id_kelas_semester)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [id, payload.id_tahun_semester, payload.id_semester, payload.id_kelas, payload.id_mahasiswa, normalizeSimpleStatus(payload.status, 'active'), id_kelas_semester],
       );
       await client.query('COMMIT');
       return (await this.getKelasMahasiswa()).find((item) => item.id === id);
@@ -486,6 +543,31 @@ class AcademicDataService {
       if (payload.id_semester) await this._ensureExists(client, 'semester', payload.id_semester, 'MASTER_SEMESTER_NOT_FOUND');
       if (payload.id_kelas) await this._ensureExists(client, 'kelas', payload.id_kelas, 'MASTER_KELAS_NOT_FOUND');
       if (payload.id_mahasiswa) await this._ensureExists(client, 'users', payload.id_mahasiswa, 'MAHASISWA_NOT_FOUND', 'MAHASISWA');
+
+      // Resolve id_kelas_semester if fields changed
+      let id_kelas_semester = undefined;
+      if (payload.id_tahun_semester || payload.id_semester || payload.id_kelas) {
+        const currentRes = await client.query('SELECT * FROM kelas_mhs WHERE id = $1 LIMIT 1', [id]);
+        const current = currentRes.rows[0];
+        const targetTahun = payload.id_tahun_semester || current.id_tahun_semester;
+        const targetSemester = payload.id_semester || current.id_semester;
+        const targetKelas = payload.id_kelas || current.id_kelas;
+
+        const groupResult = await client.query(
+          'SELECT id FROM kelas_semester WHERE id_tahun_semester = $1 AND id_semester = $2 AND id_kelas = $3 LIMIT 1',
+          [targetTahun, targetSemester, targetKelas]
+        );
+        id_kelas_semester = groupResult.rows[0]?.id || null;
+        if (!id_kelas_semester) {
+          id_kelas_semester = createId('ks');
+          await client.query(
+            `INSERT INTO kelas_semester (id, id_tahun_semester, id_semester, id_kelas, status)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [id_kelas_semester, targetTahun, targetSemester, targetKelas, 'active']
+          );
+        }
+      }
+
       await client.query(
         `UPDATE kelas_mhs
          SET id_tahun_semester = COALESCE($2, id_tahun_semester),
@@ -493,9 +575,10 @@ class AcademicDataService {
              id_kelas = COALESCE($4, id_kelas),
              id_mahasiswa = COALESCE($5, id_mahasiswa),
              status = COALESCE($6, status),
+             id_kelas_semester = COALESCE($7, id_kelas_semester),
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $1`,
-        [id, payload.id_tahun_semester || null, payload.id_semester || null, payload.id_kelas || null, payload.id_mahasiswa || null, payload.status ? normalizeSimpleStatus(payload.status, 'active') : null],
+        [id, payload.id_tahun_semester || null, payload.id_semester || null, payload.id_kelas || null, payload.id_mahasiswa || null, payload.status ? normalizeSimpleStatus(payload.status, 'active') : null, id_kelas_semester || null],
       );
       await client.query('COMMIT');
       return (await this.getKelasMahasiswa()).find((item) => item.id === id);
@@ -930,13 +1013,26 @@ class AcademicDataService {
   }
 
   async deleteKelasPraktikum(id) {
-    await this._ensureUnused('pengampu', 'id_kelas_praktikum', id, 'KELAS_PRAKTIKUM_USED');
     await this._ensureUnused('jobsheet_classes', 'id_kelas_praktikum', id, 'KELAS_PRAKTIKUM_USED');
     await this._ensureUnused('student_progress', 'id_kelas_praktikum', id, 'KELAS_PRAKTIKUM_USED');
     await this._ensureUnused('task_submissions', 'id_kelas_praktikum', id, 'KELAS_PRAKTIKUM_USED');
     await this._ensureUnused('student_jobsheet_progress', 'id_kelas_praktikum', id, 'KELAS_PRAKTIKUM_USED');
-    const result = await this._pool.query('DELETE FROM kelas_praktikum WHERE id = $1 RETURNING id', [id]);
-    if (!result.rows.length) throw new Error('KELAS_PRAKTIKUM_NOT_FOUND');
+
+    const client = await this._pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM pengampu WHERE id_kelas_praktikum = $1', [id]);
+      const result = await client.query('DELETE FROM kelas_praktikum WHERE id = $1 RETURNING id', [id]);
+      if (!result.rows.length) {
+        throw new Error('KELAS_PRAKTIKUM_NOT_FOUND');
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async getKelasPraktikumMahasiswa(id) {
@@ -1030,6 +1126,164 @@ class AcademicDataService {
   async deletePengampu(id) {
     const result = await this._pool.query('DELETE FROM pengampu WHERE id = $1 RETURNING id', [id]);
     if (!result.rows.length) throw new Error('PENGAMPU_NOT_FOUND');
+  }
+
+  async getKelasSemester(filters = {}) {
+    const params = [];
+    let clause = '';
+    if (filters.id_tahun_semester) {
+      params.push(filters.id_tahun_semester);
+      clause += ` AND ks.id_tahun_semester = $${params.length}`;
+    }
+    const result = await this._pool.query(`
+      SELECT 
+        ks.id,
+        ks.id_tahun_semester,
+        ks.id_semester,
+        ks.id_kelas,
+        s.semester,
+        k.kelas,
+        (s.semester || k.kelas) AS nama_kelas,
+        COUNT(km.id)::int AS jumlah_mahasiswa,
+        ks.status,
+        ts.tahun_semester
+      FROM kelas_semester ks
+      JOIN tahun_semester ts ON ts.id = ks.id_tahun_semester
+      JOIN semester s ON s.id = ks.id_semester
+      JOIN kelas k ON k.id = ks.id_kelas
+      LEFT JOIN kelas_mhs km ON km.id_kelas_semester = ks.id
+      WHERE true${clause}
+      GROUP BY ks.id, s.semester, k.kelas, ts.tahun_semester
+      ORDER BY s.semester ASC, k.kelas ASC
+    `, params);
+    return result.rows;
+  }
+
+  async getKelasSemesterById(id) {
+    const result = await this._pool.query(`
+      SELECT 
+        ks.id,
+        ks.id_tahun_semester,
+        ks.id_semester,
+        ks.id_kelas,
+        s.semester,
+        k.kelas,
+        (s.semester || k.kelas) AS nama_kelas,
+        ks.status,
+        ts.tahun_semester
+      FROM kelas_semester ks
+      JOIN tahun_semester ts ON ts.id = ks.id_tahun_semester
+      JOIN semester s ON s.id = ks.id_semester
+      JOIN kelas k ON k.id = ks.id_kelas
+      WHERE ks.id = $1
+    `, [id]);
+    if (!result.rows.length) throw new Error('KELAS_SEMESTER_NOT_FOUND');
+    return result.rows[0];
+  }
+
+  async createKelasSemester(payload) {
+    const client = await this._pool.connect();
+    const id = payload.id || createId('ks');
+    try {
+      await client.query('BEGIN');
+      await this._ensureExists(client, 'tahun_semester', payload.id_tahun_semester, 'TAHUN_SEMESTER_NOT_FOUND');
+      await this._ensureExists(client, 'semester', payload.id_semester, 'MASTER_SEMESTER_NOT_FOUND');
+      await this._ensureExists(client, 'kelas', payload.id_kelas, 'MASTER_KELAS_NOT_FOUND');
+      await client.query(
+        `INSERT INTO kelas_semester (id, id_tahun_semester, id_semester, id_kelas, status)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [id, payload.id_tahun_semester, payload.id_semester, payload.id_kelas, normalizeSimpleStatus(payload.status, 'active')],
+      );
+      await client.query('COMMIT');
+      return (await this.getKelasSemester()).find((item) => item.id === id);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      if (error.code === '23505') throw new Error('KELAS_SEMESTER_DUPLICATE');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async updateKelasSemester(id, payload) {
+    const client = await this._pool.connect();
+    try {
+      await client.query('BEGIN');
+      const currentRes = await client.query('SELECT id_tahun_semester, id_semester, id_kelas FROM kelas_semester WHERE id = $1', [id]);
+      if (!currentRes.rows.length) throw new Error('KELAS_SEMESTER_NOT_FOUND');
+      const current = currentRes.rows[0];
+
+      // Check if students exist
+      const studentsCheck = await client.query('SELECT COUNT(id)::int AS count FROM kelas_mhs WHERE id_kelas_semester = $1', [id]);
+      if (studentsCheck.rows[0].count > 0) {
+        throw new Error('KELAS_SEMESTER_HAS_STUDENTS');
+      }
+
+      // Check if used by kelas_praktikum
+      const praktikumCheck = await client.query(
+        'SELECT 1 FROM kelas_praktikum WHERE id_tahun_semester = $1 AND id_semester = $2 AND id_kelas = $3 LIMIT 1',
+        [current.id_tahun_semester, current.id_semester, current.id_kelas]
+      );
+      if (praktikumCheck.rows.length > 0) {
+        throw new Error('KELAS_SEMESTER_EDIT_USED_BY_PRAKTIKUM');
+      }
+
+      if (payload.id_tahun_semester) await this._ensureExists(client, 'tahun_semester', payload.id_tahun_semester, 'TAHUN_SEMESTER_NOT_FOUND');
+      if (payload.id_semester) await this._ensureExists(client, 'semester', payload.id_semester, 'MASTER_SEMESTER_NOT_FOUND');
+      if (payload.id_kelas) await this._ensureExists(client, 'kelas', payload.id_kelas, 'MASTER_KELAS_NOT_FOUND');
+      await client.query(
+        `UPDATE kelas_semester
+         SET id_tahun_semester = COALESCE($2, id_tahun_semester),
+             id_semester = COALESCE($3, id_semester),
+             id_kelas = COALESCE($4, id_kelas),
+             status = COALESCE($5, status),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [id, payload.id_tahun_semester || null, payload.id_semester || null, payload.id_kelas || null, payload.status ? normalizeSimpleStatus(payload.status, 'active') : null],
+      );
+      await client.query('COMMIT');
+      return (await this.getKelasSemester()).find((item) => item.id === id);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      if (error.code === '23505') throw new Error('KELAS_SEMESTER_DUPLICATE');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async deleteKelasSemester(id) {
+    const client = await this._pool.connect();
+    try {
+      await client.query('BEGIN');
+      const currentRes = await client.query('SELECT id_tahun_semester, id_semester, id_kelas FROM kelas_semester WHERE id = $1', [id]);
+      if (!currentRes.rows.length) throw new Error('KELAS_SEMESTER_NOT_FOUND');
+      const current = currentRes.rows[0];
+
+      // Check if students exist
+      const studentsCheck = await client.query('SELECT COUNT(id)::int AS count FROM kelas_mhs WHERE id_kelas_semester = $1', [id]);
+      if (studentsCheck.rows[0].count > 0) {
+        throw new Error('KELAS_SEMESTER_USED');
+      }
+
+      // Check if used by kelas_praktikum
+      const praktikumCheck = await client.query(
+        'SELECT 1 FROM kelas_praktikum WHERE id_tahun_semester = $1 AND id_semester = $2 AND id_kelas = $3 LIMIT 1',
+        [current.id_tahun_semester, current.id_semester, current.id_kelas]
+      );
+      if (praktikumCheck.rows.length > 0) {
+        throw new Error('KELAS_SEMESTER_DELETE_USED_BY_PRAKTIKUM');
+      }
+
+      const result = await client.query('DELETE FROM kelas_semester WHERE id = $1 RETURNING id', [id]);
+      if (!result.rows.length) throw new Error('KELAS_SEMESTER_NOT_FOUND');
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 

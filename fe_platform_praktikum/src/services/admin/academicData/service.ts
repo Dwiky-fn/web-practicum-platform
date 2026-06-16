@@ -55,6 +55,19 @@ export type KelasMahasiswa = {
   fullname?: string
 }
 
+export type KelasSemester = {
+  id: string
+  id_tahun_semester: string
+  id_semester: string
+  id_kelas: string
+  semester?: number
+  kelas?: string
+  nama_kelas?: string
+  jumlah_mahasiswa: number
+  status: AcademicStatus
+  tahun_semester?: string
+}
+
 export type KelasPraktikum = {
   id: string
   id_tahun_semester: string
@@ -78,8 +91,21 @@ export type Pengampu = {
   peran: PengampuPeran
   nama_kelas?: string
   nama_mk?: string
+  nama_dosen?: string
   fullname?: string
   nip?: string
+}
+
+export type KelasPraktikumMahasiswa = {
+  id: string
+  id_tahun_semester: string
+  id_semester: string
+  id_kelas: string
+  id_mahasiswa: string
+  status: AcademicStatus
+  fullname?: string
+  email?: string
+  nim?: string
 }
 
 const unwrap = <T>(res: any, key: string): T => res.data[key] ?? []
@@ -168,6 +194,15 @@ export const academicDataApi = {
   async getKelasPraktikum(filters: Record<string, string> = {}) {
     return unwrap<KelasPraktikum[]>(await apiFetch(`/admin/kelas-praktikum${queryString(filters)}`), "kelas_praktikum")
   },
+  async getKelasPraktikumById(id: string) {
+    return unwrap<KelasPraktikum>(await apiFetch(`/admin/kelas-praktikum/${id}`), "kelas_praktikum")
+  },
+  async getKelasPraktikumMahasiswa(id: string) {
+    return unwrap<KelasPraktikumMahasiswa[]>(await apiFetch(`/admin/kelas-praktikum/${id}/mahasiswa`), "mahasiswa")
+  },
+  async getKelasPraktikumPengampu(id: string) {
+    return unwrap<Pengampu[]>(await apiFetch(`/admin/kelas-praktikum/${id}/pengampu`), "pengampu")
+  },
   async saveKelasPraktikum(payload: Partial<KelasPraktikum>, id?: string) {
     const method = id ? "PUT" : "POST"
     const path = id ? `/admin/kelas-praktikum/${id}` : "/admin/kelas-praktikum"
@@ -187,5 +222,17 @@ export const academicDataApi = {
   },
   async deletePengampu(id: string) {
     await apiFetch(`/admin/pengampu/${id}`, { method: "DELETE" })
+  },
+
+  async getKelasSemester(filters: Record<string, string> = {}) {
+    return unwrap<KelasSemester[]>(await apiFetch(`/admin/kelas-semester${queryString(filters)}`), "kelas_semester")
+  },
+  async saveKelasSemester(payload: Partial<KelasSemester>, id?: string) {
+    const method = id ? "PUT" : "POST"
+    const path = id ? `/admin/kelas-semester/${id}` : "/admin/kelas-semester"
+    return unwrap<KelasSemester>(await apiFetch(path, { method, body: JSON.stringify(payload) }), "kelas_semester")
+  },
+  async deleteKelasSemester(id: string) {
+    await apiFetch(`/admin/kelas-semester/${id}`, { method: "DELETE" })
   },
 }

@@ -1,5 +1,6 @@
 import type { Jobsheet } from "../../../../../services/jobsheet/types"
 import type { StudentProgressItemType } from "../../../../../services/progress/types"
+import { academicCourseBasePath, type AcademicScope } from "../../../../../services/academicScope"
 
 export interface WorkNavItem {
   id: string
@@ -12,8 +13,9 @@ export function buildWorkNavigation(
   courseId: string,
   jobsheet: Jobsheet,
   query = "",
+  scope?: AcademicScope,
 ): WorkNavItem[] {
-  const base = `/courses/${courseId}/jobsheets/${jobsheet.id}/works`
+  const base = `${academicCourseBasePath(courseId, scope)}/jobsheets/${jobsheet.id}/works`
   const items: WorkNavItem[] = []
 
   // Teori

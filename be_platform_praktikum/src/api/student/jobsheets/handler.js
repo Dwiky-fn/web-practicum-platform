@@ -10,6 +10,21 @@ class JobsheetsHandler {
   async getJobsheetsByCourseHandler(req, res, next) {
     try {
       const { courseId } = req.params;
+      const mataKuliahId = req.query.mataKuliahId || req.query.id_mata_kuliah;
+      if (mataKuliahId) {
+        const jobsheets = await this._service.getJobsheetsByMataKuliah(
+          mataKuliahId,
+          req.query.kelasPraktikumId || req.query.id_kelas_praktikum,
+          req.user,
+        );
+
+        return res.json({
+          status: 'success',
+          data: { jobsheets },
+        });
+      }
+
+      // Legacy fallback only. Do not use for new academic flow.
       const jobsheets = await this._service.getJobsheetsByCourse(
         courseId,
         req.query.classId,
@@ -30,7 +45,22 @@ class JobsheetsHandler {
     try {
       const { jobsheetId } = req.params;
       const { courseId } = req.params;
+      const mataKuliahId = req.query.mataKuliahId || req.query.id_mata_kuliah;
+      if (mataKuliahId) {
+        const jobsheet = await this._service.getJobsheetFullByMataKuliah(
+          jobsheetId,
+          mataKuliahId,
+          req.query.kelasPraktikumId || req.query.id_kelas_praktikum,
+          req.user,
+        );
 
+        return res.json({
+          status: 'success',
+          data: { jobsheet },
+        });
+      }
+
+      // Legacy fallback only. Do not use for new academic flow.
       const jobsheet = await this._service.getJobsheetFullById(
         jobsheetId,
         courseId,

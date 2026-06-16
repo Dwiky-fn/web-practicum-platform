@@ -7,6 +7,28 @@ export type AcademicScope = {
   kelasPraktikumId?: string
 }
 
+export function academicCourseBasePath(courseId?: string, scope?: AcademicScope) {
+  if (scope?.mataKuliahId) return `/mata-kuliah/${scope.mataKuliahId}`
+  return courseId ? `/mata-kuliah/${courseId}` : "/mata-kuliah"
+}
+
+export function academicJobsheetPath(courseId: string, jobsheetId: string, scope?: AcademicScope) {
+  return `${academicCourseBasePath(courseId, scope)}/jobsheets/${jobsheetId}${academicScopeQuery(scope ?? {})}`
+}
+
+export function academicJobsheetSubPath(
+  courseId: string,
+  jobsheetId: string,
+  segment: string,
+  scope?: AcademicScope,
+) {
+  return `${academicCourseBasePath(courseId, scope)}/jobsheets/${jobsheetId}/${segment}${academicScopeQuery(scope ?? {})}`
+}
+
+export function academicJobsheetWorkPath(courseId: string, jobsheetId: string, scope?: AcademicScope) {
+  return academicJobsheetSubPath(courseId, jobsheetId, "works", scope)
+}
+
 export function getCourseAcademicScope(course: Course): AcademicScope {
   return {
     courseId: course.id,
@@ -27,5 +49,5 @@ export function academicScopeQuery(scope: AcademicScope) {
 
 export function academicCoursePath(course: Course) {
   const scope = getCourseAcademicScope(course)
-  return `/courses/${course.id}${academicScopeQuery(scope)}`
+  return `${academicCourseBasePath(course.id, scope)}${academicScopeQuery(scope)}`
 }

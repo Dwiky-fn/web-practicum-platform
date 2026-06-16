@@ -10,9 +10,21 @@ const routes = (handler) => {
     requireRoles('DOSEN'),
     handler.getClassesHandler,
   );
+  router.get(
+    '/lecturer/kelas-praktikum',
+    requireAuth,
+    requireRoles('DOSEN'),
+    handler.getClassesHandler,
+  );
 
   router.get(
     '/lecturer/classes/:id',
+    requireAuth,
+    requireRoles('DOSEN'),
+    handler.getClassByIdHandler,
+  );
+  router.get(
+    '/lecturer/kelas-praktikum/:id',
     requireAuth,
     requireRoles('DOSEN'),
     handler.getClassByIdHandler,

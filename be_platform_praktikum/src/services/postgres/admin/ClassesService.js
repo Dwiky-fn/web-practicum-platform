@@ -68,7 +68,96 @@ class ClassesService {
     this._pool = pool;
   }
 
+  _mapNativeClass(row) {
+    return {
+      id: row.id,
+      name: row.nama_kelas,
+      courseName: row.course_name,
+      courseId: row.id_mata_kuliah,
+      mataKuliahId: row.id_mata_kuliah,
+      id_mata_kuliah: row.id_mata_kuliah,
+      lecturerId: row.lecturer_id,
+      lecturer: row.lecturer,
+      academicPeriodId: row.id_tahun_semester,
+      tahunSemesterId: row.id_tahun_semester,
+      kelasPraktikumId: row.id,
+      id_kelas_praktikum: row.id,
+      namaKelasPraktikum: row.nama_kelas,
+      nama_kelas_praktikum: row.nama_kelas,
+      legacyClassLinked: Boolean(row.legacy_class_id),
+      semesterYear: row.tahun_semester,
+      studentSemester: row.student_semester,
+      programmingLanguage: normalizeProgrammingLanguage(row.programming_language),
+      programmingLanguageDisplayName: normalizeProgrammingLanguage(row.programming_language) === 'python' ? 'Python' : 'Java',
+      status: row.status === 'open' || row.status === 'active' ? 'Aktif' : 'Nonaktif',
+    };
+  }
+
+  async _getNativeClasses(filters = {}) {
+    const keyword = `%${(filters.keyword || '').toLowerCase()}%`;
+    const params = [keyword];
+    let lecturerClause = '';
+    let courseClause = '';
+    let statusClause = '';
+
+    if (filters.lecturerId) {
+      params.push(filters.lecturerId);
+      lecturerClause = `AND p.id_dosen = $${params.length}`;
+    }
+    if (filters.courseId && filters.courseId !== 'all') {
+      params.push(filters.courseId);
+      courseClause = `AND kp.id_mata_kuliah = $${params.length}`;
+    }
+    if (filters.status && filters.status !== 'all') {
+      const normalized = normalizeStatus(filters.status).toLowerCase();
+      params.push(normalized === 'aktif' ? 'open' : normalized);
+      statusClause = `AND kp.status = $${params.length}`;
+    }
+
+    const result = await this._pool.query(
+      `
+      SELECT
+        kp.id,
+        kp.nama_kelas,
+        kp.status,
+        kp.legacy_class_id,
+        mk.id AS id_mata_kuliah,
+        mk.nama_mk AS course_name,
+        s.semester AS student_semester,
+        p.id_dosen AS lecturer_id,
+        u.fullname AS lecturer,
+        ts.id AS id_tahun_semester,
+        ts.tahun_semester,
+        COALESCE(legacy.programming_language, 'java') AS programming_language
+      FROM kelas_praktikum kp
+      JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
+      JOIN semester s ON s.id = kp.id_semester
+      JOIN tahun_semester ts ON ts.id = kp.id_tahun_semester
+      JOIN pengampu p ON p.id_kelas_praktikum = kp.id
+      JOIN users u ON u.id = p.id_dosen
+      LEFT JOIN classes legacy ON legacy.id = kp.legacy_class_id
+      WHERE ($1 = '%%'
+        OR LOWER(kp.nama_kelas) LIKE $1
+        OR LOWER(mk.nama_mk) LIKE $1
+        OR LOWER(u.fullname) LIKE $1)
+        ${lecturerClause}
+        ${courseClause}
+        ${statusClause}
+      ORDER BY ts.status = 'active' DESC, ts.tahun_semester DESC, mk.nama_mk ASC, kp.nama_kelas ASC
+      `,
+      params,
+    );
+
+    return result.rows.map((row) => this._mapNativeClass(row));
+  }
+
   async getClasses(filters = {}) {
+    if (filters.lecturerId) {
+      const nativeClasses = await this._getNativeClasses(filters);
+      if (nativeClasses.length) return nativeClasses;
+    }
+
+    // Legacy fallback only. Do not use for new academic flow.
     const keyword = `%${(filters.keyword || '').toLowerCase()}%`;
     const params = [keyword];
     let statusClause = '';
@@ -183,6 +272,21 @@ class ClassesService {
   }
 
   async getClassDetail(id) {
+    const nativeClass = (await this._getNativeClasses()).find((item) => item.id === id);
+    if (nativeClass) {
+      const [students, jobsheets] = await Promise.all([
+        this.getNativeClassStudents(id),
+        this.getNativeClassJobsheets(id),
+      ]);
+
+      return {
+        ...nativeClass,
+        students,
+        jobsheets,
+      };
+    }
+
+    // Legacy fallback only. Do not use for new academic flow.
     const classItem = (await this.getClasses()).find((item) => item.id === id);
     if (!classItem) throw new Error('CLASS_NOT_FOUND');
 
@@ -788,6 +892,29 @@ class ClassesService {
     return result.rows.map(mapStudent);
   }
 
+  async getNativeClassStudents(kelasPraktikumId) {
+    const result = await this._pool.query(
+      `
+      SELECT u.id, u.fullname, u.email, u.is_active,
+        sp.nim, sp.program_studi, sp.jurusan, sp.angkatan, sp.semester,
+        sp.status, u.avatar_url
+      FROM kelas_praktikum kp
+      JOIN kelas_mhs km
+        ON km.id_tahun_semester = kp.id_tahun_semester
+       AND km.id_semester = kp.id_semester
+       AND km.id_kelas = kp.id_kelas
+      JOIN users u ON u.id = km.id_mahasiswa
+      LEFT JOIN student_profiles sp ON sp.user_id = u.id
+      WHERE kp.id = $1
+        AND km.status = 'active'
+      ORDER BY sp.nim ASC
+      `,
+      [kelasPraktikumId],
+    );
+
+    return result.rows.map(mapStudent);
+  }
+
   async getStudentCandidates(classId, filters = {}) {
     const classInfo = await this._pool.query(
       `SELECT cl.course_id, cl.academic_period_id, c.semester
@@ -925,6 +1052,32 @@ class ClassesService {
       ORDER BY jc.deadline ASC NULLS LAST, jc.title ASC
       `,
       [classId],
+    );
+
+    return result.rows.map((row) => ({
+      id: row.jobsheet_id,
+      classJobsheetId: row.id,
+      title: row.title,
+      deadline: row.deadline ? new Date(row.deadline).toLocaleString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }) : '-',
+      status: displayStatus(row.status),
+    }));
+  }
+
+  async getNativeClassJobsheets(kelasPraktikumId) {
+    const result = await this._pool.query(
+      `
+      SELECT jc.id, jc.jobsheet_id, jc.title, jc.deadline, jc.status
+      FROM jobsheet_classes jc
+      WHERE jc.id_kelas_praktikum = $1 AND jc.is_active = true
+      ORDER BY jc.deadline ASC NULLS LAST, jc.title ASC
+      `,
+      [kelasPraktikumId],
     );
 
     return result.rows.map((row) => ({

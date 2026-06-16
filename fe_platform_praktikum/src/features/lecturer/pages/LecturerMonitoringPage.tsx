@@ -197,9 +197,9 @@ export default function LecturerMonitoringPage() {
               <NativeSelect value={classId} onChange={(value) => {
                 setClassId(value)
                 setJobsheetId("all")
-              }} label="Kelas" className="w-full">
+              }} label="Kelas Praktikum" className="w-full">
                 {(selectedCourse?.classes ?? []).map((item) => (
-                  <option key={item.id} value={item.id}>Kelas {item.name}</option>
+                  <option key={item.id} value={item.id}>Kelas Praktikum {item.name}</option>
                 ))}
               </NativeSelect>
               <NativeSelect value={jobsheetId} onChange={setJobsheetId} label="Jobsheet" className="w-full">

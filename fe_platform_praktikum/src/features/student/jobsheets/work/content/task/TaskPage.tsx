@@ -1,12 +1,24 @@
 import { useOutletContext, useNavigate, useParams, useLocation } from "react-router-dom"
 import type { Jobsheet } from "../../../../../../services/jobsheet/types" 
 import type { JobsheetSubmission } from "../../../../../../services/submission/types"
+import { academicJobsheetSubPath } from "../../../../../../services/academicScope"
 import SubmissionActivityTimeline from "./components/SubmissionActivityTimeline"
 
 export default function TaskPage() {
   const navigate = useNavigate()
-  const { courseId, jobsheetId } = useParams()
+  const { courseId, mataKuliahId: routeMataKuliahId, jobsheetId } = useParams<{
+    courseId?: string
+    mataKuliahId?: string
+    jobsheetId?: string
+  }>()
   const location = useLocation()
+  const searchParams = new URLSearchParams(location.search)
+  const effectiveCourseId = routeMataKuliahId || courseId || ""
+  const academicScope = {
+    classId: searchParams.get("classId") || undefined,
+    mataKuliahId: routeMataKuliahId || searchParams.get("mataKuliahId") || undefined,
+    kelasPraktikumId: searchParams.get("kelasPraktikumId") || undefined,
+  }
 
   const { jobsheet, submission } = useOutletContext<{
     jobsheet: Jobsheet
@@ -53,7 +65,7 @@ export default function TaskPage() {
             {canViewReview && (
               <button
                 onClick={() =>
-                  navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/review${location.search}`)
+                  navigate(academicJobsheetSubPath(effectiveCourseId, jobsheetId || "", "review", academicScope))
                 }
                 className="bg-blue-600 hover:bg-teal-600 transition text-white px-6 py-2 rounded-xl font-medium shadow-sm"
               >
@@ -64,7 +76,7 @@ export default function TaskPage() {
             {canSubmit && (
               <button
                 onClick={() =>
-                  navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/preview${location.search}`)
+                  navigate(academicJobsheetSubPath(effectiveCourseId, jobsheetId || "", "preview", academicScope))
                 }
                 className="bg-blue-600 hover:bg-teal-600 transition text-white px-6 py-2 rounded-xl font-medium shadow-sm"
               >

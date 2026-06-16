@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { ArrowLeft, Plus } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
@@ -20,6 +20,7 @@ import {
   type LecturerJobsheetSummary,
 } from "../service"
 import { toast } from "../../../components/toast/toastStore"
+import { academicCourseBasePath } from "../../../services/academicScope"
 
 type PublishClassSetting = {
   classId: string
@@ -48,7 +49,7 @@ function renderUsedIn(jobsheet: LecturerJobsheetSummary) {
   }
   const sortedClassNames = [...activeSettings]
     .sort((a, b) => a.className.localeCompare(b.className, "id-ID", { numeric: true, sensitivity: "base" }))
-    .map((s) => `Kelas ${s.className}`)
+    .map((s) => `Kelas Praktikum ${s.className}`)
   return `Digunakan di: ${sortedClassNames.join(", ")}`
 }
 
@@ -84,7 +85,7 @@ function renderDeadline(jobsheet: LecturerJobsheetSummary) {
           const deadlineText = s.deadline && s.deadline !== "-" ? s.deadline : "Belum diatur"
           return (
             <li key={s.classId}>
-              Kelas {s.className}: {deadlineText}
+              Kelas Praktikum {s.className}: {deadlineText}
             </li>
           )
         })}
@@ -96,7 +97,8 @@ function renderDeadline(jobsheet: LecturerJobsheetSummary) {
 export default function LecturerJobsheetManagePage() {
   const navigate = useNavigate()
   const { user } = useCurrentUser()
-  const { courseId = "" } = useParams()
+  const { courseId = "", mataKuliahId: routeMataKuliahId = "" } = useParams()
+  const effectiveCourseId = routeMataKuliahId || courseId
   const [loading, setLoading] = useState(true)
   const [savingPublish, setSavingPublish] = useState(false)
   const [error, setError] = useState("")
@@ -106,25 +108,28 @@ export default function LecturerJobsheetManagePage() {
   const [publishTarget, setPublishTarget] = useState<LecturerJobsheetSummary | null>(null)
   const [publishSettings, setPublishSettings] = useState<PublishClassSetting[]>([])
 
-  async function loadDataset() {
-    if (!user || user.role !== "DOSEN" || !courseId) return
+  const loadDataset = useCallback(async () => {
+    if (!user || user.role !== "DOSEN" || !effectiveCourseId) return
 
     setLoading(true)
     setError("")
 
     try {
-      const nextDataset = await getLecturerCourseDataset(user.id, courseId)
+      const nextDataset = await getLecturerCourseDataset(user.id, effectiveCourseId)
       setDataset(nextDataset)
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Gagal memuat jobsheet dosen.")
     } finally {
       setLoading(false)
     }
-  }
+  }, [effectiveCourseId, user])
 
   useEffect(() => {
     loadDataset()
-  }, [courseId, user])
+  }, [loadDataset])
+
+  const courseScope = { mataKuliahId: dataset?.course.mataKuliahId || routeMataKuliahId || undefined }
+  const jobsheetBasePath = `${academicCourseBasePath(effectiveCourseId, courseScope)}/jobsheets`
 
   const filteredJobsheets = useMemo(() => {
     const normalized = keyword.trim().toLowerCase()
@@ -161,7 +166,7 @@ export default function LecturerJobsheetManagePage() {
       setSavingPublish(true)
       setError("")
 
-      await publishLecturerJobsheet(courseId, publishTarget.id, {
+      await publishLecturerJobsheet(effectiveCourseId, publishTarget.id, {
         lecturerId: user.id,
         classes: publishSettings.map((item) => ({
           classId: item.classId,
@@ -200,7 +205,7 @@ export default function LecturerJobsheetManagePage() {
         title="Kelola Jobsheet"
         subtitle={`Mata Kuliah: ${dataset?.course.name ?? "-"}`}
         right={
-          <LecturerButton onClick={() => navigate(`/courses/${courseId}/jobsheets/create`)}>
+          <LecturerButton onClick={() => navigate(`${jobsheetBasePath}/create`)}>
             <Plus size={16} />
             Tambah Jobsheet
           </LecturerButton>
@@ -217,7 +222,7 @@ export default function LecturerJobsheetManagePage() {
         <LecturerEmptyState
           title="Belum ada jobsheet praktikum untuk mata kuliah ini."
           action={
-            <LecturerButton onClick={() => navigate(`/courses/${courseId}/jobsheets/create`)}>
+            <LecturerButton onClick={() => navigate(`${jobsheetBasePath}/create`)}>
               <Plus size={16} />
               Tambah Jobsheet
             </LecturerButton>
@@ -254,7 +259,7 @@ export default function LecturerJobsheetManagePage() {
                   <p className="text-sm text-gray-700">Submit: {jobsheet.submitted}/{jobsheet.total} mahasiswa</p>
                   {renderDeadline(jobsheet)}
                   <div className="mt-5 flex flex-wrap gap-3">
-                    <LecturerButton variant="secondary" onClick={() => navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}/edit`)}>
+                    <LecturerButton variant="secondary" onClick={() => navigate(`${jobsheetBasePath}/${jobsheet.id}/edit`)}>
                       Edit
                     </LecturerButton>
                     <LecturerButton variant="secondary" onClick={() => setPublishTarget(jobsheet)}>
@@ -284,7 +289,7 @@ export default function LecturerJobsheetManagePage() {
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-3">
-                <p className="font-semibold">Kelas</p>
+                <p className="font-semibold">Kelas Praktikum</p>
                 {publishSettings.map((item, index) => (
                   <label key={item.classId} className="flex items-center gap-2 text-sm">
                     <input
@@ -300,7 +305,7 @@ export default function LecturerJobsheetManagePage() {
                         )
                       }
                     />
-                    Kelas {item.className}
+                    Kelas Praktikum {item.className}
                   </label>
                 ))}
               </div>

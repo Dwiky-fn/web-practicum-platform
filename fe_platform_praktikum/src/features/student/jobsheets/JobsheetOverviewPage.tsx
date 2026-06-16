@@ -12,19 +12,21 @@ import GoalCardSkeleton from "./components/loading/GoalSkeleton";
 import SidebarCardSkeleton from "./components/loading/SidebarSkeleton";
 import { getJobsheetById } from "../../../services/jobsheet/service";
 import { useCurrentUser } from "../../../services/user/useCurrentUser";
-import { academicScopeQuery } from "../../../services/academicScope";
+import { academicCourseBasePath, academicScopeQuery } from "../../../services/academicScope";
 
 export default function JobsheetOverviewPage() {
   const { user } = useCurrentUser();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const classId = searchParams.get("classId") || undefined;
-  const mataKuliahId = searchParams.get("mataKuliahId") || undefined;
-  const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined;
-  const { courseId, jobsheetId } = useParams<{
-    courseId: string;
+  const { courseId, mataKuliahId: routeMataKuliahId, jobsheetId } = useParams<{
+    courseId?: string;
+    mataKuliahId?: string;
     jobsheetId: string;
   }>();
+  const mataKuliahId = routeMataKuliahId || searchParams.get("mataKuliahId") || undefined;
+  const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined;
+  const effectiveCourseId = mataKuliahId || courseId;
 
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null);
   const [submission, setSubmission] = useState<JobsheetSubmission | null>(null)
@@ -32,12 +34,12 @@ export default function JobsheetOverviewPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!courseId || !jobsheetId || !user) {
+    if (!effectiveCourseId || !jobsheetId || !user) {
       setLoading(false);
       return;
     }
 
-    const cId = courseId;
+    const cId = effectiveCourseId;
     const jId = jobsheetId;
     const studentId = user.id;
 
@@ -67,10 +69,10 @@ export default function JobsheetOverviewPage() {
     }
 
     loadData();
-  }, [classId, courseId, jobsheetId, kelasPraktikumId, mataKuliahId, user]);
+  }, [classId, effectiveCourseId, jobsheetId, kelasPraktikumId, mataKuliahId, user]);
 
   const scopeQuery = academicScopeQuery({ classId, mataKuliahId, kelasPraktikumId });
-  const coursePath = `/courses/${courseId}${scopeQuery}`;
+  const coursePath = `${academicCourseBasePath(effectiveCourseId, { mataKuliahId })}${scopeQuery}`;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -126,7 +128,7 @@ export default function JobsheetOverviewPage() {
                 <GoalCard goal={jobsheet!.goal} />
                 <SidebarCard
                   jobsheet={jobsheet!}
-                  courseId={courseId!}
+                  courseId={effectiveCourseId!}
                   jobsheetId={jobsheetId!}
                   submission={submission}
                   classId={classId}

@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom"
 import type { Jobsheet } from "../../../../services/jobsheet/types"
 import type { JobsheetSubmission, SubmissionStatus } from "../../../../services/submission/types"
 import { getDeadlineState, parseDeadline } from "../../../../shared/utils/deadline"
+import { academicJobsheetWorkPath } from "../../../../services/academicScope"
 import UpcomingTaskSkeleton from "../loading/UpcomingSkeleton"
 
 interface UpcomingTaskSectionProps {
@@ -111,7 +112,12 @@ export default function UpcomingTaskSection({
           <button
             key={jobsheet.id}
             type="button"
-            onClick={() => navigate(`/courses/${jobsheet.courseId}/jobsheets/${jobsheet.id}/works`)}
+            onClick={() =>
+              navigate(academicJobsheetWorkPath(jobsheet.courseId, jobsheet.id, {
+                mataKuliahId: jobsheet.mataKuliahId,
+                kelasPraktikumId: jobsheet.kelasPraktikumId,
+              }))
+            }
             className="w-full p-6 flex justify-between items-center gap-4 text-left hover:bg-gray-50 active:bg-gray-50 transition"
           >
             <div className="min-w-0">

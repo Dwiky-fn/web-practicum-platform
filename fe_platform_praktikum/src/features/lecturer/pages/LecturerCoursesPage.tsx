@@ -6,6 +6,7 @@ import { useCurrentUser } from "../../../services/user/useCurrentUser"
 import LecturerLayout from "../components/LecturerLayout"
 import { LecturerButton, LecturerEmptyState, LecturerPanel, PageHeader } from "../components/LecturerUI"
 import { getLecturerCourseGroups, type LecturerCourseGroup } from "../service"
+import { academicCourseBasePath } from "../../../services/academicScope"
 
 export default function LecturerCoursesPage() {
   const navigate = useNavigate()
@@ -84,7 +85,7 @@ export default function LecturerCoursesPage() {
 
                 {open && (
                   <div className="border-t border-gray-200 p-5">
-                    <h2 className="mb-3 text-sm font-semibold text-gray-900">Kelas yang Diampu</h2>
+                    <h2 className="mb-3 text-sm font-semibold text-gray-900">Kelas Praktikum yang Diampu</h2>
                     <div className="space-y-3">
                       {course.classes.map((item) => (
                         <div
@@ -92,19 +93,22 @@ export default function LecturerCoursesPage() {
                           className="flex flex-col gap-3 rounded-md border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
                         >
                           <div>
-                            <p className="font-semibold">Kelas {item.name}</p>
+                            <p className="font-semibold">Kelas Praktikum {item.name}</p>
                             <p className="text-sm text-gray-600">
                               {item.studentCount} mahasiswa, {item.jobsheetCount} jobsheet
                             </p>
                           </div>
-                          <LecturerButton onClick={() => navigate(`/classes/${course.id}/${item.id}`)}>
-                            Masuk Kelas
+                          <LecturerButton onClick={() => navigate(`/kelas-praktikum/${course.id}/${item.id}`)}>
+                            Masuk Kelas Praktikum
                           </LecturerButton>
                         </div>
                       ))}
                     </div>
                     <div className="mt-5 border-t border-gray-200 pt-4">
-                      <LecturerButton variant="secondary" onClick={() => navigate(`/courses/${course.id}/jobsheets`)}>
+                      <LecturerButton
+                        variant="secondary"
+                        onClick={() => navigate(`${academicCourseBasePath(course.id, { mataKuliahId: course.mataKuliahId || course.id })}/jobsheets`)}
+                      >
                         Kelola Jobsheet
                       </LecturerButton>
                     </div>

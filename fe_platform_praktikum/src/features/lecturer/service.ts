@@ -55,6 +55,13 @@ export type LecturerJobsheetSummary = {
   classSettings: LecturerJobsheetSummaryClassSetting[]
 }
 
+type LecturerCourseJobsheetResponse = {
+  id: string
+  title?: string
+  status?: string
+  deadline?: string
+}
+
 export type LecturerSubmissionMatrixItem = {
   student: AdminStudent
   jobsheet: ClassJobsheet
@@ -151,7 +158,7 @@ function getClassKelasPraktikumId(classItem: Pick<AcademicClass, "kelasPraktikum
 
 function buildLecturerJobsheetPath(courseId: string, scope?: { mataKuliahId?: string }) {
   if (scope?.mataKuliahId) return `/lecturer/mata-kuliah/${scope.mataKuliahId}/jobsheets`
-  return `/lecturer/courses/${courseId}/jobsheets`
+  return `/lecturer/mata-kuliah/${courseId}/jobsheets`
 }
 
 function toLecturerJobsheetStatus(status: ClassJobsheet["status"]): LecturerJobsheetStatus {
@@ -181,7 +188,7 @@ export function isSubmittedSubmission(submission: JobsheetSubmission | null) {
 }
 
 export async function getLecturerCourseGroups(): Promise<LecturerCourseGroup[]> {
-  const response = await apiFetch("/lecturer/classes")
+  const response = await apiFetch("/lecturer/kelas-praktikum")
   const lecturerClasses = response.data.classes as AcademicClass[]
 
   const detailedClasses = await Promise.all(
@@ -235,7 +242,7 @@ export async function getLecturerCourseGroup(
 }
 
 export async function getLecturerClassDetail(classId: string): Promise<AdminClassDetail> {
-  const response = await apiFetch(`/lecturer/classes/${classId}`)
+  const response = await apiFetch(`/lecturer/kelas-praktikum/${classId}`)
   return response.data.class
 }
 
@@ -326,11 +333,11 @@ export async function getLecturerCourseDataset(
   const [classDetails, courseJobsheetsRes] = await Promise.all([
     Promise.all(course.classes.map((classItem) => getLecturerClassDetail(classItem.id))),
     apiFetch(`/mata-kuliah/${course.mataKuliahId || course.id}/jobsheets`).catch(() =>
-      apiFetch(`/courses/${courseId}/jobsheets`),
+      apiFetch(`/mata-kuliah/${courseId}/jobsheets`),
     ),
   ])
 
-  const courseJobsheets = (courseJobsheetsRes.data?.jobsheets ?? []) as any[]
+  const courseJobsheets = (courseJobsheetsRes.data?.jobsheets ?? []) as LecturerCourseJobsheetResponse[]
   const jobsheetMap = new Map<string, LecturerJobsheetSummary>()
 
   courseJobsheets.forEach((jobsheet, index) => {
@@ -459,7 +466,7 @@ export async function saveLecturerSubmissionReview(
     finalScore?: number
     feedback?: string
     decision: "PENDING" | "ACCEPTED" | "REVISION"
-    aiFeedback?: any
+    aiFeedback?: unknown
   },
 ) {
   const response = await apiFetch(`/lecturer/submissions/${submissionId}/review`, {
@@ -470,21 +477,21 @@ export async function saveLecturerSubmissionReview(
   return response.data.review
 }
 
-export async function triggerAiReview(submissionId: string): Promise<any> {
+export async function triggerAiReview(submissionId: string): Promise<unknown> {
   const response = await apiFetch(`/lecturer/submissions/${submissionId}/trigger-ai`, {
     method: "POST",
   })
   return response.data
 }
 
-export async function retryAiReview(submissionId: string): Promise<any> {
+export async function retryAiReview(submissionId: string): Promise<unknown> {
   const response = await apiFetch(`/lecturer/submissions/${submissionId}/ai-review/retry`, {
     method: "POST",
   })
   return response.data
 }
 
-export async function deleteAiFeedback(submissionId: string): Promise<any> {
+export async function deleteAiFeedback(submissionId: string): Promise<unknown> {
   const response = await apiFetch(`/lecturer/submissions/${submissionId}/ai-feedback`, {
     method: "DELETE",
   })

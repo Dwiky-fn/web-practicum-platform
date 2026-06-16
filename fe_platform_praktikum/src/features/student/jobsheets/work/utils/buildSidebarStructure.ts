@@ -1,6 +1,7 @@
 import type { Jobsheet } from "../../../../../services/jobsheet/types"
 import type { StudentProgressItemType } from "../../../../../services/progress/types"
 import type { JobsheetSubmission } from "../../../../../services/submission/types"
+import { academicCourseBasePath, type AcademicScope } from "../../../../../services/academicScope"
 
 export interface SidebarNode {
   id: string
@@ -16,9 +17,10 @@ export function buildSidebarTree(
   jobsheet: Jobsheet,
   submission: JobsheetSubmission,
   query = "",
+  scope?: AcademicScope,
 ): SidebarNode[] {
 
-  const base = `/courses/${courseId}/jobsheets/${jobsheet.id}/works`
+  const base = `${academicCourseBasePath(courseId, scope)}/jobsheets/${jobsheet.id}/works`
 
   return [
     {

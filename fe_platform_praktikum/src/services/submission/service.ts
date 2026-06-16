@@ -10,7 +10,7 @@ export type SubmissionScope = {
 const buildSubmissionPath = (courseId: string, jobsheetId: string, scope?: SubmissionScope) => {
   const base = scope?.mataKuliahId
     ? `/mata-kuliah/${scope.mataKuliahId}/submissions`
-    : `/courses/${courseId}/submissions`
+    : `/mata-kuliah/${courseId}/submissions`
 
   return `${base}/${jobsheetId}`
 }

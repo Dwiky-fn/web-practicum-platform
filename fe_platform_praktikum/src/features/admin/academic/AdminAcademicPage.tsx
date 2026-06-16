@@ -106,7 +106,7 @@ function generateClassName({
     .join(" - ")
 }
 
-function getRombelFromClassName(fullName: string, _courseName: string) {
+function getRombelFromClassName(fullName: string) {
   if (!fullName) return ""
   const parts = fullName.split(" - ")
   if (parts.length > 1) {
@@ -574,7 +574,7 @@ export default function AdminAcademicPage() {
       dept.studyPrograms.some((program) => program.id === template?.study_program_id),
     )
 
-    const cleanRombel = template ? getRombelFromClassName(template.name, template.course_name) : ""
+    const cleanRombel = template ? getRombelFromClassName(template.name) : ""
 
     setCloneClassForm((form) => {
       const rombel = cleanRombel || form.className

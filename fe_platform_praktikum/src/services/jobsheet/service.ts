@@ -23,7 +23,7 @@ const resolveScope = (classIdOrScope?: string | JobsheetScope): JobsheetScope =>
 
 const jobsheetBasePath = (courseId: string, scope?: JobsheetScope) => {
   if (scope?.mataKuliahId) return `/mata-kuliah/${scope.mataKuliahId}/jobsheets`
-  return `/courses/${courseId}/jobsheets`
+  return `/mata-kuliah/${courseId}/jobsheets`
 }
 
 export const getJobsheets = async (

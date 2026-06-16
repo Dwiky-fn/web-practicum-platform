@@ -6,5 +6,5 @@ module.exports = (app) => {
   const service = new AcademicDataService();
   const handler = new AcademicDataHandler(service);
 
-  app.use(routes(handler));
+  app.use('/admin', routes(handler));
 };

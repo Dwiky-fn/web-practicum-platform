@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { buildWorkNavigation } from "../utils/buildNavigation";
 import { ArrowLeft, ArrowRight, Home } from "lucide-react";
+import { academicJobsheetPath, type AcademicScope } from "../../../../../services/academicScope";
 import type { Jobsheet } from "../../../../../services/jobsheet/types";
 import type { StudentProgressItem } from "../../../../../services/progress/types";
 import type { JobsheetSubmission } from "../../../../../services/submission/types";
@@ -11,6 +12,7 @@ interface WorkFooterNavProps {
   submission: JobsheetSubmission
   savedProgress: number
   completedItems: StudentProgressItem[]
+  scope?: AcademicScope
 }
 
 export default function WorkFooterNav({
@@ -18,13 +20,15 @@ export default function WorkFooterNav({
   jobsheet,
   submission,
   savedProgress,
-  completedItems
+  completedItems,
+  scope,
 }: WorkFooterNavProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const query = location.search
 
-  const navItems = buildWorkNavigation(courseId, jobsheet, query)
+  const navItems = buildWorkNavigation(courseId, jobsheet, query, scope)
+  const jobsheetDetailPath = academicJobsheetPath(courseId, jobsheet.id, scope)
 
   const currentIndex = navItems.findIndex(
     (item) => location.pathname.startsWith(item.path.split("?")[0])
@@ -101,7 +105,7 @@ export default function WorkFooterNav({
         {!nextItem && hasUploadedSubmission && isLastItem && (
           <button
             onClick={() =>
-              navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}${query}`)
+              navigate(jobsheetDetailPath)
             }
             className="flex items-center gap-2 rounded px-2 py-1.5 text-right text-sm text-gray-600 transition hover:bg-gray-100 hover:text-black"
           >
@@ -148,7 +152,7 @@ export default function WorkFooterNav({
         ) : hasUploadedSubmission && isLastItem ? (
           <button
             onClick={() =>
-              navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}${query}`)
+              navigate(jobsheetDetailPath)
             }
             className="text-xs bg-blue-600 text-white px-3 py-1 rounded-lg"
           >

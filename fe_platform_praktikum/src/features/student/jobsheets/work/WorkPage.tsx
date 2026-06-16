@@ -6,11 +6,23 @@ import WorkFooterNav from "./components/WorkFooterNav"
 import WorkSidebar from "./components/sidebar/WorkSidebar"
 import TopProgressBar from "../../../../components/loading/TopProgressBar"
 import NotFoundPage from "../../../not-found/NotFoundPage"
+import { academicCourseBasePath, academicJobsheetPath } from "../../../../services/academicScope"
 
 export default function WorkPage() {
-  const { courseId, jobsheetId } = useParams()
+  const { courseId, mataKuliahId: routeMataKuliahId, jobsheetId } = useParams<{
+    courseId?: string
+    mataKuliahId?: string
+    jobsheetId?: string
+  }>()
   const location = useLocation()
   const query = location.search
+  const searchParams = new URLSearchParams(location.search)
+  const effectiveCourseId = routeMataKuliahId || courseId
+  const scope = {
+    classId: searchParams.get("classId") || undefined,
+    mataKuliahId: routeMataKuliahId || searchParams.get("mataKuliahId") || undefined,
+    kelasPraktikumId: searchParams.get("kelasPraktikumId") || undefined,
+  }
   const scrollContainerRef = useRef<HTMLElement | null>(null)
   const {
     jobsheet,
@@ -24,7 +36,7 @@ export default function WorkPage() {
     updateExperiment,
     updateExercise,
     trackActivity,
-  } = useWorkPage(courseId, jobsheetId)
+  } = useWorkPage(effectiveCourseId, jobsheetId, routeMataKuliahId)
 
   const handleWorkScroll = useCallback(() => {
     const scrollContainer = scrollContainerRef.current
@@ -68,7 +80,7 @@ export default function WorkPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <WorkHeader title="Jobsheet" backTo={courseId ? `/courses/${courseId}${query}` : "/courses"} />
+        <WorkHeader title="Jobsheet" backTo={effectiveCourseId ? `${academicCourseBasePath(effectiveCourseId, scope)}${query}` : "/mata-kuliah"} />
         <div className="mx-auto max-w-3xl px-6 py-10">
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
@@ -77,15 +89,16 @@ export default function WorkPage() {
       </div>
     )
   }
-  if (!courseId || !jobsheet || !submission) return <NotFoundPage />
+  if (!effectiveCourseId || !jobsheet || !submission) return <NotFoundPage />
 
   return (
     <div className="h-dvh flex flex-col bg-gray-50">
       <WorkHeader
         title={jobsheet.title}
-        backTo={`/courses/${courseId}/jobsheets/${jobsheet.id}${query}`}
+        backTo={academicJobsheetPath(effectiveCourseId, jobsheet.id, scope)}
         course={course}
         jobsheet={jobsheet}
+        scope={scope}
       />
 
       <div className="flex flex-1 relative overflow-hidden">
@@ -111,20 +124,22 @@ export default function WorkPage() {
         </main>
 
         <WorkSidebar
-          courseId={courseId!}
+          courseId={effectiveCourseId}
           jobsheet={jobsheet}
           submission={submission}
           savedProgress={savedProgress}
           completedItems={completedItems}
+          scope={scope}
         />
       </div>
 
       <WorkFooterNav
-        courseId={courseId!}
+        courseId={effectiveCourseId}
         jobsheet={jobsheet}
         submission={submission}
         savedProgress={savedProgress}
         completedItems={completedItems}
+        scope={scope}
       />
     </div>
   )

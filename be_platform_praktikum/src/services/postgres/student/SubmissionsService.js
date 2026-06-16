@@ -113,6 +113,7 @@ class SubmissionsService {
   }
 
   async _getStudentClassProgrammingLanguage(studentId, courseId) {
+    // Legacy fallback only. New flow should resolve language through kelas_praktikum/jobsheet context.
     const result = await this._pool.query(
       `
       SELECT cl.programming_language
@@ -152,6 +153,7 @@ class SubmissionsService {
       if (nativeResult.rows.length) return nativeResult.rows[0];
     }
 
+    // Legacy fallback only. Do not use for new academic flow.
     const params = [studentId, jobsheetId];
     let filter = '';
 

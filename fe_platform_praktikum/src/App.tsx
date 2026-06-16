@@ -20,7 +20,6 @@ import TaskPage from "./features/student/jobsheets/work/content/task/TaskPage"
 import PreviewPage from "./features/student/jobsheets/work/content/report/preview/PreviewPage"
 import ReviewPage from "./features/student/jobsheets/work/content/report/review/ReviewPage"
 import AdminUsersPage from "./features/admin/users/AdminUsersPage"
-import AdminAcademicPage from "./features/admin/academic/AdminAcademicPage"
 import AdminAcademicNativePage from "./features/admin/academic/AdminAcademicNativePage"
 import AdminUserProfilePage from "./features/admin/users/AdminUserProfilePage"
 import AdminClassDetailPage from "./features/admin/academic/AdminClassDetailPage"
@@ -33,6 +32,18 @@ import LecturerJobsheetDetailPage from "./features/lecturer/pages/LecturerJobshe
 import LecturerMonitoringPage from "./features/lecturer/pages/LecturerMonitoringPage"
 import LecturerReviewPage from "./features/lecturer/pages/LecturerReviewPage"
 import ToastContainer from "./components/toast/ToastContainer"
+
+function NavigateToMataKuliahWildcard() {
+  const location = useLocation()
+  const newPath = location.pathname.replace(/^\/courses/, "/mata-kuliah")
+  return <Navigate to={`${newPath}${location.search}`} replace />
+}
+
+function NavigateToKelasPraktikumWildcard() {
+  const location = useLocation()
+  const newPath = location.pathname.replace(/^\/classes/, "/kelas-praktikum")
+  return <Navigate to={`${newPath}${location.search}`} replace />
+}
 
 function AppContent() {
   const { user, loading } = useCurrentUser()
@@ -69,15 +80,36 @@ function AppContent() {
       <Route path="/dashboard" element={requireUser(<DashboardPage />)} />
       <Route path="/settings" element={requireUser(<SettingsPage />)} />
       <Route
-        path="/courses"
+        path="/mata-kuliah"
         element={byRole({
           mahasiswa: <StudentCoursePage />,
           dosen: <LecturerCoursesPage />,
-          admin: <AdminAcademicNativePage />,
+          admin: <Navigate to="/admin/academic/tahun-semester" replace />,
         })}
       />
+      <Route path="/courses/*" element={<NavigateToMataKuliahWildcard />} />
       <Route
         path="/academic"
+        element={byRole({ admin: <Navigate to="/admin/academic/tahun-semester" replace /> })}
+      />
+      <Route
+        path="/admin/academic"
+        element={byRole({ admin: <Navigate to="/admin/academic/tahun-semester" replace /> })}
+      />
+      <Route
+        path="/admin/academic/:section"
+        element={byRole({ admin: <AdminAcademicNativePage /> })}
+      />
+      <Route
+        path="/admin/academic/tahun-semester/:tahunSemesterId"
+        element={byRole({ admin: <AdminAcademicNativePage /> })}
+      />
+      <Route
+        path="/admin/academic/tahun-semester/:tahunSemesterId/kelas-mahasiswa"
+        element={byRole({ admin: <AdminAcademicNativePage /> })}
+      />
+      <Route
+        path="/admin/academic/kelas-praktikum/:id"
         element={byRole({ admin: <AdminAcademicNativePage /> })}
       />
       <Route
@@ -89,31 +121,32 @@ function AppContent() {
         element={byRole({ admin: <AdminUserProfilePage /> })}
       />
       <Route
-        path="/classes/:id"
+        path="/kelas-praktikum/:id"
         element={byRole({ admin: <AdminClassDetailPage /> })}
       />
       <Route
-        path="/classes/:courseId/:classId"
+        path="/kelas-praktikum/:courseId/:classId"
         element={byRole({ dosen: <LecturerClassDetailPage /> })}
       />
+      <Route path="/classes/*" element={<NavigateToKelasPraktikumWildcard />} />
       <Route
-        path="/courses/:courseId"
+        path="/mata-kuliah/:mataKuliahId"
         element={byRole({
           mahasiswa: <CourseDetailPage />,
           dosen: <LecturerJobsheetManagePage />,
-          admin: <AdminAcademicNativePage />,
+          admin: <Navigate to="/admin/academic/mata-kuliah" replace />,
         })}
       />
       <Route
-        path="/courses/:courseId/jobsheets"
+        path="/mata-kuliah/:mataKuliahId/jobsheets"
         element={byRole({ dosen: <LecturerJobsheetManagePage /> })}
       />
       <Route
-        path="/courses/:courseId/jobsheets/create"
+        path="/mata-kuliah/:mataKuliahId/jobsheets/create"
         element={byRole({ dosen: <LecturerJobsheetEditorPage /> })}
       />
       <Route
-        path="/courses/:courseId/jobsheets/:jobsheetId/edit"
+        path="/mata-kuliah/:mataKuliahId/jobsheets/:jobsheetId/edit"
         element={byRole({ dosen: <LecturerJobsheetEditorPage /> })}
       />
       <Route
@@ -133,11 +166,11 @@ function AppContent() {
         element={byRole({ dosen: <LecturerReviewPage /> })}
       />
       <Route
-        path="/courses/:courseId/jobsheets/:jobsheetId"
+        path="/mata-kuliah/:mataKuliahId/jobsheets/:jobsheetId"
         element={byRole({ mahasiswa: <JobsheetOverviewPage /> })}
       />
       <Route
-        path="/courses/:courseId/jobsheets/:jobsheetId/works"
+        path="/mata-kuliah/:mataKuliahId/jobsheets/:jobsheetId/works"
         element={byRole({ mahasiswa: <WorkPage /> })}
       >
         <Route path="theory/:theoryId" element={<TheoryPage />} />
@@ -146,11 +179,11 @@ function AppContent() {
         <Route path="task" element={<TaskPage />} />
       </Route>
       <Route
-        path="/courses/:courseId/jobsheets/:jobsheetId/preview"
+        path="/mata-kuliah/:mataKuliahId/jobsheets/:jobsheetId/preview"
         element={byRole({ mahasiswa: <PreviewPage /> })}
       />
       <Route
-        path="/courses/:courseId/jobsheets/:jobsheetId/review"
+        path="/mata-kuliah/:mataKuliahId/jobsheets/:jobsheetId/review"
         element={byRole({ mahasiswa: <ReviewPage /> })}
       />
 

@@ -401,7 +401,7 @@ class AiEvaluationQueue {
         COALESCE(mk.nama_mk, co.name) AS course_name
        FROM task_submissions ts
        JOIN jobsheets j ON j.id = ts.jobsheet_id
-       JOIN courses co ON co.id = j.course_id
+       LEFT JOIN courses co ON co.id = j.course_id
        LEFT JOIN mata_kuliah mk ON mk.id = j.id_mata_kuliah
        WHERE ts.id = $1 LIMIT 1`,
       [submissionId]
@@ -416,7 +416,36 @@ class AiEvaluationQueue {
 
     // Dapatkan lecturer_id kelas mahasiswa tersebut
     console.log(`[AI Queue] [${submissionId}] Mengambil lecturer ID kelas mahasiswa...`);
-    const classRes = await pool.query(
+    let classRes = { rows: [] };
+
+    if (sub.id_kelas_praktikum) {
+      classRes = await pool.query(
+        `SELECT kp.legacy_class_id AS class_id,
+          p.id_dosen AS lecturer_id,
+          j.programming_language,
+          kp.id AS id_kelas_praktikum
+         FROM kelas_praktikum kp
+         JOIN jobsheets j
+           ON j.id = $2
+          AND j.id_mata_kuliah = kp.id_mata_kuliah
+         JOIN kelas_mhs km
+           ON km.id_tahun_semester = kp.id_tahun_semester
+          AND km.id_semester = kp.id_semester
+          AND km.id_kelas = kp.id_kelas
+          AND km.id_mahasiswa = $1
+         LEFT JOIN pengampu p
+           ON p.id_kelas_praktikum = kp.id
+          AND p.peran = 'utama'
+         WHERE kp.id = $3
+           AND LOWER(COALESCE(km.status, 'active')) = 'active'
+         LIMIT 1`,
+        [sub.student_id, sub.jobsheet_id, sub.id_kelas_praktikum],
+      );
+    }
+
+    if (!classRes.rows.length) {
+      // Legacy fallback only. New academic flow should resolve through kelas_praktikum above.
+      classRes = await pool.query(
       `SELECT c.id AS class_id,
         COALESCE(p.id_dosen, c.lecturer_id) AS lecturer_id,
         c.programming_language,
@@ -436,8 +465,9 @@ class AiEvaluationQueue {
          AND c.status = 'AKTIF'
          AND ($3::varchar IS NULL OR kp.id = $3)
        LIMIT 1`,
-      [sub.student_id, sub.jobsheet_id, sub.id_kelas_praktikum || null]
-    );
+        [sub.student_id, sub.jobsheet_id, sub.id_kelas_praktikum || null]
+      );
+    }
     const lecturerId = classRes.rows[0]?.lecturer_id || 'dosen-1';
     sub.class_id = classRes.rows[0]?.class_id || null;
     sub.programming_language = sub.jobsheet_language || classRes.rows[0]?.programming_language || 'java';

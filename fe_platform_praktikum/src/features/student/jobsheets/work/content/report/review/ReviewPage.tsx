@@ -21,19 +21,29 @@ import {
   saveStoredFeedbacks,
 } from "../../../../../../../services/reviewFeedbackService"
 import type { ReviewFeedback } from "../../../../../../../services/reviewFeedbackService"
-import { academicScopeQuery } from "../../../../../../../services/academicScope"
+import { academicJobsheetSubPath, type AcademicScope } from "../../../../../../../services/academicScope"
 
 const emptyDoc = { type: "doc" as const, content: [] }
 
 export default function ReviewPage() {
-  const { courseId, jobsheetId } = useParams()
+  const { courseId, mataKuliahId: routeMataKuliahId, jobsheetId } = useParams<{
+    courseId?: string
+    mataKuliahId?: string
+    jobsheetId?: string
+  }>()
   const [searchParams] = useSearchParams()
   const classId = searchParams.get("classId") || undefined
-  const mataKuliahId = searchParams.get("mataKuliahId") || undefined
+  const mataKuliahId = routeMataKuliahId || searchParams.get("mataKuliahId") || undefined
   const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined
+  const effectiveCourseId = mataKuliahId || courseId
   const { user } = useCurrentUser()
-  const academicScope = { classId, mataKuliahId, kelasPraktikumId }
-  const scopeQuery = academicScopeQuery(academicScope)
+  const academicScope: AcademicScope = useMemo(
+    () => ({ classId, mataKuliahId, kelasPraktikumId }),
+    [classId, mataKuliahId, kelasPraktikumId],
+  )
+  const taskPath = jobsheetId && effectiveCourseId
+    ? academicJobsheetSubPath(effectiveCourseId, jobsheetId, "works/task", academicScope)
+    : "/mata-kuliah"
 
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null)
   const [submission, setSubmission] = useState<JobsheetSubmission | null>(null)
@@ -47,14 +57,14 @@ export default function ReviewPage() {
 
   useEffect(() => {
     async function loadData() {
-      if (!courseId || !jobsheetId || !user) return
+      if (!effectiveCourseId || !jobsheetId || !user) return
 
       setLoading(true)
       setError("")
 
       try {
-        const selected = await getJobsheetById(courseId, jobsheetId, academicScope)
-        const sub = await getSubmissionByJobsheetId(courseId, jobsheetId, user.id, academicScope)
+        const selected = await getJobsheetById(effectiveCourseId, jobsheetId, academicScope)
+        const sub = await getSubmissionByJobsheetId(effectiveCourseId, jobsheetId, user.id, academicScope)
 
         setJobsheet(selected || null)
         setSubmission(sub)
@@ -86,7 +96,7 @@ export default function ReviewPage() {
     }
 
     loadData()
-  }, [classId, courseId, jobsheetId, kelasPraktikumId, mataKuliahId, user])
+  }, [academicScope, effectiveCourseId, jobsheetId, user])
 
   const experimentReports = useMemo(() => {
     if (!jobsheet || !submission) return []
@@ -187,7 +197,7 @@ export default function ReviewPage() {
 
       <ReportHeader
         title={jobsheet.title}
-        backTo={`/courses/${courseId}/jobsheets/${jobsheet.id}/works/task${scopeQuery}`}
+        backTo={taskPath}
       />
 
       <div className="px-6 py-8 lg:px-16 max-w-7xl mx-auto space-y-6">

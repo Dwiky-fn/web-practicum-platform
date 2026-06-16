@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { getDeadlineState } from "../../../../shared/utils/deadline";
+import { academicJobsheetSubPath, academicJobsheetWorkPath, type AcademicScope } from "../../../../services/academicScope";
 import type { Jobsheet } from "../../../../services/jobsheet/types";
 import type { JobsheetSubmission, SubmissionStatus } from "../../../../services/submission/types";
 
@@ -29,24 +30,20 @@ export default function SidebarCard({
   const isOverdue = deadlineState.isOverdue;
   const status = submission?.status;
   const displayScore = submission?.review?.finalScore ?? submission?.score;
-  const params = new URLSearchParams();
-  if (classId) params.set("classId", classId);
-  if (mataKuliahId) params.set("mataKuliahId", mataKuliahId);
-  if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId);
-  const query = params.toString() ? `?${params.toString()}` : "";
+  const scope: AcademicScope = { classId, mataKuliahId, kelasPraktikumId };
 
   function goTo() {
     if (status === "REVIEWING" || status === "ACCEPTED") {
-      navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/review${query}`)
+      navigate(academicJobsheetSubPath(courseId, jobsheetId, "review", scope))
       return
     }
 
     if (status === "SUBMITTED") {
-      navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/preview${query}`)
+      navigate(academicJobsheetSubPath(courseId, jobsheetId, "preview", scope))
       return
     }
 
-    navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/works${query}`)
+    navigate(academicJobsheetWorkPath(courseId, jobsheetId, scope))
   }
 
   function getStatusStyle(status?: SubmissionStatus) {

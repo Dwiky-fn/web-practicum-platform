@@ -5,6 +5,7 @@ import { Menu } from "lucide-react"
 import type { Jobsheet } from "../../../../../../services/jobsheet/types"
 import type { StudentProgressItem } from "../../../../../../services/progress/types"
 import type { JobsheetSubmission } from "../../../../../../services/submission/types"
+import type { AcademicScope } from "../../../../../../services/academicScope"
 import SidebarGroup from "./SidebarGroup"
 import SidebarHeader from "./SidebarHeader"
 
@@ -14,6 +15,7 @@ interface WorkSidebarProps {
   submission: JobsheetSubmission
   savedProgress: number
   completedItems: StudentProgressItem[]
+  scope?: AcademicScope
 }
 
 export default function WorkSidebar({
@@ -21,12 +23,13 @@ export default function WorkSidebar({
   jobsheet,
   submission,
   savedProgress,
-  completedItems
+  completedItems,
+  scope,
 }: WorkSidebarProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const location = useLocation()
-  const groups = buildSidebarTree(courseId, jobsheet, submission, location.search)
+  const groups = buildSidebarTree(courseId, jobsheet, submission, location.search, scope)
   const flatItems = groups.flatMap(g => g.children ?? [])
   const isFinishedSubmission =
     savedProgress >= 100 ||

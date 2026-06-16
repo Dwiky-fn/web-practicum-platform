@@ -49,6 +49,11 @@ const routes = (handler) => {
   router.put('/kelas-mahasiswa/:id', adminOnly, safe(handler.updateKelasMahasiswaHandler));
   router.delete('/kelas-mahasiswa/:id', adminOnly, safe(handler.deleteKelasMahasiswaHandler));
 
+  router.get('/kelas-semester', adminOnly, safe(handler.getKelasSemesterHandler));
+  router.post('/kelas-semester', adminOnly, safe(handler.createKelasSemesterHandler));
+  router.put('/kelas-semester/:id', adminOnly, safe(handler.updateKelasSemesterHandler));
+  router.delete('/kelas-semester/:id', adminOnly, safe(handler.deleteKelasSemesterHandler));
+
   router.get('/kelas-praktikum/legacy-class-candidates', adminOnly, safe(handler.getLegacyClassLinkCandidatesHandler));
   router.post('/kelas-praktikum/link-legacy-classes', adminOnly, safe(handler.bulkLinkLegacyClassesHandler));
   router.get('/kelas-praktikum/:id/mahasiswa', adminOnly, safe(handler.getKelasPraktikumMahasiswaHandler));

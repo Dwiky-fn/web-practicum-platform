@@ -7,7 +7,7 @@ const LecturerLayoutContext = createContext(false)
 
 const lecturerNavItems = [
   { to: "/dashboard", label: "Dashboard" },
-  { to: "/courses", label: "Mata Kuliah" },
+  { to: "/mata-kuliah", label: "Mata Kuliah" },
   { to: "/monitoring", label: "Monitoring" },
 ]
 

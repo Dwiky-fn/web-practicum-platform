@@ -26,6 +26,7 @@ import {
   PageHeader,
   inputClass,
 } from "../components/LecturerUI"
+import { academicCourseBasePath } from "../../../services/academicScope"
 
 const emptyDoc: JSONContent = { type: "doc", content: [] }
 import { toast } from "../../../components/toast/toastStore"
@@ -103,7 +104,8 @@ function createExerciseItem(index: number, language: "java" | "python" = "java")
 export default function LecturerJobsheetEditorPage() {
   const navigate = useNavigate()
   const { user } = useCurrentUser()
-  const { courseId = "", jobsheetId } = useParams()
+  const { courseId = "", mataKuliahId: routeMataKuliahId = "", jobsheetId } = useParams()
+  const effectiveCourseId = routeMataKuliahId || courseId
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -131,25 +133,26 @@ export default function LecturerJobsheetEditorPage() {
   const isCreate = !savedJobsheetId
   const activeJobsheetId = savedJobsheetId || jobsheetId || ""
   const mataKuliahId = dataset?.course.mataKuliahId || dataset?.course.id
+  const jobsheetBasePath = `${academicCourseBasePath(effectiveCourseId, { mataKuliahId: mataKuliahId || routeMataKuliahId || undefined })}/jobsheets`
 
   useEffect(() => {
     async function loadData() {
-      if (!user || user.role !== "DOSEN" || !courseId) return
+      if (!user || user.role !== "DOSEN" || !effectiveCourseId) return
 
       setLoading(true)
       setError("")
 
       try {
         const [course, nextDataset] = await Promise.all([
-          getLecturerCourseGroup(user.id, courseId),
-          getLecturerCourseDataset(user.id, courseId),
+          getLecturerCourseGroup(user.id, effectiveCourseId),
+          getLecturerCourseDataset(user.id, effectiveCourseId),
         ])
 
         setCourseName(course?.name ?? "")
         setDataset(nextDataset)
 
         if (savedJobsheetId) {
-          const selectedJobsheet = await getLecturerJobsheetById(courseId, savedJobsheetId, {
+          const selectedJobsheet = await getLecturerJobsheetById(effectiveCourseId, savedJobsheetId, {
             mataKuliahId: nextDataset?.course.mataKuliahId || nextDataset?.course.id,
           })
           setTitle(selectedJobsheet.title)
@@ -245,7 +248,7 @@ export default function LecturerJobsheetEditorPage() {
     }
 
     loadData()
-  }, [courseId, savedJobsheetId, user])
+  }, [effectiveCourseId, savedJobsheetId, user])
 
   const totalRubric = useMemo(() => {
     const expTotal = experiments.reduce((acc, item) => acc + (item.rubric ?? 0), 0)
@@ -300,18 +303,18 @@ export default function LecturerJobsheetEditorPage() {
   }
 
   async function ensureSaved(isDraft = false) {
-    if (!user || !courseId) return ""
+    if (!user || !effectiveCourseId) return ""
     const payload = {
       ...buildPayload(),
       status: isDraft ? "draft" : "published",
     }
 
     if (activeJobsheetId) {
-      await updateLecturerJobsheet(courseId, activeJobsheetId, payload, { mataKuliahId })
+      await updateLecturerJobsheet(effectiveCourseId, activeJobsheetId, payload, { mataKuliahId })
       return activeJobsheetId
     }
 
-    const created = await createLecturerJobsheet(courseId, payload, { mataKuliahId })
+    const created = await createLecturerJobsheet(effectiveCourseId, payload, { mataKuliahId })
     setSavedJobsheetId(created.id)
     return created.id
   }
@@ -327,7 +330,7 @@ export default function LecturerJobsheetEditorPage() {
       toast.success("Draft jobsheet berhasil disimpan.")
 
       if (isCreate && nextId) {
-        navigate(`/courses/${courseId}/jobsheets/${nextId}/edit`, { replace: true })
+        navigate(`${jobsheetBasePath}/${nextId}/edit`, { replace: true })
       }
     } catch (saveError) {
       toast.error(saveError instanceof Error ? saveError.message : "Gagal menyimpan draft jobsheet.")
@@ -351,7 +354,7 @@ export default function LecturerJobsheetEditorPage() {
       setError("")
 
       const nextId = await ensureSaved(false)
-      await publishLecturerJobsheet(courseId, nextId, {
+      await publishLecturerJobsheet(effectiveCourseId, nextId, {
         lecturerId: user.id,
         classes: publishSettings.map((item) => ({
           classId: item.classId,
@@ -363,7 +366,7 @@ export default function LecturerJobsheetEditorPage() {
 
       setPublishOpen(false)
       toast.success("Jobsheet berhasil dipublikasikan.")
-      navigate(`/courses/${courseId}/jobsheets`)
+      navigate(jobsheetBasePath)
     } catch (publishError) {
       toast.error(publishError instanceof Error ? publishError.message : "Gagal mempublikasikan jobsheet.")
     } finally {
@@ -946,7 +949,7 @@ export default function LecturerJobsheetEditorPage() {
         >
           <div className="space-y-4">
             {!publishSettings.length ? (
-              <p className="text-sm text-gray-500">Belum ada kelas yang diampu untuk mata kuliah ini.</p>
+              <p className="text-sm text-gray-500">Belum ada kelas praktikum yang diampu untuk mata kuliah ini.</p>
             ) : (
               publishSettings.map((item, index) => (
                 <div key={item.classId} className="grid gap-3 rounded-lg border border-gray-200 p-4 md:grid-cols-[220px_1fr]">
@@ -962,7 +965,7 @@ export default function LecturerJobsheetEditorPage() {
                         )
                       }
                     />
-                    Kelas {item.className}
+                    Kelas Praktikum {item.className}
                   </label>
                   <input
                     type="datetime-local"

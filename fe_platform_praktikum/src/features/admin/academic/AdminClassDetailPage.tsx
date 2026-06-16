@@ -73,7 +73,7 @@ export default function AdminClassDetailPage() {
   // Multi-select & Long Press state for registered class students
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false)
-  const [longPressTimer, setLongPressTimer] = useState<any>(null)
+  const [longPressTimer, setLongPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
   const [longPressActive, setLongPressActive] = useState(false)
 
   const toggleSelection = (studentId: string) => {
@@ -300,7 +300,7 @@ export default function AdminClassDetailPage() {
     <AdminLayout>
       <button
         type="button"
-        onClick={() => navigate("/courses?tab=classes")}
+        onClick={() => navigate("/admin/academic/kelas-praktikum")}
         className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
       >
         <ArrowLeft size={18} />

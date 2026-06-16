@@ -28,6 +28,7 @@ class StudentJobsheetProgressService {
       if (nativeResult.rows.length) return nativeResult.rows[0];
     }
 
+    // Legacy fallback only. Do not use for new academic flow.
     const params = [studentId, jobsheetId];
     let filter = '';
 
@@ -86,7 +87,7 @@ class StudentJobsheetProgressService {
       kelasPraktikumId,
     );
 
-    // Fetch jobsheet details to get course_id (which acts as module_id) and theory content
+    // Deprecated: course_id is kept as module_id fallback for old data compatibility.
     const jobsheetRes = await this._pool.query(
       'SELECT course_id, content FROM jobsheets WHERE id = $1',
       [jobsheetId],
@@ -117,8 +118,13 @@ class StudentJobsheetProgressService {
     // Fetch completed_steps from student_progress table
     const progressRes = await this._pool.query(
       `SELECT completed_items, status FROM student_progress
-       WHERE student_id = $1 AND jobsheet_id = $2 AND class_id = $3`,
-      [studentId, jobsheetId, academicContext.class_id],
+       WHERE student_id = $1
+         AND jobsheet_id = $2
+         AND (
+           ($4::varchar IS NOT NULL AND id_kelas_praktikum = $4)
+           OR ($4::varchar IS NULL AND class_id = $3)
+         )`,
+      [studentId, jobsheetId, academicContext.class_id, academicContext.id_kelas_praktikum],
     );
 
     let completedSteps = 0;
@@ -140,8 +146,13 @@ class StudentJobsheetProgressService {
     // Check existing snapshot
     const snapshotRes = await this._pool.query(
       `SELECT first_opened_at, completed_at, status FROM student_jobsheet_progress
-       WHERE student_id = $1 AND class_id = $2 AND jobsheet_id = $3`,
-      [studentId, academicContext.class_id, jobsheetId],
+       WHERE student_id = $1
+         AND jobsheet_id = $3
+         AND (
+           ($4::varchar IS NOT NULL AND id_kelas_praktikum = $4)
+           OR ($4::varchar IS NULL AND class_id = $2)
+         )`,
+      [studentId, academicContext.class_id, jobsheetId, academicContext.id_kelas_praktikum],
     );
 
     let firstOpenedAt = snapshotRes.rows.length > 0 ? snapshotRes.rows[0].first_opened_at : null;
@@ -180,29 +191,27 @@ class StudentJobsheetProgressService {
     const progressId = `prog-${randomUUID().slice(0, 8)}`;
     const updateResult = await this._pool.query(
       `UPDATE student_jobsheet_progress
-       SET id_kelas_mhs = COALESCE(id_kelas_mhs, $5),
-           current_experiment_id = COALESCE($8, current_experiment_id),
-           current_instruction_id = COALESCE($9, current_instruction_id),
-           completed_steps = $10,
-           total_steps = $11,
-           progress_percentage = $12,
-           status = $13,
+       SET id_kelas_mhs = COALESCE(id_kelas_mhs, $4),
+           current_experiment_id = COALESCE($6, current_experiment_id),
+           current_instruction_id = COALESCE($7, current_instruction_id),
+           completed_steps = $8,
+           total_steps = $9,
+           progress_percentage = $10,
+           status = $11,
            last_activity_at = CURRENT_TIMESTAMP,
-           completed_at = COALESCE(completed_at, $15)
-       WHERE student_id = $2
-         AND jobsheet_id = $7
+           completed_at = COALESCE(completed_at, $12)
+       WHERE student_id = $1
+         AND jobsheet_id = $5
          AND (
-           ($4::varchar IS NOT NULL AND id_kelas_praktikum = $4)
-           OR ($4::varchar IS NULL AND class_id = $3)
+           ($3::varchar IS NOT NULL AND id_kelas_praktikum = $3)
+           OR ($3::varchar IS NULL AND class_id = $2)
          )
        RETURNING *`,
       [
-        progressId,
         studentId,
         academicContext.class_id,
         academicContext.id_kelas_praktikum,
         academicContext.id_kelas_mhs,
-        courseId,
         jobsheetId,
         experimentId || null,
         instructionId || null,
@@ -210,7 +219,6 @@ class StudentJobsheetProgressService {
         totalSteps,
         progressPercentage,
         status,
-        firstOpenedAt,
         completedAt,
       ],
     );
@@ -255,7 +263,7 @@ class StudentJobsheetProgressService {
     const result = await this._pool.query(
       `SELECT id AS id_kelas_praktikum, legacy_class_id AS class_id
        FROM kelas_praktikum
-       WHERE id = $1 AND legacy_class_id IS NOT NULL
+       WHERE id = $1
        LIMIT 1`,
       [kelasPraktikumId],
     );
@@ -290,8 +298,45 @@ class StudentJobsheetProgressService {
     const exerciseMap = new Map(exercisesRes.rows.map((e) => [e.id, e.title]));
     const theoryMap = new Map(theoryList.map((t, idx) => [t.id || `theory-${idx}`, t.title || `Teori ${idx + 1}`]));
 
-    // 2. Fetch all students and their progress snapshot
-    const query = `
+    // 2. Fetch all students and their progress snapshot.
+    const nativeQuery = `
+      SELECT
+        u.id AS student_id,
+        u.fullname,
+        sp.nim,
+        u.avatar_url,
+        sjp.current_experiment_id,
+        sjp.current_instruction_id,
+        COALESCE(sjp.completed_steps, 0) AS completed_steps,
+        COALESCE(sjp.total_steps, 0) AS total_steps,
+        COALESCE(sjp.progress_percentage, 0.0) AS progress_percentage,
+        sjp.first_opened_at,
+        sjp.last_activity_at,
+        sjp.completed_at,
+        CASE
+          WHEN sjp.status = 'completed' THEN 'completed'
+          WHEN sjp.last_activity_at IS NOT NULL AND (NOW() - sjp.last_activity_at) >= INTERVAL '20 minutes' THEN 'stalled'
+          WHEN sjp.status IS NOT NULL THEN sjp.status
+          ELSE 'not_started'
+        END AS status
+      FROM kelas_praktikum kp
+      JOIN kelas_mhs km
+        ON km.id_tahun_semester = kp.id_tahun_semester
+       AND km.id_semester = kp.id_semester
+       AND km.id_kelas = kp.id_kelas
+      JOIN users u ON km.id_mahasiswa = u.id
+      LEFT JOIN student_profiles sp ON u.id = sp.user_id
+      LEFT JOIN student_jobsheet_progress sjp
+        ON km.id_mahasiswa = sjp.student_id
+       AND sjp.id_kelas_praktikum = kp.id
+       AND sjp.jobsheet_id = $1
+      WHERE kp.id = $2
+        AND LOWER(COALESCE(km.status, 'active')) = 'active'
+        AND u.is_active = true
+      ORDER BY u.fullname ASC
+    `;
+
+    const legacyQuery = `
       SELECT
         u.id AS student_id,
         u.fullname,
@@ -325,11 +370,13 @@ class StudentJobsheetProgressService {
       ORDER BY u.fullname ASC
     `;
 
-    const result = await this._pool.query(query, [
-      jobsheetId,
-      classContext.class_id,
-      classContext.id_kelas_praktikum,
-    ]);
+    const result = classContext.id_kelas_praktikum
+      ? await this._pool.query(nativeQuery, [jobsheetId, classContext.id_kelas_praktikum])
+      : await this._pool.query(legacyQuery, [
+        jobsheetId,
+        classContext.class_id,
+        classContext.id_kelas_praktikum,
+      ]);
 
     // Summary statistics counters
     let notStartedCount = 0;
@@ -424,10 +471,15 @@ class StudentJobsheetProgressService {
           WHEN last_activity_at IS NOT NULL AND (NOW() - last_activity_at) >= INTERVAL '20 minutes' THEN 'stalled'
           WHEN status IS NOT NULL THEN status
           ELSE 'not_started'
-        END AS status
+       END AS status
        FROM student_jobsheet_progress
-       WHERE student_id = $1 AND jobsheet_id = $2 AND class_id = $3`,
-      [studentId, jobsheetId, academicContext.class_id],
+       WHERE student_id = $1
+         AND jobsheet_id = $2
+         AND (
+           ($4::varchar IS NOT NULL AND id_kelas_praktikum = $4)
+           OR ($4::varchar IS NULL AND class_id = $3)
+         )`,
+      [studentId, jobsheetId, academicContext.class_id, academicContext.id_kelas_praktikum],
     );
 
     const progressInfo = progressRes.rows[0] || {

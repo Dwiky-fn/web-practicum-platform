@@ -11,12 +11,12 @@ import DesktopNavbar from "./DesktopNavbar";
 
 const studentNavItems = [
   { to: "/dashboard", label: "Dashboard" },
-  { to: "/courses", label: "Mata Kuliah" },
+  { to: "/mata-kuliah", label: "Mata Kuliah" },
 ]
 
 const lecturerNavItems = [
   { to: "/dashboard", label: "Dashboard" },
-  { to: "/courses", label: "Mata Kuliah" },
+  { to: "/mata-kuliah", label: "Mata Kuliah" },
   { to: "/monitoring", label: "Monitoring" },
 ]
 

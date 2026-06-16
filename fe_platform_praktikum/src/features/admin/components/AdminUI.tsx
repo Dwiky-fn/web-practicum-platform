@@ -44,10 +44,12 @@ export function AdminPanel({
 }
 
 export function AdminSectionHeader({
+  eyebrow,
   title,
   description,
   actions,
 }: {
+  eyebrow?: string
   title: string
   description?: string
   actions?: React.ReactNode
@@ -55,6 +57,9 @@ export function AdminSectionHeader({
   return (
     <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
       <div>
+        {eyebrow && (
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">{eyebrow}</p>
+        )}
         <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
         {description && (
           <p className="mt-2 text-sm text-gray-600">{description}</p>
@@ -101,15 +106,16 @@ export function AdminSelect({
   value,
   onChange,
   children,
-  label,
+  label = "",
   className = "",
+  ...props
 }: {
   value: string
   onChange: (value: string) => void
   children: React.ReactNode
-  label: string
+  label?: string
   className?: string
-}) {
+} & Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "value" | "onChange" | "children">) {
   return (
     <label className="block">
       <span className="sr-only">{label}</span>
@@ -117,6 +123,7 @@ export function AdminSelect({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className={`h-10 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 ${className}`}
+        {...props}
       >
         {children}
       </select>
@@ -187,12 +194,14 @@ export function AdminModal({
   children,
   footer,
   onClose,
+  size = "md",
 }: {
   title: string
   description?: string
   children: React.ReactNode
   footer: React.ReactNode
   onClose: () => void
+  size?: "sm" | "md" | "lg"
 }) {
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -203,6 +212,12 @@ export function AdminModal({
     }
   }, [])
 
+  const sizeClasses = {
+    sm: "max-w-[480px]",
+    md: "max-w-190",
+    lg: "max-w-4xl",
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-gray-900/50 px-3 py-4">
       <button
@@ -211,7 +226,7 @@ export function AdminModal({
         onClick={onClose}
         aria-label="Tutup modal"
       />
-      <div className="relative flex max-h-[90vh] w-full max-w-190 flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+      <div className={`relative flex max-h-[90vh] w-full ${sizeClasses[size]} flex-col overflow-hidden rounded-lg bg-white shadow-xl`}>
         <div className="sticky top-0 z-10 border-b border-gray-200 bg-white px-5 py-4">
           <h2 className="text-center text-xl font-semibold text-gray-900">{title}</h2>
           {description && (

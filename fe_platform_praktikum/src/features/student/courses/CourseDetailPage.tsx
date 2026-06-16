@@ -12,14 +12,15 @@ import JobsheetCard from "./components/JobsheetCard";
 import JobsheetCardSkeleton from "./components/loading/JobsheetCardSkeleton";
 import TopProgressBar from "../../../components/loading/TopProgressBar";
 import { useCurrentUser } from "../../../services/user/useCurrentUser";
-import { academicScopeQuery } from "../../../services/academicScope";
+import { academicJobsheetPath } from "../../../services/academicScope";
 
 export default function CourseDetailPage() {
-  const { courseId } = useParams<{ courseId: string }>();
+  const { courseId, mataKuliahId: routeMataKuliahId } = useParams<{ courseId?: string; mataKuliahId?: string }>();
   const [searchParams] = useSearchParams();
   const classId = searchParams.get("classId") || undefined;
-  const mataKuliahId = searchParams.get("mataKuliahId") || undefined;
+  const mataKuliahId = routeMataKuliahId || searchParams.get("mataKuliahId") || undefined;
   const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined;
+  const effectiveCourseId = mataKuliahId || courseId;
   const { user } = useCurrentUser();
 
   const [jobsheets, setJobsheets] = useState<Jobsheet[]>([]);
@@ -31,12 +32,12 @@ export default function CourseDetailPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!courseId || !user) {
+    if (!effectiveCourseId || !user) {
       setLoading(false);
       return;
     }
 
-    const currentCourseId = courseId
+    const currentCourseId = effectiveCourseId
     const studentId = user.id
 
     async function loadData() {
@@ -77,9 +78,7 @@ export default function CourseDetailPage() {
     }
 
     loadData();
-  }, [classId, courseId, kelasPraktikumId, mataKuliahId, user]);
-
-  const scopeQuery = academicScopeQuery({ classId, mataKuliahId, kelasPraktikumId });
+  }, [classId, effectiveCourseId, kelasPraktikumId, mataKuliahId, user]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -130,7 +129,7 @@ export default function CourseDetailPage() {
                     jobsheet={jobsheet}
                     submission={submission}
                     onClick={() =>
-                      navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}${scopeQuery}`)
+                      navigate(academicJobsheetPath(effectiveCourseId!, jobsheet.id, { classId, mataKuliahId, kelasPraktikumId }))
                     }
                   />
                 );

@@ -1,5 +1,5 @@
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useMemo, useState, useCallback } from "react"
 import { getJobsheetById } from "../../../../../../../services/jobsheet/service"
 import { getSubmissionByJobsheetIdPreview, submitSubmission, updateSubmission } from "../../../../../../../services/submission/service"
 import { updateStudentProgressApi } from "../../../../../../../services/progress/service"
@@ -18,19 +18,30 @@ import { buildReport } from "../../../../../../../services/submission/buildRepor
 import { useCurrentUser } from "../../../../../../../services/user/useCurrentUser"
 import ScrollToTopButton from "../../../../../../../components/ScrollToTopButton"
 import { toast } from "../../../../../../../components/toast/toastStore"
-import { academicScopeQuery } from "../../../../../../../services/academicScope"
+import { academicJobsheetSubPath, type AcademicScope } from "../../../../../../../services/academicScope"
+import type { JSONContent } from "@tiptap/react"
 
 export default function PreviewPage() {
 
-  const { courseId, jobsheetId } = useParams()
+  const { courseId, mataKuliahId: routeMataKuliahId, jobsheetId } = useParams<{
+    courseId?: string
+    mataKuliahId?: string
+    jobsheetId?: string
+  }>()
   const [searchParams] = useSearchParams()
   const classId = searchParams.get("classId") || undefined
-  const mataKuliahId = searchParams.get("mataKuliahId") || undefined
+  const mataKuliahId = routeMataKuliahId || searchParams.get("mataKuliahId") || undefined
   const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined
+  const effectiveCourseId = mataKuliahId || courseId
   const { user } = useCurrentUser()
   const navigate = useNavigate()
-  const academicScope = { classId, mataKuliahId, kelasPraktikumId }
-  const scopeQuery = academicScopeQuery(academicScope)
+  const academicScope: AcademicScope = useMemo(
+    () => ({ classId, mataKuliahId, kelasPraktikumId }),
+    [classId, mataKuliahId, kelasPraktikumId],
+  )
+  const taskPath = jobsheetId && effectiveCourseId
+    ? academicJobsheetSubPath(effectiveCourseId, jobsheetId, "works/task", academicScope)
+    : "/mata-kuliah"
 
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null)
   const [submission, setSubmission] = useState<JobsheetSubmission | null>(null)
@@ -41,11 +52,11 @@ export default function PreviewPage() {
   const [error, setError] = useState("")
 
   const handleSaveDraft = async () => {
-    if (!courseId || !jobsheetId || !submission || !user) return
+    if (!effectiveCourseId || !jobsheetId || !submission || !user) return
     try {
       setSavingDraft(true)
       setError("")
-      await updateSubmission(courseId, jobsheetId, user.id, buildReport(submission), undefined, academicScope)
+      await updateSubmission(effectiveCourseId, jobsheetId, user.id, buildReport(submission), undefined, academicScope)
       toast.success("Draf laporan berhasil disimpan.")
     } catch (err) {
       console.error("Save draft error:", err)
@@ -55,7 +66,7 @@ export default function PreviewPage() {
     }
   }
 
-  const handleConclusionChange = useCallback((data: { content: any; wordCount: number }) => {
+  const handleConclusionChange = useCallback((data: { content: JSONContent; wordCount: number }) => {
     setSubmission(prev => {
       if (!prev) return prev
       return {
@@ -76,13 +87,13 @@ export default function PreviewPage() {
   }, [])
 
   const handleSubmit = async () => {
-    if (!courseId || !jobsheetId || !submission || !user) return
+    if (!effectiveCourseId || !jobsheetId || !submission || !user) return
     try {
       setSubmitting(true)
       setError("")
-      await updateSubmission(courseId, jobsheetId, user.id, buildReport(submission), undefined, academicScope)
+      await updateSubmission(effectiveCourseId, jobsheetId, user.id, buildReport(submission), undefined, academicScope)
 
-      await submitSubmission(courseId, jobsheetId, user.id, academicScope)
+      await submitSubmission(effectiveCourseId, jobsheetId, user.id, academicScope)
       await updateStudentProgressApi(jobsheetId, {
         studentId: user.id,
         kelasPraktikumId,
@@ -99,18 +110,18 @@ export default function PreviewPage() {
 
   useEffect(() => {
     async function loadData() {
-      if (!courseId || !jobsheetId || !user) return
+      if (!effectiveCourseId || !jobsheetId || !user) return
 
       setLoading(true)
       setError("")
 
       try {
-        const jobsheets = await getJobsheetById(courseId, jobsheetId, academicScope)
+        const jobsheets = await getJobsheetById(effectiveCourseId, jobsheetId, academicScope)
 
         setJobsheet(jobsheets)
 
         const sub = await getSubmissionByJobsheetIdPreview(
-          courseId,
+          effectiveCourseId,
           jobsheetId,
           user.id,
           academicScope,
@@ -126,7 +137,7 @@ export default function PreviewPage() {
     }
 
     loadData()
-  }, [classId, courseId, jobsheetId, kelasPraktikumId, mataKuliahId, user])
+  }, [academicScope, effectiveCourseId, jobsheetId, user])
 
   if (loading) {
     return <TopProgressBar />
@@ -159,12 +170,13 @@ export default function PreviewPage() {
           </p>
           <button
             type="button"
-            onClick={() => navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/works/task${scopeQuery}`)}
+            onClick={() => navigate(taskPath)}
             aria-label="Kembali"
             title="Kembali"
-            className="w-full flex items-center justify-center py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
+            className="w-full flex items-center justify-center gap-2 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
           >
             <ArrowLeft size={20} />
+            <span>Kembali</span>
           </button>
         </div>
       </div>
@@ -175,7 +187,7 @@ export default function PreviewPage() {
       {/* HEADER */}
       <ReportHeader
         title={jobsheet.title}
-        backTo={`/courses/${courseId}/jobsheets/${jobsheet.id}/works/task${scopeQuery}`}
+        backTo={taskPath}
       />
 
       {/* CONTENT WRAPPER */}

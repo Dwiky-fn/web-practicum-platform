@@ -22,6 +22,7 @@ export default function AdminLayout({ children }: Props) {
   ))
 
   const isUsers = location.pathname.startsWith("/users")
+  const isAcademic = location.pathname.startsWith("/admin/academic") || location.pathname === "/academic" || location.pathname.startsWith("/mata-kuliah") || location.pathname === "/courses"
 
   useEffect(() => {
     localStorage.setItem("adminSidebarCollapsed", String(collapsed))
@@ -62,13 +63,32 @@ export default function AdminLayout({ children }: Props) {
           {!collapsed && <span>Dashboard Admin</span>}
         </NavLink>
         <NavLink
-          to="/courses"
-          className={({ isActive }) => linkClass({ isActive, collapsed })}
-          title="Manajemen Akademik"
+          to="/admin/academic/tahun-semester"
+          className={() => linkClass({ isActive: isAcademic, collapsed })}
+          title="Data Akademik"
         >
           <BookOpen size={18} />
-          {!collapsed && <span>Manajemen Akademik</span>}
+          {!collapsed && <span>Data Akademik</span>}
         </NavLink>
+        {isAcademic && !collapsed && (
+          <div className="ml-4 mt-2 space-y-1 border-l border-gray-200 pl-3">
+            {[
+              ["/admin/academic/tahun-semester", "Tahun Semester"],
+              ["/admin/academic/kurikulum", "Kurikulum"],
+              ["/admin/academic/semester", "Semester"],
+              ["/admin/academic/kelas", "Kelas"],
+              ["/admin/academic/mata-kuliah", "Mata Kuliah"],
+            ].map(([to, label]) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) => linkClass({ isActive, collapsed: false })}
+              >
+                <span>{label}</span>
+              </NavLink>
+            ))}
+          </div>
+        )}
         <NavLink
           to="/users/students"
           className={() => linkClass({ isActive: isUsers, collapsed })}

@@ -281,7 +281,7 @@ export default function AdminUsersPage() {
           status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
           studyProgramId: selectedProdiId,
         })
-        toast.success("Mahasiswa berhasil ditambahkan.")
+        toast.success("Mahasiswa dan akun login berhasil ditambahkan.")
       } else {
         const lecturer = await createAdminLecturer({
           nip: String(form.get("identifier") || ""),
@@ -433,7 +433,9 @@ export default function AdminUsersPage() {
 
     const title = modal === "import"
       ? `Import ${isStudent ? "Mahasiswa" : "Dosen"}`
-      : `Tambah ${isStudent ? "Mahasiswa" : "Dosen"}`
+      : isStudent
+        ? "Tambah Mahasiswa dan Buat Akun Login"
+        : "Tambah Dosen"
 
     if (modal === "import") {
       return (
@@ -535,12 +537,17 @@ export default function AdminUsersPage() {
           <>
               <AdminButton variant="secondary" onClick={closeUserModal} disabled={submitting}>Batal</AdminButton>
               <AdminButton type="submit" form="admin-user-form" disabled={submitting}>
-                {submitting ? "Menyimpan..." : "Tambah"}
+                {submitting ? "Menyimpan..." : isStudent ? "Tambah Mahasiswa dan Akun" : "Tambah Dosen"}
               </AdminButton>
           </>
         }
       >
         <form id="admin-user-form" className="space-y-4" onSubmit={handleAddSubmit}>
+          {isStudent && (
+            <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+              Data ini membuat profil mahasiswa sekaligus akun login mahasiswa. Posisi semester dan rombel berjalan tetap diatur melalui menu Kelas Mahasiswa.
+            </div>
+          )}
           <FieldRow label={isStudent ? "NIM" : "NIP"}>
             <input
               name="identifier"
@@ -651,7 +658,7 @@ export default function AdminUsersPage() {
             <div className="relative">
               <AdminButton onClick={() => setModal(modal === "menu" ? null : "menu")}>
                 <Plus size={16} />
-                Tambah {isStudent ? "Mahasiswa" : "Dosen"}
+                {isStudent ? "Tambah Mahasiswa dan Akun" : "Tambah Dosen"}
                 <ChevronDown size={16} />
               </AdminButton>
               {modal === "menu" && (
@@ -770,7 +777,7 @@ export default function AdminUsersPage() {
         ) : (
           <EmptyState
             title="Belum ada data mahasiswa"
-            action={<AdminButton onClick={() => setModal("add")}><Plus size={16} />Tambah Mahasiswa</AdminButton>}
+            action={<AdminButton onClick={() => setModal("add")}><Plus size={16} />Tambah Mahasiswa dan Akun</AdminButton>}
           />
         )
       ) : lecturers.length ? (

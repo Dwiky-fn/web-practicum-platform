@@ -32,7 +32,7 @@ import {
 type ClassTab = "summary" | "modules" | "students" | "evaluation"
 
 const tabs: Array<{ id: ClassTab; label: string }> = [
-  { id: "summary", label: "Ringkasan Kelas" },
+  { id: "summary", label: "Ringkasan Kelas Praktikum" },
   { id: "modules", label: "Jobsheet" },
   { id: "students", label: "Mahasiswa" },
   { id: "evaluation", label: "Evaluasi & Nilai" },
@@ -184,8 +184,8 @@ export default function LecturerClassDetailPage() {
       </button>
 
       <PageHeader
-        title={header.courseName || "Detail Kelas"}
-        subtitle={`Kelas ${header.className || "-"} - Semester ${header.semester || "-"} - ${header.period || "-"}`}
+        title={header.courseName || "Detail Kelas Praktikum"}
+        subtitle={`Kelas Praktikum ${header.className || "-"} - Semester ${header.semester || "-"} - ${header.period || "-"}`}
       />
 
       {error && (
@@ -195,7 +195,7 @@ export default function LecturerClassDetailPage() {
       )}
 
       {!matrix.length && !jobsheets.length ? (
-        <LecturerEmptyState title="Kelas ini belum memiliki data mahasiswa atau jobsheet." />
+        <LecturerEmptyState title="Kelas praktikum ini belum memiliki data mahasiswa atau jobsheet." />
       ) : (
         <>
           <TabButton tabs={tabs} active={activeTab} onChange={setActiveTab} />

@@ -9,6 +9,8 @@ interface Props {
   courseId: string;
   jobsheetId: string;
   classId?: string;
+  mataKuliahId?: string;
+  kelasPraktikumId?: string;
 }
 
 export default function SidebarCard({
@@ -17,6 +19,8 @@ export default function SidebarCard({
   courseId,
   jobsheetId,
   classId,
+  mataKuliahId,
+  kelasPraktikumId,
 }: Props) {
   const navigate = useNavigate();
 
@@ -25,7 +29,11 @@ export default function SidebarCard({
   const isOverdue = deadlineState.isOverdue;
   const status = submission?.status;
   const displayScore = submission?.review?.finalScore ?? submission?.score;
-  const query = classId ? `?classId=${encodeURIComponent(classId)}` : "";
+  const params = new URLSearchParams();
+  if (classId) params.set("classId", classId);
+  if (mataKuliahId) params.set("mataKuliahId", mataKuliahId);
+  if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId);
+  const query = params.toString() ? `?${params.toString()}` : "";
 
   function goTo() {
     if (status === "REVIEWING" || status === "ACCEPTED") {

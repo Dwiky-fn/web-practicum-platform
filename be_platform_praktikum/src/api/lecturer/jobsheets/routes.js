@@ -9,6 +9,12 @@ module.exports = (handler) => {
     '/lecturer/courses/:courseId/jobsheets/:jobsheetId/publish',
     handler.publishJobsheetHandler,
   );
+  router.post('/lecturer/mata-kuliah/:mataKuliahId/jobsheets', handler.postJobsheetByMataKuliahHandler);
+  router.put('/lecturer/mata-kuliah/:mataKuliahId/jobsheets/:jobsheetId', handler.putJobsheetByMataKuliahHandler);
+  router.put(
+    '/lecturer/mata-kuliah/:mataKuliahId/jobsheets/:jobsheetId/publish',
+    handler.publishJobsheetByMataKuliahHandler,
+  );
 
   return router;
 };

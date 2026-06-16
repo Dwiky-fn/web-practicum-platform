@@ -64,6 +64,9 @@ class CoursesService {
         c.status,
         c.created_at,
         cl.id AS class_id,
+        kp.id AS id_kelas_praktikum,
+        kp.nama_kelas AS nama_kelas_praktikum,
+        km.id AS id_kelas_mhs,
         cl.programming_language,
         u.fullname AS lecturer,
         COALESCE(ROUND(AVG(sp.progress)::numeric), 0)::int AS progress,
@@ -71,6 +74,12 @@ class CoursesService {
       FROM class_students cs
       JOIN classes cl ON cl.id = cs.class_id
       JOIN courses c ON c.id = cl.course_id
+      LEFT JOIN kelas_praktikum kp ON kp.legacy_class_id = cl.id
+      LEFT JOIN kelas_mhs km
+        ON km.id_tahun_semester = kp.id_tahun_semester
+       AND km.id_semester = kp.id_semester
+       AND km.id_kelas = kp.id_kelas
+       AND km.id_mahasiswa = cs.student_id
       LEFT JOIN users u ON u.id = cl.lecturer_id
       LEFT JOIN jobsheets j ON j.course_id = c.id AND j.status != 'UNPUBLISHED'
       LEFT JOIN student_progress sp
@@ -91,6 +100,9 @@ class CoursesService {
         c.status,
         c.created_at,
         cl.id,
+        kp.id,
+        kp.nama_kelas,
+        km.id,
         cl.programming_language,
         u.fullname
       ORDER BY c.semester ASC, c.name ASC

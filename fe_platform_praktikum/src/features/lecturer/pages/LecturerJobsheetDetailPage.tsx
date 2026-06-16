@@ -54,6 +54,9 @@ export default function LecturerJobsheetDetailPage() {
   const [searchParams] = useSearchParams()
   const courseId = searchParams.get("courseId") ?? ""
   const classId = searchParams.get("classId") ?? ""
+  const mataKuliahId = searchParams.get("mataKuliahId") || undefined
+  const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined
+  const nativeScope = { mataKuliahId, kelasPraktikumId }
   const [activeTab, setActiveTab] = useState<DetailTab>("detail")
   const [selectedStudentProfileId, setSelectedStudentProfileId] = useState<string | null>(null)
   const [keyword, setKeyword] = useState("")
@@ -82,7 +85,7 @@ export default function LecturerJobsheetDetailPage() {
       
       try {
         if (!monitoringData) setLoadingMonitoring(true)
-        const progress = await getLecturerClassProgress(jobsheetId, classId)
+        const progress = await getLecturerClassProgress(jobsheetId, classId, kelasPraktikumId)
         setMonitoringData(progress)
       } catch (err) {
         console.error("Gagal memuat monitoring progress:", err)
@@ -99,7 +102,7 @@ export default function LecturerJobsheetDetailPage() {
     return () => {
       if (intervalId) clearInterval(intervalId)
     }
-  }, [activeTab, jobsheetId, classId, monitoringData])
+  }, [activeTab, jobsheetId, classId, kelasPraktikumId, monitoringData])
 
   // Load student log details
   useEffect(() => {
@@ -111,7 +114,7 @@ export default function LecturerJobsheetDetailPage() {
 
       setLoadingDetail(true)
       try {
-        const detail = await getLecturerStudentDetailProgress(jobsheetId, selectedStudentId, classId)
+        const detail = await getLecturerStudentDetailProgress(jobsheetId, selectedStudentId, classId, kelasPraktikumId)
         setStudentDetail(detail)
       } catch (err) {
         console.error("Gagal memuat detail progress mahasiswa:", err)
@@ -121,7 +124,7 @@ export default function LecturerJobsheetDetailPage() {
     }
 
     loadDetail()
-  }, [selectedStudentId, jobsheetId, classId])
+  }, [selectedStudentId, jobsheetId, classId, kelasPraktikumId])
 
   const sortedAndFilteredProgressStudents = useMemo(() => {
     if (!monitoringData) return []
@@ -221,7 +224,7 @@ export default function LecturerJobsheetDetailPage() {
       setError("")
 
       try {
-        const selectedJobsheet = await getLecturerJobsheetById(courseId, jobsheetId)
+        const selectedJobsheet = await getLecturerJobsheetById(courseId, jobsheetId, nativeScope)
         setJobsheet(selectedJobsheet)
 
         if (classId) {
@@ -230,6 +233,10 @@ export default function LecturerJobsheetDetailPage() {
             classDetail.courseId,
             classDetail.jobsheets.filter((item) => item.id === jobsheetId),
             classDetail.students,
+            {
+              mataKuliahId: classDetail.mataKuliahId || classDetail.id_mata_kuliah || mataKuliahId,
+              kelasPraktikumId: classDetail.kelasPraktikumId || classDetail.id_kelas_praktikum || kelasPraktikumId,
+            },
           )
           setMatrix(submissionMatrix)
         } else {
@@ -243,7 +250,7 @@ export default function LecturerJobsheetDetailPage() {
     }
 
     loadData()
-  }, [classId, courseId, jobsheetId])
+  }, [classId, courseId, jobsheetId, kelasPraktikumId, mataKuliahId])
 
   const filteredStudents = useMemo(() => {
     const normalized = keyword.trim().toLowerCase()
@@ -481,7 +488,7 @@ export default function LecturerJobsheetDetailPage() {
                         if (!jobsheetId || !classId) return
                         setLoadingMonitoring(true)
                         try {
-                          const progress = await getLecturerClassProgress(jobsheetId, classId)
+                          const progress = await getLecturerClassProgress(jobsheetId, classId, kelasPraktikumId)
                           setMonitoringData(progress)
                         } catch (e) {
                           console.error(e)
@@ -628,7 +635,12 @@ export default function LecturerJobsheetDetailPage() {
                           <button
                             type="button"
                             className="font-semibold text-blue-700 hover:text-blue-900"
-                            onClick={() => navigate(`/reviews/${item.student.id}?courseId=${courseId}&classId=${classId}&jobsheetId=${jobsheet.id}`)}
+                            onClick={() => {
+                              const params = new URLSearchParams({ courseId, classId, jobsheetId: jobsheet.id })
+                              if (mataKuliahId) params.set("mataKuliahId", mataKuliahId)
+                              if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
+                              navigate(`/reviews/${item.student.id}?${params.toString()}`)
+                            }}
                           >
                             Review
                           </button>

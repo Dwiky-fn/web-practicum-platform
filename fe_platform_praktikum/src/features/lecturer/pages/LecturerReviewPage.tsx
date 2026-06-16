@@ -69,6 +69,9 @@ export default function LecturerReviewPage() {
   const courseId = searchParams.get("courseId") ?? ""
   const jobsheetId = searchParams.get("jobsheetId") ?? ""
   const classId = searchParams.get("classId") ?? ""
+  const mataKuliahId = searchParams.get("mataKuliahId") || undefined
+  const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined
+  const nativeScope = { mataKuliahId, kelasPraktikumId }
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -102,8 +105,8 @@ export default function LecturerReviewPage() {
 
       try {
         const [selectedJobsheet, selectedSubmission] = await Promise.all([
-          getLecturerJobsheetById(courseId, jobsheetId),
-          getLecturerSubmission(courseId, jobsheetId, studentId),
+          getLecturerJobsheetById(courseId, jobsheetId, nativeScope),
+          getLecturerSubmission(courseId, jobsheetId, studentId, nativeScope),
         ])
 
         setJobsheet(selectedJobsheet)
@@ -213,7 +216,7 @@ export default function LecturerReviewPage() {
     }
 
     loadData()
-  }, [classId, courseId, jobsheetId, studentId])
+  }, [classId, courseId, jobsheetId, kelasPraktikumId, mataKuliahId, studentId])
 
   async function handleTriggerAiReview() {
     if (!submission) return
@@ -298,7 +301,7 @@ export default function LecturerReviewPage() {
     ) {
       intervalId = setInterval(async () => {
         try {
-          const refreshedSubmission = await getLecturerSubmission(courseId, jobsheetId, studentId)
+          const refreshedSubmission = await getLecturerSubmission(courseId, jobsheetId, studentId, nativeScope)
           if (refreshedSubmission) {
             setSubmission(refreshedSubmission)
 
@@ -402,7 +405,7 @@ export default function LecturerReviewPage() {
     return () => {
       if (intervalId) clearInterval(intervalId)
     }
-  }, [submission?.aiEvaluationStatus, courseId, jobsheetId, studentId])
+  }, [submission?.aiEvaluationStatus, courseId, jobsheetId, kelasPraktikumId, mataKuliahId, studentId])
 
   useEffect(() => {
     if (activeFeedbackId) {
@@ -533,7 +536,7 @@ export default function LecturerReviewPage() {
         },
       })
 
-      const refreshedSubmission = await getLecturerSubmission(courseId, jobsheetId, studentId)
+      const refreshedSubmission = await getLecturerSubmission(courseId, jobsheetId, studentId, nativeScope)
       setSubmission(refreshedSubmission)
       setSuccessDecision(nextDecision)
       toast.success("Review berhasil disimpan dan submission diterima.")

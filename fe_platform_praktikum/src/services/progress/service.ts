@@ -4,9 +4,12 @@ import type { StudentProgress, UpsertStudentProgressPayload } from "./types"
 export const getStudentProgress = async (
   jobsheetId: string,
   studentId: string,
+  kelasPraktikumId?: string,
 ): Promise<StudentProgress | null> => {
+  const params = new URLSearchParams({ studentId })
+  if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
   const res = await apiFetch(
-    `/student-progress/${jobsheetId}?studentId=${encodeURIComponent(studentId)}`,
+    `/student-progress/${jobsheetId}?${params.toString()}`,
   )
 
   return res.data.progress ?? null
@@ -27,6 +30,7 @@ export const upsertStudentProgress = async (
 export interface UpdateStudentProgressPayload {
   studentId: string
   classId?: string
+  kelasPraktikumId?: string
   experimentId?: string | null
   instructionId?: string | null
   activityType: string

@@ -130,6 +130,102 @@ class SubmissionsService {
     return result.rows[0]?.programming_language || 'java';
   }
 
+  async _resolveAcademicContext(studentId, jobsheetId, classId = null, kelasPraktikumId = null) {
+    if (kelasPraktikumId) {
+      const nativeResult = await this._pool.query(
+        `SELECT kp.legacy_class_id AS class_id,
+          kp.id AS id_kelas_praktikum,
+          km.id AS id_kelas_mhs
+         FROM kelas_praktikum kp
+         JOIN jobsheet_classes jc ON jc.id_kelas_praktikum = kp.id
+         JOIN kelas_mhs km
+           ON km.id_tahun_semester = kp.id_tahun_semester
+          AND km.id_semester = kp.id_semester
+          AND km.id_kelas = kp.id_kelas
+          AND km.id_mahasiswa = $1
+         WHERE kp.id = $2
+           AND jc.jobsheet_id = $3
+         LIMIT 1`,
+        [studentId, kelasPraktikumId, jobsheetId],
+      );
+
+      if (nativeResult.rows.length) return nativeResult.rows[0];
+    }
+
+    const params = [studentId, jobsheetId];
+    let filter = '';
+
+    if (kelasPraktikumId) {
+      params.push(kelasPraktikumId);
+      filter = `AND kp.id = $${params.length}`;
+    } else if (classId) {
+      params.push(classId);
+      filter = `AND cl.id = $${params.length}`;
+    }
+
+    const result = await this._pool.query(
+      `SELECT cl.id AS class_id,
+        kp.id AS id_kelas_praktikum,
+        km.id AS id_kelas_mhs
+       FROM class_students cs
+       JOIN classes cl ON cl.id = cs.class_id
+       JOIN jobsheets j ON j.course_id = cl.course_id
+       LEFT JOIN jobsheet_classes jc
+         ON jc.jobsheet_id = j.id
+        AND jc.class_id = cl.id
+       LEFT JOIN kelas_praktikum kp
+         ON kp.id = jc.id_kelas_praktikum
+         OR kp.legacy_class_id = cl.id
+       LEFT JOIN kelas_mhs km
+         ON km.id_tahun_semester = kp.id_tahun_semester
+        AND km.id_semester = kp.id_semester
+        AND km.id_kelas = kp.id_kelas
+        AND km.id_mahasiswa = cs.student_id
+       WHERE cs.student_id = $1
+         AND j.id = $2
+         AND cs.status = 'AKTIF'
+         AND cl.status = 'AKTIF'
+         ${filter}
+       ORDER BY jc.id_kelas_praktikum IS NULL ASC, cl.id ASC
+       LIMIT 1`,
+      params,
+    );
+
+    return result.rows[0] || {
+      class_id: classId || null,
+      id_kelas_praktikum: kelasPraktikumId || null,
+      id_kelas_mhs: null,
+    };
+  }
+
+  _buildSubmissionScopeClause(academicContext, startIndex = 3) {
+    if (academicContext?.id_kelas_praktikum) {
+      return {
+        clause: `AND ts.id_kelas_praktikum = $${startIndex}`,
+        values: [academicContext.id_kelas_praktikum],
+      };
+    }
+
+    return {
+      clause: 'AND ts.id_kelas_praktikum IS NULL',
+      values: [],
+    };
+  }
+
+  _buildSubmissionUpdateScopeClause(academicContext, startIndex = 5) {
+    if (academicContext?.id_kelas_praktikum) {
+      return {
+        clause: `AND id_kelas_praktikum = $${startIndex}`,
+        values: [academicContext.id_kelas_praktikum],
+      };
+    }
+
+    return {
+      clause: 'AND id_kelas_praktikum IS NULL',
+      values: [],
+    };
+  }
+
   _parseTemplateFiles(templateCode, defaultFileName) {
     if (!templateCode) {
       return { [defaultFileName]: '' };
@@ -186,15 +282,25 @@ class SubmissionsService {
   async createSubmission({
     jobsheetId,
     courseId,
+    mataKuliahId = null,
     studentId,
+    classId = null,
+    kelasPraktikumId = null,
     status = 'DRAFT',
   }) {
     const id = `sub-${randomUUID().slice(0, 12)}`;
 
-    const jobsheet = await this._jobsheetService.getJobsheetFullById(
-      jobsheetId,
-      courseId,
-    );
+    const jobsheet = mataKuliahId
+      ? await this._jobsheetService.getJobsheetFullByMataKuliah(
+        jobsheetId,
+        mataKuliahId,
+        kelasPraktikumId,
+        { role: 'MAHASISWA', id: studentId },
+      )
+      : await this._jobsheetService.getJobsheetFullById(
+        jobsheetId,
+        courseId,
+      );
     if (!jobsheet.programming_language) {
       jobsheet.programming_language = await this._getStudentClassProgrammingLanguage(
         studentId,
@@ -203,21 +309,41 @@ class SubmissionsService {
     }
 
     const report = this._generateInitialReport(jobsheet);
+    const academicContext = await this._resolveAcademicContext(
+      studentId,
+      jobsheetId,
+      classId,
+      kelasPraktikumId,
+    );
+    const conflictTarget = academicContext.id_kelas_praktikum
+      ? '(jobsheet_id, student_id, id_kelas_praktikum) WHERE id_kelas_praktikum IS NOT NULL'
+      : '(jobsheet_id, student_id) WHERE id_kelas_praktikum IS NULL';
 
     const query = {
       text: `
       WITH saved AS (
         INSERT INTO task_submissions
-        (id, jobsheet_id, student_id, report_html, status, submitted_at)
-        VALUES ($1, $2, $3, $4, $5, NULL)
-        ON CONFLICT (jobsheet_id, student_id)
-        DO UPDATE SET report_html = task_submissions.report_html
+        (id, jobsheet_id, student_id, id_kelas_praktikum, id_kelas_mhs, report_html, status, submitted_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NULL)
+        ON CONFLICT ${conflictTarget}
+        DO UPDATE SET
+          id_kelas_praktikum = COALESCE(task_submissions.id_kelas_praktikum, EXCLUDED.id_kelas_praktikum),
+          id_kelas_mhs = COALESCE(task_submissions.id_kelas_mhs, EXCLUDED.id_kelas_mhs),
+          report_html = task_submissions.report_html
         RETURNING id
       )
       ${this._buildSubmissionSelect()}
       WHERE ts.id = (SELECT id FROM saved)
     `,
-      values: [id, jobsheetId, studentId, JSON.stringify(report), status],
+      values: [
+        id,
+        jobsheetId,
+        studentId,
+        academicContext.id_kelas_praktikum,
+        academicContext.id_kelas_mhs,
+        JSON.stringify(report),
+        status,
+      ],
     };
 
     const result = await this._pool.query(query);
@@ -226,37 +352,66 @@ class SubmissionsService {
     return await this._enrichSubmission(submission);
   }
 
-  async getSubmissionByJobsheetId(jobsheetId, studentId) {
+  async getSubmissionByJobsheetId(jobsheetId, studentId, options = {}) {
+    const academicContext = options.classId || options.kelasPraktikumId
+      ? await this._resolveAcademicContext(
+        studentId,
+        jobsheetId,
+        options.classId,
+        options.kelasPraktikumId,
+      )
+      : null;
+    const scope = academicContext
+      ? this._buildSubmissionScopeClause(academicContext, 3)
+      : { clause: '', values: [] };
+
     const result = await this._pool.query(
       `
       ${this._buildSubmissionSelect()}
       WHERE ts.jobsheet_id = $1 AND ts.student_id = $2
+      ${scope.clause}
+      ORDER BY ts.id_kelas_praktikum IS NULL ASC, ts.submitted_at DESC NULLS LAST, ts.id DESC
       LIMIT 1
       `,
-      [jobsheetId, studentId],
+      [jobsheetId, studentId, ...scope.values],
     );
 
     const submission = this._mapSubmissionRow(result.rows[0]) || null;
     return await this._enrichSubmission(submission);
   }
 
-  async getOrCreateSubmission(jobsheetId, courseId, studentId) {
+  async getOrCreateSubmission(jobsheetId, courseId, studentId, options = {}) {
     const existing = await this.getSubmissionByJobsheetId(
       jobsheetId,
       studentId,
+      options,
     );
     if (existing) return existing;
 
-    return await this.createSubmission({ jobsheetId, courseId, studentId });
+    return await this.createSubmission({
+      jobsheetId,
+      courseId,
+      mataKuliahId: options.mataKuliahId,
+      studentId,
+      classId: options.classId,
+      kelasPraktikumId: options.kelasPraktikumId,
+    });
   }
 
-  async updateSubmission({ jobsheetId, studentId, report, status }) {
+  async updateSubmission({ jobsheetId, studentId, mataKuliahId = null, report, status, classId = null, kelasPraktikumId = null }) {
     // Perform normalization on report before saving
     try {
       const jobsheetQuery = await this._pool.query('SELECT course_id FROM jobsheets WHERE id = $1', [jobsheetId]);
       if (jobsheetQuery.rows.length) {
         const courseId = jobsheetQuery.rows[0].course_id;
-        const jobsheet = await this._jobsheetService.getJobsheetFullById(jobsheetId, courseId);
+        const jobsheet = mataKuliahId
+          ? await this._jobsheetService.getJobsheetFullByMataKuliah(
+            jobsheetId,
+            mataKuliahId,
+            kelasPraktikumId,
+            { role: 'MAHASISWA', id: studentId },
+          )
+          : await this._jobsheetService.getJobsheetFullById(jobsheetId, courseId);
         jobsheet.programming_language = await this._getStudentClassProgrammingLanguage(
           studentId,
           courseId,
@@ -290,6 +445,14 @@ class SubmissionsService {
       console.error('Gagal menormalisasi report lama:', err);
     }
 
+    const academicContext = await this._resolveAcademicContext(
+      studentId,
+      jobsheetId,
+      classId,
+      kelasPraktikumId,
+    );
+    const scope = this._buildSubmissionUpdateScopeClause(academicContext, 7);
+
     const query = {
       text: `
         WITH saved AS (
@@ -297,17 +460,28 @@ class SubmissionsService {
           SET 
             report_html = $1,
             status = COALESCE($2, status),
+            id_kelas_praktikum = COALESCE(id_kelas_praktikum, $5),
+            id_kelas_mhs = COALESCE(id_kelas_mhs, $6),
             submitted_at = CASE 
               WHEN $2 = 'SUBMITTED' AND submitted_at IS NULL THEN CURRENT_TIMESTAMP 
               ELSE submitted_at 
             END
           WHERE jobsheet_id = $3 AND student_id = $4
+          ${scope.clause}
           RETURNING id
         )
         ${this._buildSubmissionSelect()}
         WHERE ts.id = (SELECT id FROM saved)
       `,
-      values: [JSON.stringify(report), status || null, jobsheetId, studentId],
+      values: [
+        JSON.stringify(report),
+        status || null,
+        jobsheetId,
+        studentId,
+        academicContext.id_kelas_praktikum,
+        academicContext.id_kelas_mhs,
+        ...scope.values,
+      ],
     };
 
     const result = await this._pool.query(query);
@@ -329,8 +503,8 @@ class SubmissionsService {
     );
   }
 
-  async submitSubmission(jobsheetId, studentId) {
-    const existing = await this.getSubmissionByJobsheetId(jobsheetId, studentId);
+  async submitSubmission(jobsheetId, studentId, options = {}) {
+    const existing = await this.getSubmissionByJobsheetId(jobsheetId, studentId, options);
     if (!existing) throw new Error('Submission tidak ditemukan');
 
     const client = await this._pool.connect();
@@ -338,19 +512,37 @@ class SubmissionsService {
     try {
       await client.query('BEGIN');
 
+      const academicContext = await this._resolveAcademicContext(
+        studentId,
+        jobsheetId,
+        options.classId,
+        options.kelasPraktikumId,
+      );
+      const scope = this._buildSubmissionUpdateScopeClause(academicContext, 6);
+
       await client.query(
         `
         UPDATE task_submissions
         SET
           report_html = $1,
           status = 'SUBMITTED',
+          id_kelas_praktikum = COALESCE(id_kelas_praktikum, $4),
+          id_kelas_mhs = COALESCE(id_kelas_mhs, $5),
           submitted_at = CASE
             WHEN submitted_at IS NULL THEN CURRENT_TIMESTAMP
             ELSE submitted_at
           END
         WHERE jobsheet_id = $2 AND student_id = $3
+        ${scope.clause}
         `,
-        [JSON.stringify(existing.report), jobsheetId, studentId],
+        [
+          JSON.stringify(existing.report),
+          jobsheetId,
+          studentId,
+          academicContext.id_kelas_praktikum,
+          academicContext.id_kelas_mhs,
+          ...scope.values,
+        ],
       );
 
       await this.resetReviewForSubmission(existing.id, client);
@@ -363,7 +555,7 @@ class SubmissionsService {
       client.release();
     }
 
-    return this.getSubmissionByJobsheetId(jobsheetId, studentId);
+    return this.getSubmissionByJobsheetId(jobsheetId, studentId, options);
   }
 
   async _enrichSubmission(submission) {
@@ -462,8 +654,24 @@ class SubmissionsService {
     return submission;
   }
 
-  async updateSubmissionStep({ jobsheetId, studentId, courseId, stepPayload }) {
-    const enrollmentQuery = await this._pool.query(
+  async updateSubmissionStep({ jobsheetId, studentId, courseId, mataKuliahId = null, classId = null, kelasPraktikumId = null, stepPayload }) {
+    const enrollmentQuery = mataKuliahId
+      ? await this._pool.query(
+        `SELECT km.id
+         FROM kelas_praktikum kp
+         JOIN kelas_mhs km
+           ON km.id_tahun_semester = kp.id_tahun_semester
+          AND km.id_semester = kp.id_semester
+          AND km.id_kelas = kp.id_kelas
+         JOIN jobsheet_classes jc ON jc.id_kelas_praktikum = kp.id
+         WHERE km.id_mahasiswa = $1
+           AND jc.jobsheet_id = $2
+           AND kp.id_mata_kuliah = $3
+           AND ($4::varchar IS NULL OR kp.id = $4)
+         LIMIT 1`,
+        [studentId, jobsheetId, mataKuliahId, kelasPraktikumId || null],
+      )
+      : await this._pool.query(
       `SELECT cs.id
        FROM class_students cs
        JOIN classes cl ON cs.class_id = cl.id
@@ -473,19 +681,30 @@ class SubmissionsService {
          AND cs.status = 'AKTIF'
          AND cl.status = 'AKTIF'
        LIMIT 1`,
-      [studentId, jobsheetId]
+      [studentId, jobsheetId],
     );
 
     if (!enrollmentQuery.rows.length) {
       throw new Error('Mahasiswa tidak terdaftar atau tidak memiliki akses ke kelas jobsheet ini');
     }
 
-    const submission = await this.getOrCreateSubmission(jobsheetId, courseId, studentId);
+    const submission = await this.getOrCreateSubmission(jobsheetId, courseId, studentId, {
+      mataKuliahId,
+      classId,
+      kelasPraktikumId,
+    });
     if (!submission) {
       throw new Error('Submission tidak dapat ditemukan atau dibuat');
     }
 
-    const jobsheet = await this._jobsheetService.getJobsheetFullById(jobsheetId, courseId);
+    const jobsheet = mataKuliahId
+      ? await this._jobsheetService.getJobsheetFullByMataKuliah(
+        jobsheetId,
+        mataKuliahId,
+        kelasPraktikumId,
+        { role: 'MAHASISWA', id: studentId },
+      )
+      : await this._jobsheetService.getJobsheetFullById(jobsheetId, courseId);
     if (!jobsheet.programming_language) {
       jobsheet.programming_language = await this._getStudentClassProgrammingLanguage(
         studentId,
@@ -561,19 +780,37 @@ class SubmissionsService {
       experiments: cleanedExperiments,
     };
 
+    const academicContext = await this._resolveAcademicContext(
+      studentId,
+      jobsheetId,
+      classId,
+      kelasPraktikumId,
+    );
+    const scope = this._buildSubmissionUpdateScopeClause(academicContext, 6);
+
     const query = {
       text: `
         WITH saved AS (
           UPDATE task_submissions
           SET 
-            report_html = $1
+            report_html = $1,
+            id_kelas_praktikum = COALESCE(id_kelas_praktikum, $4),
+            id_kelas_mhs = COALESCE(id_kelas_mhs, $5)
           WHERE jobsheet_id = $2 AND student_id = $3
+          ${scope.clause}
           RETURNING id
         )
         ${this._buildSubmissionSelect()}
         WHERE ts.id = (SELECT id FROM saved)
       `,
-      values: [JSON.stringify(cleanedReport), jobsheetId, studentId],
+      values: [
+        JSON.stringify(cleanedReport),
+        jobsheetId,
+        studentId,
+        academicContext.id_kelas_praktikum,
+        academicContext.id_kelas_mhs,
+        ...scope.values,
+      ],
     };
 
     const result = await this._pool.query(query);

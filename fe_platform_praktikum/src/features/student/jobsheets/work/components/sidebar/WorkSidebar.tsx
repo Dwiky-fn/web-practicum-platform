@@ -26,7 +26,7 @@ export default function WorkSidebar({
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const location = useLocation()
-  const groups = buildSidebarTree(courseId, jobsheet, submission)
+  const groups = buildSidebarTree(courseId, jobsheet, submission, location.search)
   const flatItems = groups.flatMap(g => g.children ?? [])
   const isFinishedSubmission =
     savedProgress >= 100 ||
@@ -53,7 +53,7 @@ export default function WorkSidebar({
     if (!path) return "default"
     const item = flatItems.find(i => i.path === path)
     const itemIndex = flatItems.findIndex(i => i.path === path)
-    const active = !!item?.path && location.pathname.startsWith(item.path)
+    const active = !!item?.path && location.pathname.startsWith(item.path.split("?")[0])
     const completed = isCompleted(item?.id, item?.type)
 
     if (isFinishedSubmission) {

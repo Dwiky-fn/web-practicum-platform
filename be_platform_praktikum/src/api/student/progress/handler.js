@@ -11,7 +11,7 @@ class StudentProgressHandler {
   async getProgressHandler(req, res, next) {
     try {
       const { jobsheetId } = req.params;
-      const { classId, studentId } = req.query;
+      const { classId, studentId, kelasPraktikumId, id_kelas_praktikum } = req.query;
 
       if (!studentId) {
         throw new InvariantError('studentId wajib diisi');
@@ -21,6 +21,7 @@ class StudentProgressHandler {
         studentId,
         jobsheetId,
         classId,
+        kelasPraktikumId || id_kelas_praktikum,
       );
 
       return res.json({
@@ -35,7 +36,7 @@ class StudentProgressHandler {
   async upsertProgressHandler(req, res, next) {
     try {
       const { jobsheetId } = req.params;
-      const { studentId, classId, progress, lastPage, status, completedItems } = req.body;
+      const { studentId, classId, kelasPraktikumId, id_kelas_praktikum, progress, lastPage, status, completedItems } = req.body;
 
       if (!studentId) {
         throw new InvariantError('studentId wajib diisi');
@@ -45,6 +46,7 @@ class StudentProgressHandler {
         studentId,
         jobsheetId,
         classId,
+        kelasPraktikumId: kelasPraktikumId || id_kelas_praktikum,
         progress,
         lastPage,
         status,
@@ -63,7 +65,7 @@ class StudentProgressHandler {
   async updateJobsheetProgressHandler(req, res, next) {
     try {
       const { jobsheetId } = req.params;
-      const { studentId, classId, experimentId, instructionId, activityType, metadata } = req.body;
+      const { studentId, classId, kelasPraktikumId, id_kelas_praktikum, experimentId, instructionId, activityType, metadata } = req.body;
 
       if (!studentId) {
         throw new InvariantError('studentId wajib diisi');
@@ -77,6 +79,7 @@ class StudentProgressHandler {
         studentId,
         jobsheetId,
         classId,
+        kelasPraktikumId: kelasPraktikumId || id_kelas_praktikum,
         experimentId,
         instructionId,
         activityType,

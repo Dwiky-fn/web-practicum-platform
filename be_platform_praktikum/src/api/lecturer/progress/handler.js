@@ -10,13 +10,17 @@ class LecturerProgressHandler {
   async getClassProgressHandler(req, res, next) {
     try {
       const { jobsheetId } = req.params;
-      const { classId } = req.query;
+      const { classId, kelasPraktikumId, id_kelas_praktikum } = req.query;
 
-      if (!classId) {
-        throw new InvariantError('classId wajib disertakan sebagai query parameter');
+      if (!classId && !kelasPraktikumId && !id_kelas_praktikum) {
+        throw new InvariantError('classId atau kelasPraktikumId wajib disertakan sebagai query parameter');
       }
 
-      const result = await this._service.getClassProgress(jobsheetId, classId);
+      const result = await this._service.getClassProgress(
+        jobsheetId,
+        classId,
+        kelasPraktikumId || id_kelas_praktikum,
+      );
 
       return res.json({
         status: 'success',
@@ -30,9 +34,14 @@ class LecturerProgressHandler {
   async getStudentDetailProgressHandler(req, res, next) {
     try {
       const { jobsheetId, studentId } = req.params;
-      const { classId } = req.query;
+      const { classId, kelasPraktikumId, id_kelas_praktikum } = req.query;
 
-      const result = await this._service.getStudentDetailProgress(jobsheetId, studentId, classId);
+      const result = await this._service.getStudentDetailProgress(
+        jobsheetId,
+        studentId,
+        classId,
+        kelasPraktikumId || id_kelas_praktikum,
+      );
 
       return res.json({
         status: 'success',

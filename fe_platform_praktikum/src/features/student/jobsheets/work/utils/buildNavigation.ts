@@ -10,7 +10,8 @@ export interface WorkNavItem {
 
 export function buildWorkNavigation(
   courseId: string,
-  jobsheet: Jobsheet
+  jobsheet: Jobsheet,
+  query = "",
 ): WorkNavItem[] {
   const base = `/courses/${courseId}/jobsheets/${jobsheet.id}/works`
   const items: WorkNavItem[] = []
@@ -20,7 +21,7 @@ export function buildWorkNavigation(
     items.push({
       id: t.id,
       label: t.title,
-      path: `${base}/theory/${t.id}`,
+      path: `${base}/theory/${t.id}${query}`,
       type: "theory",
     })
   })
@@ -30,7 +31,7 @@ export function buildWorkNavigation(
     items.push({
       id: experiment.id,
       label: experiment.title,
-      path: `${base}/experiments/${experiment.id}`,
+      path: `${base}/experiments/${experiment.id}${query}`,
       type: "experiment",
     })
   })
@@ -40,7 +41,7 @@ export function buildWorkNavigation(
     items.push({
       id: exercise.id,
       label: exercise.title,
-      path: `${base}/exercises/${exercise.id}`,
+      path: `${base}/exercises/${exercise.id}${query}`,
       type: "exercise",
     })
   })
@@ -49,7 +50,7 @@ export function buildWorkNavigation(
   items.push({
     id: "task",
     label: "Laporan Praktikum",
-    path: `${base}/task`,
+    path: `${base}/task${query}`,
     type: "task",
   })
 

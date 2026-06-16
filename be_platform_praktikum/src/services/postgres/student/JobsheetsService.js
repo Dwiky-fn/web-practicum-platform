@@ -41,15 +41,16 @@ class JobsheetsService {
     };
   }
 
-  async getJobsheetsByCourse(courseId, classId = null, user = null) {
+  async getJobsheetsByCourse(courseId, classId = null, user = null, kelasPraktikumId = null) {
     if (user?.role === 'MAHASISWA') {
-      return this._getPublishedJobsheetsByStudentCourse(courseId, classId, user.id);
+      return this._getPublishedJobsheetsByStudentCourse(courseId, classId, user.id, kelasPraktikumId);
     }
 
     let query = `
       SELECT
         j.id,
         j.course_id,
+        j.id_mata_kuliah,
         j.title,
         j.description,
         j.goal,
@@ -57,12 +58,18 @@ class JobsheetsService {
         j.status,
         j.programming_language,
         j.editor_mode,
+        MIN(jc.id_kelas_praktikum) AS id_kelas_praktikum,
         MIN(jc.deadline) AS deadline
       FROM jobsheets j
     `;
     const params = [courseId];
 
-    if (classId) {
+    if (kelasPraktikumId) {
+      query += `
+        INNER JOIN jobsheet_classes jc ON jc.jobsheet_id = j.id AND jc.id_kelas_praktikum = $2 AND jc.is_active = true AND jc.status = 'PUBLISHED'
+      `;
+      params.push(kelasPraktikumId);
+    } else if (classId) {
       query += `
         INNER JOIN jobsheet_classes jc ON jc.jobsheet_id = j.id AND jc.class_id = $2 AND jc.is_active = true AND jc.status = 'PUBLISHED'
       `;
@@ -139,20 +146,120 @@ class JobsheetsService {
     ));
   }
 
-  async getJobsheetFullById(jobsheetId, courseId, classId = null, user = null) {
-    if (user?.role === 'MAHASISWA') {
-      return this._getPublishedJobsheetFullByStudentCourse(
-        jobsheetId,
-        courseId,
-        classId,
-        user.id,
-      );
+  async _hydrateJobsheets(rows) {
+    const jobsheetIds = rows.map((jobsheet) => jobsheet.id);
+
+    if (!jobsheetIds.length) {
+      return [];
     }
 
-    let query = `
+    const experimentsRes = await this._pool.query(
+      `SELECT
+        id,
+        jobsheet_id,
+        title,
+        instruction_content,
+        template_code,
+        template_code AS default_template_code,
+        rubric
+      FROM experiments
+      WHERE jobsheet_id = ANY($1)
+      ORDER BY jobsheet_id ASC, id ASC`,
+      [jobsheetIds],
+    );
+
+    const exercisesRes = await this._pool.query(
+      `SELECT
+        id,
+        jobsheet_id,
+        title,
+        instruction_content,
+        template_code,
+        template_code AS default_template_code,
+        rubric
+      FROM exercises
+      WHERE jobsheet_id = ANY($1)
+      ORDER BY jobsheet_id ASC, id ASC`,
+      [jobsheetIds],
+    );
+
+    const experimentsByJobsheet = new Map();
+    const exercisesByJobsheet = new Map();
+
+    experimentsRes.rows.forEach((experiment) => {
+      const list = experimentsByJobsheet.get(experiment.jobsheet_id) || [];
+      list.push(experiment);
+      experimentsByJobsheet.set(experiment.jobsheet_id, list);
+    });
+
+    exercisesRes.rows.forEach((exercise) => {
+      const list = exercisesByJobsheet.get(exercise.jobsheet_id) || [];
+      list.push(exercise);
+      exercisesByJobsheet.set(exercise.jobsheet_id, list);
+    });
+
+    return rows.map((jobsheet) => this._mapJobsheet(
+      jobsheet,
+      experimentsByJobsheet.get(jobsheet.id) || [],
+      exercisesByJobsheet.get(jobsheet.id) || [],
+    ));
+  }
+
+  async getJobsheetsByMataKuliah(mataKuliahId, kelasPraktikumId = null, user = null) {
+    if (user?.role === 'MAHASISWA') {
+      const params = [mataKuliahId, user.id];
+      let kelasFilter = '';
+      if (kelasPraktikumId) {
+        params.push(kelasPraktikumId);
+        kelasFilter = `AND kp.id = $${params.length}`;
+      }
+
+      const result = await this._pool.query(
+        `
+        SELECT
+          j.id,
+          j.course_id,
+          j.id_mata_kuliah,
+          j.title,
+          j.description,
+          j.goal,
+          j.content,
+          j.status,
+          j.programming_language,
+          j.editor_mode,
+          jc.id_kelas_praktikum,
+          km.id AS id_kelas_mhs,
+          jc.deadline
+        FROM jobsheets j
+        JOIN jobsheet_classes jc
+          ON jc.jobsheet_id = j.id
+         AND jc.is_active = true
+         AND jc.status = 'PUBLISHED'
+        JOIN kelas_praktikum kp ON kp.id = jc.id_kelas_praktikum
+        JOIN kelas_mhs km
+          ON km.id_tahun_semester = kp.id_tahun_semester
+         AND km.id_semester = kp.id_semester
+         AND km.id_kelas = kp.id_kelas
+         AND km.id_mahasiswa = $2
+         AND km.status = 'active'
+        WHERE j.id_mata_kuliah = $1
+          AND kp.id_mata_kuliah = $1
+          AND j.status = 'PUBLISHED'
+          ${kelasFilter}
+        ORDER BY jc.deadline ASC NULLS LAST, j.id ASC
+        `,
+        params,
+      );
+
+      return this._hydrateJobsheets(result.rows);
+    }
+
+    const result = await this._pool.query(
+      `
       SELECT
         j.id,
         j.course_id,
+        j.id_mata_kuliah,
         j.title,
         j.description,
         j.goal,
@@ -160,12 +267,64 @@ class JobsheetsService {
         j.status,
         j.programming_language,
         j.editor_mode,
+        MIN(jc.id_kelas_praktikum) AS id_kelas_praktikum,
+        MIN(jc.deadline) AS deadline
+      FROM jobsheets j
+      LEFT JOIN jobsheet_classes jc ON jc.jobsheet_id = j.id AND jc.is_active = true
+      WHERE j.id_mata_kuliah = $1
+      GROUP BY j.id
+      ORDER BY MIN(jc.deadline) ASC NULLS LAST, j.id ASC
+      `,
+      [mataKuliahId],
+    );
+
+    return this._hydrateJobsheets(result.rows);
+  }
+
+  async getJobsheetFullByMataKuliah(jobsheetId, mataKuliahId, kelasPraktikumId = null, user = null) {
+    const jobsheets = await this.getJobsheetsByMataKuliah(mataKuliahId, kelasPraktikumId, user);
+    const jobsheet = jobsheets.find((item) => item.id === jobsheetId);
+    if (!jobsheet) {
+      throw new Error('Jobsheet tidak tersedia untuk kelas Anda.');
+    }
+    return jobsheet;
+  }
+
+  async getJobsheetFullById(jobsheetId, courseId, classId = null, user = null, kelasPraktikumId = null) {
+    if (user?.role === 'MAHASISWA') {
+      return this._getPublishedJobsheetFullByStudentCourse(
+        jobsheetId,
+        courseId,
+        classId,
+        user.id,
+        kelasPraktikumId,
+      );
+    }
+
+    let query = `
+      SELECT
+        j.id,
+        j.course_id,
+        j.id_mata_kuliah,
+        j.title,
+        j.description,
+        j.goal,
+        j.content,
+        j.status,
+        j.programming_language,
+        j.editor_mode,
+        MIN(jc.id_kelas_praktikum) AS id_kelas_praktikum,
         MIN(jc.deadline) AS deadline
       FROM jobsheets j
     `;
     const params = [jobsheetId, courseId];
 
-    if (classId) {
+    if (kelasPraktikumId) {
+      query += `
+        INNER JOIN jobsheet_classes jc ON jc.jobsheet_id = j.id AND jc.id_kelas_praktikum = $3 AND jc.is_active = true AND jc.status = 'PUBLISHED'
+      `;
+      params.push(kelasPraktikumId);
+    } else if (classId) {
       query += `
         INNER JOIN jobsheet_classes jc ON jc.jobsheet_id = j.id AND jc.class_id = $3 AND jc.is_active = true AND jc.status = 'PUBLISHED'
       `;
@@ -222,11 +381,14 @@ class JobsheetsService {
     );
   }
 
-  async _getPublishedJobsheetsByStudentCourse(courseId, classId, studentId) {
+  async _getPublishedJobsheetsByStudentCourse(courseId, classId, studentId, kelasPraktikumId = null) {
     const params = [courseId, studentId];
     let classFilter = '';
 
-    if (classId) {
+    if (kelasPraktikumId) {
+      params.push(kelasPraktikumId);
+      classFilter = `AND jc.id_kelas_praktikum = $${params.length}`;
+    } else if (classId) {
       params.push(classId);
       classFilter = `AND cl.id = $${params.length}`;
     }
@@ -236,6 +398,7 @@ class JobsheetsService {
       SELECT
         j.id,
         j.course_id,
+        j.id_mata_kuliah,
         j.title,
         j.description,
         j.goal,
@@ -243,6 +406,8 @@ class JobsheetsService {
         j.status,
         j.programming_language,
         j.editor_mode,
+        MIN(jc.id_kelas_praktikum) AS id_kelas_praktikum,
+        MIN(km.id) AS id_kelas_mhs,
         MIN(jc.deadline) AS deadline
       FROM jobsheets j
       INNER JOIN jobsheet_classes jc
@@ -257,6 +422,12 @@ class JobsheetsService {
         ON cs.class_id = cl.id
        AND cs.student_id = $2
        AND cs.status = 'AKTIF'
+      LEFT JOIN kelas_praktikum kp ON kp.id = jc.id_kelas_praktikum
+      LEFT JOIN kelas_mhs km
+        ON km.id_tahun_semester = kp.id_tahun_semester
+       AND km.id_semester = kp.id_semester
+       AND km.id_kelas = kp.id_kelas
+       AND km.id_mahasiswa = cs.student_id
       WHERE j.course_id = $1
         AND j.status = 'PUBLISHED'
         ${classFilter}
@@ -329,11 +500,15 @@ class JobsheetsService {
     courseId,
     classId,
     studentId,
+    kelasPraktikumId = null,
   ) {
     const params = [jobsheetId, courseId, studentId];
     let classFilter = '';
 
-    if (classId) {
+    if (kelasPraktikumId) {
+      params.push(kelasPraktikumId);
+      classFilter = `AND jc.id_kelas_praktikum = $${params.length}`;
+    } else if (classId) {
       params.push(classId);
       classFilter = `AND cl.id = $${params.length}`;
     }
@@ -343,6 +518,7 @@ class JobsheetsService {
       SELECT
         j.id,
         j.course_id,
+        j.id_mata_kuliah,
         j.title,
         j.description,
         j.goal,
@@ -350,6 +526,8 @@ class JobsheetsService {
         j.status,
         j.programming_language,
         j.editor_mode,
+        MIN(jc.id_kelas_praktikum) AS id_kelas_praktikum,
+        MIN(km.id) AS id_kelas_mhs,
         MIN(jc.deadline) AS deadline
       FROM jobsheets j
       INNER JOIN jobsheet_classes jc
@@ -364,6 +542,12 @@ class JobsheetsService {
         ON cs.class_id = cl.id
        AND cs.student_id = $3
        AND cs.status = 'AKTIF'
+      LEFT JOIN kelas_praktikum kp ON kp.id = jc.id_kelas_praktikum
+      LEFT JOIN kelas_mhs km
+        ON km.id_tahun_semester = kp.id_tahun_semester
+       AND km.id_semester = kp.id_semester
+       AND km.id_kelas = kp.id_kelas
+       AND km.id_mahasiswa = cs.student_id
       WHERE j.id = $1
         AND j.course_id = $2
         AND j.status = 'PUBLISHED'

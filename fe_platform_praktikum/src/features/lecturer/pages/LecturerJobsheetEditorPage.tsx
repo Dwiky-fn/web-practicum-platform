@@ -36,6 +36,7 @@ type PracticeEditorItem = LecturerPracticeInput & {
 
 type PublishClassSetting = {
   classId: string
+  kelasPraktikumId?: string
   className: string
   isActive: boolean
   deadline: string
@@ -129,6 +130,7 @@ export default function LecturerJobsheetEditorPage() {
 
   const isCreate = !savedJobsheetId
   const activeJobsheetId = savedJobsheetId || jobsheetId || ""
+  const mataKuliahId = dataset?.course.mataKuliahId || dataset?.course.id
 
   useEffect(() => {
     async function loadData() {
@@ -147,7 +149,9 @@ export default function LecturerJobsheetEditorPage() {
         setDataset(nextDataset)
 
         if (savedJobsheetId) {
-          const selectedJobsheet = await getLecturerJobsheetById(courseId, savedJobsheetId)
+          const selectedJobsheet = await getLecturerJobsheetById(courseId, savedJobsheetId, {
+            mataKuliahId: nextDataset?.course.mataKuliahId || nextDataset?.course.id,
+          })
           setTitle(selectedJobsheet.title)
           setDescription(selectedJobsheet.description)
           setGoalContent(
@@ -208,6 +212,7 @@ export default function LecturerJobsheetEditorPage() {
 
             return {
               classId: classItem.id,
+              kelasPraktikumId: classItem.kelasPraktikumId || classItem.id_kelas_praktikum,
               className: classItem.name,
               isActive: assignedJobsheet?.status === "Aktif",
               deadline: fallbackDeadline,
@@ -225,6 +230,7 @@ export default function LecturerJobsheetEditorPage() {
           setPublishSettings(
             (nextDataset?.course.classes ?? []).map((classItem) => ({
               classId: classItem.id,
+              kelasPraktikumId: classItem.kelasPraktikumId || classItem.id_kelas_praktikum,
               className: classItem.name,
               isActive: false,
               deadline: "",
@@ -301,11 +307,11 @@ export default function LecturerJobsheetEditorPage() {
     }
 
     if (activeJobsheetId) {
-      await updateLecturerJobsheet(courseId, activeJobsheetId, payload)
+      await updateLecturerJobsheet(courseId, activeJobsheetId, payload, { mataKuliahId })
       return activeJobsheetId
     }
 
-    const created = await createLecturerJobsheet(courseId, payload)
+    const created = await createLecturerJobsheet(courseId, payload, { mataKuliahId })
     setSavedJobsheetId(created.id)
     return created.id
   }
@@ -349,10 +355,11 @@ export default function LecturerJobsheetEditorPage() {
         lecturerId: user.id,
         classes: publishSettings.map((item) => ({
           classId: item.classId,
+          kelasPraktikumId: item.kelasPraktikumId,
           deadline: item.deadline,
           isActive: item.isActive,
         })),
-      })
+      }, { mataKuliahId })
 
       setPublishOpen(false)
       toast.success("Jobsheet berhasil dipublikasikan.")

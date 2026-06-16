@@ -12,12 +12,15 @@ import GoalCardSkeleton from "./components/loading/GoalSkeleton";
 import SidebarCardSkeleton from "./components/loading/SidebarSkeleton";
 import { getJobsheetById } from "../../../services/jobsheet/service";
 import { useCurrentUser } from "../../../services/user/useCurrentUser";
+import { academicScopeQuery } from "../../../services/academicScope";
 
 export default function JobsheetOverviewPage() {
   const { user } = useCurrentUser();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const classId = searchParams.get("classId") || undefined;
+  const mataKuliahId = searchParams.get("mataKuliahId") || undefined;
+  const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined;
   const { courseId, jobsheetId } = useParams<{
     courseId: string;
     jobsheetId: string;
@@ -38,13 +41,15 @@ export default function JobsheetOverviewPage() {
     const jId = jobsheetId;
     const studentId = user.id;
 
+    const scope = { classId, mataKuliahId, kelasPraktikumId };
+
     async function loadData() {
       try {
         setError("");
         setLoading(true);
         const [raw, sub] = await Promise.all([
-          getJobsheetById(cId, jId, classId),
-          getSubmissionByJobsheetId(cId, jId, studentId),
+          getJobsheetById(cId, jId, scope),
+          getSubmissionByJobsheetId(cId, jId, studentId, scope),
         ]);
 
         setJobsheet(raw);
@@ -62,9 +67,10 @@ export default function JobsheetOverviewPage() {
     }
 
     loadData();
-  }, [classId, courseId, jobsheetId, user]);
+  }, [classId, courseId, jobsheetId, kelasPraktikumId, mataKuliahId, user]);
 
-  const coursePath = `/courses/${courseId}${classId ? `?classId=${encodeURIComponent(classId)}` : ""}`;
+  const scopeQuery = academicScopeQuery({ classId, mataKuliahId, kelasPraktikumId });
+  const coursePath = `/courses/${courseId}${scopeQuery}`;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -124,6 +130,8 @@ export default function JobsheetOverviewPage() {
                   jobsheetId={jobsheetId!}
                   submission={submission}
                   classId={classId}
+                  mataKuliahId={mataKuliahId}
+                  kelasPraktikumId={kelasPraktikumId}
                 />
               </>
             )}

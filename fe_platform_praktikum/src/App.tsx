@@ -21,6 +21,7 @@ import PreviewPage from "./features/student/jobsheets/work/content/report/previe
 import ReviewPage from "./features/student/jobsheets/work/content/report/review/ReviewPage"
 import AdminUsersPage from "./features/admin/users/AdminUsersPage"
 import AdminAcademicPage from "./features/admin/academic/AdminAcademicPage"
+import AdminAcademicNativePage from "./features/admin/academic/AdminAcademicNativePage"
 import AdminUserProfilePage from "./features/admin/users/AdminUserProfilePage"
 import AdminClassDetailPage from "./features/admin/academic/AdminClassDetailPage"
 import AdminJobsheetPreviewPage from "./features/admin/academic/AdminJobsheetPreviewPage"
@@ -72,12 +73,12 @@ function AppContent() {
         element={byRole({
           mahasiswa: <StudentCoursePage />,
           dosen: <LecturerCoursesPage />,
-          admin: <AdminAcademicPage />,
+          admin: <AdminAcademicNativePage />,
         })}
       />
       <Route
         path="/academic"
-        element={byRole({ admin: <AdminAcademicPage /> })}
+        element={byRole({ admin: <AdminAcademicNativePage /> })}
       />
       <Route
         path="/users/:role"
@@ -100,7 +101,7 @@ function AppContent() {
         element={byRole({
           mahasiswa: <CourseDetailPage />,
           dosen: <LecturerJobsheetManagePage />,
-          admin: <AdminAcademicPage />,
+          admin: <AdminAcademicNativePage />,
         })}
       />
       <Route

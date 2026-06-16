@@ -18,14 +18,19 @@ import { buildReport } from "../../../../../../../services/submission/buildRepor
 import { useCurrentUser } from "../../../../../../../services/user/useCurrentUser"
 import ScrollToTopButton from "../../../../../../../components/ScrollToTopButton"
 import { toast } from "../../../../../../../components/toast/toastStore"
+import { academicScopeQuery } from "../../../../../../../services/academicScope"
 
 export default function PreviewPage() {
 
   const { courseId, jobsheetId } = useParams()
   const [searchParams] = useSearchParams()
   const classId = searchParams.get("classId") || undefined
+  const mataKuliahId = searchParams.get("mataKuliahId") || undefined
+  const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined
   const { user } = useCurrentUser()
   const navigate = useNavigate()
+  const academicScope = { classId, mataKuliahId, kelasPraktikumId }
+  const scopeQuery = academicScopeQuery(academicScope)
 
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null)
   const [submission, setSubmission] = useState<JobsheetSubmission | null>(null)
@@ -40,7 +45,7 @@ export default function PreviewPage() {
     try {
       setSavingDraft(true)
       setError("")
-      await updateSubmission(courseId, jobsheetId, user.id, buildReport(submission))
+      await updateSubmission(courseId, jobsheetId, user.id, buildReport(submission), undefined, academicScope)
       toast.success("Draf laporan berhasil disimpan.")
     } catch (err) {
       console.error("Save draft error:", err)
@@ -75,11 +80,12 @@ export default function PreviewPage() {
     try {
       setSubmitting(true)
       setError("")
-      await updateSubmission(courseId, jobsheetId, user.id, buildReport(submission))
+      await updateSubmission(courseId, jobsheetId, user.id, buildReport(submission), undefined, academicScope)
 
-      await submitSubmission(courseId, jobsheetId, user.id)
+      await submitSubmission(courseId, jobsheetId, user.id, academicScope)
       await updateStudentProgressApi(jobsheetId, {
         studentId: user.id,
+        kelasPraktikumId,
         activityType: "submit_answer",
       }).catch(console.error)
       setShowSuccess(true)
@@ -99,7 +105,7 @@ export default function PreviewPage() {
       setError("")
 
       try {
-        const jobsheets = await getJobsheetById(courseId, jobsheetId, classId)
+        const jobsheets = await getJobsheetById(courseId, jobsheetId, academicScope)
 
         setJobsheet(jobsheets)
 
@@ -107,6 +113,7 @@ export default function PreviewPage() {
           courseId,
           jobsheetId,
           user.id,
+          academicScope,
         )
 
         setJobsheet(jobsheets || null)
@@ -119,7 +126,7 @@ export default function PreviewPage() {
     }
 
     loadData()
-  }, [classId, courseId, jobsheetId, user])
+  }, [classId, courseId, jobsheetId, kelasPraktikumId, mataKuliahId, user])
 
   if (loading) {
     return <TopProgressBar />
@@ -152,7 +159,7 @@ export default function PreviewPage() {
           </p>
           <button
             type="button"
-            onClick={() => navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/works/task`)}
+            onClick={() => navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/works/task${scopeQuery}`)}
             aria-label="Kembali"
             title="Kembali"
             className="w-full flex items-center justify-center py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
@@ -168,7 +175,7 @@ export default function PreviewPage() {
       {/* HEADER */}
       <ReportHeader
         title={jobsheet.title}
-        backTo={`/courses/${courseId}/jobsheets/${jobsheet.id}/works/task`}
+        backTo={`/courses/${courseId}/jobsheets/${jobsheet.id}/works/task${scopeQuery}`}
       />
 
       {/* CONTENT WRAPPER */}

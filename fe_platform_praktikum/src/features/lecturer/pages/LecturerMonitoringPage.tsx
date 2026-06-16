@@ -39,6 +39,11 @@ export default function LecturerMonitoringPage() {
   const [matrix, setMatrix] = useState<LecturerSubmissionMatrixItem[]>([])
 
   const selectedCourse = courseGroups.find((item) => item.id === courseId) ?? null
+  const selectedClass = selectedCourse?.classes.find((item) => item.id === classId) ?? null
+  const selectedScope = {
+    mataKuliahId: selectedCourse?.mataKuliahId || selectedCourse?.id,
+    kelasPraktikumId: selectedClass?.kelasPraktikumId || selectedClass?.id_kelas_praktikum,
+  }
 
   useEffect(() => {
     async function loadCourses() {
@@ -94,16 +99,21 @@ export default function LecturerMonitoringPage() {
 
       try {
         const classDetail = await getLecturerClassDetail(classId)
+        const mataKuliahId = classDetail.mataKuliahId || classDetail.id_mata_kuliah || selectedScope.mataKuliahId
+        const kelasPraktikumId = classDetail.kelasPraktikumId || classDetail.id_kelas_praktikum || selectedScope.kelasPraktikumId
         const submissionMatrix = await getLecturerSubmissionMatrix(
           classDetail.courseId,
           classDetail.jobsheets,
           classDetail.students,
+          { mataKuliahId, kelasPraktikumId },
         )
         const summaries = buildLecturerJobsheetSummaries(
           classDetail.jobsheets,
           classDetail.students,
           submissionMatrix,
           classDetail.name,
+          classDetail.id,
+          kelasPraktikumId,
         ).map((item) => ({ ...item, courseId: classDetail.courseId }))
 
         setStudentCount(classDetail.students.length)

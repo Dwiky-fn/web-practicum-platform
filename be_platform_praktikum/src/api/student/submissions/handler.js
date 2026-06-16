@@ -68,7 +68,11 @@ class SubmissionsHandler {
 
   async postSubmissionHandler(req, res, next) {
     try {
-      const payload = req.body;
+      const payload = {
+        ...req.body,
+        courseId: req.body.courseId || req.params.courseId,
+        mataKuliahId: req.body.mataKuliahId || req.params.mataKuliahId,
+      };
 
       const submission = await this._service.createSubmission(payload);
 
@@ -88,6 +92,10 @@ class SubmissionsHandler {
     const submission = await this._service.getSubmissionByJobsheetId(
       jobsheetId,
       studentId,
+      {
+        classId: req.query.classId || req.body?.classId,
+        kelasPraktikumId: req.query.kelasPraktikumId || req.query.id_kelas_praktikum || req.body?.kelasPraktikumId || req.body?.id_kelas_praktikum,
+      },
     );
 
     const filtered = this._filterSubmissionForStudent(submission, req.user?.role);
@@ -99,13 +107,18 @@ class SubmissionsHandler {
   }
 
   async getOrCreateSubmissionHandler(req, res) {
-    const { jobsheetId, courseId } = req.params;
+    const { jobsheetId, courseId, mataKuliahId } = req.params;
     const studentId = this._requireStudentId(req);
 
     const submission = await this._service.getOrCreateSubmission(
       jobsheetId,
       courseId,
       studentId,
+      {
+        mataKuliahId,
+        classId: req.query.classId || req.body?.classId,
+        kelasPraktikumId: req.query.kelasPraktikumId || req.query.id_kelas_praktikum || req.body?.kelasPraktikumId || req.body?.id_kelas_praktikum,
+      },
     );
 
     const filtered = this._filterSubmissionForStudent(submission, req.user?.role);
@@ -117,7 +130,7 @@ class SubmissionsHandler {
   }
 
   async putSubmissionHandler(req, res) {
-    const { jobsheetId, courseId } = req.params;
+    const { jobsheetId, courseId, mataKuliahId } = req.params;
     const studentId = this._requireStudentId(req);
 
     if (req.body.experimentId !== undefined || req.body.instructionId !== undefined) {
@@ -128,8 +141,11 @@ class SubmissionsHandler {
           jobsheetId,
           studentId,
           courseId,
-          stepPayload,
-        });
+          mataKuliahId,
+        classId: req.query.classId || req.body.classId,
+        kelasPraktikumId: req.query.kelasPraktikumId || req.query.id_kelas_praktikum || req.body.kelasPraktikumId || req.body.id_kelas_praktikum,
+        stepPayload,
+      });
 
         return res.json({
           status: 'success',
@@ -150,8 +166,11 @@ class SubmissionsHandler {
       const submission = await this._service.updateSubmission({
         jobsheetId,
         studentId,
+        mataKuliahId,
         report,
         status,
+        classId: req.query.classId || req.body.classId,
+        kelasPraktikumId: req.query.kelasPraktikumId || req.query.id_kelas_praktikum || req.body.kelasPraktikumId || req.body.id_kelas_praktikum,
       });
 
       return res.json({
@@ -170,6 +189,10 @@ class SubmissionsHandler {
     const submission = await this._service.submitSubmission(
       jobsheetId,
       studentId,
+      {
+        classId: req.query.classId || req.body?.classId,
+        kelasPraktikumId: req.query.kelasPraktikumId || req.query.id_kelas_praktikum || req.body?.kelasPraktikumId || req.body?.id_kelas_praktikum,
+      },
     );
 
     const filtered = this._filterSubmissionForStudent(submission, req.user?.role);

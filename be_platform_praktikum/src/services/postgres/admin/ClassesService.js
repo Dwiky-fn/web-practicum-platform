@@ -93,6 +93,7 @@ class ClassesService {
     const result = await this._pool.query(
       `
       SELECT cl.id, cl.name, cl.status, cl.programming_language,
+        kp.id AS id_kelas_praktikum, kp.nama_kelas AS nama_kelas_praktikum,
         c.id AS course_id, c.name AS course_name, c.semester AS student_semester,
         u.id AS lecturer_id, u.fullname AS lecturer,
         ap.id AS academic_period_id, ap.year, ap.semester_type
@@ -100,6 +101,7 @@ class ClassesService {
       JOIN courses c ON c.id = cl.course_id
       JOIN users u ON u.id = cl.lecturer_id
       JOIN academic_periods ap ON ap.id = cl.academic_period_id
+      LEFT JOIN kelas_praktikum kp ON kp.legacy_class_id = cl.id
       WHERE ($1 = '%%' OR LOWER(cl.name) LIKE $1 OR LOWER(c.name) LIKE $1 OR LOWER(u.fullname) LIKE $1)
         AND ap.is_active = true
         ${statusClause}
@@ -304,6 +306,7 @@ class ClassesService {
     const result = await this._pool.query(
       `
       SELECT cl.id, cl.name, cl.programming_language,
+        kp.id AS id_kelas_praktikum, kp.nama_kelas AS nama_kelas_praktikum,
         c.id AS course_id, c.name AS course_name, c.semester AS student_semester,
         u.id AS lecturer_id, u.fullname AS lecturer_name,
         ap.id AS academic_period_id, ap.year, ap.semester_type,
@@ -314,6 +317,7 @@ class ClassesService {
       JOIN courses c ON c.id = cl.course_id
       JOIN users u ON u.id = cl.lecturer_id
       JOIN academic_periods ap ON ap.id = cl.academic_period_id
+      LEFT JOIN kelas_praktikum kp ON kp.legacy_class_id = cl.id
       LEFT JOIN jobsheet_classes jc ON jc.class_id = cl.id
       LEFT JOIN class_students cs ON cs.class_id = cl.id AND cs.status = 'AKTIF'
       LEFT JOIN LATERAL (
@@ -328,7 +332,7 @@ class ClassesService {
       ) tsp ON true
       WHERE ($1 = '%%' OR LOWER(cl.name) LIKE $1 OR LOWER(c.name) LIKE $1 OR LOWER(u.fullname) LIKE $1)
         ${semesterClause}
-      GROUP BY cl.id, c.id, u.id, ap.id, tsp.study_program_id, tsp.study_program_name
+      GROUP BY cl.id, kp.id, c.id, u.id, ap.id, tsp.study_program_id, tsp.study_program_name
       ORDER BY ap.year DESC, ap.semester_type ASC, c.name ASC, cl.name ASC
       `,
       params,
@@ -337,6 +341,9 @@ class ClassesService {
     return result.rows.map((row) => ({
       id: row.id,
       name: row.name,
+      kelas_praktikum_id: row.id_kelas_praktikum || undefined,
+      id_kelas_praktikum: row.id_kelas_praktikum || undefined,
+      nama_kelas_praktikum: row.nama_kelas_praktikum || undefined,
       course_id: row.course_id,
       course_name: row.course_name,
       lecturer_id: row.lecturer_id,

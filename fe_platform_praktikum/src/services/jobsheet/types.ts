@@ -92,7 +92,11 @@ export type RawTheory = {
 
 export type RawJobsheet = {
   id: string;
-  course_id: string;
+  course_id?: string;
+  mata_kuliah_id?: string;
+  id_mata_kuliah?: string;
+  kelas_praktikum_id?: string;
+  id_kelas_praktikum?: string;
   status: JobsheetStatus;
   programming_language?: string;
   programming_language_display_name?: string;
@@ -119,6 +123,8 @@ export type RawJobsheet = {
 export interface Jobsheet {
   id: string;
   courseId: string;
+  mataKuliahId?: string;
+  kelasPraktikumId?: string;
   status: JobsheetStatus;
   programmingLanguage?: string;
   programmingLanguageDisplayName?: string;

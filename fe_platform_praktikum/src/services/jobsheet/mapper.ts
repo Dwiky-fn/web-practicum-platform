@@ -61,7 +61,9 @@ export const mapJobsheet = (data: RawJobsheet): Jobsheet => {
 
   return {
     id: data.id,
-    courseId: data.course_id,
+    courseId: data.course_id ?? data.mata_kuliah_id ?? data.id_mata_kuliah ?? "",
+    mataKuliahId: data.mata_kuliah_id ?? data.id_mata_kuliah,
+    kelasPraktikumId: data.kelas_praktikum_id ?? data.id_kelas_praktikum,
     status: data.status,
     programmingLanguage: data.programming_language || "java",
     programmingLanguageDisplayName: data.programming_language_display_name || "Java",

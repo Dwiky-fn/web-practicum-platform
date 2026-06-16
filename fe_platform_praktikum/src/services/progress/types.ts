@@ -21,6 +21,8 @@ export interface StudentProgress {
 
 export interface UpsertStudentProgressPayload {
   studentId: string
+  classId?: string
+  kelasPraktikumId?: string
   progress: number
   lastPage?: string
   status: StudentProgressStatus

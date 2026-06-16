@@ -41,6 +41,35 @@ const routes = (handler) => {
     requireTargetUserOrRoles('studentId'),
     asyncHandler(handler.submitSubmissionHandler),
   );
+  router.post(
+    '/mata-kuliah/:mataKuliahId/submissions',
+    requireRoles('MAHASISWA'),
+    requireTargetUserOrRoles('studentId'),
+    asyncHandler(handler.postSubmissionHandler),
+  );
+  router.get(
+    '/mata-kuliah/:mataKuliahId/submissions/:jobsheetId',
+    requireTargetUserOrRoles('studentId', 'DOSEN', 'ADMIN'),
+    asyncHandler(handler.getSubmissionHandler),
+  );
+  router.get(
+    '/mata-kuliah/:mataKuliahId/submissions/:jobsheetId/ensure',
+    requireRoles('MAHASISWA'),
+    requireTargetUserOrRoles('studentId'),
+    asyncHandler(handler.getOrCreateSubmissionHandler),
+  );
+  router.put(
+    '/mata-kuliah/:mataKuliahId/submissions/:jobsheetId',
+    requireRoles('MAHASISWA'),
+    requireTargetUserOrRoles('studentId'),
+    asyncHandler(handler.putSubmissionHandler),
+  );
+  router.patch(
+    '/mata-kuliah/:mataKuliahId/submissions/:jobsheetId/submit',
+    requireRoles('MAHASISWA'),
+    requireTargetUserOrRoles('studentId'),
+    asyncHandler(handler.submitSubmissionHandler),
+  );
   return router;
 };
 

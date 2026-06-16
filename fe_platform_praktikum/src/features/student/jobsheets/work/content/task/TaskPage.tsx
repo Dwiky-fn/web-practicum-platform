@@ -1,4 +1,4 @@
-import { useOutletContext, useNavigate, useParams } from "react-router-dom"
+import { useOutletContext, useNavigate, useParams, useLocation } from "react-router-dom"
 import type { Jobsheet } from "../../../../../../services/jobsheet/types" 
 import type { JobsheetSubmission } from "../../../../../../services/submission/types"
 import SubmissionActivityTimeline from "./components/SubmissionActivityTimeline"
@@ -6,6 +6,7 @@ import SubmissionActivityTimeline from "./components/SubmissionActivityTimeline"
 export default function TaskPage() {
   const navigate = useNavigate()
   const { courseId, jobsheetId } = useParams()
+  const location = useLocation()
 
   const { jobsheet, submission } = useOutletContext<{
     jobsheet: Jobsheet
@@ -52,7 +53,7 @@ export default function TaskPage() {
             {canViewReview && (
               <button
                 onClick={() =>
-                  navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/review`)
+                  navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/review${location.search}`)
                 }
                 className="bg-blue-600 hover:bg-teal-600 transition text-white px-6 py-2 rounded-xl font-medium shadow-sm"
               >
@@ -63,7 +64,7 @@ export default function TaskPage() {
             {canSubmit && (
               <button
                 onClick={() =>
-                  navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/preview`)
+                  navigate(`/courses/${courseId}/jobsheets/${jobsheetId}/preview${location.search}`)
                 }
                 className="bg-blue-600 hover:bg-teal-600 transition text-white px-6 py-2 rounded-xl font-medium shadow-sm"
               >

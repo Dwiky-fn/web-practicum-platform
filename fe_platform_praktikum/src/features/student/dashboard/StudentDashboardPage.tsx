@@ -10,6 +10,7 @@ import type { Course } from "../../../services/course/types";
 import type { Activity } from "../../../services/activity/types";
 import type { Jobsheet } from "../../../services/jobsheet/types";
 import type { JobsheetSubmission } from "../../../services/submission/types";
+import { academicCoursePath, getCourseAcademicScope } from "../../../services/academicScope";
 import CourseCard from "../../../components/CourseCard";
 import Navbar from "../../../components/navbar/Navbar";
 import SummaryCard from "../../../components/dashboard/SummaryCard";
@@ -50,9 +51,10 @@ export default function StudentDashboardPage() {
         setActivities(activityResponse);
 
         const jobsheetResponses = await Promise.all(
-          courseData.map((course) =>
-            getJobsheets(course.id, course.classId || course.class_id)
-          )
+          courseData.map((course) => {
+            const scope = getCourseAcademicScope(course)
+            return getJobsheets(course.id, scope)
+          })
         );
 
         const allJobsheets = jobsheetResponses.flat();
@@ -61,10 +63,16 @@ export default function StudentDashboardPage() {
         const submissionResponses = await Promise.all(
           allJobsheets.map(async (jobsheet) => {
             try {
+              const courseScope = courseData.find((course) => course.id === jobsheet.courseId)
+              const scope = courseScope ? getCourseAcademicScope(courseScope) : {
+                mataKuliahId: jobsheet.mataKuliahId,
+                kelasPraktikumId: jobsheet.kelasPraktikumId,
+              }
               return await getMappedSubmissionByJobsheetId(
                 jobsheet.courseId,
                 jobsheet.id,
                 user.id,
+                scope,
               )
             } catch {
               return null
@@ -187,10 +195,7 @@ export default function StudentDashboardPage() {
                     key={course.id}
                     course={course}
                     jobsheetCount={jobsheetCountByCourse[course.id] ?? 0}
-                    onClick={() => {
-                      const classId = course.classId || course.class_id
-                      navigate(`/courses/${course.id}${classId ? `?classId=${encodeURIComponent(classId)}` : ""}`)
-                    }}
+                    onClick={() => navigate(academicCoursePath(course))}
                   />
                 ))
               )}

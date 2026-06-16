@@ -22,11 +22,12 @@ export default function WorkFooterNav({
 }: WorkFooterNavProps) {
   const navigate = useNavigate()
   const location = useLocation()
+  const query = location.search
 
-  const navItems = buildWorkNavigation(courseId, jobsheet)
+  const navItems = buildWorkNavigation(courseId, jobsheet, query)
 
   const currentIndex = navItems.findIndex(
-    (item) => location.pathname.startsWith(item.path)
+    (item) => location.pathname.startsWith(item.path.split("?")[0])
   )
 
   if (currentIndex < 0) {
@@ -100,7 +101,7 @@ export default function WorkFooterNav({
         {!nextItem && hasUploadedSubmission && isLastItem && (
           <button
             onClick={() =>
-              navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}`)
+              navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}${query}`)
             }
             className="flex items-center gap-2 rounded px-2 py-1.5 text-right text-sm text-gray-600 transition hover:bg-gray-100 hover:text-black"
           >
@@ -147,7 +148,7 @@ export default function WorkFooterNav({
         ) : hasUploadedSubmission && isLastItem ? (
           <button
             onClick={() =>
-              navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}`)
+              navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}${query}`)
             }
             className="text-xs bg-blue-600 text-white px-3 py-1 rounded-lg"
           >

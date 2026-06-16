@@ -39,6 +39,10 @@ export default function LecturerDashboardPage() {
 
   const selectedCourse = courseGroups.find((item) => item.id === courseId) ?? null
   const selectedClass = selectedCourse?.classes.find((item) => item.id === classId) ?? null
+  const selectedScope = {
+    mataKuliahId: selectedCourse?.mataKuliahId || selectedCourse?.id,
+    kelasPraktikumId: selectedClass?.kelasPraktikumId || selectedClass?.id_kelas_praktikum,
+  }
 
   useEffect(() => {
     async function loadCourses() {
@@ -94,16 +98,21 @@ export default function LecturerDashboardPage() {
 
       try {
         const classDetail = await getLecturerClassDetail(classId)
+        const mataKuliahId = classDetail.mataKuliahId || classDetail.id_mata_kuliah || selectedScope.mataKuliahId
+        const kelasPraktikumId = classDetail.kelasPraktikumId || classDetail.id_kelas_praktikum || selectedScope.kelasPraktikumId
         const submissionMatrix = await getLecturerSubmissionMatrix(
           classDetail.courseId,
           classDetail.jobsheets,
           classDetail.students,
+          { mataKuliahId, kelasPraktikumId },
         )
         const summaries = buildLecturerJobsheetSummaries(
           classDetail.jobsheets,
           classDetail.students,
           submissionMatrix,
           classDetail.name,
+          classDetail.id,
+          kelasPraktikumId,
         ).map((item) => ({ ...item, courseId: classDetail.courseId }))
 
         setStudentCount(classDetail.students.length)
@@ -260,9 +269,16 @@ export default function LecturerDashboardPage() {
                                   type="button"
                                   className="font-semibold text-blue-700 hover:text-blue-900"
                                   onClick={() =>
-                                    navigate(
-                                      `/reviews/${item.student.id}?courseId=${selectedCourse.id}&classId=${selectedClass.id}&jobsheetId=${item.jobsheet.id}`,
-                                    )
+                                    {
+                                      const params = new URLSearchParams({
+                                        courseId: selectedCourse.id,
+                                        classId: selectedClass.id,
+                                        jobsheetId: item.jobsheet.id,
+                                      })
+                                      if (selectedScope.mataKuliahId) params.set("mataKuliahId", selectedScope.mataKuliahId)
+                                      if (selectedScope.kelasPraktikumId) params.set("kelasPraktikumId", selectedScope.kelasPraktikumId)
+                                      navigate(`/reviews/${item.student.id}?${params.toString()}`)
+                                    }
                                   }
                                 >
                                   Review

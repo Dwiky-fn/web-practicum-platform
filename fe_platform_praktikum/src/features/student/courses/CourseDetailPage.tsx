@@ -12,11 +12,14 @@ import JobsheetCard from "./components/JobsheetCard";
 import JobsheetCardSkeleton from "./components/loading/JobsheetCardSkeleton";
 import TopProgressBar from "../../../components/loading/TopProgressBar";
 import { useCurrentUser } from "../../../services/user/useCurrentUser";
+import { academicScopeQuery } from "../../../services/academicScope";
 
 export default function CourseDetailPage() {
   const { courseId } = useParams<{ courseId: string }>();
   const [searchParams] = useSearchParams();
   const classId = searchParams.get("classId") || undefined;
+  const mataKuliahId = searchParams.get("mataKuliahId") || undefined;
+  const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined;
   const { user } = useCurrentUser();
 
   const [jobsheets, setJobsheets] = useState<Jobsheet[]>([]);
@@ -42,7 +45,8 @@ export default function CourseDetailPage() {
         const selectedCourse = await getCourseById(currentCourseId);
         setCourse(selectedCourse);
 
-        const jobsheetData = await getJobsheets(currentCourseId, classId);
+        const scope = { classId, mataKuliahId, kelasPraktikumId };
+        const jobsheetData = await getJobsheets(currentCourseId, scope);
         setJobsheets(jobsheetData);
 
         const submissionList = await Promise.all(
@@ -52,6 +56,7 @@ export default function CourseDetailPage() {
                 currentCourseId,
                 j.id,
                 studentId,
+                scope,
               );
             } catch {
               return null;
@@ -72,7 +77,9 @@ export default function CourseDetailPage() {
     }
 
     loadData();
-  }, [classId, courseId, user]);
+  }, [classId, courseId, kelasPraktikumId, mataKuliahId, user]);
+
+  const scopeQuery = academicScopeQuery({ classId, mataKuliahId, kelasPraktikumId });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -123,7 +130,7 @@ export default function CourseDetailPage() {
                     jobsheet={jobsheet}
                     submission={submission}
                     onClick={() =>
-                      navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}${classId ? `?classId=${encodeURIComponent(classId)}` : ""}`)
+                      navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}${scopeQuery}`)
                     }
                   />
                 );

@@ -10,6 +10,7 @@ import NotFoundPage from "../../../not-found/NotFoundPage"
 export default function WorkPage() {
   const { courseId, jobsheetId } = useParams()
   const location = useLocation()
+  const query = location.search
   const scrollContainerRef = useRef<HTMLElement | null>(null)
   const {
     jobsheet,
@@ -67,7 +68,7 @@ export default function WorkPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <WorkHeader title="Jobsheet" backTo={courseId ? `/courses/${courseId}` : "/courses"} />
+        <WorkHeader title="Jobsheet" backTo={courseId ? `/courses/${courseId}${query}` : "/courses"} />
         <div className="mx-auto max-w-3xl px-6 py-10">
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
@@ -82,7 +83,7 @@ export default function WorkPage() {
     <div className="h-dvh flex flex-col bg-gray-50">
       <WorkHeader
         title={jobsheet.title}
-        backTo={`/courses/${courseId}/jobsheets/${jobsheet.id}`}
+        backTo={`/courses/${courseId}/jobsheets/${jobsheet.id}${query}`}
         course={course}
         jobsheet={jobsheet}
       />

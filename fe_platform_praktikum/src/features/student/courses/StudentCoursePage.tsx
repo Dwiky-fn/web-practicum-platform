@@ -4,6 +4,7 @@ import { useCurrentUser } from "../../../services/user/useCurrentUser";
 import { getCoursesByStudentId } from "../../../services/course/service";
 import { useNavigate } from "react-router-dom";
 import type { Course } from "../../../services/course/types";
+import { academicCoursePath } from "../../../services/academicScope";
 import Navbar from "../../../components/navbar/Navbar";
 import CourseCardSkeleton from "../../../components/loading/CourseSkeleton";
 import CourseCard from "../../../components/CourseCard";
@@ -120,10 +121,7 @@ export default function StudentCoursePage() {
               <CourseCard
                 key={course.id}
                 course={course}
-                onClick={() => {
-                  const classId = course.classId || course.class_id
-                  navigate(`/courses/${course.id}${classId ? `?classId=${encodeURIComponent(classId)}` : ""}`)
-                }}
+                onClick={() => navigate(academicCoursePath(course))}
               />
             ))}
           </div>

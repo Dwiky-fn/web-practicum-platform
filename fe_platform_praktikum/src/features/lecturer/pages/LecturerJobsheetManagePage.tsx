@@ -23,6 +23,7 @@ import { toast } from "../../../components/toast/toastStore"
 
 type PublishClassSetting = {
   classId: string
+  kelasPraktikumId?: string
   className: string
   isActive: boolean
   deadline: string
@@ -144,6 +145,7 @@ export default function LecturerJobsheetManagePage() {
 
         return {
           classId: item.id,
+          kelasPraktikumId: item.kelasPraktikumId || item.id_kelas_praktikum,
           className: item.name,
           isActive: existing ? existing.isActive : false,
           deadline: existing?.deadline ? toDatetimeLocal(existing.deadline) : "",
@@ -163,10 +165,11 @@ export default function LecturerJobsheetManagePage() {
         lecturerId: user.id,
         classes: publishSettings.map((item) => ({
           classId: item.classId,
+          kelasPraktikumId: item.kelasPraktikumId,
           deadline: item.deadline,
           isActive: item.isActive,
         })),
-      })
+      }, { mataKuliahId: dataset?.course.mataKuliahId || dataset?.course.id })
 
       setPublishTarget(null)
       toast.success("Pengaturan jobsheet berhasil diperbarui.")

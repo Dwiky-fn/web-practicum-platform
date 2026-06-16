@@ -14,7 +14,8 @@ export interface SidebarNode {
 export function buildSidebarTree(
   courseId: string,
   jobsheet: Jobsheet,
-  submission: JobsheetSubmission
+  submission: JobsheetSubmission,
+  query = "",
 ): SidebarNode[] {
 
   const base = `/courses/${courseId}/jobsheets/${jobsheet.id}/works`
@@ -27,7 +28,7 @@ export function buildSidebarTree(
         id: t.id,
         title: t.title,
         type: "theory",
-        path: `${base}/theory/${t.id}`
+        path: `${base}/theory/${t.id}${query}`
       }))
     },
     {
@@ -37,7 +38,7 @@ export function buildSidebarTree(
         id: e.id,
         title: `${e.title} (${e.rubric ?? 0}%)`,
         type: "experiment",
-        path: `${base}/experiments/${e.id}`
+        path: `${base}/experiments/${e.id}${query}`
       }))
     },
     {
@@ -47,7 +48,7 @@ export function buildSidebarTree(
         id: e.id,
         title: `${e.title} (${e.rubric ?? 0}%)`,
         type: "exercise",
-        path: `${base}/exercises/${e.id}`
+        path: `${base}/exercises/${e.id}${query}`
       }))
     },
     {
@@ -58,7 +59,7 @@ export function buildSidebarTree(
           id: "task",
           title: "Laporan Praktikum",
           type: "task",
-          path: `${base}/task`,
+          path: `${base}/task${query}`,
           status:
             submission?.status === "SUBMITTED" ||
             submission?.status === "REVIEWING" ||

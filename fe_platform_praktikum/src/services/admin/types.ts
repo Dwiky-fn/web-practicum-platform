@@ -50,6 +50,14 @@ export interface AcademicCourse {
 
 export interface AcademicClass {
   id: string
+  kelasPraktikumId?: string
+  id_kelas_praktikum?: string
+  mataKuliahId?: string
+  id_mata_kuliah?: string
+  kelasMahasiswaId?: string
+  id_kelas_mhs?: string
+  legacyClassId?: string
+  legacy_class_id?: string
   name: string
   courseName: string
   courseId: string
@@ -108,6 +116,10 @@ export interface ClassClonePreview {
 export interface ClassJobsheet {
   id: string
   classJobsheetId: string
+  kelasPraktikumId?: string
+  id_kelas_praktikum?: string
+  mataKuliahId?: string
+  id_mata_kuliah?: string
   title: string
   deadline: string
   status: "Selesai" | "Aktif" | "Draft" | "Nonaktif" | "Arsip"

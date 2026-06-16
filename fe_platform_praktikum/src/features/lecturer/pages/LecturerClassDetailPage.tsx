@@ -58,6 +58,7 @@ export default function LecturerClassDetailPage() {
   })
   const [jobsheets, setJobsheets] = useState<LecturerJobsheetSummary[]>([])
   const [matrix, setMatrix] = useState<LecturerSubmissionMatrixItem[]>([])
+  const [nativeScope, setNativeScope] = useState<{ mataKuliahId?: string; kelasPraktikumId?: string }>({})
 
   useEffect(() => {
     async function loadClassData() {
@@ -68,16 +69,21 @@ export default function LecturerClassDetailPage() {
 
       try {
         const classDetail = await getLecturerClassDetail(classId)
+        const mataKuliahId = classDetail.mataKuliahId || classDetail.id_mata_kuliah || classDetail.courseId
+        const kelasPraktikumId = classDetail.kelasPraktikumId || classDetail.id_kelas_praktikum
         const submissionMatrix = await getLecturerSubmissionMatrix(
           classDetail.courseId,
           classDetail.jobsheets,
           classDetail.students,
+          { mataKuliahId, kelasPraktikumId },
         )
         const summaries = buildLecturerJobsheetSummaries(
           classDetail.jobsheets,
           classDetail.students,
           submissionMatrix,
           classDetail.name,
+          classDetail.id,
+          kelasPraktikumId,
         ).map((item) => ({ ...item, courseId: classDetail.courseId }))
 
         setHeader({
@@ -89,6 +95,7 @@ export default function LecturerClassDetailPage() {
         })
         setJobsheets(summaries)
         setMatrix(submissionMatrix)
+        setNativeScope({ mataKuliahId, kelasPraktikumId })
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Gagal memuat detail kelas.")
       } finally {
@@ -260,7 +267,12 @@ export default function LecturerClassDetailPage() {
                         <div className="mt-5 flex flex-wrap gap-3">
                           <LecturerButton
                             variant="secondary"
-                            onClick={() => navigate(`/jobsheets/${jobsheet.id}?courseId=${courseId}&classId=${classId}`)}
+                            onClick={() => {
+                              const params = new URLSearchParams({ courseId, classId, jobsheetId: jobsheet.id })
+                              if (nativeScope.mataKuliahId) params.set("mataKuliahId", nativeScope.mataKuliahId)
+                              if (nativeScope.kelasPraktikumId) params.set("kelasPraktikumId", nativeScope.kelasPraktikumId)
+                              navigate(`/jobsheets/${jobsheet.id}?${params.toString()}`)
+                            }}
                           >
                             Lihat Detail
                           </LecturerButton>
@@ -376,9 +388,16 @@ export default function LecturerClassDetailPage() {
                               type="button"
                               className="font-semibold text-blue-700 hover:text-blue-900"
                               onClick={() =>
-                                navigate(
-                                  `/reviews/${student.id}?courseId=${courseId}&classId=${classId}&jobsheetId=${selectedSubmission.jobsheet.id}`,
-                                )
+                                {
+                                  const params = new URLSearchParams({
+                                    courseId,
+                                    classId,
+                                    jobsheetId: selectedSubmission.jobsheet.id,
+                                  })
+                                  if (nativeScope.mataKuliahId) params.set("mataKuliahId", nativeScope.mataKuliahId)
+                                  if (nativeScope.kelasPraktikumId) params.set("kelasPraktikumId", nativeScope.kelasPraktikumId)
+                                  navigate(`/reviews/${student.id}?${params.toString()}`)
+                                }
                               }
                             >
                               Review

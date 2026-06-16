@@ -18,6 +18,7 @@ export type LecturerClassSummary = AcademicClass & {
 
 export type LecturerCourseGroup = {
   id: string
+  mataKuliahId?: string
   name: string
   code: string
   semester: number
@@ -34,6 +35,7 @@ export type LecturerJobsheetStatus =
 
 export type LecturerJobsheetSummaryClassSetting = {
   classId: string
+  kelasPraktikumId?: string
   className: string
   isActive: boolean
   deadline: string
@@ -124,6 +126,7 @@ export type LecturerJobsheetPublishPayload = {
   lecturerId: string
   classes: Array<{
     classId: string
+    kelasPraktikumId?: string
     deadline: string
     isActive: boolean
   }>
@@ -136,6 +139,19 @@ function buildCourseCode(courseName: string) {
     .join("")
     .slice(0, 4)
     .toUpperCase()
+}
+
+function getClassMataKuliahId(classItem: Pick<AcademicClass, "courseId" | "mataKuliahId" | "id_mata_kuliah">) {
+  return classItem.mataKuliahId || classItem.id_mata_kuliah || classItem.courseId
+}
+
+function getClassKelasPraktikumId(classItem: Pick<AcademicClass, "kelasPraktikumId" | "id_kelas_praktikum">) {
+  return classItem.kelasPraktikumId || classItem.id_kelas_praktikum
+}
+
+function buildLecturerJobsheetPath(courseId: string, scope?: { mataKuliahId?: string }) {
+  if (scope?.mataKuliahId) return `/lecturer/mata-kuliah/${scope.mataKuliahId}/jobsheets`
+  return `/lecturer/courses/${courseId}/jobsheets`
 }
 
 function toLecturerJobsheetStatus(status: ClassJobsheet["status"]): LecturerJobsheetStatus {
@@ -183,15 +199,17 @@ export async function getLecturerCourseGroups(): Promise<LecturerCourseGroup[]> 
   const grouped = new Map<string, LecturerCourseGroup>()
 
   for (const classItem of detailedClasses) {
-    const current = grouped.get(classItem.courseId)
+    const groupId = getClassMataKuliahId(classItem)
+    const current = grouped.get(groupId)
 
     if (current) {
       current.classes.push(classItem)
       continue
     }
 
-    grouped.set(classItem.courseId, {
-      id: classItem.courseId,
+    grouped.set(groupId, {
+      id: groupId,
+      mataKuliahId: groupId !== classItem.courseId ? groupId : classItem.mataKuliahId || classItem.id_mata_kuliah,
       name: classItem.courseName,
       code: buildCourseCode(classItem.courseName),
       semester: classItem.studentSemester,
@@ -224,28 +242,34 @@ export async function getLecturerClassDetail(classId: string): Promise<AdminClas
 export async function getLecturerJobsheetById(
   courseId: string,
   jobsheetId: string,
+  scope?: { mataKuliahId?: string; kelasPraktikumId?: string },
 ): Promise<Jobsheet> {
-  return getJobsheetById(courseId, jobsheetId)
+  return getJobsheetById(courseId, jobsheetId, scope)
 }
 
 export async function getLecturerSubmission(
   courseId: string,
   jobsheetId: string,
   studentId: string,
+  scope?: { mataKuliahId?: string; kelasPraktikumId?: string },
 ): Promise<JobsheetSubmission | null> {
-  return getSubmissionByJobsheetId(courseId, jobsheetId, studentId)
+  return getSubmissionByJobsheetId(courseId, jobsheetId, studentId, scope)
 }
 
 export async function getLecturerSubmissionMatrix(
   courseId: string,
   jobsheets: ClassJobsheet[],
   students: AdminStudent[],
+  scope?: { mataKuliahId?: string; kelasPraktikumId?: string },
 ): Promise<LecturerSubmissionMatrixItem[]> {
   const tasks = jobsheets.flatMap((jobsheet) =>
     students.map(async (student) => ({
       student,
       jobsheet,
-      submission: await getSubmissionByJobsheetId(courseId, jobsheet.id, student.id),
+      submission: await getSubmissionByJobsheetId(courseId, jobsheet.id, student.id, {
+        mataKuliahId: scope?.mataKuliahId || jobsheet.mataKuliahId || jobsheet.id_mata_kuliah,
+        kelasPraktikumId: scope?.kelasPraktikumId || jobsheet.kelasPraktikumId || jobsheet.id_kelas_praktikum,
+      }),
     })),
   )
 
@@ -258,6 +282,7 @@ export function buildLecturerJobsheetSummaries(
   matrix: LecturerSubmissionMatrixItem[],
   className?: string,
   classId?: string,
+  kelasPraktikumId?: string,
 ): LecturerJobsheetSummary[] {
   return jobsheets.map((jobsheet, index) => {
     const related = matrix.filter((item) => item.jobsheet.id === jobsheet.id)
@@ -268,6 +293,7 @@ export function buildLecturerJobsheetSummaries(
 
     const setting: LecturerJobsheetSummaryClassSetting = {
       classId: classId || "",
+      kelasPraktikumId,
       className: className || "",
       isActive,
       deadline: deadlineVal,
@@ -299,7 +325,9 @@ export async function getLecturerCourseDataset(
 
   const [classDetails, courseJobsheetsRes] = await Promise.all([
     Promise.all(course.classes.map((classItem) => getLecturerClassDetail(classItem.id))),
-    apiFetch(`/courses/${courseId}/jobsheets`),
+    apiFetch(`/mata-kuliah/${course.mataKuliahId || course.id}/jobsheets`).catch(() =>
+      apiFetch(`/courses/${courseId}/jobsheets`),
+    ),
   ])
 
   const courseJobsheets = (courseJobsheetsRes.data?.jobsheets ?? []) as any[]
@@ -333,6 +361,10 @@ export async function getLecturerCourseDataset(
       classDetail.courseId,
       classDetail.jobsheets,
       classDetail.students,
+      {
+        mataKuliahId: getClassMataKuliahId(classDetail),
+        kelasPraktikumId: getClassKelasPraktikumId(classDetail),
+      },
     )
     const summaries = buildLecturerJobsheetSummaries(
       classDetail.jobsheets,
@@ -340,6 +372,7 @@ export async function getLecturerCourseDataset(
       matrix,
       classDetail.name,
       classDetail.id,
+      getClassKelasPraktikumId(classDetail),
     )
 
     for (const summary of summaries) {
@@ -380,8 +413,9 @@ export async function getLecturerCourseDataset(
 export async function createLecturerJobsheet(
   courseId: string,
   payload: LecturerJobsheetPayload,
+  scope?: { mataKuliahId?: string },
 ) {
-  const response = await apiFetch(`/lecturer/courses/${courseId}/jobsheets`, {
+  const response = await apiFetch(buildLecturerJobsheetPath(courseId, scope), {
     method: "POST",
     body: JSON.stringify(payload),
   })
@@ -393,8 +427,9 @@ export async function updateLecturerJobsheet(
   courseId: string,
   jobsheetId: string,
   payload: LecturerJobsheetPayload,
+  scope?: { mataKuliahId?: string },
 ) {
-  const response = await apiFetch(`/lecturer/courses/${courseId}/jobsheets/${jobsheetId}`, {
+  const response = await apiFetch(`${buildLecturerJobsheetPath(courseId, scope)}/${jobsheetId}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   })
@@ -406,8 +441,9 @@ export async function publishLecturerJobsheet(
   courseId: string,
   jobsheetId: string,
   payload: LecturerJobsheetPublishPayload,
+  scope?: { mataKuliahId?: string },
 ) {
-  const response = await apiFetch(`/lecturer/courses/${courseId}/jobsheets/${jobsheetId}/publish`, {
+  const response = await apiFetch(`${buildLecturerJobsheetPath(courseId, scope)}/${jobsheetId}/publish`, {
     method: "PUT",
     body: JSON.stringify(payload),
   })
@@ -538,9 +574,12 @@ export interface LecturerStudentDetailProgressResponse {
 export async function getLecturerClassProgress(
   jobsheetId: string,
   classId: string,
+  kelasPraktikumId?: string,
 ): Promise<LecturerClassProgressResponse> {
+  const params = new URLSearchParams({ classId })
+  if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
   const response = await apiFetch(
-    `/lecturer/jobsheets/${jobsheetId}/progress?classId=${encodeURIComponent(classId)}`,
+    `/lecturer/jobsheets/${jobsheetId}/progress?${params.toString()}`,
   )
   return response.data
 }
@@ -549,9 +588,12 @@ export async function getLecturerStudentDetailProgress(
   jobsheetId: string,
   studentId: string,
   classId: string,
+  kelasPraktikumId?: string,
 ): Promise<LecturerStudentDetailProgressResponse> {
+  const params = new URLSearchParams({ classId })
+  if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
   const response = await apiFetch(
-    `/lecturer/jobsheets/${jobsheetId}/progress/${studentId}?classId=${encodeURIComponent(classId)}`,
+    `/lecturer/jobsheets/${jobsheetId}/progress/${studentId}?${params.toString()}`,
   )
   return response.data
 }

@@ -40,6 +40,9 @@ function toDatetimeLocal(value: string | undefined) {
 function renderUsedIn(jobsheet: LecturerJobsheetSummary) {
   const activeSettings = jobsheet.classSettings?.filter((s) => s.isActive) || []
   if (activeSettings.length === 0) {
+    if (jobsheet.status === "Draft") {
+      return "Digunakan di: Belum dipublish"
+    }
     return "Belum digunakan di kelas mana pun"
   }
   const sortedClassNames = [...activeSettings]
@@ -50,7 +53,7 @@ function renderUsedIn(jobsheet: LecturerJobsheetSummary) {
 
 function renderDeadline(jobsheet: LecturerJobsheetSummary) {
   const activeSettings = jobsheet.classSettings?.filter((s) => s.isActive) || []
-  
+
   if (activeSettings.length === 0) {
     return <p className="text-sm text-gray-700">Deadline: Belum diatur</p>
   }
@@ -220,7 +223,7 @@ export default function LecturerJobsheetManagePage() {
       ) : (
         <LecturerPanel className="overflow-hidden">
           <div className="flex flex-col gap-3 border-b border-gray-200 bg-white p-4 md:flex-row md:items-center md:justify-end">
-            <NativeSelect value={statusFilter} onChange={setStatusFilter} label="Status jobsheet">
+            <NativeSelect value={statusFilter} onChange={setStatusFilter} label="">
               <option value="all">Semua Status</option>
               <option value="Published">Published</option>
               <option value="Draft">Draft</option>

@@ -2,7 +2,10 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const { getFilesRecursive } = require('../utils/fileUtils');
-const { resolveInsideBase, sanitizeRelativePath } = require('../utils/pathSecurity');
+const {
+  resolveInsideBase,
+  sanitizeRelativePath,
+} = require('../utils/pathSecurity');
 
 function getPackageName(sourceCode) {
   // Strip BOM jika ada

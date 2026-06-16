@@ -99,6 +99,7 @@ export type LecturerJobsheetPayload = {
   title: string
   description: string
   goal: string
+  status?: string
   summary?: JSONContent
   theory: LecturerTheoryInput[]
   experiments: LecturerPracticeInput[]
@@ -296,11 +297,36 @@ export async function getLecturerCourseDataset(
 
   if (!course) return null
 
-  const classDetails = await Promise.all(
-    course.classes.map((classItem) => getLecturerClassDetail(classItem.id)),
-  )
+  const [classDetails, courseJobsheetsRes] = await Promise.all([
+    Promise.all(course.classes.map((classItem) => getLecturerClassDetail(classItem.id))),
+    apiFetch(`/courses/${courseId}/jobsheets`),
+  ])
 
+  const courseJobsheets = (courseJobsheetsRes.data?.jobsheets ?? []) as any[]
   const jobsheetMap = new Map<string, LecturerJobsheetSummary>()
+
+  courseJobsheets.forEach((jobsheet, index) => {
+    let status: LecturerJobsheetStatus = "Draft"
+    if (jobsheet.status === "PUBLISHED") {
+      status = "Published"
+    } else if (jobsheet.status === "UNPUBLISHED") {
+      status = "Nonaktif"
+    }
+
+    jobsheetMap.set(jobsheet.id, {
+      id: jobsheet.id,
+      classJobsheetId: "",
+      courseId: courseId,
+      number: index + 1,
+      title: jobsheet.title?.trim() || "Draft Tanpa Judul",
+      status: status,
+      deadline: jobsheet.deadline && jobsheet.deadline !== "-" ? jobsheet.deadline : "",
+      usedIn: [],
+      submitted: 0,
+      total: 0,
+      classSettings: [],
+    })
+  })
 
   for (const classDetail of classDetails) {
     const matrix = await getLecturerSubmissionMatrix(
@@ -324,6 +350,14 @@ export async function getLecturerCourseDataset(
         current.usedIn = Array.from(new Set([...current.usedIn, ...summary.usedIn]))
         current.submitted += summary.submitted
         current.total += summary.total
+        if (!current.classJobsheetId) {
+          current.classJobsheetId = summary.classJobsheetId
+        }
+        if (summary.status === "Published") {
+          current.status = "Published"
+        } else if (current.status !== "Published") {
+          current.status = summary.status
+        }
         continue
       }
 

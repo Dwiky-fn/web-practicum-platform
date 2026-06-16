@@ -29,7 +29,9 @@ import {
   Undo,
   Redo,
   Eraser,
-  ChevronDown
+  ChevronDown,
+  Merge,
+  Split
 } from "lucide-react"
 
 interface Props {
@@ -85,7 +87,7 @@ function ToolbarButton({
   )
 }
 
-function ToolbarDivider({ layout = "vertical" }: { layout?: "vertical" | "horizontal" }) {
+function ToolbarDivider({ layout = "horizontal" }: { layout?: "vertical" | "horizontal" }) {
   return (
     <div 
       className={layout === "horizontal"
@@ -97,7 +99,7 @@ function ToolbarDivider({ layout = "vertical" }: { layout?: "vertical" | "horizo
   )
 }
 
-export default function EditorToolbar({ editor, role, layout = "vertical" }: Props) {
+export default function EditorToolbar({ editor, role, layout = "horizontal" }: Props) {
   const state = useEditorState({
     editor,
     selector: (ctx) => ({
@@ -132,6 +134,12 @@ export default function EditorToolbar({ editor, role, layout = "vertical" }: Pro
   const [inputCols, setInputCols] = useState<number>(3)
   
   const isLecturer = role === "DOSEN"
+  const headingDropdownPosition = layout === "vertical"
+    ? "md:left-[36px] md:top-0 md:ml-2 md:mt-0 left-0 top-full mt-1.5"
+    : "left-0 top-full mt-1.5"
+  const sideDropdownPosition = layout === "vertical"
+    ? "md:left-[76px] md:top-0 md:ml-2 md:mt-0 left-0 top-full mt-1.5"
+    : "left-0 top-full mt-1.5"
 
   const toggleMenu = (menu: "heading" | "align" | "table") => {
     setActiveMenu((prev) => (prev === menu ? null : menu))
@@ -167,12 +175,7 @@ export default function EditorToolbar({ editor, role, layout = "vertical" }: Pro
 
   return (
     <div 
-      className={`editor-toolbar-container flex items-center justify-start flex-wrap gap-1.5 p-2 bg-gray-50 border border-gray-300 rounded-lg w-full select-none
-        ${
-          isLecturer && layout === "vertical"
-            ? "md:grid md:grid-cols-2 md:items-center md:gap-1.5 md:p-2.5 md:bg-white md:border md:border-gray-200 md:rounded-xl md:shadow-md md:w-[92px]" 
-            : ""
-        }`}
+      className="editor-toolbar-container flex items-center justify-start flex-wrap gap-1.5 p-2 bg-gray-50 border border-gray-300 rounded-lg w-full max-w-full select-none overflow-visible"
     >
       {/* ============================================================ */}
       {/* KELOMPOK 1: FORMAT TEKS & HEADING (8 item -> 4 baris penuh) */}
@@ -245,8 +248,7 @@ export default function EditorToolbar({ editor, role, layout = "vertical" }: Pro
             />
             {activeMenu === "heading" && (
               <div 
-                className="editor-toolbar-dropdown absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-1.5 flex flex-col gap-1 min-w-[140px]
-                  md:left-[36px] md:top-0 md:ml-2 md:mt-0 left-0 top-full mt-1.5"
+                className={`editor-toolbar-dropdown absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-1.5 flex flex-col gap-1 min-w-[140px] ${headingDropdownPosition}`}
               >
                 <button
                   type="button"
@@ -329,8 +331,7 @@ export default function EditorToolbar({ editor, role, layout = "vertical" }: Pro
             />
             {activeMenu === "align" && (
               <div 
-                className="editor-toolbar-dropdown absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-1.5 flex flex-col gap-1 min-w-[140px]
-                  md:left-[76px] md:top-0 md:ml-2 md:mt-0 left-0 top-full mt-1.5"
+                className={`editor-toolbar-dropdown absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-1.5 flex flex-col gap-1 min-w-[140px] ${sideDropdownPosition}`}
               >
                 <button
                   type="button"
@@ -444,8 +445,7 @@ export default function EditorToolbar({ editor, role, layout = "vertical" }: Pro
             />
             {activeMenu === "table" && (
               <div 
-                className="editor-toolbar-dropdown absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-2.5 flex flex-col gap-2.5 w-[180px] select-none
-                  md:left-[76px] md:top-0 md:ml-2 md:mt-0 left-0 top-full mt-1.5 text-left"
+                className={`editor-toolbar-dropdown absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-2.5 flex flex-col gap-2.5 w-[180px] select-none text-left ${sideDropdownPosition}`}
               >
                 {/* Word-style Grid Picker */}
                 <div className="flex flex-col gap-1.5 select-none">
@@ -555,6 +555,30 @@ export default function EditorToolbar({ editor, role, layout = "vertical" }: Pro
                       >
                         <Plus size={12} className="text-gray-400" />
                         <span>Tambah Kolom</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          editor.chain().focus().mergeCells().run()
+                          setActiveMenu(null)
+                        }}
+                        disabled={!editor.can().mergeCells()}
+                        className="flex items-center gap-2 px-2 py-1.5 text-xs rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:hover:bg-transparent w-full text-left text-gray-700 transition"
+                      >
+                        <Merge size={12} className="text-gray-400" />
+                        <span>Gabung Sel</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          editor.chain().focus().splitCell().run()
+                          setActiveMenu(null)
+                        }}
+                        disabled={!editor.can().splitCell()}
+                        className="flex items-center gap-2 px-2 py-1.5 text-xs rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:hover:bg-transparent w-full text-left text-gray-700 transition"
+                      >
+                        <Split size={12} className="text-gray-400" />
+                        <span>Pisah Sel</span>
                       </button>
                       <div className="h-px bg-gray-100 my-0.5" />
                       <button

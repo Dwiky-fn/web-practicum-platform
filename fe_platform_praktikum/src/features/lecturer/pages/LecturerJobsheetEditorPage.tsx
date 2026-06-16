@@ -293,9 +293,12 @@ export default function LecturerJobsheetEditorPage() {
     }
   }
 
-  async function ensureSaved() {
+  async function ensureSaved(isDraft = false) {
     if (!user || !courseId) return ""
-    const payload = buildPayload()
+    const payload = {
+      ...buildPayload(),
+      status: isDraft ? "draft" : "published",
+    }
 
     if (activeJobsheetId) {
       await updateLecturerJobsheet(courseId, activeJobsheetId, payload)
@@ -310,17 +313,11 @@ export default function LecturerJobsheetEditorPage() {
   async function handleSaveDraft() {
     if (!user) return
 
-    if (totalRubric !== 100) {
-      setError(`Jumlah total bobot rubrik harus pas 100%. Saat ini: ${totalRubric}%.`)
-      window.scrollTo({ top: 0, behavior: "smooth" })
-      return
-    }
-
     try {
       setSaving(true)
       setError("")
 
-      const nextId = await ensureSaved()
+      const nextId = await ensureSaved(true)
       toast.success("Draft jobsheet berhasil disimpan.")
 
       if (isCreate && nextId) {
@@ -347,7 +344,7 @@ export default function LecturerJobsheetEditorPage() {
       setSaving(true)
       setError("")
 
-      const nextId = await ensureSaved()
+      const nextId = await ensureSaved(false)
       await publishLecturerJobsheet(courseId, nextId, {
         lecturerId: user.id,
         classes: publishSettings.map((item) => ({

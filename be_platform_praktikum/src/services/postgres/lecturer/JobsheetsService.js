@@ -198,7 +198,10 @@ class LecturerJobsheetsService {
         experiments.map((item) => item.id),
         exercises.map((item) => item.id),
       );
-      const title = payload.title || 'Jobsheet Baru';
+      const isDraft = payload.status === 'draft';
+      const title = !payload.title?.trim()
+        ? (isDraft ? 'Draft Tanpa Judul' : 'Jobsheet Baru')
+        : payload.title.trim();
       const description = payload.description || '';
       const goal = payload.goal || extractTextContent(payload.goalContent);
 
@@ -251,7 +254,10 @@ class LecturerJobsheetsService {
         experiments.map((item) => item.id),
         exercises.map((item) => item.id),
       );
-      const title = payload.title || existing.title;
+      const isDraft = payload.status === 'draft' || existing.status === 'DRAFT';
+      const title = !payload.title?.trim()
+        ? (isDraft ? 'Draft Tanpa Judul' : existing.title)
+        : payload.title.trim();
       const description = payload.description || '';
       const goal = payload.goal || extractTextContent(payload.goalContent);
 

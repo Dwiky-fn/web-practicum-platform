@@ -84,13 +84,28 @@ class ClassesService {
       id_kelas_praktikum: row.id,
       namaKelasPraktikum: row.nama_kelas,
       nama_kelas_praktikum: row.nama_kelas,
-      legacyClassLinked: Boolean(row.legacy_class_id),
+      legacyClassLinked: false,
       semesterYear: row.tahun_semester,
       studentSemester: row.student_semester,
-      programmingLanguage: normalizeProgrammingLanguage(row.programming_language),
-      programmingLanguageDisplayName: normalizeProgrammingLanguage(row.programming_language) === 'python' ? 'Python' : 'Java',
+      programmingLanguage: 'java',
+      programmingLanguageDisplayName: 'Java',
       status: row.status === 'open' || row.status === 'active' ? 'Aktif' : 'Nonaktif',
     };
+  }
+
+  async _getOrCreateKelasId(client, kelasName) {
+    const normalized = String(kelasName).trim().toUpperCase();
+    const existing = await client.query('SELECT id FROM kelas WHERE UPPER(kelas) = $1 LIMIT 1', [normalized]);
+    if (existing.rows.length) {
+      return existing.rows[0].id;
+    }
+    const id = createId('kls');
+    await client.query('INSERT INTO kelas (id, kelas) VALUES ($1, $2)', [id, normalized]);
+    return id;
+  }
+
+  _buildKelasPraktikumName({ nama_mk, semester, kelas, tahun_semester }) {
+    return `${nama_mk} - Semester ${semester} - Kelas ${kelas} - ${tahun_semester}`;
   }
 
   async _getNativeClasses(filters = {}) {
@@ -120,22 +135,19 @@ class ClassesService {
         kp.id,
         kp.nama_kelas,
         kp.status,
-        kp.legacy_class_id,
         mk.id AS id_mata_kuliah,
         mk.nama_mk AS course_name,
         s.semester AS student_semester,
         p.id_dosen AS lecturer_id,
         u.fullname AS lecturer,
         ts.id AS id_tahun_semester,
-        ts.tahun_semester,
-        COALESCE(legacy.programming_language, 'java') AS programming_language
+        ts.tahun_semester
       FROM kelas_praktikum kp
       JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
       JOIN semester s ON s.id = kp.id_semester
       JOIN tahun_semester ts ON ts.id = kp.id_tahun_semester
-      JOIN pengampu p ON p.id_kelas_praktikum = kp.id
-      JOIN users u ON u.id = p.id_dosen
-      LEFT JOIN classes legacy ON legacy.id = kp.legacy_class_id
+      LEFT JOIN pengampu p ON p.id_kelas_praktikum = kp.id AND p.peran = 'utama'
+      LEFT JOIN users u ON u.id = p.id_dosen
       WHERE ($1 = '%%'
         OR LOWER(kp.nama_kelas) LIKE $1
         OR LOWER(mk.nama_mk) LIKE $1
@@ -152,61 +164,12 @@ class ClassesService {
   }
 
   async getClasses(filters = {}) {
-    if (filters.lecturerId) {
-      const nativeClasses = await this._getNativeClasses(filters);
-      if (nativeClasses.length) return nativeClasses;
-    }
-
-    // Legacy fallback only. Do not use for new academic flow.
-    const keyword = `%${(filters.keyword || '').toLowerCase()}%`;
-    const params = [keyword];
-    let statusClause = '';
-    let courseClause = '';
-    let lecturerClause = '';
-
-    if (filters.status && filters.status !== 'all') {
-      params.push(normalizeStatus(filters.status));
-      statusClause = `AND cl.status = $${params.length}`;
-    }
-
-    if (filters.courseId && filters.courseId !== 'all') {
-      params.push(filters.courseId);
-      courseClause = `AND cl.course_id = $${params.length}`;
-    }
-
-    if (filters.lecturerId) {
-      params.push(filters.lecturerId);
-      lecturerClause = `AND cl.lecturer_id = $${params.length}`;
-    }
-
-    const result = await this._pool.query(
-      `
-      SELECT cl.id, cl.name, cl.status, cl.programming_language,
-        kp.id AS id_kelas_praktikum, kp.nama_kelas AS nama_kelas_praktikum,
-        c.id AS course_id, c.name AS course_name, c.semester AS student_semester,
-        u.id AS lecturer_id, u.fullname AS lecturer,
-        ap.id AS academic_period_id, ap.year, ap.semester_type
-      FROM classes cl
-      JOIN courses c ON c.id = cl.course_id
-      JOIN users u ON u.id = cl.lecturer_id
-      JOIN academic_periods ap ON ap.id = cl.academic_period_id
-      LEFT JOIN kelas_praktikum kp ON kp.legacy_class_id = cl.id
-      WHERE ($1 = '%%' OR LOWER(cl.name) LIKE $1 OR LOWER(c.name) LIKE $1 OR LOWER(u.fullname) LIKE $1)
-        AND ap.is_active = true
-        ${statusClause}
-        ${courseClause}
-        ${lecturerClause}
-      ORDER BY ap.is_active DESC, c.name ASC, cl.name ASC
-      `,
-      params,
-    );
-
-    return result.rows.map(mapClass);
+    return this._getNativeClasses(filters);
   }
 
   async createClass(payload) {
     const activePeriodResult = await this._pool.query(
-      'SELECT id, year, semester_type FROM academic_periods WHERE is_active = true LIMIT 1'
+      "SELECT id, tahun_semester FROM tahun_semester WHERE status = 'active' LIMIT 1"
     );
     const activePeriod = activePeriodResult.rows[0];
     if (!activePeriod) {
@@ -219,11 +182,17 @@ class ClassesService {
     const lecturerId = payload.lecturerId || payload.lecturer_id;
     if (!lecturerId) throw createClientError('Dosen pengampu wajib dipilih', 400);
 
-    const courseResult = await this._pool.query('SELECT name FROM courses WHERE id = $1', [courseId]);
+    const courseResult = await this._pool.query(
+      `SELECT mk.nama_mk, s.semester, s.id AS id_semester
+       FROM mata_kuliah mk
+       JOIN semester s ON s.id = mk.id_semester
+       WHERE mk.id = $1`,
+      [courseId]
+    );
     if (!courseResult.rows.length) {
       throw createClientError('Mata kuliah tidak ditemukan', 404);
     }
-    const courseName = courseResult.rows[0].name;
+    const { nama_mk: courseName, semester: semesterNum, id_semester: idSemester } = courseResult.rows[0];
 
     const rombel = payload.class_name || payload.className || payload.rombel ||
       extractRombelFromFullName(payload.name, courseName);
@@ -232,16 +201,9 @@ class ClassesService {
       throw createClientError('Kelas/Rombel wajib diisi', 400);
     }
 
-    const programmingLanguage = resolveProgrammingLanguage(
-      payload.programmingLanguage || payload.programming_language,
-    );
+    const idKelas = await this._getOrCreateKelasId(this._pool, rombel);
 
-    const className = generateClassName({
-      courseName,
-      rombel: rombel.trim(),
-      academicYear: activePeriod.year,
-      semester: displayTerm(activePeriod.semester_type),
-    });
+    const className = `${courseName} - Semester ${semesterNum} - Kelas ${rombel.trim().toUpperCase()} - ${activePeriod.tahun_semester}`;
 
     await this.ensureCourseAvailableForClass(courseId, this._pool, activePeriod.id);
     await this.ensureClassUnique({
@@ -250,53 +212,54 @@ class ClassesService {
       academicPeriodId: activePeriod.id,
     });
 
-    const id = payload.id || createId('kelas');
+    const id = payload.id || createId('kp');
 
-    await this._pool.query(
-      `INSERT INTO classes (
-        id, course_id, name, lecturer_id, academic_period_id, status, programming_language
-       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [
-        id,
-        courseId,
-        className,
-        lecturerId,
-        activePeriod.id,
-        normalizeStatus(payload.status, 'AKTIF'),
-        programmingLanguage,
-      ],
-    );
+    const client = await this._pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO kelas_praktikum (
+          id, id_tahun_semester, id_mata_kuliah, id_semester, id_kelas, nama_kelas, status
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, 'open')`,
+        [
+          id,
+          activePeriod.id,
+          courseId,
+          idSemester,
+          idKelas,
+          className,
+        ],
+      );
 
-    return (await this.getClasses()).find((item) => item.id === id);
+      await client.query(
+        `INSERT INTO pengampu (id, id_kelas_praktikum, id_dosen, peran)
+         VALUES ($1, $2, $3, 'utama')
+         ON CONFLICT (id_kelas_praktikum, id_dosen) DO NOTHING`,
+        [createId('png'), id, lecturerId]
+      );
+
+      await client.query('COMMIT');
+      return (await this.getClasses()).find((item) => item.id === id);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async getClassDetail(id) {
     const nativeClass = (await this._getNativeClasses()).find((item) => item.id === id);
-    if (nativeClass) {
-      const [students, jobsheets] = await Promise.all([
-        this.getNativeClassStudents(id),
-        this.getNativeClassJobsheets(id),
-      ]);
-
-      return {
-        ...nativeClass,
-        students,
-        jobsheets,
-      };
-    }
-
-    // Legacy fallback only. Do not use for new academic flow.
-    const classItem = (await this.getClasses()).find((item) => item.id === id);
-    if (!classItem) throw new Error('CLASS_NOT_FOUND');
+    if (!nativeClass) throw new Error('CLASS_NOT_FOUND');
 
     const [students, jobsheets] = await Promise.all([
-      this.getClassStudents(id),
-      this.getClassJobsheets(id),
+      this.getNativeClassStudents(id),
+      this.getNativeClassJobsheets(id),
     ]);
 
     return {
-      ...classItem,
+      ...nativeClass,
       students,
       jobsheets,
     };
@@ -307,57 +270,104 @@ class ClassesService {
     const status = payload.status;
     const courseId = payload.courseId || payload.course_id;
     const name = payload.name;
-    const programmingLanguage = resolveProgrammingLanguage(
-      payload.programmingLanguage || payload.programming_language,
-    );
 
     const existing = await this._pool.query(
-      'SELECT id, course_id, name, academic_period_id FROM classes WHERE id = $1',
+      `SELECT id, id_mata_kuliah, nama_kelas, id_tahun_semester, id_kelas, id_semester
+       FROM kelas_praktikum WHERE id = $1`,
       [id],
     );
     if (!existing.rows.length) throw new Error('CLASS_NOT_FOUND');
     if (!lecturerId) throw new Error('LECTURER_REQUIRED');
     if (!status) throw new Error('STATUS_REQUIRED');
 
-    const normalizedStatus = normalizeStatus(status);
-    if (!['AKTIF', 'NONAKTIF', 'ARSIP'].includes(normalizedStatus)) {
-      throw new Error('CLASS_STATUS_INVALID');
+    let targetStatus = 'open';
+    const norm = normalizeStatus(status);
+    if (norm === 'NONAKTIF') targetStatus = 'closed';
+    else if (norm === 'ARSIP') targetStatus = 'archived';
+
+    const nextCourseId = courseId || existing.rows[0].id_mata_kuliah;
+    let nextName = name || existing.rows[0].nama_kelas;
+    let nextIdSemester = existing.rows[0].id_semester;
+    let nextIdKelas = existing.rows[0].id_kelas;
+
+    if (courseId && courseId !== existing.rows[0].id_mata_kuliah) {
+      const courseResult = await this._pool.query(
+        `SELECT mk.nama_mk, s.semester, s.id AS id_semester
+         FROM mata_kuliah mk
+         JOIN semester s ON s.id = mk.id_semester
+         WHERE mk.id = $1`,
+        [courseId]
+      );
+      if (!courseResult.rows.length) throw new Error('COURSE_NOT_FOUND');
+      const { nama_mk: courseName, semester: semesterNum, id_semester: idSemester } = courseResult.rows[0];
+      nextIdSemester = idSemester;
+
+      const kpResult = await this._pool.query('SELECT kelas FROM kelas WHERE id = $1', [nextIdKelas]);
+      const rombel = kpResult.rows[0]?.kelas || 'A';
+      const tsResult = await this._pool.query('SELECT tahun_semester FROM tahun_semester WHERE id = $1', [existing.rows[0].id_tahun_semester]);
+      const tsName = tsResult.rows[0]?.tahun_semester || '';
+      nextName = `${courseName} - Semester ${semesterNum} - Kelas ${rombel} - ${tsName}`;
     }
 
-    const nextCourseId = courseId || existing.rows[0].course_id;
-    const nextName = name || existing.rows[0].name;
-    await this.ensureCourseAvailableForClass(nextCourseId);
     await this.ensureClassUnique({
       id,
       courseId: nextCourseId,
       name: nextName,
-      academicPeriodId: existing.rows[0].academic_period_id,
+      academicPeriodId: existing.rows[0].id_tahun_semester,
     });
 
-    await this._pool.query(
-      `UPDATE classes
-       SET course_id = $1, name = $2, lecturer_id = $3, status = $4, programming_language = $5
-       WHERE id = $6`,
-      [nextCourseId, nextName, lecturerId, normalizedStatus, programmingLanguage, id],
-    );
+    const client = await this._pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE kelas_praktikum
+         SET id_mata_kuliah = $1, nama_kelas = $2, status = $3, id_semester = $4
+         WHERE id = $5`,
+        [nextCourseId, nextName, targetStatus, nextIdSemester, id],
+      );
 
-    return this.getClassDetail(id);
+      await client.query('DELETE FROM pengampu WHERE id_kelas_praktikum = $1', [id]);
+      await client.query(
+        `INSERT INTO pengampu (id, id_kelas_praktikum, id_dosen, peran)
+         VALUES ($1, $2, $3, 'utama')`,
+        [createId('png'), id, lecturerId],
+      );
+
+      await client.query('COMMIT');
+      return this.getClassDetail(id);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async deleteClass(id) {
-    const found = await this._pool.query('SELECT id FROM classes WHERE id = $1', [id]);
+    const found = await this._pool.query('SELECT id FROM kelas_praktikum WHERE id = $1', [id]);
     if (!found.rows.length) throw new Error('CLASS_NOT_FOUND');
 
-    await this._pool.query('DELETE FROM classes WHERE id = $1', [id]);
+    const client = await this._pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM pengampu WHERE id_kelas_praktikum = $1', [id]);
+      await client.query('DELETE FROM kelas_praktikum WHERE id = $1', [id]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async ensureClassUnique({ id, courseId, name, academicPeriodId }, client = this._pool) {
     const duplicate = await client.query(
-      `SELECT id FROM classes
+      `SELECT id FROM kelas_praktikum
        WHERE id <> COALESCE($1, '')
-        AND course_id = $2
-        AND LOWER(name) = LOWER($3)
-        AND academic_period_id = $4
+         AND id_mata_kuliah = $2
+         AND LOWER(nama_kelas) = LOWER($3)
+         AND id_tahun_semester = $4
        LIMIT 1`,
       [id || '', courseId, name, academicPeriodId],
     );
@@ -368,16 +378,17 @@ class ClassesService {
   async ensureCourseAvailableForClass(courseId, client = this._pool, academicPeriodId = null) {
     const result = await client.query(
       `
-      SELECT c.id, c.status, c.semester, ap.semester_type
-      FROM courses c
+      SELECT mk.id, mk.id_semester, s.semester, ts.tahun_semester
+      FROM mata_kuliah mk
+      JOIN semester s ON s.id = mk.id_semester
       CROSS JOIN LATERAL (
-        SELECT semester_type
-        FROM academic_periods
-        WHERE ($2::varchar IS NULL AND is_active = true)
-          OR id = $2
+        SELECT id, tahun_semester
+        FROM tahun_semester
+        WHERE ($2::varchar IS NULL AND status = 'active')
+           OR id = $2
         LIMIT 1
-      ) ap
-      WHERE c.id = $1
+      ) ts
+      WHERE mk.id = $1
       `,
       [courseId, academicPeriodId],
     );
@@ -385,11 +396,12 @@ class ClassesService {
     if (!result.rows.length) throw new Error('COURSE_NOT_FOUND');
 
     const course = result.rows[0];
-    const activeStudentSemesters = course.semester_type === 'GANJIL'
-      ? [1, 3, 5]
-      : [2, 4, 6];
+    const isGanjilSemester = course.tahun_semester.toLowerCase().includes('ganjil');
+    const activeStudentSemesters = isGanjilSemester
+      ? [1, 3, 5, 7]
+      : [2, 4, 6, 8];
 
-    if (course.status !== 'AKTIF' || !activeStudentSemesters.includes(Number(course.semester))) {
+    if (!activeStudentSemesters.includes(Number(course.semester))) {
       throw new Error('COURSE_INACTIVE');
     }
   }
@@ -403,41 +415,48 @@ class ClassesService {
       const term = normalizeAcademicTerm(filters.semester);
       if (term) {
         params.push(term);
-        semesterClause = `AND ap.semester_type = $${params.length}`;
+        semesterClause = `AND ts.tahun_semester LIKE $${params.length}`;
       }
     }
 
     const result = await this._pool.query(
       `
-      SELECT cl.id, cl.name, cl.programming_language,
+      SELECT kp.id, kp.nama_kelas AS name,
         kp.id AS id_kelas_praktikum, kp.nama_kelas AS nama_kelas_praktikum,
-        c.id AS course_id, c.name AS course_name, c.semester AS student_semester,
+        mk.id AS course_id, mk.nama_mk AS course_name, s.semester AS student_semester,
         u.id AS lecturer_id, u.fullname AS lecturer_name,
-        ap.id AS academic_period_id, ap.year, ap.semester_type,
+        ts.id AS academic_period_id, ts.tahun_semester,
         tsp.study_program_id, tsp.study_program_name,
         COUNT(DISTINCT jc.id)::int AS jobsheet_count,
-        COUNT(DISTINCT cs.student_id)::int AS student_count
-      FROM classes cl
-      JOIN courses c ON c.id = cl.course_id
-      JOIN users u ON u.id = cl.lecturer_id
-      JOIN academic_periods ap ON ap.id = cl.academic_period_id
-      LEFT JOIN kelas_praktikum kp ON kp.legacy_class_id = cl.id
-      LEFT JOIN jobsheet_classes jc ON jc.class_id = cl.id
-      LEFT JOIN class_students cs ON cs.class_id = cl.id AND cs.status = 'AKTIF'
+        COUNT(DISTINCT km.id_mahasiswa)::int AS student_count
+      FROM kelas_praktikum kp
+      JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
+      JOIN semester s ON s.id = kp.id_semester
+      JOIN tahun_semester ts ON ts.id = kp.id_tahun_semester
+      LEFT JOIN pengampu p ON p.id_kelas_praktikum = kp.id AND p.peran = 'utama'
+      LEFT JOIN users u ON u.id = p.id_dosen
+      LEFT JOIN jobsheet_classes jc ON jc.id_kelas_praktikum = kp.id
+      LEFT JOIN kelas_mhs km ON km.id_tahun_semester = kp.id_tahun_semester
+                            AND km.id_semester = kp.id_semester
+                            AND km.id_kelas = kp.id_kelas
+                            AND km.status = 'active'
       LEFT JOIN LATERAL (
         SELECT sp.study_program_id, sprog.name AS study_program_name
-        FROM class_students lcs
-        JOIN student_profiles sp ON sp.user_id = lcs.student_id
+        FROM kelas_mhs lkm
+        JOIN student_profiles sp ON sp.user_id = lkm.id_mahasiswa
         LEFT JOIN study_programs sprog ON sprog.id = sp.study_program_id
-        WHERE lcs.class_id = cl.id AND lcs.status = 'AKTIF'
+        WHERE lkm.id_tahun_semester = kp.id_tahun_semester
+          AND lkm.id_semester = kp.id_semester
+          AND lkm.id_kelas = kp.id_kelas
+          AND lkm.status = 'active'
         GROUP BY sp.study_program_id, sprog.name
         ORDER BY COUNT(*) DESC
         LIMIT 1
       ) tsp ON true
-      WHERE ($1 = '%%' OR LOWER(cl.name) LIKE $1 OR LOWER(c.name) LIKE $1 OR LOWER(u.fullname) LIKE $1)
+      WHERE ($1 = '%%' OR LOWER(kp.nama_kelas) LIKE $1 OR LOWER(mk.nama_mk) LIKE $1 OR LOWER(u.fullname) LIKE $1)
         ${semesterClause}
-      GROUP BY cl.id, kp.id, c.id, u.id, ap.id, tsp.study_program_id, tsp.study_program_name
-      ORDER BY ap.year DESC, ap.semester_type ASC, c.name ASC, cl.name ASC
+      GROUP BY kp.id, mk.id, s.id, u.id, ts.id, tsp.study_program_id, tsp.study_program_name
+      ORDER BY ts.tahun_semester DESC, mk.nama_mk ASC, kp.nama_kelas ASC
       `,
       params,
     );
@@ -452,17 +471,15 @@ class ClassesService {
       course_name: row.course_name,
       lecturer_id: row.lecturer_id,
       lecturer_name: row.lecturer_name,
-      programming_language: normalizeProgrammingLanguage(row.programming_language),
-      programming_language_display_name: normalizeProgrammingLanguage(row.programming_language) === 'python'
-        ? 'Python'
-        : 'Java',
+      programming_language: 'java',
+      programming_language_display_name: 'Java',
       study_program_id: row.study_program_id,
       study_program_name: row.study_program_name,
       semester: row.student_semester,
-      academic_term: displayTerm(row.semester_type),
-      academic_term_value: row.semester_type,
+      academic_term: row.tahun_semester.includes('Ganjil') ? 'Ganjil' : 'Genap',
+      academic_term_value: row.tahun_semester.includes('Ganjil') ? 'GANJIL' : 'GENAP',
       academic_period_id: row.academic_period_id,
-      academic_year: `${row.year} - ${displayTerm(row.semester_type)}`,
+      academic_year: row.tahun_semester,
       jobsheet_count: row.jobsheet_count,
       student_count: row.student_count,
     }));
@@ -471,17 +488,19 @@ class ClassesService {
   async getClassClonePreview(classId) {
     const source = await this._pool.query(
       `
-      SELECT cl.id, cl.name, cl.programming_language,
-        c.name AS course_name, u.fullname AS lecturer_name,
-        c.semester, ap.year, ap.semester_type,
+      SELECT kp.id, kp.nama_kelas AS name,
+        mk.nama_mk AS course_name, u.fullname AS lecturer_name,
+        s.semester, ts.tahun_semester,
         COUNT(DISTINCT jc.id)::int AS jobsheet_count
-      FROM classes cl
-      JOIN courses c ON c.id = cl.course_id
-      JOIN users u ON u.id = cl.lecturer_id
-      JOIN academic_periods ap ON ap.id = cl.academic_period_id
-      LEFT JOIN jobsheet_classes jc ON jc.class_id = cl.id
-      WHERE cl.id = $1
-      GROUP BY cl.id, c.id, u.id, ap.id
+      FROM kelas_praktikum kp
+      JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
+      JOIN semester s ON s.id = kp.id_semester
+      JOIN tahun_semester ts ON ts.id = kp.id_tahun_semester
+      LEFT JOIN pengampu p ON p.id_kelas_praktikum = kp.id AND p.peran = 'utama'
+      LEFT JOIN users u ON u.id = p.id_dosen
+      LEFT JOIN jobsheet_classes jc ON jc.id_kelas_praktikum = kp.id
+      WHERE kp.id = $1
+      GROUP BY kp.id, mk.id, s.id, u.id, ts.id
       `,
       [classId],
     );
@@ -495,14 +514,12 @@ class ClassesService {
         name: row.name,
         course_name: row.course_name,
         lecturer_name: row.lecturer_name,
-        programming_language: normalizeProgrammingLanguage(row.programming_language),
-        programming_language_display_name: normalizeProgrammingLanguage(row.programming_language) === 'python'
-          ? 'Python'
-          : 'Java',
+        programming_language: 'java',
+        programming_language_display_name: 'Java',
         semester: row.semester,
-        academic_term: displayTerm(row.semester_type),
-        academic_term_value: row.semester_type,
-        academic_year: `${row.year} - ${displayTerm(row.semester_type)}`,
+        academic_term: row.tahun_semester.includes('Ganjil') ? 'Ganjil' : 'Genap',
+        academic_term_value: row.tahun_semester.includes('Ganjil') ? 'GANJIL' : 'GENAP',
+        academic_year: row.tahun_semester,
       },
       copyable_data: {
         course: true,
@@ -525,38 +542,13 @@ class ClassesService {
     };
   }
 
-  async _resolveAcademicPeriod(client, payload) {
-    const academicPeriodId = payload.academicPeriodId || payload.academic_period_id;
-    if (academicPeriodId) {
-      const result = await client.query('SELECT id, year, semester_type FROM academic_periods WHERE id = $1 LIMIT 1', [
-        academicPeriodId,
-      ]);
-      if (!result.rows.length) throw new Error('CLONE_ACADEMIC_PERIOD_NOT_FOUND');
-      return result.rows[0];
-    }
-
-    if (payload.academic_year && payload.semester) {
-      const term = normalizeAcademicTerm(payload.semester);
-      const result = await client.query(
-        'SELECT id, year, semester_type FROM academic_periods WHERE year = $1 AND semester_type = $2 LIMIT 1',
-        [payload.academic_year, term],
-      );
-      if (!result.rows.length) throw new Error('CLONE_ACADEMIC_PERIOD_NOT_FOUND');
-      return result.rows[0];
-    }
-
-    const active = await client.query('SELECT id, year, semester_type FROM academic_periods WHERE is_active = true LIMIT 1');
-    if (!active.rows.length) throw new Error('ACTIVE_SEMESTER_NOT_FOUND');
-    return active.rows[0];
-  }
-
   async _cloneJobsheetsToClass(client, sourceClassId, targetClassId) {
     const sourceJobsheets = await client.query(
       `
-      SELECT jc.*, j.course_id, j.status AS jobsheet_status, j.programming_language, j.editor_mode
+      SELECT jc.*, j.id_mata_kuliah, j.status AS jobsheet_status, j.programming_language, j.editor_mode
       FROM jobsheet_classes jc
       JOIN jobsheets j ON j.id = jc.jobsheet_id
-      WHERE jc.class_id = $1
+      WHERE jc.id_kelas_praktikum = $1
       ORDER BY jc.deadline ASC NULLS LAST, jc.title ASC
       `,
       [sourceClassId],
@@ -589,12 +581,12 @@ class ClassesService {
       const clonedContent = replaceIdsInJson(jobsheetClass.content || {}, idMap);
       await client.query(
         `
-        INSERT INTO jobsheets (id, course_id, title, description, goal, content, status, programming_language, editor_mode)
+        INSERT INTO jobsheets (id, id_mata_kuliah, title, description, goal, content, status, programming_language, editor_mode)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `,
         [
           newJobsheetId,
-          jobsheetClass.course_id,
+          jobsheetClass.id_mata_kuliah,
           jobsheetClass.title,
           jobsheetClass.description || '',
           jobsheetClass.goal || '',
@@ -643,7 +635,7 @@ class ClassesService {
       await client.query(
         `
         INSERT INTO jobsheet_classes (
-          id, jobsheet_id, class_id, is_active, deadline,
+          id, jobsheet_id, id_kelas_praktikum, is_active, deadline,
           title, description, goal, content, status
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -713,45 +705,25 @@ class ClassesService {
   }
 
   async _autoEnrollStudents(client, classId, payload, courseId, courseSemester) {
-    if (!payload.study_program_id) throw new Error('CLONE_STUDY_PROGRAM_REQUIRED');
-    if (!payload.generation) throw new Error('CLONE_GENERATION_REQUIRED');
-
-    const students = await client.query(
-      `
-      SELECT u.id
-      FROM users u
-      JOIN student_profiles sp ON sp.user_id = u.id
-      WHERE u.role = 'MAHASISWA'
-        AND u.is_active = true
-        AND sp.study_program_id = $1
-        AND sp.angkatan = $2
-        AND sp.semester = $3
-        AND NOT EXISTS (
-          SELECT 1
-          FROM class_students cs
-          JOIN classes cl ON cl.id = cs.class_id
-          WHERE cs.student_id = u.id
-            AND cs.status = 'AKTIF'
-            AND cl.course_id = $4
-        )
-      ORDER BY sp.nim ASC
-      `,
-      [payload.study_program_id, Number(payload.generation), Number(courseSemester), courseId],
+    const kpResult = await client.query(
+      'SELECT id_tahun_semester, id_semester, id_kelas FROM kelas_praktikum WHERE id = $1 LIMIT 1',
+      [classId]
     );
+    if (!kpResult.rows.length) return 0;
+    const kp = kpResult.rows[0];
 
-    for (const student of students.rows) {
-      await client.query(
-        `
-        INSERT INTO class_students (id, class_id, student_id, status)
-        VALUES ($1, $2, $3, 'AKTIF')
-        ON CONFLICT (class_id, student_id)
-        DO UPDATE SET status = 'AKTIF'
-        `,
-        [createId('cs'), classId, student.id],
-      );
-    }
-
-    return students.rows.length;
+    const result = await client.query(
+      `
+      SELECT COUNT(*)::int AS count
+      FROM kelas_mhs
+      WHERE id_tahun_semester = $1
+        AND id_semester = $2
+        AND id_kelas = $3
+        AND status = 'active'
+      `,
+      [kp.id_tahun_semester, kp.id_semester, kp.id_kelas]
+    );
+    return result.rows[0].count;
   }
 
   async cloneClass(payload) {
@@ -762,11 +734,15 @@ class ClassesService {
 
       const sourceResult = await client.query(
         `
-        SELECT cl.*, c.name AS course_name, c.semester AS course_semester, ap.semester_type AS source_semester_type
-        FROM classes cl
-        JOIN courses c ON c.id = cl.course_id
-        JOIN academic_periods ap ON ap.id = cl.academic_period_id
-        WHERE cl.id = $1
+        SELECT kp.*, mk.nama_mk AS course_name, s.semester AS course_semester,
+          ts.tahun_semester AS source_tahun_semester,
+          k.kelas AS source_rombel
+        FROM kelas_praktikum kp
+        JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
+        JOIN semester s ON s.id = kp.id_semester
+        JOIN tahun_semester ts ON ts.id = kp.id_tahun_semester
+        JOIN kelas k ON k.id = kp.id_kelas
+        WHERE kp.id = $1
         LIMIT 1
         `,
         [payload.source_class_id],
@@ -777,9 +753,8 @@ class ClassesService {
 
       const sourceClass = sourceResult.rows[0];
 
-      // Retrieve the active period from database
       const activePeriodResult = await client.query(
-        'SELECT id, year, semester_type FROM academic_periods WHERE is_active = true LIMIT 1'
+        "SELECT id, tahun_semester FROM tahun_semester WHERE status = 'active' LIMIT 1"
       );
       const activePeriod = activePeriodResult.rows[0];
       if (!activePeriod) {
@@ -787,13 +762,18 @@ class ClassesService {
       }
 
       const academicPeriodId = activePeriod.id;
-      const newClassId = createId('kelas');
-      const lecturerId = payload.lecturer_id || sourceClass.lecturer_id;
+      const newClassId = createId('kp');
+      
+      let lecturerId = payload.lecturer_id;
+      if (!lecturerId) {
+        const lecturerResult = await client.query(
+          "SELECT id_dosen FROM pengampu WHERE id_kelas_praktikum = $1 AND peran = 'utama' LIMIT 1",
+          [payload.source_class_id]
+        );
+        lecturerId = lecturerResult.rows[0]?.id_dosen;
+      }
       if (!lecturerId) throw createClientError('Dosen pengampu wajib dipilih', 400);
 
-      const programmingLanguage = resolveProgrammingLanguage(
-        payload.programming_language || sourceClass.programming_language,
-      );
       const rombel = payload.class_name || payload.className || payload.rombel ||
         extractRombelFromFullName(payload.name, sourceClass.course_name);
 
@@ -801,49 +781,42 @@ class ClassesService {
         throw createClientError('Kelas/Rombel wajib diisi', 400);
       }
 
-      const sourceTerm = sourceClass.source_semester_type;
-      const targetTerm = activePeriod.semester_type;
+      const isSourceGanjil = sourceClass.source_tahun_semester.toLowerCase().includes('ganjil');
+      const isTargetGanjil = activePeriod.tahun_semester.toLowerCase().includes('ganjil');
 
-      if (targetTerm !== sourceTerm) {
+      if (isSourceGanjil !== isTargetGanjil) {
         throw createClientError(
-          `Kelas semester ${displayTerm(sourceTerm)} tidak dapat digunakan sebagai template untuk semester ${displayTerm(targetTerm)}`,
+          `Kelas semester ${isSourceGanjil ? 'Ganjil' : 'Genap'} tidak dapat digunakan sebagai template untuk semester ${isTargetGanjil ? 'Ganjil' : 'Genap'}`,
           400
         );
       }
 
-      if (
-        payload.copy_jobsheets &&
-        programmingLanguage !== normalizeProgrammingLanguage(sourceClass.programming_language)
-      ) {
-        throw createClientError(
-          'Bahasa pemrograman harus sama dengan kelas sumber jika jobsheet ikut disalin',
-          400
-        );
-      }
+      const className = `${sourceClass.course_name} - Semester ${sourceClass.course_semester} - Kelas ${rombel.trim().toUpperCase()} - ${activePeriod.tahun_semester}`;
 
-      // Generate class name standard format
-      const className = generateClassName({
-        courseName: sourceClass.course_name,
-        rombel: rombel.trim(),
-        academicYear: activePeriod.year,
-        semester: displayTerm(activePeriod.semester_type),
-      });
-
-      await this.ensureCourseAvailableForClass(sourceClass.course_id, client, academicPeriodId);
+      await this.ensureCourseAvailableForClass(sourceClass.id_mata_kuliah, client, academicPeriodId);
       await this.ensureClassUnique({
-        courseId: sourceClass.course_id,
+        courseId: sourceClass.id_mata_kuliah,
         name: className,
         academicPeriodId,
       }, client);
 
+      const idKelas = await this._getOrCreateKelasId(client, rombel);
+
       await client.query(
         `
-        INSERT INTO classes (
-          id, course_id, name, lecturer_id, academic_period_id, status, programming_language
+        INSERT INTO kelas_praktikum (
+          id, id_tahun_semester, id_mata_kuliah, id_semester, id_kelas, nama_kelas, status
         )
-        VALUES ($1, $2, $3, $4, $5, 'AKTIF', $6)
+        VALUES ($1, $2, $3, $4, $5, $6, 'open')
         `,
-        [newClassId, sourceClass.course_id, className, lecturerId, academicPeriodId, programmingLanguage],
+        [newClassId, academicPeriodId, sourceClass.id_mata_kuliah, sourceClass.id_semester, idKelas, className],
+      );
+
+      await client.query(
+        `INSERT INTO pengampu (id, id_kelas_praktikum, id_dosen, peran)
+         VALUES ($1, $2, $3, 'utama')
+         ON CONFLICT (id_kelas_praktikum, id_dosen) DO NOTHING`,
+        [createId('png'), newClassId, lecturerId]
       );
 
       const jobsheetsCopied = payload.copy_jobsheets
@@ -854,7 +827,7 @@ class ClassesService {
           client,
           newClassId,
           payload,
-          sourceClass.course_id,
+          sourceClass.id_mata_kuliah,
           sourceClass.course_semester,
         )
         : 0;
@@ -872,24 +845,6 @@ class ClassesService {
     } finally {
       client.release();
     }
-  }
-
-  async getClassStudents(classId) {
-    const result = await this._pool.query(
-      `
-      SELECT u.id, u.fullname, u.email, u.is_active,
-        sp.nim, sp.program_studi, sp.jurusan, sp.angkatan, sp.semester,
-        sp.status, u.avatar_url
-      FROM class_students cs
-      JOIN users u ON u.id = cs.student_id
-      LEFT JOIN student_profiles sp ON sp.user_id = u.id
-      WHERE cs.class_id = $1 AND cs.status = 'AKTIF'
-      ORDER BY sp.nim ASC
-      `,
-      [classId],
-    );
-
-    return result.rows.map(mapStudent);
   }
 
   async getNativeClassStudents(kelasPraktikumId) {
@@ -917,22 +872,22 @@ class ClassesService {
 
   async getStudentCandidates(classId, filters = {}) {
     const classInfo = await this._pool.query(
-      `SELECT cl.course_id, cl.academic_period_id, c.semester
-     FROM classes cl
-     JOIN courses c ON c.id = cl.course_id
-     WHERE cl.id = $1`,
+      `SELECT kp.id_tahun_semester, kp.id_semester, s.semester
+       FROM kelas_praktikum kp
+       JOIN semester s ON s.id = kp.id_semester
+       WHERE kp.id = $1`,
       [classId],
     );
 
     if (!classInfo.rows.length) throw new Error('CLASS_NOT_FOUND');
 
     const {
-      course_id: courseId,
+      id_tahun_semester: idTahunSemester,
       semester: courseSemester,
     } = classInfo.rows[0];
 
     const keyword = `%${(filters.keyword || '').toLowerCase()}%`;
-    const params = [keyword, courseId, Number(courseSemester)];
+    const params = [keyword, idTahunSemester, Number(courseSemester)];
     let semesterClause = '';
 
     if (filters.semester && filters.semester !== 'all') {
@@ -949,9 +904,10 @@ class ClassesService {
       LEFT JOIN student_profiles sp ON sp.user_id = u.id
       WHERE u.role = 'MAHASISWA'
         AND NOT EXISTS (
-          SELECT 1 FROM class_students cs
-          JOIN classes cl ON cs.class_id = cl.id
-          WHERE cs.student_id = u.id AND cs.status = 'AKTIF' AND cl.course_id = $2
+          SELECT 1 FROM kelas_mhs km
+          WHERE km.id_mahasiswa = u.id
+            AND km.id_tahun_semester = $2
+            AND km.status = 'active'
         )
         AND sp.semester = $3
         AND ($1 = '%%' OR LOWER(u.fullname) LIKE $1 OR LOWER(COALESCE(sp.nim, '')) LIKE $1)
@@ -971,55 +927,41 @@ class ClassesService {
       await client.query('BEGIN');
 
       const classInfo = await client.query(
-        `SELECT cl.course_id, c.semester
-         FROM classes cl
-         JOIN courses c ON c.id = cl.course_id
-         WHERE cl.id = $1`,
+        `SELECT id_tahun_semester, id_semester, id_kelas
+         FROM kelas_praktikum
+         WHERE id = $1`,
         [classId],
       );
       if (!classInfo.rows.length) throw new Error('CLASS_NOT_FOUND');
-      const { course_id: courseId, semester: courseSemester } = classInfo.rows[0];
+      const { id_tahun_semester, id_semester, id_kelas } = classInfo.rows[0];
 
-      for (const studentId of studentIds) {
-        const studentProfile = await client.query(
-          `SELECT semester, nim FROM student_profiles WHERE user_id = $1`,
-          [studentId],
-        );
-        if (!studentProfile.rows.length) {
-          throw new Error('USER_NOT_FOUND');
-        }
-        const studentSemester = studentProfile.rows[0].semester;
-        if (Number(studentSemester) !== Number(courseSemester)) {
-          throw new Error('STUDENT_SEMESTER_MISMATCH');
-        }
-
-        const existingClass = await client.query(
-          `SELECT cl.name AS class_name
-           FROM class_students cs
-           JOIN classes cl ON cs.class_id = cl.id
-           WHERE cs.student_id = $1 AND cs.status = 'AKTIF' AND cl.course_id = $2
-             AND cl.id <> $3
-           LIMIT 1`,
-          [studentId, courseId, classId],
-        );
-        if (existingClass.rows.length) {
-          throw new Error('STUDENT_ALREADY_IN_COURSE_CLASS');
-        }
-      }
-
-      for (const studentId of studentIds) {
+      const groupResult = await client.query(
+        'SELECT id FROM kelas_semester WHERE id_tahun_semester = $1 AND id_semester = $2 AND id_kelas = $3 LIMIT 1',
+        [id_tahun_semester, id_semester, id_kelas]
+      );
+      let id_kelas_semester = groupResult.rows[0]?.id || null;
+      if (!id_kelas_semester) {
+        id_kelas_semester = createId('ks');
         await client.query(
-          `
-          INSERT INTO class_students (id, class_id, student_id, status)
-          VALUES ($1, $2, $3, 'AKTIF')
-          ON CONFLICT (class_id, student_id)
-          DO UPDATE SET status = 'AKTIF'
-          `,
-          [createId('cs'), classId, studentId],
+          `INSERT INTO kelas_semester (id, id_tahun_semester, id_semester, id_kelas, status)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [id_kelas_semester, id_tahun_semester, id_semester, id_kelas, 'active']
         );
       }
+
+      for (const studentId of studentIds) {
+        const id = createId('km');
+        await client.query(
+          `INSERT INTO kelas_mhs (id, id_tahun_semester, id_semester, id_kelas, id_mahasiswa, status, id_kelas_semester)
+           VALUES ($1, $2, $3, $4, $5, 'active', $6)
+           ON CONFLICT (id_tahun_semester, id_mahasiswa)
+           DO UPDATE SET id_semester = $3, id_kelas = $4, status = 'active', id_kelas_semester = $6`,
+          [id, id_tahun_semester, id_semester, id_kelas, studentId, id_kelas_semester],
+        );
+      }
+
       await client.query('COMMIT');
-      return this.getClassStudents(classId);
+      return this.getNativeClassStudents(classId);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -1029,44 +971,30 @@ class ClassesService {
   }
 
   async removeStudentFromClass(classId, studentId) {
+    const classInfo = await this._pool.query(
+      `SELECT id_tahun_semester, id_semester, id_kelas
+       FROM kelas_praktikum
+       WHERE id = $1`,
+      [classId],
+    );
+    if (!classInfo.rows.length) throw new Error('CLASS_NOT_FOUND');
+    const { id_tahun_semester, id_semester, id_kelas } = classInfo.rows[0];
+
     const result = await this._pool.query(
       `
-      DELETE FROM class_students
-      WHERE class_id = $1 AND student_id = $2
+      DELETE FROM kelas_mhs
+      WHERE id_tahun_semester = $1
+        AND id_semester = $2
+        AND id_kelas = $3
+        AND id_mahasiswa = $4
       RETURNING id
       `,
-      [classId, studentId],
+      [id_tahun_semester, id_semester, id_kelas, studentId],
     );
 
     if (!result.rows.length) {
       throw new Error('STUDENT_NOT_FOUND_IN_CLASS');
     }
-  }
-
-  async getClassJobsheets(classId) {
-    const result = await this._pool.query(
-      `
-      SELECT jc.id, jc.jobsheet_id, jc.title, jc.deadline, jc.status
-      FROM jobsheet_classes jc
-      WHERE jc.class_id = $1 AND jc.is_active = true
-      ORDER BY jc.deadline ASC NULLS LAST, jc.title ASC
-      `,
-      [classId],
-    );
-
-    return result.rows.map((row) => ({
-      id: row.jobsheet_id,
-      classJobsheetId: row.id,
-      title: row.title,
-      deadline: row.deadline ? new Date(row.deadline).toLocaleString('id-ID', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }) : '-',
-      status: displayStatus(row.status),
-    }));
   }
 
   async getNativeClassJobsheets(kelasPraktikumId) {

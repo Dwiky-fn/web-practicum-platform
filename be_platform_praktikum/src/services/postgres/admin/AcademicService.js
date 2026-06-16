@@ -88,7 +88,7 @@ class AcademicService {
     }
   }
 
-  async deleteSemester(id) {
+  async deleteSemester(id, force = false) {
     const found = await this._pool.query(
       'SELECT id, is_active FROM academic_periods WHERE id = $1',
       [id],
@@ -96,13 +96,53 @@ class AcademicService {
     if (!found.rows.length) throw new Error('SEMESTER_NOT_FOUND');
     if (found.rows[0].is_active) throw new Error('SEMESTER_ACTIVE_DELETE');
 
-    const used = await this._pool.query(
-      'SELECT id FROM classes WHERE academic_period_id = $1 LIMIT 1',
-      [id],
-    );
-    if (used.rows.length) throw new Error('SEMESTER_HAS_CLASSES');
+    if (force) {
+      const client = await this._pool.connect();
+      try {
+        await client.query('BEGIN');
+        // Find all kelas_semester
+        const ksRes = await client.query('SELECT id FROM kelas_semester WHERE id_tahun_semester = $1', [id]);
+        const ksIds = ksRes.rows.map(r => r.id);
+        for (const ksId of ksIds) {
+          const studentsRes = await client.query('SELECT id FROM kelas_mhs WHERE id_kelas_semester = $1', [ksId]);
+          const mhsIds = studentsRes.rows.map(r => r.id);
+          if (mhsIds.length > 0) {
+            await client.query('DELETE FROM student_progress WHERE id_kelas_mhs = ANY($1)', [mhsIds]);
+            await client.query('DELETE FROM task_submissions WHERE id_kelas_mhs = ANY($1)', [mhsIds]);
+            await client.query('DELETE FROM student_jobsheet_progress WHERE id_kelas_mhs = ANY($1)', [mhsIds]);
+            await client.query('DELETE FROM kelas_mhs WHERE id_kelas_semester = $1', [ksId]);
+          }
+        }
+        await client.query('DELETE FROM kelas_semester WHERE id_tahun_semester = $1', [id]);
 
-    await this._pool.query('DELETE FROM academic_periods WHERE id = $1', [id]);
+        // Find all kelas_praktikum
+        const kpRes = await client.query('SELECT id FROM kelas_praktikum WHERE id_tahun_semester = $1', [id]);
+        const kpIds = kpRes.rows.map(r => r.id);
+        if (kpIds.length > 0) {
+          await client.query('DELETE FROM jobsheet_classes WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM student_progress WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM task_submissions WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM student_jobsheet_progress WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM pengampu WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM kelas_praktikum WHERE id_tahun_semester = $1', [id]);
+        }
+        await client.query('DELETE FROM academic_periods WHERE id = $1', [id]);
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+    } else {
+      const used = await this._pool.query(
+        'SELECT id FROM kelas_praktikum WHERE id_tahun_semester = $1 LIMIT 1',
+        [id],
+      );
+      if (used.rows.length) throw new Error('SEMESTER_HAS_CLASSES');
+
+      await this._pool.query('DELETE FROM academic_periods WHERE id = $1', [id]);
+    }
   }
 
   async getCourses(filters = {}) {
@@ -112,17 +152,18 @@ class AcademicService {
 
     if (filters.semester && filters.semester !== 'all') {
       params.push(Number(filters.semester));
-      semesterClause = `AND semester = $${params.length}`;
+      semesterClause = `AND s.semester = $${params.length}`;
     }
 
     const [result, activePeriod] = await Promise.all([
       this._pool.query(
         `
-        SELECT id, code, name, semester, sks, status
-        FROM courses
-        WHERE ($1 = '%%' OR LOWER(code) LIKE $1 OR LOWER(name) LIKE $1)
+        SELECT mk.id, mk.kode_mk AS code, mk.nama_mk AS name, s.semester, mk.sks, 'AKTIF' AS status
+        FROM mata_kuliah mk
+        JOIN semester s ON s.id = mk.id_semester
+        WHERE ($1 = '%%' OR LOWER(mk.kode_mk) LIKE $1 OR LOWER(mk.nama_mk) LIKE $1)
           ${semesterClause}
-        ORDER BY semester ASC, name ASC
+        ORDER BY s.semester ASC, mk.nama_mk ASC
         `,
         params,
       ),
@@ -150,16 +191,34 @@ class AcademicService {
       semester: Number(payload.semester),
     });
 
+    const semesterQuery = await this._pool.query(
+      'SELECT id FROM semester WHERE semester = $1 LIMIT 1',
+      [Number(payload.semester)]
+    );
+    let semesterId = semesterQuery.rows[0]?.id;
+    if (!semesterId) {
+      semesterId = `sem_${payload.semester}`;
+      await this._pool.query(
+        'INSERT INTO semester (id, semester) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [semesterId, Number(payload.semester)]
+      );
+    }
+
+    const kurikulumQuery = await this._pool.query(
+      "SELECT id FROM kurikulum WHERE status = 'active' LIMIT 1"
+    );
+    const kurikulumId = kurikulumQuery.rows[0]?.id || 'kur-1';
+
     await this._pool.query(
-      `INSERT INTO courses (id, name, code, semester, sks, status)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO mata_kuliah (id, kode_mk, nama_mk, sks, tipe, id_kurikulum, id_semester)
+       VALUES ($1, $2, $3, $4, 'praktikum', $5, $6)`,
       [
         id,
-        payload.name,
         payload.code,
-        Number(payload.semester),
+        payload.name,
         Number(payload.sks),
-        normalizeStatus(payload.status),
+        kurikulumId,
+        semesterId,
       ],
     );
 
@@ -168,59 +227,115 @@ class AcademicService {
 
   async updateCourse(id, payload) {
     const current = await this._pool.query(
-      'SELECT id, code, name, semester FROM courses WHERE id = $1',
+      `SELECT mk.id, mk.kode_mk AS code, mk.nama_mk AS name, s.semester
+       FROM mata_kuliah mk
+       JOIN semester s ON s.id = mk.id_semester
+       WHERE mk.id = $1`,
       [id],
     );
 
     if (!current.rows.length) throw new Error('COURSE_NOT_FOUND');
 
+    const code = payload.code || current.rows[0].code;
+    const name = payload.name || current.rows[0].name;
+    const semesterNum = payload.semester ? Number(payload.semester) : Number(current.rows[0].semester);
+
     await this.ensureCourseUnique({
       id,
-      code: payload.code || current.rows[0].code,
-      name: payload.name || current.rows[0].name,
-      semester: payload.semester ? Number(payload.semester) : Number(current.rows[0].semester),
+      code,
+      name,
+      semester: semesterNum,
     });
 
+    const semesterQuery = await this._pool.query(
+      'SELECT id FROM semester WHERE semester = $1 LIMIT 1',
+      [semesterNum]
+    );
+    let semesterId = semesterQuery.rows[0]?.id;
+    if (!semesterId) {
+      semesterId = `sem_${semesterNum}`;
+      await this._pool.query(
+        'INSERT INTO semester (id, semester) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [semesterId, semesterNum]
+      );
+    }
+
     await this._pool.query(
-      `UPDATE courses
+      `UPDATE mata_kuliah
        SET
-        code = COALESCE($2, code),
-        name = COALESCE($3, name),
-        semester = COALESCE($4, semester),
-        sks = COALESCE($5, sks),
-        status = COALESCE($6, status)
+        kode_mk = $2,
+        nama_mk = $3,
+        sks = COALESCE($4, sks),
+        id_semester = $5
        WHERE id = $1`,
       [
         id,
-        payload.code || null,
-        payload.name || null,
-        payload.semester ? Number(payload.semester) : null,
+        code,
+        name,
         payload.sks ? Number(payload.sks) : null,
-        payload.status ? normalizeStatus(payload.status) : null,
+        semesterId,
       ],
     );
 
     return (await this.getCourses()).find((item) => item.id === id);
   }
 
-  async deleteCourse(id) {
-    const found = await this._pool.query('SELECT id FROM courses WHERE id = $1', [id]);
+  async deleteCourse(id, force = false) {
+    const found = await this._pool.query('SELECT id FROM mata_kuliah WHERE id = $1', [id]);
     if (!found.rows.length) throw new Error('COURSE_NOT_FOUND');
 
-    const used = await this._pool.query(
-      'SELECT id FROM classes WHERE course_id = $1 LIMIT 1',
-      [id],
-    );
-    if (used.rows.length) throw new Error('COURSE_HAS_CLASSES');
+    if (force) {
+      const client = await this._pool.connect();
+      try {
+        await client.query('BEGIN');
+        // Find all kelas_praktikum for this mata_kuliah
+        const kpRes = await client.query('SELECT id FROM kelas_praktikum WHERE id_mata_kuliah = $1', [id]);
+        const kpIds = kpRes.rows.map(r => r.id);
+        if (kpIds.length > 0) {
+          await client.query('DELETE FROM jobsheet_classes WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM student_progress WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM task_submissions WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM student_jobsheet_progress WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM pengampu WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM kelas_praktikum WHERE id_mata_kuliah = $1', [id]);
+        }
+        // Delete jobsheets for this mata_kuliah
+        const jRes = await client.query('SELECT id FROM jobsheets WHERE id_mata_kuliah = $1', [id]);
+        const jIds = jRes.rows.map(r => r.id);
+        if (jIds.length > 0) {
+          await client.query('DELETE FROM experiments WHERE jobsheet_id = ANY($1)', [jIds]);
+          await client.query('DELETE FROM exercises WHERE jobsheet_id = ANY($1)', [jIds]);
+          await client.query('DELETE FROM jobsheet_classes WHERE jobsheet_id = ANY($1)', [jIds]);
+          await client.query('DELETE FROM student_progress WHERE jobsheet_id = ANY($1)', [jIds]);
+          await client.query('DELETE FROM task_submissions WHERE jobsheet_id = ANY($1)', [jIds]);
+          await client.query('DELETE FROM student_jobsheet_progress WHERE jobsheet_id = ANY($1)', [jIds]);
+          await client.query('DELETE FROM jobsheets WHERE id_mata_kuliah = $1', [id]);
+        }
+        await client.query('DELETE FROM mata_kuliah WHERE id = $1', [id]);
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+    } else {
+      const used = await this._pool.query(
+        'SELECT id FROM kelas_praktikum WHERE id_mata_kuliah = $1 LIMIT 1',
+        [id],
+      );
+      if (used.rows.length) throw new Error('COURSE_HAS_CLASSES');
 
-    await this._pool.query('DELETE FROM courses WHERE id = $1', [id]);
+      await this._pool.query('DELETE FROM mata_kuliah WHERE id = $1', [id]);
+    }
   }
 
   async ensureCourseUnique({ id, code, name, semester }) {
     const duplicate = await this._pool.query(
-      `SELECT id FROM courses
-       WHERE id <> COALESCE($1, '')
-        AND (LOWER(code) = LOWER($2) OR (LOWER(name) = LOWER($3) AND semester = $4))
+      `SELECT mk.id FROM mata_kuliah mk
+       JOIN semester s ON s.id = mk.id_semester
+       WHERE mk.id <> COALESCE($1, '')
+         AND (LOWER(mk.kode_mk) = LOWER($2) OR (LOWER(mk.nama_mk) = LOWER($3) AND s.semester = $4))
        LIMIT 1`,
       [id || '', code, name, Number(semester)],
     );

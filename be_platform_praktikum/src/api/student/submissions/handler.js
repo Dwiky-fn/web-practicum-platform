@@ -112,10 +112,9 @@ class SubmissionsHandler {
 
     const submission = await this._service.getOrCreateSubmission(
       jobsheetId,
-      courseId,
       studentId,
       {
-        mataKuliahId,
+        mataKuliahId: mataKuliahId || courseId,
         classId: req.query.classId || req.body?.classId,
         kelasPraktikumId: req.query.kelasPraktikumId || req.query.id_kelas_praktikum || req.body?.kelasPraktikumId || req.body?.id_kelas_praktikum,
       },

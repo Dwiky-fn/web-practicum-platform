@@ -123,8 +123,8 @@ export const academicDataApi = {
   async activateTahunSemester(id: string) {
     return unwrap<TahunSemester>(await apiFetch(`/admin/tahun-semester/${id}/activate`, { method: "PATCH" }), "tahun_semester")
   },
-  async deleteTahunSemester(id: string) {
-    await apiFetch(`/admin/tahun-semester/${id}`, { method: "DELETE" })
+  async deleteTahunSemester(id: string, force?: boolean) {
+    await apiFetch(`/admin/tahun-semester/${id}${force ? "?force=true" : ""}`, { method: "DELETE" })
   },
 
   async getKurikulum() {
@@ -139,8 +139,8 @@ export const academicDataApi = {
   async activateKurikulum(id: string) {
     return unwrap<Kurikulum>(await apiFetch(`/admin/kurikulum/${id}/activate`, { method: "PATCH" }), "kurikulum")
   },
-  async deleteKurikulum(id: string) {
-    await apiFetch(`/admin/kurikulum/${id}`, { method: "DELETE" })
+  async deleteKurikulum(id: string, force?: boolean) {
+    await apiFetch(`/admin/kurikulum/${id}${force ? "?force=true" : ""}`, { method: "DELETE" })
   },
 
   async getSemester() {
@@ -151,8 +151,8 @@ export const academicDataApi = {
     const path = id ? `/admin/semester/${id}` : "/admin/semester"
     return unwrap<SemesterMaster>(await apiFetch(path, { method, body: JSON.stringify(payload) }), "semester")
   },
-  async deleteSemester(id: string) {
-    await apiFetch(`/admin/semester/${id}`, { method: "DELETE" })
+  async deleteSemester(id: string, force?: boolean) {
+    await apiFetch(`/admin/semester/${id}${force ? "?force=true" : ""}`, { method: "DELETE" })
   },
 
   async getKelas() {
@@ -163,8 +163,8 @@ export const academicDataApi = {
     const path = id ? `/admin/kelas/${id}` : "/admin/kelas"
     return unwrap<KelasMaster>(await apiFetch(path, { method, body: JSON.stringify(payload) }), "kelas")
   },
-  async deleteKelas(id: string) {
-    await apiFetch(`/admin/kelas/${id}`, { method: "DELETE" })
+  async deleteKelas(id: string, force?: boolean) {
+    await apiFetch(`/admin/kelas/${id}${force ? "?force=true" : ""}`, { method: "DELETE" })
   },
 
   async getMataKuliah(filters: { id_kurikulum?: string } = {}) {
@@ -175,8 +175,8 @@ export const academicDataApi = {
     const path = id ? `/admin/mata-kuliah/${id}` : "/admin/mata-kuliah"
     return unwrap<MataKuliah>(await apiFetch(path, { method, body: JSON.stringify(payload) }), "mata_kuliah")
   },
-  async deleteMataKuliah(id: string) {
-    await apiFetch(`/admin/mata-kuliah/${id}`, { method: "DELETE" })
+  async deleteMataKuliah(id: string, force?: boolean) {
+    await apiFetch(`/admin/mata-kuliah/${id}${force ? "?force=true" : ""}`, { method: "DELETE" })
   },
 
   async getKelasMahasiswa(filters: Record<string, string> = {}) {
@@ -187,8 +187,8 @@ export const academicDataApi = {
     const path = id ? `/admin/kelas-mahasiswa/${id}` : "/admin/kelas-mahasiswa"
     return unwrap<KelasMahasiswa>(await apiFetch(path, { method, body: JSON.stringify(payload) }), "kelas_mahasiswa")
   },
-  async deleteKelasMahasiswa(id: string) {
-    await apiFetch(`/admin/kelas-mahasiswa/${id}`, { method: "DELETE" })
+  async deleteKelasMahasiswa(id: string, force?: boolean) {
+    await apiFetch(`/admin/kelas-mahasiswa/${id}${force ? "?force=true" : ""}`, { method: "DELETE" })
   },
 
   async getKelasPraktikum(filters: Record<string, string> = {}) {
@@ -208,8 +208,8 @@ export const academicDataApi = {
     const path = id ? `/admin/kelas-praktikum/${id}` : "/admin/kelas-praktikum"
     return unwrap<KelasPraktikum>(await apiFetch(path, { method, body: JSON.stringify(payload) }), "kelas_praktikum")
   },
-  async deleteKelasPraktikum(id: string) {
-    await apiFetch(`/admin/kelas-praktikum/${id}`, { method: "DELETE" })
+  async deleteKelasPraktikum(id: string, force?: boolean) {
+    await apiFetch(`/admin/kelas-praktikum/${id}${force ? "?force=true" : ""}`, { method: "DELETE" })
   },
 
   async getPengampu(filters: Record<string, string> = {}) {
@@ -232,7 +232,7 @@ export const academicDataApi = {
     const path = id ? `/admin/kelas-semester/${id}` : "/admin/kelas-semester"
     return unwrap<KelasSemester>(await apiFetch(path, { method, body: JSON.stringify(payload) }), "kelas_semester")
   },
-  async deleteKelasSemester(id: string) {
-    await apiFetch(`/admin/kelas-semester/${id}`, { method: "DELETE" })
+  async deleteKelasSemester(id: string, force?: boolean) {
+    await apiFetch(`/admin/kelas-semester/${id}${force ? "?force=true" : ""}`, { method: "DELETE" })
   },
 }

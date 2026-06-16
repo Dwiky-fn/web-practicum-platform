@@ -240,7 +240,7 @@ export default function LecturerClassDetailPage() {
             {activeTab === "modules" && (
               <div>
                 <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
-                  <LecturerButton onClick={() => navigate(`/courses/${courseId}/jobsheets/create`)}>
+                  <LecturerButton onClick={() => navigate(`/mata-kuliah/${nativeScope.mataKuliahId || courseId}/jobsheets/create`)}>
                     <Plus size={16} />
                     Tambah Jobsheet
                   </LecturerButton>
@@ -276,7 +276,7 @@ export default function LecturerClassDetailPage() {
                           >
                             Lihat Detail
                           </LecturerButton>
-                          <LecturerButton variant="secondary" onClick={() => navigate(`/courses/${courseId}/jobsheets/${jobsheet.id}/edit`)}>
+                          <LecturerButton variant="secondary" onClick={() => navigate(`/mata-kuliah/${nativeScope.mataKuliahId || courseId}/jobsheets/${jobsheet.id}/edit`)}>
                             Edit
                           </LecturerButton>
                         </div>

@@ -58,17 +58,6 @@ const updateMataKuliahPayloadSchema = Joi.object({
   id_semester: Joi.string().trim(),
 }).min(1);
 
-const legacyCourseCandidatesQuerySchema = Joi.object({
-  keyword: Joi.string().allow('', null),
-  status: Joi.string().valid('all', 'linked', 'unlinked').default('all'),
-});
-
-const linkLegacyCoursePayloadSchema = Joi.object({
-  legacy_course_id: Joi.string().trim(),
-  course_id: Joi.string().trim(),
-  courseId: Joi.string().trim(),
-}).or('legacy_course_id', 'course_id', 'courseId');
-
 const kelasMahasiswaPayloadSchema = Joi.object({
   id: Joi.string().allow('', null),
   id_tahun_semester: idSchema,
@@ -102,32 +91,6 @@ const updateKelasPraktikumPayloadSchema = Joi.object({
   id_kelas: Joi.string().trim(),
   status: kelasPraktikumStatusSchema,
 }).min(1);
-
-const linkLegacyClassPayloadSchema = Joi.object({
-  legacy_class_id: Joi.string().trim(),
-  class_id: Joi.string().trim(),
-  classId: Joi.string().trim(),
-}).or('legacy_class_id', 'class_id', 'classId');
-
-const legacyClassCandidatesQuerySchema = Joi.object({
-  keyword: Joi.string().allow('', null),
-  status: Joi.string().valid('all', 'linked', 'unlinked').default('all'),
-});
-
-const bulkLinkLegacyClassesPayloadSchema = Joi.object({
-  links: Joi.array().items(
-    Joi.object({
-      id_kelas_praktikum: Joi.string().trim(),
-      kelas_praktikum_id: Joi.string().trim(),
-      kelasPraktikumId: Joi.string().trim(),
-      legacy_class_id: Joi.string().trim(),
-      class_id: Joi.string().trim(),
-      classId: Joi.string().trim(),
-    })
-      .or('id_kelas_praktikum', 'kelas_praktikum_id', 'kelasPraktikumId')
-      .or('legacy_class_id', 'class_id', 'classId'),
-  ).min(1).required(),
-});
 
 const pengampuPayloadSchema = Joi.object({
   id: Joi.string().allow('', null),
@@ -173,15 +136,10 @@ module.exports = {
   validateKelasPayload: (payload) => validateWithSchema(kelasPayloadSchema, payload),
   validateMataKuliahPayload: (payload) => validateWithSchema(mataKuliahPayloadSchema, payload),
   validateUpdateMataKuliahPayload: (payload) => validateWithSchema(updateMataKuliahPayloadSchema, payload),
-  validateLegacyCourseCandidatesQuery: (query) => validateWithSchema(legacyCourseCandidatesQuerySchema, query),
-  validateLinkLegacyCoursePayload: (payload) => validateWithSchema(linkLegacyCoursePayloadSchema, payload),
   validateKelasMahasiswaPayload: (payload) => validateWithSchema(kelasMahasiswaPayloadSchema, payload),
   validateUpdateKelasMahasiswaPayload: (payload) => validateWithSchema(updateKelasMahasiswaPayloadSchema, payload),
   validateKelasPraktikumPayload: (payload) => validateWithSchema(kelasPraktikumPayloadSchema, payload),
   validateUpdateKelasPraktikumPayload: (payload) => validateWithSchema(updateKelasPraktikumPayloadSchema, payload),
-  validateLinkLegacyClassPayload: (payload) => validateWithSchema(linkLegacyClassPayloadSchema, payload),
-  validateLegacyClassCandidatesQuery: (query) => validateWithSchema(legacyClassCandidatesQuerySchema, query),
-  validateBulkLinkLegacyClassesPayload: (payload) => validateWithSchema(bulkLinkLegacyClassesPayloadSchema, payload),
   validatePengampuPayload: (payload) => validateWithSchema(pengampuPayloadSchema, payload),
   validateUpdatePengampuPayload: (payload) => validateWithSchema(updatePengampuPayloadSchema, payload),
   validateKelasMahasiswaQuery: (query) => validateWithSchema(kelasMahasiswaQuerySchema, query),

@@ -33,17 +33,6 @@ import LecturerMonitoringPage from "./features/lecturer/pages/LecturerMonitoring
 import LecturerReviewPage from "./features/lecturer/pages/LecturerReviewPage"
 import ToastContainer from "./components/toast/ToastContainer"
 
-function NavigateToMataKuliahWildcard() {
-  const location = useLocation()
-  const newPath = location.pathname.replace(/^\/courses/, "/mata-kuliah")
-  return <Navigate to={`${newPath}${location.search}`} replace />
-}
-
-function NavigateToKelasPraktikumWildcard() {
-  const location = useLocation()
-  const newPath = location.pathname.replace(/^\/classes/, "/kelas-praktikum")
-  return <Navigate to={`${newPath}${location.search}`} replace />
-}
 
 function AppContent() {
   const { user, loading } = useCurrentUser()
@@ -87,7 +76,7 @@ function AppContent() {
           admin: <Navigate to="/admin/academic/tahun-semester" replace />,
         })}
       />
-      <Route path="/courses/*" element={<NavigateToMataKuliahWildcard />} />
+
       <Route
         path="/academic"
         element={byRole({ admin: <Navigate to="/admin/academic/tahun-semester" replace /> })}
@@ -128,7 +117,7 @@ function AppContent() {
         path="/kelas-praktikum/:courseId/:classId"
         element={byRole({ dosen: <LecturerClassDetailPage /> })}
       />
-      <Route path="/classes/*" element={<NavigateToKelasPraktikumWildcard />} />
+
       <Route
         path="/mata-kuliah/:mataKuliahId"
         element={byRole({

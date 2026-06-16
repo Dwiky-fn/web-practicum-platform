@@ -255,7 +255,7 @@ export function AdminConfirmModal({
   onConfirm,
 }: {
   title: string
-  message: string
+  message: React.ReactNode
   confirmLabel?: string
   cancelLabel?: string
   variant?: "primary" | "danger"
@@ -276,7 +276,7 @@ export function AdminConfirmModal({
         </>
       }
     >
-      <p className="text-center text-sm text-gray-700">{message}</p>
+      <div className="text-center text-sm text-gray-700">{message}</div>
     </AdminModal>
   )
 }

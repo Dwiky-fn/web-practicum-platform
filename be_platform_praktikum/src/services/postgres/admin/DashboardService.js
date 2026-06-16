@@ -23,26 +23,27 @@ class DashboardService {
       `),
       this._pool.query(`
         SELECT COUNT(*)::int AS total,
-          COUNT(*) FILTER (WHERE status = 'AKTIF')::int AS active
-        FROM courses
+          COUNT(*) FILTER (WHERE k.status = 'active')::int AS active
+        FROM mata_kuliah mk
+        JOIN kurikulum k ON k.id = mk.id_kurikulum
       `),
       this._pool.query(`
         SELECT COUNT(*)::int AS total,
-          COUNT(*) FILTER (WHERE status = 'AKTIF')::int AS active
-        FROM classes
+          COUNT(*) FILTER (WHERE status = 'open')::int AS active
+        FROM kelas_praktikum
       `),
       this._pool.query(`
-        SELECT id, year, semester_type
-        FROM academic_periods
-        WHERE is_active = true
+        SELECT id, tahun_semester
+        FROM tahun_semester
+        WHERE status = 'active'
         LIMIT 1
       `),
       this._pool.query(`
         SELECT
-          COUNT(DISTINCT student_id)::int AS assigned,
+          COUNT(DISTINCT id_mahasiswa)::int AS assigned,
           (SELECT COUNT(*)::int FROM users WHERE role = 'MAHASISWA') AS total
-        FROM class_students
-        WHERE status = 'AKTIF'
+        FROM kelas_mhs
+        WHERE status = 'active'
       `),
       this._pool.query(`
         SELECT created_at, title, message
@@ -58,15 +59,21 @@ class DashboardService {
     }, {});
 
     const semester = activeSemester.rows[0];
+    let activeSem = null;
+    if (semester) {
+      const parts = semester.tahun_semester.split('-');
+      activeSem = {
+        id: semester.id,
+        year: parts[0] || semester.tahun_semester,
+        term: displayTerm(parts[1] || ''),
+      };
+    }
+
     const assigned = classStudents.rows[0]?.assigned || 0;
     const totalStudents = classStudents.rows[0]?.total || 0;
 
     return {
-      activeSemester: semester ? {
-        id: semester.id,
-        year: semester.year,
-        term: displayTerm(semester.semester_type),
-      } : null,
+      activeSemester: activeSem,
       stats: {
         students: roleMap.MAHASISWA || { total: 0, active: 0 },
         lecturers: roleMap.DOSEN || { total: 0, active: 0 },

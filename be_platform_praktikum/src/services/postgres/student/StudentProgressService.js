@@ -6,10 +6,10 @@ class StudentProgressService {
     this._pool = pool;
   }
 
-  async _resolveAcademicContext(studentId, jobsheetId, classId, kelasPraktikumId) {
+  async _resolveAcademicContext(studentId, jobsheetId, kelasPraktikumId) {
     if (kelasPraktikumId) {
       const nativeResult = await this._pool.query(
-        `SELECT kp.legacy_class_id AS class_id,
+        `SELECT
           kp.id AS id_kelas_praktikum,
           km.id AS id_kelas_mhs
          FROM kelas_praktikum kp
@@ -28,64 +28,15 @@ class StudentProgressService {
       if (nativeResult.rows.length) return nativeResult.rows[0];
     }
 
-    // Legacy fallback only. Do not use for new academic flow.
-    const params = [studentId, jobsheetId];
-    let filter = '';
-
-    if (kelasPraktikumId) {
-      params.push(kelasPraktikumId);
-      filter = `AND kp.id = $${params.length}`;
-    } else if (classId) {
-      params.push(classId);
-      filter = `AND cl.id = $${params.length}`;
-    }
-
-    const result = await this._pool.query(
-      `SELECT cl.id AS class_id,
-        kp.id AS id_kelas_praktikum,
-        km.id AS id_kelas_mhs
-       FROM classes cl
-       JOIN class_students cs ON cs.class_id = cl.id
-       JOIN jobsheets j ON j.course_id = cl.course_id
-       LEFT JOIN kelas_praktikum kp ON kp.legacy_class_id = cl.id
-       LEFT JOIN kelas_mhs km
-         ON km.id_tahun_semester = kp.id_tahun_semester
-        AND km.id_semester = kp.id_semester
-        AND km.id_kelas = kp.id_kelas
-        AND km.id_mahasiswa = cs.student_id
-       WHERE cs.student_id = $1
-         AND j.id = $2
-         AND cs.status = 'AKTIF'
-         AND cl.status = 'AKTIF'
-         ${filter}
-       ORDER BY cl.id ASC
-       LIMIT 1`,
-      params,
-    );
-
-    if (!result.rows.length) {
-      throw new Error('CLASS_NOT_FOUND_FOR_STUDENT');
-    }
-
-    return result.rows[0];
+    throw new Error('CLASS_NOT_FOUND_FOR_STUDENT');
   }
 
-  async getProgress(studentId, jobsheetId, classId, kelasPraktikumId = null) {
-    const values = [studentId, jobsheetId];
-    let classFilter = '';
-    if (kelasPraktikumId) {
-      values.push(kelasPraktikumId);
-      classFilter = `AND id_kelas_praktikum = $${values.length}`;
-    } else if (classId) {
-      values.push(classId);
-      classFilter = `AND class_id = $${values.length}`;
-    }
-
+  async getProgress(studentId, jobsheetId, kelasPraktikumId) {
     const result = await this._pool.query(
       `SELECT * FROM student_progress
-       WHERE student_id = $1 AND jobsheet_id = $2 ${classFilter}
+       WHERE student_id = $1 AND jobsheet_id = $2 AND id_kelas_praktikum = $3
        LIMIT 1`,
-      values,
+      [studentId, jobsheetId, kelasPraktikumId],
     );
     return result.rows[0] || null;
   }
@@ -93,7 +44,6 @@ class StudentProgressService {
   async upsertProgress({
     studentId,
     jobsheetId,
-    classId,
     kelasPraktikumId,
     progress,
     lastPage,
@@ -104,7 +54,6 @@ class StudentProgressService {
     const academicContext = await this._resolveAcademicContext(
       studentId,
       jobsheetId,
-      classId,
       kelasPraktikumId,
     );
     const safeCompletedItems = Array.isArray(completedItems)
@@ -113,23 +62,19 @@ class StudentProgressService {
 
     const updateResult = await this._pool.query(
       `UPDATE student_progress
-       SET id_kelas_mhs = COALESCE(id_kelas_mhs, $5),
-           status = $6,
-           progress = GREATEST(progress, $7),
-           last_page = $8,
+       SET id_kelas_mhs = COALESCE(id_kelas_mhs, $4),
+           status = $5,
+           progress = GREATEST(progress, $6),
+           last_page = $7,
            last_activity = CURRENT_TIMESTAMP,
-           completed_items = $9::jsonb
+           completed_items = $8::jsonb
        WHERE student_id = $1
          AND jobsheet_id = $2
-         AND (
-           ($4::varchar IS NOT NULL AND id_kelas_praktikum = $4)
-           OR ($4::varchar IS NULL AND class_id = $3)
-         )
+         AND id_kelas_praktikum = $3
        RETURNING *`,
       [
         studentId,
         jobsheetId,
-        academicContext.class_id,
         academicContext.id_kelas_praktikum,
         academicContext.id_kelas_mhs,
         status,
@@ -143,14 +88,13 @@ class StudentProgressService {
 
     const result = await this._pool.query(
       `INSERT INTO student_progress
-         (id, student_id, jobsheet_id, class_id, id_kelas_praktikum, id_kelas_mhs, status, progress, last_page, last_activity, completed_items)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, $10::jsonb)
+         (id, student_id, jobsheet_id, id_kelas_praktikum, id_kelas_mhs, status, progress, last_page, last_activity, completed_items)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, $9::jsonb)
        RETURNING *`,
       [
         id,
         studentId,
         jobsheetId,
-        academicContext.class_id,
         academicContext.id_kelas_praktikum,
         academicContext.id_kelas_mhs,
         status,

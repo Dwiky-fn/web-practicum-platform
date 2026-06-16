@@ -193,7 +193,7 @@ export default function StudentDashboardPage() {
               ) : (
                 courses.map((course) => (
                   <CourseCard
-                    key={course.id}
+                    key={`${course.id}-${course.kelasPraktikumId}`}
                     course={course}
                     jobsheetCount={jobsheetCountByCourse[course.mataKuliahId || course.id] ?? 0}
                     onClick={() => navigate(academicCoursePath(course))}

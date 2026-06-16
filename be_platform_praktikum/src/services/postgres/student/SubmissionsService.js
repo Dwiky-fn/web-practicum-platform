@@ -112,29 +112,10 @@ class SubmissionsService {
     return language === 'python' ? 'main.py' : 'Main.java';
   }
 
-  async _getStudentClassProgrammingLanguage(studentId, courseId) {
-    // Legacy fallback only. New flow should resolve language through kelas_praktikum/jobsheet context.
-    const result = await this._pool.query(
-      `
-      SELECT cl.programming_language
-      FROM class_students cs
-      JOIN classes cl ON cl.id = cs.class_id
-      WHERE cs.student_id = $1
-        AND cl.course_id = $2
-        AND cs.status = 'AKTIF'
-        AND cl.status = 'AKTIF'
-      LIMIT 1
-      `,
-      [studentId, courseId],
-    );
-
-    return result.rows[0]?.programming_language || 'java';
-  }
-
-  async _resolveAcademicContext(studentId, jobsheetId, classId = null, kelasPraktikumId = null) {
+  async _resolveAcademicContext(studentId, jobsheetId, kelasPraktikumId = null) {
     if (kelasPraktikumId) {
       const nativeResult = await this._pool.query(
-        `SELECT kp.legacy_class_id AS class_id,
+        `SELECT
           kp.id AS id_kelas_praktikum,
           km.id AS id_kelas_mhs
          FROM kelas_praktikum kp
@@ -153,48 +134,7 @@ class SubmissionsService {
       if (nativeResult.rows.length) return nativeResult.rows[0];
     }
 
-    // Legacy fallback only. Do not use for new academic flow.
-    const params = [studentId, jobsheetId];
-    let filter = '';
-
-    if (kelasPraktikumId) {
-      params.push(kelasPraktikumId);
-      filter = `AND kp.id = $${params.length}`;
-    } else if (classId) {
-      params.push(classId);
-      filter = `AND cl.id = $${params.length}`;
-    }
-
-    const result = await this._pool.query(
-      `SELECT cl.id AS class_id,
-        kp.id AS id_kelas_praktikum,
-        km.id AS id_kelas_mhs
-       FROM class_students cs
-       JOIN classes cl ON cl.id = cs.class_id
-       JOIN jobsheets j ON j.course_id = cl.course_id
-       LEFT JOIN jobsheet_classes jc
-         ON jc.jobsheet_id = j.id
-        AND jc.class_id = cl.id
-       LEFT JOIN kelas_praktikum kp
-         ON kp.id = jc.id_kelas_praktikum
-         OR kp.legacy_class_id = cl.id
-       LEFT JOIN kelas_mhs km
-         ON km.id_tahun_semester = kp.id_tahun_semester
-        AND km.id_semester = kp.id_semester
-        AND km.id_kelas = kp.id_kelas
-        AND km.id_mahasiswa = cs.student_id
-       WHERE cs.student_id = $1
-         AND j.id = $2
-         AND cs.status = 'AKTIF'
-         AND cl.status = 'AKTIF'
-         ${filter}
-       ORDER BY jc.id_kelas_praktikum IS NULL ASC, cl.id ASC
-       LIMIT 1`,
-      params,
-    );
-
-    return result.rows[0] || {
-      class_id: classId || null,
+    return {
       id_kelas_praktikum: kelasPraktikumId || null,
       id_kelas_mhs: null,
     };
@@ -283,38 +223,25 @@ class SubmissionsService {
 
   async createSubmission({
     jobsheetId,
+    mataKuliahId,
     courseId,
-    mataKuliahId = null,
     studentId,
-    classId = null,
     kelasPraktikumId = null,
     status = 'DRAFT',
   }) {
     const id = `sub-${randomUUID().slice(0, 12)}`;
 
-    const jobsheet = mataKuliahId
-      ? await this._jobsheetService.getJobsheetFullByMataKuliah(
-        jobsheetId,
-        mataKuliahId,
-        kelasPraktikumId,
-        { role: 'MAHASISWA', id: studentId },
-      )
-      : await this._jobsheetService.getJobsheetFullById(
-        jobsheetId,
-        courseId,
-      );
-    if (!jobsheet.programming_language) {
-      jobsheet.programming_language = await this._getStudentClassProgrammingLanguage(
-        studentId,
-        courseId,
-      );
-    }
+    const jobsheet = await this._jobsheetService.getJobsheetFullByMataKuliah(
+      jobsheetId,
+      mataKuliahId || courseId,
+      kelasPraktikumId,
+      { role: 'MAHASISWA', id: studentId },
+    );
 
     const report = this._generateInitialReport(jobsheet);
     const academicContext = await this._resolveAcademicContext(
       studentId,
       jobsheetId,
-      classId,
       kelasPraktikumId,
     );
     const conflictTarget = academicContext.id_kelas_praktikum
@@ -355,11 +282,10 @@ class SubmissionsService {
   }
 
   async getSubmissionByJobsheetId(jobsheetId, studentId, options = {}) {
-    const academicContext = options.classId || options.kelasPraktikumId
+    const academicContext = options.kelasPraktikumId
       ? await this._resolveAcademicContext(
         studentId,
         jobsheetId,
-        options.classId,
         options.kelasPraktikumId,
       )
       : null;
@@ -382,7 +308,7 @@ class SubmissionsService {
     return await this._enrichSubmission(submission);
   }
 
-  async getOrCreateSubmission(jobsheetId, courseId, studentId, options = {}) {
+  async getOrCreateSubmission(jobsheetId, studentId, options = {}) {
     const existing = await this.getSubmissionByJobsheetId(
       jobsheetId,
       studentId,
@@ -392,54 +318,41 @@ class SubmissionsService {
 
     return await this.createSubmission({
       jobsheetId,
-      courseId,
-      mataKuliahId: options.mataKuliahId,
+      mataKuliahId: options.mataKuliahId || options.id_mata_kuliah,
       studentId,
-      classId: options.classId,
-      kelasPraktikumId: options.kelasPraktikumId,
+      kelasPraktikumId: options.kelasPraktikumId || options.id_kelas_praktikum,
     });
   }
 
-  async updateSubmission({ jobsheetId, studentId, mataKuliahId = null, report, status, classId = null, kelasPraktikumId = null }) {
+  async updateSubmission({ jobsheetId, studentId, mataKuliahId, courseId, report, status, kelasPraktikumId = null }) {
     // Perform normalization on report before saving
     try {
-      const jobsheetQuery = await this._pool.query('SELECT course_id FROM jobsheets WHERE id = $1', [jobsheetId]);
-      if (jobsheetQuery.rows.length) {
-        const courseId = jobsheetQuery.rows[0].course_id;
-        const jobsheet = mataKuliahId
-          ? await this._jobsheetService.getJobsheetFullByMataKuliah(
-            jobsheetId,
-            mataKuliahId,
-            kelasPraktikumId,
-            { role: 'MAHASISWA', id: studentId },
-          )
-          : await this._jobsheetService.getJobsheetFullById(jobsheetId, courseId);
-        jobsheet.programming_language = await this._getStudentClassProgrammingLanguage(
-          studentId,
-          courseId,
-        );
-        
-        if (report && report.experiments) {
-          for (const exp of (jobsheet.experiments || [])) {
-            const experimentId = exp.id;
-            const stepsTexts = extractSteps(exp.instruction_content);
-            const expReport = report.experiments[experimentId];
-            if (expReport && Array.isArray(expReport.steps)) {
-              expReport.steps = expReport.steps.map((step, index) => {
-                const instructionNumber = step.instructionNumber || (index + 1);
-                const instructionId = step.instructionId || `instruksi-${instructionNumber}`;
-                return {
-                  instructionId,
-                  instructionNumber,
-                  files: step.files || {},
-                  output: step.output || '',
-                  analysis: step.analysis || { type: 'doc', content: [] },
-                  updatedAt: step.updatedAt || new Date().toISOString(),
-                };
-              });
-              // Sort steps by instructionNumber
-              expReport.steps.sort((a, b) => a.instructionNumber - b.instructionNumber);
-            }
+      const jobsheet = await this._jobsheetService.getJobsheetFullByMataKuliah(
+        jobsheetId,
+        mataKuliahId || courseId,
+        kelasPraktikumId,
+        { role: 'MAHASISWA', id: studentId },
+      );
+      
+      if (report && report.experiments) {
+        for (const exp of (jobsheet.experiments || [])) {
+          const experimentId = exp.id;
+          const expReport = report.experiments[experimentId];
+          if (expReport && Array.isArray(expReport.steps)) {
+            expReport.steps = expReport.steps.map((step, index) => {
+              const instructionNumber = step.instructionNumber || (index + 1);
+              const instructionId = step.instructionId || `instruksi-${instructionNumber}`;
+              return {
+                instructionId,
+                instructionNumber,
+                files: step.files || {},
+                output: step.output || '',
+                analysis: step.analysis || { type: 'doc', content: [] },
+                updatedAt: step.updatedAt || new Date().toISOString(),
+              };
+            });
+            // Sort steps by instructionNumber
+            expReport.steps.sort((a, b) => a.instructionNumber - b.instructionNumber);
           }
         }
       }
@@ -450,7 +363,6 @@ class SubmissionsService {
     const academicContext = await this._resolveAcademicContext(
       studentId,
       jobsheetId,
-      classId,
       kelasPraktikumId,
     );
     const scope = this._buildSubmissionUpdateScopeClause(academicContext, 7);
@@ -517,7 +429,6 @@ class SubmissionsService {
       const academicContext = await this._resolveAcademicContext(
         studentId,
         jobsheetId,
-        options.classId,
         options.kelasPraktikumId,
       );
       const scope = this._buildSubmissionUpdateScopeClause(academicContext, 6);
@@ -565,22 +476,18 @@ class SubmissionsService {
 
     try {
       const jobsheetQuery = await this._pool.query(
-        'SELECT course_id FROM jobsheets WHERE id = $1',
+        'SELECT id_mata_kuliah FROM jobsheets WHERE id = $1',
         [submission.jobsheet_id]
       );
       if (!jobsheetQuery.rows.length) return submission;
-      const courseId = jobsheetQuery.rows[0].course_id;
+      const id_mata_kuliah = jobsheetQuery.rows[0].id_mata_kuliah;
 
-      const jobsheet = await this._jobsheetService.getJobsheetFullById(
+      const jobsheet = await this._jobsheetService.getJobsheetFullByMataKuliah(
         submission.jobsheet_id,
-        courseId
+        id_mata_kuliah,
+        submission.id_kelas_praktikum,
+        { role: 'MAHASISWA', id: submission.student_id }
       );
-      if (!jobsheet.programming_language) {
-        jobsheet.programming_language = await this._getStudentClassProgrammingLanguage(
-          submission.student_id,
-          courseId,
-        );
-      }
 
       const report = submission.report;
       if (!report.experiments) report.experiments = {};
@@ -598,7 +505,6 @@ class SubmissionsService {
           currentExp.steps = [];
         }
 
-        const existingSteps = currentExp.steps;
         const enrichedSteps = [];
 
         for (let i = 0; i < stepsTexts.length; i++) {
@@ -606,12 +512,12 @@ class SubmissionsService {
           const instructionId = `instruksi-${instructionNumber}`;
           const title = stepsTexts[i];
 
-          let stepData = existingSteps.find(s => s.instructionId === instructionId);
+          let stepData = currentExp.steps.find(s => s.instructionId === instructionId);
           if (!stepData) {
-            stepData = existingSteps.find(s => s.instructionNumber === instructionNumber);
+            stepData = currentExp.steps.find(s => s.instructionNumber === instructionNumber);
             
-            if (!stepData && existingSteps[i] && existingSteps[i].instructionId === undefined && existingSteps[i].instructionNumber === undefined) {
-              stepData = existingSteps[i];
+            if (!stepData && currentExp.steps[i] && currentExp.steps[i].instructionId === undefined && currentExp.steps[i].instructionNumber === undefined) {
+              stepData = currentExp.steps[i];
             }
           }
 
@@ -656,63 +562,41 @@ class SubmissionsService {
     return submission;
   }
 
-  async updateSubmissionStep({ jobsheetId, studentId, courseId, mataKuliahId = null, classId = null, kelasPraktikumId = null, stepPayload }) {
-    const enrollmentQuery = mataKuliahId
-      ? await this._pool.query(
-        `SELECT km.id
-         FROM kelas_praktikum kp
-         JOIN kelas_mhs km
-           ON km.id_tahun_semester = kp.id_tahun_semester
-          AND km.id_semester = kp.id_semester
-          AND km.id_kelas = kp.id_kelas
-         JOIN jobsheet_classes jc ON jc.id_kelas_praktikum = kp.id
-         WHERE km.id_mahasiswa = $1
-           AND jc.jobsheet_id = $2
-           AND kp.id_mata_kuliah = $3
-           AND ($4::varchar IS NULL OR kp.id = $4)
-         LIMIT 1`,
-        [studentId, jobsheetId, mataKuliahId, kelasPraktikumId || null],
-      )
-      : await this._pool.query(
-      `SELECT cs.id
-       FROM class_students cs
-       JOIN classes cl ON cs.class_id = cl.id
-       JOIN jobsheets j ON j.course_id = cl.course_id
-       WHERE cs.student_id = $1
-         AND j.id = $2
-         AND cs.status = 'AKTIF'
-         AND cl.status = 'AKTIF'
+  async updateSubmissionStep({ jobsheetId, studentId, mataKuliahId, courseId, kelasPraktikumId = null, stepPayload }) {
+    const enrollmentQuery = await this._pool.query(
+      `SELECT km.id
+       FROM kelas_praktikum kp
+       JOIN kelas_mhs km
+         ON km.id_tahun_semester = kp.id_tahun_semester
+        AND km.id_semester = kp.id_semester
+        AND km.id_kelas = kp.id_kelas
+       JOIN jobsheet_classes jc ON jc.id_kelas_praktikum = kp.id
+       WHERE km.id_mahasiswa = $1
+         AND jc.jobsheet_id = $2
+         AND kp.id_mata_kuliah = $3
+         AND ($4::varchar IS NULL OR kp.id = $4)
        LIMIT 1`,
-      [studentId, jobsheetId],
+      [studentId, jobsheetId, mataKuliahId || courseId, kelasPraktikumId || null],
     );
 
     if (!enrollmentQuery.rows.length) {
       throw new Error('Mahasiswa tidak terdaftar atau tidak memiliki akses ke kelas jobsheet ini');
     }
 
-    const submission = await this.getOrCreateSubmission(jobsheetId, courseId, studentId, {
-      mataKuliahId,
-      classId,
+    const submission = await this.getOrCreateSubmission(jobsheetId, studentId, {
+      mataKuliahId: mataKuliahId || courseId,
       kelasPraktikumId,
     });
     if (!submission) {
       throw new Error('Submission tidak dapat ditemukan atau dibuat');
     }
 
-    const jobsheet = mataKuliahId
-      ? await this._jobsheetService.getJobsheetFullByMataKuliah(
-        jobsheetId,
-        mataKuliahId,
-        kelasPraktikumId,
-        { role: 'MAHASISWA', id: studentId },
-      )
-      : await this._jobsheetService.getJobsheetFullById(jobsheetId, courseId);
-    if (!jobsheet.programming_language) {
-      jobsheet.programming_language = await this._getStudentClassProgrammingLanguage(
-        studentId,
-        courseId,
-      );
-    }
+    const jobsheet = await this._jobsheetService.getJobsheetFullByMataKuliah(
+      jobsheetId,
+      mataKuliahId || courseId,
+      kelasPraktikumId,
+      { role: 'MAHASISWA', id: studentId },
+    );
     if (!jobsheet) {
       throw new Error('Jobsheet tidak ditemukan');
     }
@@ -785,7 +669,6 @@ class SubmissionsService {
     const academicContext = await this._resolveAcademicContext(
       studentId,
       jobsheetId,
-      classId,
       kelasPraktikumId,
     );
     const scope = this._buildSubmissionUpdateScopeClause(academicContext, 6);

@@ -84,7 +84,7 @@ function handleAdminError(error, res) {
 
   if (detail) {
     const [statusCode, message] = detail;
-    return res.status(statusCode).json({ status: 'fail', message });
+    return res.status(statusCode).json({ status: 'fail', message, code: error.message });
   }
 
   console.error(error);

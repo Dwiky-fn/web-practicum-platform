@@ -127,18 +127,15 @@ class LecturerJobsheetsService {
   }
 
   async _getLinkedMataKuliahId(courseId, client = this._pool) {
-    const result = await client.query(
-      'SELECT id FROM mata_kuliah WHERE legacy_course_id = $1 LIMIT 1',
-      [courseId],
-    );
-
-    return result.rows[0]?.id || null;
+    if (!courseId) return null;
+    if (courseId.startsWith('mkb_') || courseId.startsWith('mkb-')) return courseId;
+    return `mkb_${courseId}`;
   }
 
   async _ensureMataKuliahOwnedByLecturer(mataKuliahId, lecturerId, client = this._pool) {
     const result = await client.query(
       `
-      SELECT mk.id, mk.legacy_course_id
+      SELECT mk.id
       FROM mata_kuliah mk
       WHERE mk.id = $1
         AND EXISTS (
@@ -183,27 +180,22 @@ class LecturerJobsheetsService {
       `
       UPDATE jobsheet_classes
       SET
-        class_id = $3,
-        id_kelas_praktikum = $4,
-        is_active = $5,
-        deadline = $6,
-        title = $7,
-        description = $8,
-        goal = $9,
-        content = $10,
-        status = $11
+        id_kelas_praktikum = $3,
+        is_active = $4,
+        deadline = $5,
+        title = $6,
+        description = $7,
+        goal = $8,
+        content = $9,
+        status = $10
       WHERE jobsheet_id = $1
         AND $2::varchar IS NOT NULL
-        AND (
-          ($4::varchar IS NOT NULL AND id_kelas_praktikum = $4)
-          OR ($4::varchar IS NULL AND class_id = $3)
-        )
+        AND id_kelas_praktikum = $3
       `,
       [
         payload.jobsheetId,
         payload.id,
-        payload.classId || null,
-        payload.kelasPraktikumId || null,
+        payload.kelasPraktikumId,
         payload.isActive,
         payload.deadline,
         payload.title,
@@ -219,16 +211,15 @@ class LecturerJobsheetsService {
     await client.query(
       `
       INSERT INTO jobsheet_classes (
-        id, jobsheet_id, class_id, id_kelas_praktikum, is_active, deadline,
+        id, jobsheet_id, id_kelas_praktikum, is_active, deadline,
         title, description, goal, content, status
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       `,
       [
         payload.id,
         payload.jobsheetId,
-        payload.classId || null,
-        payload.kelasPraktikumId || null,
+        payload.kelasPraktikumId,
         payload.isActive,
         payload.deadline,
         payload.title,
@@ -454,12 +445,11 @@ class LecturerJobsheetsService {
 
       await client.query(
         `
-        INSERT INTO jobsheets (id, course_id, id_mata_kuliah, title, description, goal, content, status, programming_language, editor_mode)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'DRAFT', $8, $9)
+        INSERT INTO jobsheets (id, id_mata_kuliah, title, description, goal, content, status, programming_language, editor_mode)
+        VALUES ($1, $2, $3, $4, $5, $6, 'DRAFT', $7, $8)
         `,
         [
           jobsheetId,
-          mataKuliah.legacy_course_id || null,
           mataKuliahId,
           title,
           description,
@@ -558,7 +548,7 @@ class LecturerJobsheetsService {
 
       const owned = await client.query(
         `
-        SELECT kp.id, kp.legacy_class_id
+        SELECT kp.id
         FROM kelas_praktikum kp
         JOIN pengampu p ON p.id_kelas_praktikum = kp.id
         WHERE kp.id_mata_kuliah = $1
@@ -579,7 +569,6 @@ class LecturerJobsheetsService {
         await this._upsertJobsheetClassCopy(client, {
           id: createId('jkc'),
           jobsheetId,
-          classId: kelasPraktikum.legacy_class_id || null,
           kelasPraktikumId,
           isActive,
           deadline: toIsoOrNull(item.deadline),

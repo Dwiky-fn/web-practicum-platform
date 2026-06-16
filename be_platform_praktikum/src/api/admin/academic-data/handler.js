@@ -23,7 +23,8 @@ class AcademicDataHandler {
   }
 
   async deleteTahunSemesterHandler(req, res) {
-    await this._service.deleteTahunSemester(req.params.id);
+    const force = req.query.force === 'true';
+    await this._service.deleteTahunSemester(req.params.id, force);
     return ok(res, {}, 'Tahun semester berhasil dihapus');
   }
 
@@ -46,7 +47,8 @@ class AcademicDataHandler {
   }
 
   async deleteKurikulumHandler(req, res) {
-    await this._service.deleteKurikulum(req.params.id);
+    const force = req.query.force === 'true';
+    await this._service.deleteKurikulum(req.params.id, force);
     return ok(res, {}, 'Kurikulum berhasil dihapus');
   }
 
@@ -69,7 +71,8 @@ class AcademicDataHandler {
   }
 
   async deleteSemesterHandler(req, res) {
-    await this._service.deleteSemester(req.params.id);
+    const force = req.query.force === 'true';
+    await this._service.deleteSemester(req.params.id, force);
     return ok(res, {}, 'Semester berhasil dihapus');
   }
 
@@ -88,7 +91,8 @@ class AcademicDataHandler {
   }
 
   async deleteKelasHandler(req, res) {
-    await this._service.deleteKelas(req.params.id);
+    const force = req.query.force === 'true';
+    await this._service.deleteKelas(req.params.id, force);
     return ok(res, {}, 'Kelas berhasil dihapus');
   }
 
@@ -111,24 +115,9 @@ class AcademicDataHandler {
   }
 
   async deleteMataKuliahHandler(req, res) {
-    await this._service.deleteMataKuliah(req.params.id);
+    const force = req.query.force === 'true';
+    await this._service.deleteMataKuliah(req.params.id, force);
     return ok(res, {}, 'Mata kuliah berhasil dihapus');
-  }
-
-  async getLegacyCourseLinkCandidatesHandler(req, res) {
-    const query = Validator.validateLegacyCourseCandidatesQuery(req.query);
-    return ok(res, {
-      legacy_courses: await this._service.getLegacyCourseLinkCandidates(query),
-    });
-  }
-
-  async linkLegacyCourseToMataKuliahHandler(req, res) {
-    const payload = Validator.validateLinkLegacyCoursePayload(req.body);
-    return ok(
-      res,
-      { mata_kuliah: await this._service.linkLegacyCourseToMataKuliah(req.params.id, payload) },
-      'Mata kuliah berhasil dihubungkan ke course lama',
-    );
   }
 
   async getKelasMahasiswaHandler(req, res) {
@@ -147,7 +136,8 @@ class AcademicDataHandler {
   }
 
   async deleteKelasMahasiswaHandler(req, res) {
-    await this._service.deleteKelasMahasiswa(req.params.id);
+    const force = req.query.force === 'true';
+    await this._service.deleteKelasMahasiswa(req.params.id, force);
     return ok(res, {}, 'Kelas mahasiswa berhasil dihapus');
   }
 
@@ -178,33 +168,9 @@ class AcademicDataHandler {
   }
 
   async deleteKelasPraktikumHandler(req, res) {
-    await this._service.deleteKelasPraktikum(req.params.id);
+    const force = req.query.force === 'true';
+    await this._service.deleteKelasPraktikum(req.params.id, force);
     return ok(res, {}, 'Kelas praktikum berhasil dihapus');
-  }
-
-  async linkLegacyClassToKelasPraktikumHandler(req, res) {
-    const payload = Validator.validateLinkLegacyClassPayload(req.body);
-    return ok(
-      res,
-      { kelas_praktikum: await this._service.linkLegacyClassToKelasPraktikum(req.params.id, payload) },
-      'Kelas praktikum berhasil dihubungkan ke kelas lama',
-    );
-  }
-
-  async getLegacyClassLinkCandidatesHandler(req, res) {
-    const query = Validator.validateLegacyClassCandidatesQuery(req.query);
-    return ok(res, {
-      legacy_classes: await this._service.getLegacyClassLinkCandidates(query),
-    });
-  }
-
-  async bulkLinkLegacyClassesHandler(req, res) {
-    const payload = Validator.validateBulkLinkLegacyClassesPayload(req.body);
-    return ok(
-      res,
-      await this._service.bulkLinkLegacyClasses(payload),
-      'Kelas praktikum berhasil dihubungkan secara bulk',
-    );
   }
 
   async getPengampuHandler(req, res) {
@@ -249,7 +215,8 @@ class AcademicDataHandler {
   }
 
   async deleteKelasSemesterHandler(req, res) {
-    await this._service.deleteKelasSemester(req.params.id);
+    const force = req.query.force === 'true';
+    await this._service.deleteKelasSemester(req.params.id, force);
     return ok(res, {}, 'Kelas semester berhasil dihapus');
   }
 }

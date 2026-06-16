@@ -111,30 +111,81 @@ class AcademicDataService {
     return this.updateTahunSemester(id, { status: 'active' });
   }
 
-  async deleteTahunSemester(id) {
-    await this._ensureUnused('kelas_semester', 'id_tahun_semester', id, 'TAHUN_SEMESTER_USED');
-    await this._ensureUnused('kelas_mhs', 'id_tahun_semester', id, 'TAHUN_SEMESTER_USED');
-    await this._ensureUnused('kelas_praktikum', 'id_tahun_semester', id, 'TAHUN_SEMESTER_USED');
-    await this._ensureNoRows(
-      `SELECT 1
-       FROM student_progress sp
-       JOIN kelas_praktikum kp ON kp.id = sp.id_kelas_praktikum
-       WHERE kp.id_tahun_semester = $1
-       LIMIT 1`,
-      [id],
-      'TAHUN_SEMESTER_USED',
-    );
-    await this._ensureNoRows(
-      `SELECT 1
-       FROM task_submissions ts
-       JOIN kelas_praktikum kp ON kp.id = ts.id_kelas_praktikum
-       WHERE kp.id_tahun_semester = $1
-       LIMIT 1`,
-      [id],
-      'TAHUN_SEMESTER_USED',
-    );
-    const result = await this._pool.query('DELETE FROM tahun_semester WHERE id = $1 RETURNING id', [id]);
-    if (!result.rows.length) throw new Error('TAHUN_SEMESTER_NOT_FOUND');
+  async deleteTahunSemester(id, force = false) {
+    if (force) {
+      const client = await this._pool.connect();
+      try {
+        await client.query('BEGIN');
+        
+        // Find all kelas_semester
+        const ksRes = await client.query('SELECT id FROM kelas_semester WHERE id_tahun_semester = $1', [id]);
+        const ksIds = ksRes.rows.map(r => r.id);
+        
+        // Find all kelas_mhs
+        const kmRes = await client.query('SELECT id FROM kelas_mhs WHERE id_tahun_semester = $1', [id]);
+        const kmIds = kmRes.rows.map(r => r.id);
+        
+        // Find all kelas_praktikum
+        const kpRes = await client.query('SELECT id FROM kelas_praktikum WHERE id_tahun_semester = $1', [id]);
+        const kpIds = kpRes.rows.map(r => r.id);
+        
+        // Cascade delete for kelas_mhs
+        if (kmIds.length > 0) {
+          await client.query('DELETE FROM student_progress WHERE id_kelas_mhs = ANY($1)', [kmIds]);
+          await client.query('DELETE FROM task_submissions WHERE id_kelas_mhs = ANY($1)', [kmIds]);
+          await client.query('DELETE FROM student_jobsheet_progress WHERE id_kelas_mhs = ANY($1)', [kmIds]);
+          await client.query('DELETE FROM kelas_mhs WHERE id_tahun_semester = $1', [id]);
+        }
+        
+        // Cascade delete for kelas_praktikum
+        if (kpIds.length > 0) {
+          await client.query('DELETE FROM jobsheet_classes WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM student_progress WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM task_submissions WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM student_jobsheet_progress WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM pengampu WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM kelas_praktikum WHERE id_tahun_semester = $1', [id]);
+        }
+        
+        // Delete kelas_semester
+        await client.query('DELETE FROM kelas_semester WHERE id_tahun_semester = $1', [id]);
+        
+        // Delete tahun_semester
+        const result = await client.query('DELETE FROM tahun_semester WHERE id = $1 RETURNING id', [id]);
+        if (!result.rows.length) throw new Error('TAHUN_SEMESTER_NOT_FOUND');
+        
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    } else {
+      await this._ensureUnused('kelas_semester', 'id_tahun_semester', id, 'TAHUN_SEMESTER_USED');
+      await this._ensureUnused('kelas_mhs', 'id_tahun_semester', id, 'TAHUN_SEMESTER_USED');
+      await this._ensureUnused('kelas_praktikum', 'id_tahun_semester', id, 'TAHUN_SEMESTER_USED');
+      await this._ensureNoRows(
+        `SELECT 1
+         FROM student_progress sp
+         JOIN kelas_praktikum kp ON kp.id = sp.id_kelas_praktikum
+         WHERE kp.id_tahun_semester = $1
+         LIMIT 1`,
+        [id],
+        'TAHUN_SEMESTER_USED',
+      );
+      await this._ensureNoRows(
+        `SELECT 1
+         FROM task_submissions ts
+         JOIN kelas_praktikum kp ON kp.id = ts.id_kelas_praktikum
+         WHERE kp.id_tahun_semester = $1
+         LIMIT 1`,
+        [id],
+        'TAHUN_SEMESTER_USED',
+      );
+      const result = await this._pool.query('DELETE FROM tahun_semester WHERE id = $1 RETURNING id', [id]);
+      if (!result.rows.length) throw new Error('TAHUN_SEMESTER_NOT_FOUND');
+    }
   }
 
   async getKurikulum() {
@@ -200,10 +251,53 @@ class AcademicDataService {
     return this.updateKurikulum(id, { status: 'active' });
   }
 
-  async deleteKurikulum(id) {
-    await this._ensureUnused('mata_kuliah', 'id_kurikulum', id, 'KURIKULUM_USED');
-    const result = await this._pool.query('DELETE FROM kurikulum WHERE id = $1 RETURNING id', [id]);
-    if (!result.rows.length) throw new Error('KURIKULUM_NOT_FOUND');
+  async deleteKurikulum(id, force = false) {
+    if (force) {
+      const client = await this._pool.connect();
+      try {
+        await client.query('BEGIN');
+        const mkRes = await client.query('SELECT id FROM mata_kuliah WHERE id_kurikulum = $1', [id]);
+        const mkIds = mkRes.rows.map(r => r.id);
+        if (mkIds.length > 0) {
+          // Find all kelas_praktikum for these courses
+          const kpRes = await client.query('SELECT id FROM kelas_praktikum WHERE id_mata_kuliah = ANY($1)', [mkIds]);
+          const kpIds = kpRes.rows.map(r => r.id);
+          if (kpIds.length > 0) {
+            await client.query('DELETE FROM jobsheet_classes WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+            await client.query('DELETE FROM student_progress WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+            await client.query('DELETE FROM task_submissions WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+            await client.query('DELETE FROM student_jobsheet_progress WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+            await client.query('DELETE FROM pengampu WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+            await client.query('DELETE FROM kelas_praktikum WHERE id_mata_kuliah = ANY($1)', [mkIds]);
+          }
+          // Delete jobsheets for these courses
+          const jRes = await client.query('SELECT id FROM jobsheets WHERE id_mata_kuliah = ANY($1)', [mkIds]);
+          const jIds = jRes.rows.map(r => r.id);
+          if (jIds.length > 0) {
+            await client.query('DELETE FROM experiments WHERE jobsheet_id = ANY($1)', [jIds]);
+            await client.query('DELETE FROM exercises WHERE jobsheet_id = ANY($1)', [jIds]);
+            await client.query('DELETE FROM jobsheet_classes WHERE jobsheet_id = ANY($1)', [jIds]);
+            await client.query('DELETE FROM student_progress WHERE jobsheet_id = ANY($1)', [jIds]);
+            await client.query('DELETE FROM task_submissions WHERE jobsheet_id = ANY($1)', [jIds]);
+            await client.query('DELETE FROM student_jobsheet_progress WHERE jobsheet_id = ANY($1)', [jIds]);
+            await client.query('DELETE FROM jobsheets WHERE id_mata_kuliah = ANY($1)', [mkIds]);
+          }
+          await client.query('DELETE FROM mata_kuliah WHERE id_kurikulum = $1', [id]);
+        }
+        const result = await client.query('DELETE FROM kurikulum WHERE id = $1 RETURNING id', [id]);
+        if (!result.rows.length) throw new Error('KURIKULUM_NOT_FOUND');
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+    } else {
+      await this._ensureUnused('mata_kuliah', 'id_kurikulum', id, 'KURIKULUM_USED');
+      const result = await this._pool.query('DELETE FROM kurikulum WHERE id = $1 RETURNING id', [id]);
+      if (!result.rows.length) throw new Error('KURIKULUM_NOT_FOUND');
+    }
   }
 
   async getSemester() {
@@ -236,13 +330,75 @@ class AcademicDataService {
     }
   }
 
-  async deleteSemester(id) {
-    await this._ensureUnused('mata_kuliah', 'id_semester', id, 'MASTER_SEMESTER_USED');
-    await this._ensureUnused('kelas_semester', 'id_semester', id, 'MASTER_SEMESTER_USED');
-    await this._ensureUnused('kelas_mhs', 'id_semester', id, 'MASTER_SEMESTER_USED');
-    await this._ensureUnused('kelas_praktikum', 'id_semester', id, 'MASTER_SEMESTER_USED');
-    const result = await this._pool.query('DELETE FROM semester WHERE id = $1 RETURNING id', [id]);
-    if (!result.rows.length) throw new Error('MASTER_SEMESTER_NOT_FOUND');
+  async deleteSemester(id, force = false) {
+    if (force) {
+      const client = await this._pool.connect();
+      try {
+        await client.query('BEGIN');
+        
+        // Find all kelas_mhs
+        const kmRes = await client.query('SELECT id FROM kelas_mhs WHERE id_semester = $1', [id]);
+        const kmIds = kmRes.rows.map(r => r.id);
+        if (kmIds.length > 0) {
+          await client.query('DELETE FROM student_progress WHERE id_kelas_mhs = ANY($1)', [kmIds]);
+          await client.query('DELETE FROM task_submissions WHERE id_kelas_mhs = ANY($1)', [kmIds]);
+          await client.query('DELETE FROM student_jobsheet_progress WHERE id_kelas_mhs = ANY($1)', [kmIds]);
+          await client.query('DELETE FROM kelas_mhs WHERE id_semester = $1', [id]);
+        }
+
+        // Find all kelas_praktikum
+        const kpRes = await client.query('SELECT id FROM kelas_praktikum WHERE id_semester = $1', [id]);
+        const kpIds = kpRes.rows.map(r => r.id);
+        if (kpIds.length > 0) {
+          await client.query('DELETE FROM jobsheet_classes WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM student_progress WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM task_submissions WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM student_jobsheet_progress WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM pengampu WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM kelas_praktikum WHERE id_semester = $1', [id]);
+        }
+
+        // Find all mata_kuliah on this semester
+        const mkRes = await client.query('SELECT id FROM mata_kuliah WHERE id_semester = $1', [id]);
+        const mkIds = mkRes.rows.map(r => r.id);
+        if (mkIds.length > 0) {
+          // Delete jobsheets for these courses
+          const jRes = await client.query('SELECT id FROM jobsheets WHERE id_mata_kuliah = ANY($1)', [mkIds]);
+          const jIds = jRes.rows.map(r => r.id);
+          if (jIds.length > 0) {
+            await client.query('DELETE FROM experiments WHERE jobsheet_id = ANY($1)', [jIds]);
+            await client.query('DELETE FROM exercises WHERE jobsheet_id = ANY($1)', [jIds]);
+            await client.query('DELETE FROM jobsheet_classes WHERE jobsheet_id = ANY($1)', [jIds]);
+            await client.query('DELETE FROM student_progress WHERE jobsheet_id = ANY($1)', [jIds]);
+            await client.query('DELETE FROM task_submissions WHERE jobsheet_id = ANY($1)', [jIds]);
+            await client.query('DELETE FROM student_jobsheet_progress WHERE jobsheet_id = ANY($1)', [jIds]);
+            await client.query('DELETE FROM jobsheets WHERE id_mata_kuliah = ANY($1)', [mkIds]);
+          }
+          await client.query('DELETE FROM mata_kuliah WHERE id_semester = $1', [id]);
+        }
+
+        // Delete kelas_semester
+        await client.query('DELETE FROM kelas_semester WHERE id_semester = $1', [id]);
+
+        // Delete master semester
+        const result = await client.query('DELETE FROM semester WHERE id = $1 RETURNING id', [id]);
+        if (!result.rows.length) throw new Error('MASTER_SEMESTER_NOT_FOUND');
+
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+    } else {
+      await this._ensureUnused('mata_kuliah', 'id_semester', id, 'MASTER_SEMESTER_USED');
+      await this._ensureUnused('kelas_semester', 'id_semester', id, 'MASTER_SEMESTER_USED');
+      await this._ensureUnused('kelas_mhs', 'id_semester', id, 'MASTER_SEMESTER_USED');
+      await this._ensureUnused('kelas_praktikum', 'id_semester', id, 'MASTER_SEMESTER_USED');
+      const result = await this._pool.query('DELETE FROM semester WHERE id = $1 RETURNING id', [id]);
+      if (!result.rows.length) throw new Error('MASTER_SEMESTER_NOT_FOUND');
+    }
   }
 
   async getKelas() {
@@ -275,12 +431,55 @@ class AcademicDataService {
     }
   }
 
-  async deleteKelas(id) {
-    await this._ensureUnused('kelas_semester', 'id_kelas', id, 'MASTER_KELAS_USED');
-    await this._ensureUnused('kelas_mhs', 'id_kelas', id, 'MASTER_KELAS_USED');
-    await this._ensureUnused('kelas_praktikum', 'id_kelas', id, 'MASTER_KELAS_USED');
-    const result = await this._pool.query('DELETE FROM kelas WHERE id = $1 RETURNING id', [id]);
-    if (!result.rows.length) throw new Error('MASTER_KELAS_NOT_FOUND');
+  async deleteKelas(id, force = false) {
+    if (force) {
+      const client = await this._pool.connect();
+      try {
+        await client.query('BEGIN');
+        
+        // Find all kelas_mhs
+        const kmRes = await client.query('SELECT id FROM kelas_mhs WHERE id_kelas = $1', [id]);
+        const kmIds = kmRes.rows.map(r => r.id);
+        if (kmIds.length > 0) {
+          await client.query('DELETE FROM student_progress WHERE id_kelas_mhs = ANY($1)', [kmIds]);
+          await client.query('DELETE FROM task_submissions WHERE id_kelas_mhs = ANY($1)', [kmIds]);
+          await client.query('DELETE FROM student_jobsheet_progress WHERE id_kelas_mhs = ANY($1)', [kmIds]);
+          await client.query('DELETE FROM kelas_mhs WHERE id_kelas = $1', [id]);
+        }
+
+        // Find all kelas_praktikum
+        const kpRes = await client.query('SELECT id FROM kelas_praktikum WHERE id_kelas = $1', [id]);
+        const kpIds = kpRes.rows.map(r => r.id);
+        if (kpIds.length > 0) {
+          await client.query('DELETE FROM jobsheet_classes WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM student_progress WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM task_submissions WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM student_jobsheet_progress WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM pengampu WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM kelas_praktikum WHERE id_kelas = $1', [id]);
+        }
+
+        // Delete kelas_semester
+        await client.query('DELETE FROM kelas_semester WHERE id_kelas = $1', [id]);
+
+        // Delete master kelas
+        const result = await client.query('DELETE FROM kelas WHERE id = $1 RETURNING id', [id]);
+        if (!result.rows.length) throw new Error('MASTER_KELAS_NOT_FOUND');
+
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+    } else {
+      await this._ensureUnused('kelas_semester', 'id_kelas', id, 'MASTER_KELAS_USED');
+      await this._ensureUnused('kelas_mhs', 'id_kelas', id, 'MASTER_KELAS_USED');
+      await this._ensureUnused('kelas_praktikum', 'id_kelas', id, 'MASTER_KELAS_USED');
+      const result = await this._pool.query('DELETE FROM kelas WHERE id = $1 RETURNING id', [id]);
+      if (!result.rows.length) throw new Error('MASTER_KELAS_NOT_FOUND');
+    }
   }
 
   async getMataKuliah(filters = {}) {
@@ -362,110 +561,52 @@ class AcademicDataService {
     }
   }
 
-  async deleteMataKuliah(id) {
-    await this._ensureUnused('kelas_praktikum', 'id_mata_kuliah', id, 'MATA_KULIAH_USED');
-    await this._ensureUnused('jobsheets', 'id_mata_kuliah', id, 'MATA_KULIAH_USED');
-    const result = await this._pool.query('DELETE FROM mata_kuliah WHERE id = $1 RETURNING id', [id]);
-    if (!result.rows.length) throw new Error('MATA_KULIAH_NOT_FOUND');
-  }
-
-  async getLegacyCourseLinkCandidates(filters = {}) {
-    const keyword = `%${(filters.keyword || '').toLowerCase()}%`;
-    const params = [keyword];
-    let statusClause = '';
-
-    if (filters.status === 'linked') {
-      statusClause = 'AND mk.id IS NOT NULL';
-    } else if (filters.status === 'unlinked') {
-      statusClause = 'AND mk.id IS NULL';
-    }
-
-    const result = await this._pool.query(
-      `
-      SELECT
-        c.id AS legacy_course_id,
-        c.name AS legacy_course_name,
-        c.code AS legacy_course_code,
-        c.semester AS legacy_course_semester,
-        c.sks AS legacy_course_sks,
-        c.status AS legacy_course_status,
-        mk.id AS id_mata_kuliah,
-        mk.kode_mk,
-        mk.nama_mk,
-        mk.tipe,
-        k.id AS id_kurikulum,
-        k.nama_kurikulum,
-        COALESCE(suggestions.items, '[]'::json) AS suggested_mata_kuliah
-      FROM courses c
-      LEFT JOIN mata_kuliah mk ON mk.legacy_course_id = c.id
-      LEFT JOIN kurikulum k ON k.id = mk.id_kurikulum
-      LEFT JOIN LATERAL (
-        SELECT json_agg(row_to_json(candidate)) AS items
-        FROM (
-          SELECT
-            mk2.id,
-            mk2.kode_mk,
-            mk2.nama_mk,
-            mk2.tipe,
-            s.semester,
-            kur.nama_kurikulum
-          FROM mata_kuliah mk2
-          JOIN semester s ON s.id = mk2.id_semester
-          JOIN kurikulum kur ON kur.id = mk2.id_kurikulum
-          WHERE mk2.legacy_course_id IS NULL
-            AND (LOWER(mk2.nama_mk) = LOWER(c.name) OR LOWER(mk2.kode_mk) = LOWER(c.code))
-          ORDER BY kur.status = 'active' DESC, s.semester ASC, mk2.nama_mk ASC
-          LIMIT 5
-        ) candidate
-      ) suggestions ON true
-      WHERE ($1 = '%%'
-        OR LOWER(c.name) LIKE $1
-        OR LOWER(c.code) LIKE $1)
-      ${statusClause}
-      ORDER BY mk.id IS NULL DESC, c.semester ASC, c.name ASC
-      `,
-      params,
-    );
-
-    return result.rows.map((row) => ({
-      ...row,
-      is_linked: Boolean(row.id_mata_kuliah),
-    }));
-  }
-
-  async linkLegacyCourseToMataKuliah(id, payload) {
-    const legacyCourseId = payload.legacy_course_id || payload.course_id || payload.courseId;
-    if (!legacyCourseId) throw createClientError('Legacy course wajib dipilih', 400);
-
-    const client = await this._pool.connect();
-    try {
-      await client.query('BEGIN');
-      await this._ensureExists(client, 'mata_kuliah', id, 'MATA_KULIAH_NOT_FOUND');
-      await this._ensureExists(client, 'courses', legacyCourseId, 'COURSE_NOT_FOUND');
-
-      await client.query(
-        `UPDATE mata_kuliah
-         SET legacy_course_id = $2, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $1`,
-        [id, legacyCourseId],
-      );
-      await client.query(
-        `UPDATE jobsheets
-         SET id_mata_kuliah = $2
-         WHERE course_id = $1`,
-        [legacyCourseId, id],
-      );
-
-      await client.query('COMMIT');
-      return (await this.getMataKuliah()).find((item) => item.id === id);
-    } catch (error) {
-      await client.query('ROLLBACK');
-      if (error.code === '23505') throw new Error('MATA_KULIAH_LEGACY_COURSE_DUPLICATE');
-      throw error;
-    } finally {
-      client.release();
+  async deleteMataKuliah(id, force = false) {
+    if (force) {
+      const client = await this._pool.connect();
+      try {
+        await client.query('BEGIN');
+        // Find all kelas_praktikum for this mata_kuliah
+        const kpRes = await client.query('SELECT id FROM kelas_praktikum WHERE id_mata_kuliah = $1', [id]);
+        const kpIds = kpRes.rows.map(r => r.id);
+        if (kpIds.length > 0) {
+          await client.query('DELETE FROM jobsheet_classes WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM student_progress WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM task_submissions WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM student_jobsheet_progress WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM pengampu WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM kelas_praktikum WHERE id_mata_kuliah = $1', [id]);
+        }
+        // Delete jobsheets for this mata_kuliah
+        const jRes = await client.query('SELECT id FROM jobsheets WHERE id_mata_kuliah = $1', [id]);
+        const jIds = jRes.rows.map(r => r.id);
+        if (jIds.length > 0) {
+          await client.query('DELETE FROM experiments WHERE jobsheet_id = ANY($1)', [jIds]);
+          await client.query('DELETE FROM exercises WHERE jobsheet_id = ANY($1)', [jIds]);
+          await client.query('DELETE FROM jobsheet_classes WHERE jobsheet_id = ANY($1)', [jIds]);
+          await client.query('DELETE FROM student_progress WHERE jobsheet_id = ANY($1)', [jIds]);
+          await client.query('DELETE FROM task_submissions WHERE jobsheet_id = ANY($1)', [jIds]);
+          await client.query('DELETE FROM student_jobsheet_progress WHERE jobsheet_id = ANY($1)', [jIds]);
+          await client.query('DELETE FROM jobsheets WHERE id_mata_kuliah = $1', [id]);
+        }
+        const result = await client.query('DELETE FROM mata_kuliah WHERE id = $1 RETURNING id', [id]);
+        if (!result.rows.length) throw new Error('MATA_KULIAH_NOT_FOUND');
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+    } else {
+      await this._ensureUnused('kelas_praktikum', 'id_mata_kuliah', id, 'MATA_KULIAH_USED');
+      await this._ensureUnused('jobsheets', 'id_mata_kuliah', id, 'MATA_KULIAH_USED');
+      const result = await this._pool.query('DELETE FROM mata_kuliah WHERE id = $1 RETURNING id', [id]);
+      if (!result.rows.length) throw new Error('MATA_KULIAH_NOT_FOUND');
     }
   }
+
+
 
   async getKelasMahasiswa(filters = {}) {
     const keyword = `%${(filters.keyword || '').toLowerCase()}%`;
@@ -591,12 +732,30 @@ class AcademicDataService {
     }
   }
 
-  async deleteKelasMahasiswa(id) {
-    await this._ensureUnused('student_progress', 'id_kelas_mhs', id, 'KELAS_MAHASISWA_USED');
-    await this._ensureUnused('task_submissions', 'id_kelas_mhs', id, 'KELAS_MAHASISWA_USED');
-    await this._ensureUnused('student_jobsheet_progress', 'id_kelas_mhs', id, 'KELAS_MAHASISWA_USED');
-    const result = await this._pool.query('DELETE FROM kelas_mhs WHERE id = $1 RETURNING id', [id]);
-    if (!result.rows.length) throw new Error('KELAS_MAHASISWA_NOT_FOUND');
+  async deleteKelasMahasiswa(id, force = false) {
+    if (force) {
+      const client = await this._pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM student_progress WHERE id_kelas_mhs = $1', [id]);
+        await client.query('DELETE FROM task_submissions WHERE id_kelas_mhs = $1', [id]);
+        await client.query('DELETE FROM student_jobsheet_progress WHERE id_kelas_mhs = $1', [id]);
+        const result = await client.query('DELETE FROM kelas_mhs WHERE id = $1 RETURNING id', [id]);
+        if (!result.rows.length) throw new Error('KELAS_MAHASISWA_NOT_FOUND');
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+    } else {
+      await this._ensureUnused('student_progress', 'id_kelas_mhs', id, 'KELAS_MAHASISWA_USED');
+      await this._ensureUnused('task_submissions', 'id_kelas_mhs', id, 'KELAS_MAHASISWA_USED');
+      await this._ensureUnused('student_jobsheet_progress', 'id_kelas_mhs', id, 'KELAS_MAHASISWA_USED');
+      const result = await this._pool.query('DELETE FROM kelas_mhs WHERE id = $1 RETURNING id', [id]);
+      if (!result.rows.length) throw new Error('KELAS_MAHASISWA_NOT_FOUND');
+    }
   }
 
   _buildKelasPraktikumName(row) {
@@ -623,311 +782,7 @@ class AcademicDataService {
     return result.rows;
   }
 
-  async linkLegacyClassToKelasPraktikum(id, payload) {
-    const legacyClassId = payload.legacy_class_id || payload.class_id || payload.classId;
-    if (!legacyClassId) throw createClientError('Legacy class wajib dipilih', 400);
 
-    const client = await this._pool.connect();
-    try {
-      await client.query('BEGIN');
-
-      const kelasPraktikum = await client.query(
-        'SELECT id FROM kelas_praktikum WHERE id = $1 LIMIT 1',
-        [id],
-      );
-      if (!kelasPraktikum.rows.length) throw new Error('KELAS_PRAKTIKUM_NOT_FOUND');
-
-      const legacyClass = await client.query(
-        'SELECT id FROM classes WHERE id = $1 LIMIT 1',
-        [legacyClassId],
-      );
-      if (!legacyClass.rows.length) throw new Error('CLASS_NOT_FOUND');
-
-      await client.query(
-        `UPDATE kelas_praktikum
-         SET legacy_class_id = $2, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $1`,
-        [id, legacyClassId],
-      );
-
-      await client.query(
-        `UPDATE jobsheet_classes
-         SET id_kelas_praktikum = $2
-         WHERE class_id = $1`,
-        [legacyClassId, id],
-      );
-
-      await client.query(
-        `UPDATE student_progress
-         SET id_kelas_praktikum = $2
-         WHERE class_id = $1`,
-        [legacyClassId, id],
-      );
-
-      await client.query(
-        `UPDATE student_jobsheet_progress
-         SET id_kelas_praktikum = $2
-         WHERE class_id = $1`,
-        [legacyClassId, id],
-      );
-
-      await client.query(
-        `UPDATE task_submissions ts
-         SET id_kelas_praktikum = $2
-         WHERE id_kelas_praktikum IS NULL
-           AND EXISTS (
-             SELECT 1
-             FROM jobsheet_classes jc
-             JOIN class_students cs
-               ON cs.class_id = jc.class_id
-              AND cs.student_id = ts.student_id
-             WHERE jc.jobsheet_id = ts.jobsheet_id
-               AND jc.class_id = $1
-           )`,
-        [legacyClassId, id],
-      );
-
-      await client.query(
-        `UPDATE student_progress sp
-         SET id_kelas_mhs = km.id
-         FROM kelas_praktikum kp
-         JOIN kelas_mhs km
-           ON km.id_tahun_semester = kp.id_tahun_semester
-          AND km.id_semester = kp.id_semester
-          AND km.id_kelas = kp.id_kelas
-         WHERE kp.id = $1
-           AND sp.id_kelas_praktikum = kp.id
-           AND sp.student_id = km.id_mahasiswa`,
-        [id],
-      );
-
-      await client.query(
-        `UPDATE student_jobsheet_progress sjp
-         SET id_kelas_mhs = km.id
-         FROM kelas_praktikum kp
-         JOIN kelas_mhs km
-           ON km.id_tahun_semester = kp.id_tahun_semester
-          AND km.id_semester = kp.id_semester
-          AND km.id_kelas = kp.id_kelas
-         WHERE kp.id = $1
-           AND sjp.id_kelas_praktikum = kp.id
-          AND sjp.student_id = km.id_mahasiswa`,
-        [id],
-      );
-
-      await client.query(
-        `UPDATE task_submissions ts
-         SET id_kelas_mhs = km.id
-         FROM kelas_praktikum kp
-         JOIN kelas_mhs km
-           ON km.id_tahun_semester = kp.id_tahun_semester
-          AND km.id_semester = kp.id_semester
-          AND km.id_kelas = kp.id_kelas
-         WHERE kp.id = $1
-           AND ts.id_kelas_praktikum = kp.id
-           AND ts.student_id = km.id_mahasiswa`,
-        [id],
-      );
-
-      await client.query('COMMIT');
-      return this.getKelasPraktikumById(id);
-    } catch (error) {
-      await client.query('ROLLBACK');
-      if (error.code === '23505') throw new Error('KELAS_PRAKTIKUM_LEGACY_CLASS_DUPLICATE');
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-
-  async getLegacyClassLinkCandidates(filters = {}) {
-    const params = [];
-    const keyword = `%${(filters.keyword || '').toLowerCase()}%`;
-    params.push(keyword);
-
-    let statusClause = '';
-    if (filters.status === 'linked') {
-      statusClause = 'AND kp.id IS NOT NULL';
-    } else if (filters.status === 'unlinked') {
-      statusClause = 'AND kp.id IS NULL';
-    }
-
-    const result = await this._pool.query(
-      `
-      SELECT
-        cl.id AS legacy_class_id,
-        cl.name AS legacy_class_name,
-        cl.status AS legacy_class_status,
-        c.id AS course_id,
-        c.name AS course_name,
-        c.semester AS course_semester,
-        u.id AS lecturer_id,
-        u.fullname AS lecturer_name,
-        ap.id AS academic_period_id,
-        ap.year AS academic_year,
-        ap.semester_type AS academic_term,
-        kp.id AS id_kelas_praktikum,
-        kp.nama_kelas AS nama_kelas_praktikum,
-        kp.status AS kelas_praktikum_status,
-        COALESCE(suggestions.items, '[]'::json) AS suggested_kelas_praktikum
-      FROM classes cl
-      JOIN courses c ON c.id = cl.course_id
-      JOIN users u ON u.id = cl.lecturer_id
-      JOIN academic_periods ap ON ap.id = cl.academic_period_id
-      LEFT JOIN kelas_praktikum kp ON kp.legacy_class_id = cl.id
-      LEFT JOIN LATERAL (
-        SELECT json_agg(row_to_json(candidate)) AS items
-        FROM (
-          SELECT
-            kp2.id,
-            kp2.nama_kelas,
-            kp2.status,
-            mk.nama_mk,
-            s.semester,
-            k.kelas,
-            ts.tahun_semester
-          FROM kelas_praktikum kp2
-          JOIN mata_kuliah mk ON mk.id = kp2.id_mata_kuliah
-          JOIN semester s ON s.id = kp2.id_semester
-          JOIN kelas k ON k.id = kp2.id_kelas
-          JOIN tahun_semester ts ON ts.id = kp2.id_tahun_semester
-          WHERE kp2.legacy_class_id IS NULL
-            AND LOWER(mk.nama_mk) = LOWER(c.name)
-          ORDER BY ts.tahun_semester DESC, s.semester ASC, k.kelas ASC
-          LIMIT 5
-        ) candidate
-      ) suggestions ON true
-      WHERE ($1 = '%%'
-        OR LOWER(cl.name) LIKE $1
-        OR LOWER(c.name) LIKE $1
-        OR LOWER(u.fullname) LIKE $1)
-      ${statusClause}
-      ORDER BY kp.id IS NULL DESC, ap.year DESC, ap.semester_type ASC, c.name ASC, cl.name ASC
-      `,
-      params,
-    );
-
-    return result.rows.map((row) => ({
-      ...row,
-      is_linked: Boolean(row.id_kelas_praktikum),
-    }));
-  }
-
-  async bulkLinkLegacyClasses(payload) {
-    const links = payload.links || [];
-    const client = await this._pool.connect();
-
-    try {
-      await client.query('BEGIN');
-
-      const linked = [];
-      for (const link of links) {
-        const kelasPraktikumId = link.id_kelas_praktikum || link.kelas_praktikum_id || link.kelasPraktikumId;
-        const legacyClassId = link.legacy_class_id || link.class_id || link.classId;
-
-        const kelasPraktikum = await client.query(
-          'SELECT id FROM kelas_praktikum WHERE id = $1 LIMIT 1',
-          [kelasPraktikumId],
-        );
-        if (!kelasPraktikum.rows.length) throw new Error('KELAS_PRAKTIKUM_NOT_FOUND');
-
-        const legacyClass = await client.query(
-          'SELECT id FROM classes WHERE id = $1 LIMIT 1',
-          [legacyClassId],
-        );
-        if (!legacyClass.rows.length) throw new Error('CLASS_NOT_FOUND');
-
-        await client.query(
-          `UPDATE kelas_praktikum
-           SET legacy_class_id = $2, updated_at = CURRENT_TIMESTAMP
-           WHERE id = $1`,
-          [kelasPraktikumId, legacyClassId],
-        );
-
-        await client.query(
-          'UPDATE jobsheet_classes SET id_kelas_praktikum = $2 WHERE class_id = $1',
-          [legacyClassId, kelasPraktikumId],
-        );
-        await client.query(
-          'UPDATE student_progress SET id_kelas_praktikum = $2 WHERE class_id = $1',
-          [legacyClassId, kelasPraktikumId],
-        );
-        await client.query(
-          'UPDATE student_jobsheet_progress SET id_kelas_praktikum = $2 WHERE class_id = $1',
-          [legacyClassId, kelasPraktikumId],
-        );
-        await client.query(
-          `UPDATE task_submissions ts
-           SET id_kelas_praktikum = $2
-           WHERE id_kelas_praktikum IS NULL
-             AND EXISTS (
-               SELECT 1
-               FROM jobsheet_classes jc
-               JOIN class_students cs
-                 ON cs.class_id = jc.class_id
-                AND cs.student_id = ts.student_id
-               WHERE jc.jobsheet_id = ts.jobsheet_id
-                 AND jc.class_id = $1
-             )`,
-          [legacyClassId, kelasPraktikumId],
-        );
-
-        await client.query(
-          `UPDATE student_progress sp
-           SET id_kelas_mhs = km.id
-           FROM kelas_praktikum kp
-           JOIN kelas_mhs km
-             ON km.id_tahun_semester = kp.id_tahun_semester
-            AND km.id_semester = kp.id_semester
-            AND km.id_kelas = kp.id_kelas
-           WHERE kp.id = $1
-             AND sp.id_kelas_praktikum = kp.id
-             AND sp.student_id = km.id_mahasiswa`,
-          [kelasPraktikumId],
-        );
-        await client.query(
-          `UPDATE student_jobsheet_progress sjp
-           SET id_kelas_mhs = km.id
-           FROM kelas_praktikum kp
-           JOIN kelas_mhs km
-             ON km.id_tahun_semester = kp.id_tahun_semester
-            AND km.id_semester = kp.id_semester
-            AND km.id_kelas = kp.id_kelas
-           WHERE kp.id = $1
-             AND sjp.id_kelas_praktikum = kp.id
-             AND sjp.student_id = km.id_mahasiswa`,
-          [kelasPraktikumId],
-        );
-        await client.query(
-          `UPDATE task_submissions ts
-           SET id_kelas_mhs = km.id
-           FROM kelas_praktikum kp
-           JOIN kelas_mhs km
-             ON km.id_tahun_semester = kp.id_tahun_semester
-            AND km.id_semester = kp.id_semester
-            AND km.id_kelas = kp.id_kelas
-           WHERE kp.id = $1
-             AND ts.id_kelas_praktikum = kp.id
-             AND ts.student_id = km.id_mahasiswa`,
-          [kelasPraktikumId],
-        );
-
-        linked.push({
-          id_kelas_praktikum: kelasPraktikumId,
-          legacy_class_id: legacyClassId,
-        });
-      }
-
-      await client.query('COMMIT');
-      return { linked_count: linked.length, linked };
-    } catch (error) {
-      await client.query('ROLLBACK');
-      if (error.code === '23505') throw new Error('KELAS_PRAKTIKUM_LEGACY_CLASS_DUPLICATE');
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
 
   async getKelasPraktikumById(id) {
     const item = (await this.getKelasPraktikum()).find((row) => row.id === id);
@@ -1012,26 +867,46 @@ class AcademicDataService {
     }
   }
 
-  async deleteKelasPraktikum(id) {
-    await this._ensureUnused('jobsheet_classes', 'id_kelas_praktikum', id, 'KELAS_PRAKTIKUM_USED');
-    await this._ensureUnused('student_progress', 'id_kelas_praktikum', id, 'KELAS_PRAKTIKUM_USED');
-    await this._ensureUnused('task_submissions', 'id_kelas_praktikum', id, 'KELAS_PRAKTIKUM_USED');
-    await this._ensureUnused('student_jobsheet_progress', 'id_kelas_praktikum', id, 'KELAS_PRAKTIKUM_USED');
-
-    const client = await this._pool.connect();
-    try {
-      await client.query('BEGIN');
-      await client.query('DELETE FROM pengampu WHERE id_kelas_praktikum = $1', [id]);
-      const result = await client.query('DELETE FROM kelas_praktikum WHERE id = $1 RETURNING id', [id]);
-      if (!result.rows.length) {
-        throw new Error('KELAS_PRAKTIKUM_NOT_FOUND');
+  async deleteKelasPraktikum(id, force = false) {
+    if (force) {
+      const client = await this._pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM jobsheet_classes WHERE id_kelas_praktikum = $1', [id]);
+        await client.query('DELETE FROM student_progress WHERE id_kelas_praktikum = $1', [id]);
+        await client.query('DELETE FROM task_submissions WHERE id_kelas_praktikum = $1', [id]);
+        await client.query('DELETE FROM student_jobsheet_progress WHERE id_kelas_praktikum = $1', [id]);
+        await client.query('DELETE FROM pengampu WHERE id_kelas_praktikum = $1', [id]);
+        const result = await client.query('DELETE FROM kelas_praktikum WHERE id = $1 RETURNING id', [id]);
+        if (!result.rows.length) throw new Error('KELAS_PRAKTIKUM_NOT_FOUND');
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
       }
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
+    } else {
+      await this._ensureUnused('jobsheet_classes', 'id_kelas_praktikum', id, 'KELAS_PRAKTIKUM_USED');
+      await this._ensureUnused('student_progress', 'id_kelas_praktikum', id, 'KELAS_PRAKTIKUM_USED');
+      await this._ensureUnused('task_submissions', 'id_kelas_praktikum', id, 'KELAS_PRAKTIKUM_USED');
+      await this._ensureUnused('student_jobsheet_progress', 'id_kelas_praktikum', id, 'KELAS_PRAKTIKUM_USED');
+
+      const client = await this._pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM pengampu WHERE id_kelas_praktikum = $1', [id]);
+        const result = await client.query('DELETE FROM kelas_praktikum WHERE id = $1 RETURNING id', [id]);
+        if (!result.rows.length) {
+          throw new Error('KELAS_PRAKTIKUM_NOT_FOUND');
+        }
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
     }
   }
 
@@ -1252,7 +1127,7 @@ class AcademicDataService {
     }
   }
 
-  async deleteKelasSemester(id) {
+  async deleteKelasSemester(id, force = false) {
     const client = await this._pool.connect();
     try {
       await client.query('BEGIN');
@@ -1260,19 +1135,49 @@ class AcademicDataService {
       if (!currentRes.rows.length) throw new Error('KELAS_SEMESTER_NOT_FOUND');
       const current = currentRes.rows[0];
 
-      // Check if students exist
-      const studentsCheck = await client.query('SELECT COUNT(id)::int AS count FROM kelas_mhs WHERE id_kelas_semester = $1', [id]);
-      if (studentsCheck.rows[0].count > 0) {
-        throw new Error('KELAS_SEMESTER_USED');
-      }
+      if (force) {
+        // Find all kelas_mhs
+        const kmRes = await client.query('SELECT id FROM kelas_mhs WHERE id_kelas_semester = $1', [id]);
+        const kmIds = kmRes.rows.map(r => r.id);
+        if (kmIds.length > 0) {
+          await client.query('DELETE FROM student_progress WHERE id_kelas_mhs = ANY($1)', [kmIds]);
+          await client.query('DELETE FROM task_submissions WHERE id_kelas_mhs = ANY($1)', [kmIds]);
+          await client.query('DELETE FROM student_jobsheet_progress WHERE id_kelas_mhs = ANY($1)', [kmIds]);
+          await client.query('DELETE FROM kelas_mhs WHERE id_kelas_semester = $1', [id]);
+        }
 
-      // Check if used by kelas_praktikum
-      const praktikumCheck = await client.query(
-        'SELECT 1 FROM kelas_praktikum WHERE id_tahun_semester = $1 AND id_semester = $2 AND id_kelas = $3 LIMIT 1',
-        [current.id_tahun_semester, current.id_semester, current.id_kelas]
-      );
-      if (praktikumCheck.rows.length > 0) {
-        throw new Error('KELAS_SEMESTER_DELETE_USED_BY_PRAKTIKUM');
+        // Find all kelas_praktikum matching this group
+        const kpRes = await client.query(
+          'SELECT id FROM kelas_praktikum WHERE id_tahun_semester = $1 AND id_semester = $2 AND id_kelas = $3',
+          [current.id_tahun_semester, current.id_semester, current.id_kelas]
+        );
+        const kpIds = kpRes.rows.map(r => r.id);
+        if (kpIds.length > 0) {
+          await client.query('DELETE FROM jobsheet_classes WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM student_progress WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM task_submissions WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM student_jobsheet_progress WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query('DELETE FROM pengampu WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
+          await client.query(
+            'DELETE FROM kelas_praktikum WHERE id_tahun_semester = $1 AND id_semester = $2 AND id_kelas = $3',
+            [current.id_tahun_semester, current.id_semester, current.id_kelas]
+          );
+        }
+      } else {
+        // Check if students exist
+        const studentsCheck = await client.query('SELECT COUNT(id)::int AS count FROM kelas_mhs WHERE id_kelas_semester = $1', [id]);
+        if (studentsCheck.rows[0].count > 0) {
+          throw new Error('KELAS_SEMESTER_USED');
+        }
+
+        // Check if used by kelas_praktikum
+        const praktikumCheck = await client.query(
+          'SELECT 1 FROM kelas_praktikum WHERE id_tahun_semester = $1 AND id_semester = $2 AND id_kelas = $3 LIMIT 1',
+          [current.id_tahun_semester, current.id_semester, current.id_kelas]
+        );
+        if (praktikumCheck.rows.length > 0) {
+          throw new Error('KELAS_SEMESTER_DELETE_USED_BY_PRAKTIKUM');
+        }
       }
 
       const result = await client.query('DELETE FROM kelas_semester WHERE id = $1 RETURNING id', [id]);

@@ -46,7 +46,8 @@ class AcademicHandler {
 
   async deleteSemesterHandler(req, res) {
     try {
-      await this._service.deleteSemester(req.params.id);
+      const force = req.query.force === 'true';
+      await this._service.deleteSemester(req.params.id, force);
       return ok(res, {}, 'Semester berhasil dihapus');
     } catch (error) {
       return handleAdminError(error, res);
@@ -95,7 +96,8 @@ class AcademicHandler {
 
   async deleteCourseHandler(req, res) {
     try {
-      await this._service.deleteCourse(req.params.id);
+      const force = req.query.force === 'true';
+      await this._service.deleteCourse(req.params.id, force);
       return ok(res, {}, 'Mata kuliah berhasil dihapus');
     } catch (error) {
       return handleAdminError(error, res);

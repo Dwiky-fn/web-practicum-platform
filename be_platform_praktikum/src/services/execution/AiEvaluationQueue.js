@@ -398,11 +398,10 @@ class AiEvaluationQueue {
       `SELECT ts.*, j.title as jobsheet_title, j.description as jobsheet_description,
         j.content as jobsheet_content, j.programming_language as jobsheet_language,
         j.id_mata_kuliah,
-        COALESCE(mk.nama_mk, co.name) AS course_name
+        mk.nama_mk AS course_name
        FROM task_submissions ts
        JOIN jobsheets j ON j.id = ts.jobsheet_id
-       LEFT JOIN courses co ON co.id = j.course_id
-       LEFT JOIN mata_kuliah mk ON mk.id = j.id_mata_kuliah
+       JOIN mata_kuliah mk ON mk.id = j.id_mata_kuliah
        WHERE ts.id = $1 LIMIT 1`,
       [submissionId]
     );
@@ -420,9 +419,9 @@ class AiEvaluationQueue {
 
     if (sub.id_kelas_praktikum) {
       classRes = await pool.query(
-        `SELECT kp.legacy_class_id AS class_id,
+        `SELECT kp.id AS class_id,
           p.id_dosen AS lecturer_id,
-          j.programming_language,
+          'java'::varchar AS programming_language,
           kp.id AS id_kelas_praktikum
          FROM kelas_praktikum kp
          JOIN jobsheets j
@@ -444,29 +443,7 @@ class AiEvaluationQueue {
     }
 
     if (!classRes.rows.length) {
-      // Legacy fallback only. New academic flow should resolve through kelas_praktikum above.
-      classRes = await pool.query(
-      `SELECT c.id AS class_id,
-        COALESCE(p.id_dosen, c.lecturer_id) AS lecturer_id,
-        c.programming_language,
-        kp.id AS id_kelas_praktikum
-       FROM classes c
-       JOIN class_students cs ON cs.class_id = c.id
-       JOIN jobsheets j ON j.course_id = c.course_id
-       LEFT JOIN kelas_praktikum kp
-         ON kp.legacy_class_id = c.id
-        AND ($3::varchar IS NULL OR kp.id = $3)
-       LEFT JOIN pengampu p
-         ON p.id_kelas_praktikum = kp.id
-        AND p.peran = 'utama'
-       WHERE cs.student_id = $1
-         AND j.id = $2
-         AND cs.status = 'AKTIF'
-         AND c.status = 'AKTIF'
-         AND ($3::varchar IS NULL OR kp.id = $3)
-       LIMIT 1`,
-        [sub.student_id, sub.jobsheet_id, sub.id_kelas_praktikum || null]
-      );
+      throw new Error(`Kelas praktikum tidak ditemukan untuk mahasiswa ${sub.student_id} dan jobsheet ${sub.jobsheet_id}`);
     }
     const lecturerId = classRes.rows[0]?.lecturer_id || 'dosen-1';
     sub.class_id = classRes.rows[0]?.class_id || null;

@@ -135,6 +135,18 @@ const searchPlaceholder: Record<NativeTab, string> = {
   "kelas-praktikum": "Cari kelas praktikum",
 }
 
+// Upfront warning messages shown in the single delete modal per tab
+const tabDeleteWarning: Partial<Record<NativeTab | "kelas-semester" | "kelas-mahasiswa-detail", string>> = {
+  tahun: "Menghapus tahun semester akan menghapus seluruh kelas semester, kelas praktikum, data mahasiswa terdaftar, serta progress dan nilai tugas pada periode akademik ini secara permanen.",
+  kurikulum: "Menghapus kurikulum akan menghapus seluruh mata kuliah, kelas praktikum, jobsheet, serta progress dan nilai tugas mahasiswa terkait kurikulum ini secara permanen.",
+  semester: "Menghapus master semester akan menghapus seluruh data akademik terkait (mata kuliah, kelas semester, kelas praktikum) beserta data progress dan submission mahasiswa secara permanen.",
+  kelas: "Menghapus master kelas akan menghapus seluruh kelas semester, kelas praktikum, data mahasiswa terdaftar, serta progress dan nilai tugas yang terkait kelas ini secara permanen.",
+  "mata-kuliah": "Menghapus mata kuliah akan menghapus seluruh jobsheet, kelas praktikum, serta data progress dan nilai tugas mahasiswa terkait secara permanen.",
+  "kelas-semester": "Menghapus kelas ini akan menghapus pendaftaran seluruh mahasiswa di dalamnya beserta data progress, nilai tugas, dan kelas praktikum terkait secara permanen.",
+  "kelas-mahasiswa-detail": "Menghapus mahasiswa dari kelas ini akan menghapus seluruh data progress, nilai, dan submission mahasiswa tersebut pada kelas ini secara permanen.",
+  "kelas-praktikum": "Menghapus kelas praktikum ini akan menghapus seluruh data progress, nilai tugas, pengampu, serta jobsheet terkait kelas praktikum ini secara permanen.",
+}
+
 function includesKeyword(values: Array<string | number | undefined>, keyword: string) {
   const normalized = keyword.trim().toLowerCase()
   if (!normalized) return true
@@ -779,25 +791,25 @@ export default function AdminAcademicNativePage() {
     setSubmitting(true)
     setError("")
     try {
-      if (deleteTarget.tab === "tahun") await academicDataApi.deleteTahunSemester(deleteTarget.id)
-      if (deleteTarget.tab === "kurikulum") await academicDataApi.deleteKurikulum(deleteTarget.id)
-      if (deleteTarget.tab === "semester") await academicDataApi.deleteSemester(deleteTarget.id)
-      if (deleteTarget.tab === "kelas") await academicDataApi.deleteKelas(deleteTarget.id)
-      if (deleteTarget.tab === "mata-kuliah") await academicDataApi.deleteMataKuliah(deleteTarget.id)
-      if (deleteTarget.tab === "kelas-mahasiswa") {
+      const { id, tab } = deleteTarget
+      if (tab === "tahun") await academicDataApi.deleteTahunSemester(id, true)
+      else if (tab === "kurikulum") await academicDataApi.deleteKurikulum(id, true)
+      else if (tab === "semester") await academicDataApi.deleteSemester(id, true)
+      else if (tab === "kelas") await academicDataApi.deleteKelas(id, true)
+      else if (tab === "mata-kuliah") await academicDataApi.deleteMataKuliah(id, true)
+      else if (tab === "kelas-mahasiswa") {
         if (isKelasMahasiswaDetail) {
-          await academicDataApi.deleteKelasMahasiswa(deleteTarget.id)
+          await academicDataApi.deleteKelasMahasiswa(id, true)
           toast.success("Mahasiswa berhasil dihapus dari kelas.")
         } else {
-          await academicDataApi.deleteKelasSemester(deleteTarget.id)
+          await academicDataApi.deleteKelasSemester(id, true)
           toast.success("Kelas berhasil dihapus.")
         }
-      }
-      if (deleteTarget.tab === "kelas-praktikum") {
-        await academicDataApi.deleteKelasPraktikum(deleteTarget.id)
+      } else if (tab === "kelas-praktikum") {
+        await academicDataApi.deleteKelasPraktikum(id, true)
         toast.success("Kelas praktikum berhasil dihapus.")
       }
-      if (deleteTarget.tab !== "kelas-mahasiswa" && deleteTarget.tab !== "kelas-praktikum") {
+      if (tab !== "kelas-mahasiswa" && tab !== "kelas-praktikum") {
         toast.success("Data berhasil dihapus.")
       }
       setDeleteTarget(null)
@@ -891,17 +903,6 @@ export default function AdminAcademicNativePage() {
                     variant="danger"
                     className="h-8 px-2"
                     onClick={() => {
-                      if (group.students.length > 0) {
-                        toast.warning("Kelas tidak dapat dihapus karena masih memiliki mahasiswa.")
-                        return
-                      }
-                      const isUsedInPraktikum = scopedKelasPraktikum.some(
-                        (kp) => kp.id_semester === group.id_semester && kp.id_kelas === group.id_kelas
-                      )
-                      if (isUsedInPraktikum) {
-                        toast.warning("Kelas tidak dapat dihapus karena sudah digunakan oleh kelas praktikum.")
-                        return
-                      }
                       setDeleteTarget({
                         tab: "kelas-mahasiswa",
                         id: group.id,
@@ -1172,21 +1173,39 @@ export default function AdminAcademicNativePage() {
           </AdminModal>
         )}
 
-        {deleteTarget && (
-          <AdminConfirmModal
-            title="Hapus data?"
-            message={
-              deleteTarget.tab === "kelas-mahasiswa" && !isKelasMahasiswaDetail
-                ? `Yakin ingin menghapus kelas ${deleteTarget.label}?`
-                : `${deleteTarget.label} akan dihapus jika belum digunakan data lain.`
-            }
-            confirmLabel="Hapus"
-            variant="danger"
-            loading={submitting}
-            onCancel={() => setDeleteTarget(null)}
-            onConfirm={confirmDelete}
-          />
-        )}
+        {deleteTarget && (() => {
+          const warningKey = deleteTarget.tab === "kelas-mahasiswa" && isKelasMahasiswaDetail
+            ? "kelas-mahasiswa-detail"
+            : deleteTarget.tab === "kelas-mahasiswa"
+            ? "kelas-semester"
+            : deleteTarget.tab
+          const warningText = tabDeleteWarning[warningKey as keyof typeof tabDeleteWarning] ?? ""
+          return (
+            <AdminConfirmModal
+              title="Hapus Data Secara Permanen?"
+              message={
+                <div className="space-y-3 text-left">
+                  <p className="font-semibold text-gray-900">
+                    Anda akan menghapus: <span className="text-red-600">{deleteTarget.label}</span>
+                  </p>
+                  {warningText && (
+                    <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                      ⚠️ {warningText}
+                    </div>
+                  )}
+                  <p className="text-sm text-gray-500">
+                    Tindakan ini tidak dapat dibatalkan. Apakah Anda yakin ingin melanjutkan?
+                  </p>
+                </div>
+              }
+              confirmLabel="Hapus Permanen"
+              variant="danger"
+              loading={submitting}
+              onCancel={() => setDeleteTarget(null)}
+              onConfirm={confirmDelete}
+            />
+          )
+        })()}
       </>
     )
   }
@@ -1598,22 +1617,39 @@ export default function AdminAcademicNativePage() {
           </div>
         </AdminModal>
       )}
-
-      {deleteTarget && (
-        <AdminConfirmModal
-          title="Hapus data?"
-          message={
-            deleteTarget.tab === "kelas-mahasiswa" && !isKelasMahasiswaDetail
-              ? `Yakin ingin menghapus kelas ${deleteTarget.label}?`
-              : `${deleteTarget.label} akan dihapus jika belum digunakan data lain.`
-          }
-          confirmLabel="Hapus"
-          variant="danger"
-          loading={submitting}
-          onCancel={() => setDeleteTarget(null)}
-          onConfirm={confirmDelete}
-        />
-      )}
+      {deleteTarget && (() => {
+        const warningKey = deleteTarget.tab === "kelas-mahasiswa" && isKelasMahasiswaDetail
+          ? "kelas-mahasiswa-detail"
+          : deleteTarget.tab === "kelas-mahasiswa"
+          ? "kelas-semester"
+          : deleteTarget.tab
+        const warningText = tabDeleteWarning[warningKey as keyof typeof tabDeleteWarning] ?? ""
+        return (
+          <AdminConfirmModal
+            title="Hapus Data Secara Permanen?"
+            message={
+              <div className="space-y-3 text-left">
+                <p className="font-semibold text-gray-900">
+                  Anda akan menghapus: <span className="text-red-600">{deleteTarget.label}</span>
+                </p>
+                {warningText && (
+                  <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    ⚠️ {warningText}
+                  </div>
+                )}
+                <p className="text-sm text-gray-500">
+                  Tindakan ini tidak dapat dibatalkan. Apakah Anda yakin ingin melanjutkan?
+                </p>
+              </div>
+            }
+            confirmLabel="Hapus Permanen"
+            variant="danger"
+            loading={submitting}
+            onCancel={() => setDeleteTarget(null)}
+            onConfirm={confirmDelete}
+          />
+        )
+      })()}
     </AdminLayout>
   )
 }

@@ -353,7 +353,7 @@ class AdminUsersService {
 
       if (current.rows[0].role === 'DOSEN') {
         const assignedClasses = await client.query(
-          'SELECT id FROM classes WHERE lecturer_id = $1 LIMIT 1',
+          'SELECT id_kelas_praktikum FROM pengampu WHERE id_dosen = $1 LIMIT 1',
           [id],
         );
 

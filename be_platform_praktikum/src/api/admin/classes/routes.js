@@ -22,6 +22,11 @@ const routes = (handler) => {
     handler.getStudentCandidatesHandler,
   );
   router.post('/admin/classes/:id/students', requireRoles('ADMIN'), handler.assignStudentsHandler);
+  router.post(
+    '/admin/classes/:id/assign-class-semester',
+    requireRoles('ADMIN'),
+    handler.assignClassSemesterHandler,
+  );
   router.delete(
     '/admin/classes/:id/students/:studentId',
     requireRoles('ADMIN'),

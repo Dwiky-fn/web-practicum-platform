@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const normalizeStatus = (value, fallback = 'AKTIF') => {
   if (value === 'Aktif') return 'AKTIF';
   if (value === 'Nonaktif') return 'NONAKTIF';
+  if (value === 'Cuti') return 'CUTI';
   if (value === 'Selesai') return 'SELESAI';
   if (value === 'Draft') return 'DRAFT';
   if (value === 'Arsip') return 'ARSIP';
@@ -13,6 +14,7 @@ const displayStatus = (value) => {
   const map = {
     AKTIF: 'Aktif',
     NONAKTIF: 'Nonaktif',
+    CUTI: 'Cuti',
     SELESAI: 'Selesai',
     DRAFT: 'Draft',
     ARSIP: 'Arsip',
@@ -46,7 +48,7 @@ const mapStudent = (row) => ({
   email: row.email,
   angkatan: row.angkatan || 0,
   semester: row.semester || 0,
-  status: row.is_active ? displayStatus(normalizeStatus(row.status)) : 'Nonaktif',
+  status: (row.status === 'CUTI' || row.status === 'Cuti') ? 'Cuti' : (row.is_active ? displayStatus(normalizeStatus(row.status)) : 'Nonaktif'),
   programStudi: row.program_studi || 'Teknik Informatika',
   jurusan: row.jurusan || 'Teknologi Informasi',
   studyProgramId: row.study_program_id || undefined,

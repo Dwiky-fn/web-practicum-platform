@@ -629,6 +629,7 @@ export default function AdminUsersPage() {
               <option value="" disabled>Pilih status</option>
               <option>Aktif</option>
               <option>Nonaktif</option>
+              <option>Cuti</option>
             </select>
           </FieldRow>
         </form>

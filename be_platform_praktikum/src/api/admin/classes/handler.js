@@ -131,6 +131,19 @@ class ClassesHandler {
       return handleAdminError(error, res);
     }
   }
+
+  async assignClassSemesterHandler(req, res) {
+    try {
+      const payload = ClassesValidator.validateAssignClassSemesterPayload(req.body);
+      const students = await this._service.assignClassSemesterStudentsToClass(
+        req.params.id,
+        payload.kelasSemesterId,
+      );
+      return ok(res, { students }, 'Mahasiswa berhasil di-assign dari kelas semester');
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
 }
 
 module.exports = ClassesHandler;

@@ -30,7 +30,7 @@ export default function StudentProfileModal({ studentId, onClose, isInline = fal
     email: "",
     angkatan: "",
     semester: "",
-    status: "Aktif" as "Aktif" | "Nonaktif"
+    status: "Aktif" as "Aktif" | "Nonaktif" | "Cuti"
   })
 
   useEffect(() => {
@@ -69,7 +69,7 @@ export default function StudentProfileModal({ studentId, onClose, isInline = fal
       email: profile.email,
       angkatan: isStudent ? String(profile.studentProfile?.angkatan || "") : "",
       semester: isStudent ? String(profile.studentProfile?.semester || "") : "",
-      status: (profile.studentProfile?.status || (profile.isActive ? "Aktif" : "Nonaktif")) as "Aktif" | "Nonaktif"
+      status: (profile.studentProfile?.status || (profile.isActive ? "Aktif" : "Nonaktif")) as "Aktif" | "Nonaktif" | "Cuti"
     })
     setIsEditing(true)
   }
@@ -228,17 +228,31 @@ export default function StudentProfileModal({ studentId, onClose, isInline = fal
                   <select
                     className={`${inputClass} text-xs h-8 px-2 py-1 rounded`}
                     value={userForm.status}
-                    onChange={(e) => setUserForm((prev) => ({ ...prev, status: e.target.value as "Aktif" | "Nonaktif" }))}
+                    onChange={(e) => setUserForm((prev) => ({ ...prev, status: e.target.value as "Aktif" | "Nonaktif" | "Cuti" }))}
                   >
                     <option value="Aktif">Aktif</option>
                     <option value="Nonaktif">Nonaktif</option>
+                    {isStudent && <option value="Cuti">Cuti</option>}
                   </select>
                 ) : (
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                    profile.isActive ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
-                  }`}>
-                    {profile.isActive ? "Aktif" : "Nonaktif"}
-                  </span>
+                  (() => {
+                    const statusText = profile.role === "MAHASISWA" 
+                      ? (profile.studentProfile?.status || (profile.isActive ? "Aktif" : "Nonaktif")) 
+                      : (profile.isActive ? "Aktif" : "Nonaktif");
+                    
+                    let badgeClass = "bg-green-50 text-green-700 border border-green-200";
+                    if (statusText === "Cuti") {
+                      badgeClass = "bg-yellow-50 text-yellow-700 border border-yellow-200";
+                    } else if (statusText === "Nonaktif" || statusText === "NONAKTIF") {
+                      badgeClass = "bg-red-50 text-red-700 border border-red-200";
+                    }
+                    
+                    return (
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${badgeClass}`}>
+                        {statusText}
+                      </span>
+                    );
+                  })()
                 )}
               </div>
             </div>

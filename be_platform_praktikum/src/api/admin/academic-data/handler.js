@@ -219,6 +219,12 @@ class AcademicDataHandler {
     await this._service.deleteKelasSemester(req.params.id, force);
     return ok(res, {}, 'Kelas semester berhasil dihapus');
   }
+
+  async transitionStudentsHandler(req, res) {
+    const payload = Validator.validateStudentTransitionPayload(req.body);
+    await this._service.transitionStudents(payload);
+    return ok(res, {}, 'Perpindahan semester mahasiswa berhasil diproses');
+  }
 }
 
 module.exports = AcademicDataHandler;

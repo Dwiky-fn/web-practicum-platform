@@ -1022,6 +1022,20 @@ class ClassesService {
       status: displayStatus(row.status),
     }));
   }
+
+  async assignClassSemesterStudentsToClass(classId, kelasSemesterId) {
+    const studentsRes = await this._pool.query(
+      `SELECT id_mahasiswa FROM kelas_mhs WHERE id_kelas_semester = $1 AND status = 'active'`,
+      [kelasSemesterId]
+    );
+
+    const studentIds = studentsRes.rows.map(row => row.id_mahasiswa);
+    if (studentIds.length === 0) {
+      throw new Error('KELAS_SEMESTER_EMPTY');
+    }
+
+    return this.assignStudentsToClass(classId, studentIds);
+  }
 }
 
 module.exports = ClassesService;

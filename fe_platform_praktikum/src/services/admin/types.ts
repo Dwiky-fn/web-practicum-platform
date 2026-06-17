@@ -1,7 +1,7 @@
 export type AdminTab = "semester" | "courses" | "classes"
 export type UserRoleTab = "students" | "lecturers"
 
-export type AdminUserStatus = "Aktif" | "Nonaktif"
+export type AdminUserStatus = "Aktif" | "Nonaktif" | "Cuti"
 
 export interface AdminStudent {
   id: string

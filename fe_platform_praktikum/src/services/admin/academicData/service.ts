@@ -235,4 +235,18 @@ export const academicDataApi = {
   async deleteKelasSemester(id: string, force?: boolean) {
     await apiFetch(`/admin/kelas-semester/${id}${force ? "?force=true" : ""}`, { method: "DELETE" })
   },
+  async transitionStudents(payload: {
+    targetTahunSemesterId: string
+    transitions: Array<{
+      studentId: string
+      action: "promote" | "retain" | "cuti" | "drop"
+      targetSemesterId?: string
+      targetKelasId?: string
+    }>
+  }) {
+    await apiFetch("/admin/kelas-semester/transition", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    })
+  },
 }

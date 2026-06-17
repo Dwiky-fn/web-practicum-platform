@@ -127,6 +127,18 @@ const updateKelasSemesterPayloadSchema = Joi.object({
   status: Joi.string().valid('active', 'inactive', 'archived'),
 }).min(1);
 
+const studentTransitionPayloadSchema = Joi.object({
+  targetTahunSemesterId: idSchema,
+  transitions: Joi.array().items(
+    Joi.object({
+      studentId: idSchema,
+      action: Joi.string().valid('promote', 'retain', 'cuti', 'drop').required(),
+      targetSemesterId: Joi.string().allow('', null),
+      targetKelasId: Joi.string().allow('', null),
+    })
+  ).min(1).required(),
+});
+
 module.exports = {
   validateTahunSemesterPayload: (payload) => validateWithSchema(tahunSemesterPayloadSchema, payload),
   validateUpdateTahunSemesterPayload: (payload) => validateWithSchema(updateTahunSemesterPayloadSchema, payload),
@@ -145,4 +157,5 @@ module.exports = {
   validateKelasMahasiswaQuery: (query) => validateWithSchema(kelasMahasiswaQuerySchema, query),
   validateKelasSemesterPayload: (payload) => validateWithSchema(kelasSemesterPayloadSchema, payload),
   validateUpdateKelasSemesterPayload: (payload) => validateWithSchema(updateKelasSemesterPayloadSchema, payload),
+  validateStudentTransitionPayload: (payload) => validateWithSchema(studentTransitionPayloadSchema, payload),
 };

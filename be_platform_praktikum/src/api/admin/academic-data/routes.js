@@ -48,6 +48,7 @@ const routes = (handler) => {
   router.delete('/kelas-mahasiswa/:id', adminOnly, safe(handler.deleteKelasMahasiswaHandler));
 
   router.get('/kelas-semester', adminOnly, safe(handler.getKelasSemesterHandler));
+  router.post('/kelas-semester/transition', adminOnly, safe(handler.transitionStudentsHandler));
   router.post('/kelas-semester', adminOnly, safe(handler.createKelasSemesterHandler));
   router.put('/kelas-semester/:id', adminOnly, safe(handler.updateKelasSemesterHandler));
   router.delete('/kelas-semester/:id', adminOnly, safe(handler.deleteKelasSemesterHandler));

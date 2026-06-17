@@ -16,6 +16,7 @@ import {
   inputClass,
 } from "../components/AdminUI"
 import {
+  assignAdminClassSemesterToClass,
   assignAdminStudentsToClass,
   getAdminClassById,
   getAdminStudentCandidates,
@@ -23,6 +24,7 @@ import {
   removeAdminStudentFromClass,
   updateAdminClass,
 } from "../../../services/admin/service"
+import { academicDataApi, type KelasSemester } from "../../../services/admin/academicData/service"
 import type {
   AdminClassDetail,
   AdminLecturer,
@@ -69,6 +71,11 @@ export default function AdminClassDetailPage() {
   const [assigning, setAssigning] = useState(false)
   const [error, setError] = useState("")
   const navigate = useNavigate()
+
+  const [assignMode, setAssignMode] = useState<"individual" | "classSemester">("individual")
+  const [selectedKelasSemesterId, setSelectedKelasSemesterId] = useState<string>("")
+  const [kelasSemesters, setKelasSemesters] = useState<KelasSemester[]>([])
+  const [loadingKelasSemesters, setLoadingKelasSemesters] = useState(false)
 
   // Multi-select & Long Press state for registered class students
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -123,6 +130,8 @@ export default function AdminClassDetailPage() {
     setStudentSemester("all")
     setSelectedStudentIds([])
     setStudentCandidates([])
+    setAssignMode("individual")
+    setSelectedKelasSemesterId("")
     setAssignOpen(true)
   }
 
@@ -189,6 +198,33 @@ export default function AdminClassDetailPage() {
     fetchCandidates()
   }, [fetchCandidates])
 
+  const fetchKelasSemesters = useCallback(async () => {
+    if (!classDetail?.academicPeriodId) return
+    setLoadingKelasSemesters(true)
+    try {
+      const data = await academicDataApi.getKelasSemester({ id_tahun_semester: classDetail.academicPeriodId })
+      setKelasSemesters(data)
+      const match = data.find(ks => ks.semester === classDetail.studentSemester && ks.kelas === classDetail.name)
+      if (match) {
+        setSelectedKelasSemesterId(match.id)
+      } else if (data.length > 0) {
+        setSelectedKelasSemesterId(data[0].id)
+      } else {
+        setSelectedKelasSemesterId("")
+      }
+    } catch (err) {
+      console.error("Gagal memuat kelas semester", err)
+    } finally {
+      setLoadingKelasSemesters(false)
+    }
+  }, [classDetail?.academicPeriodId, classDetail?.studentSemester, classDetail?.name])
+
+  useEffect(() => {
+    if (assignOpen && classDetail?.academicPeriodId) {
+      fetchKelasSemesters()
+    }
+  }, [assignOpen, classDetail?.academicPeriodId, fetchKelasSemesters])
+
   const selectedClass = classDetail
   const candidates = useMemo(() => studentCandidates, [studentCandidates])
   const studentSemesterOptions = useMemo(
@@ -211,21 +247,40 @@ export default function AdminClassDetailPage() {
   }
 
   const handleAssign = async () => {
-    if (!id || !selectedStudentIds.length) {
-      setAssignOpen(false)
-      return
-    }
+    if (assignMode === "individual") {
+      if (!id || !selectedStudentIds.length) {
+        setAssignOpen(false)
+        return
+      }
 
-    try {
-      setAssigning(true)
-      await assignAdminStudentsToClass(id, selectedStudentIds)
-      setAssignOpen(false)
-      setSelectedStudentIds([])
-      fetchClass()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal assign mahasiswa")
-    } finally {
-      setAssigning(false)
+      try {
+        setAssigning(true)
+        await assignAdminStudentsToClass(id, selectedStudentIds)
+        setAssignOpen(false)
+        setSelectedStudentIds([])
+        fetchClass()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Gagal assign mahasiswa")
+      } finally {
+        setAssigning(false)
+      }
+    } else {
+      if (!id || !selectedKelasSemesterId) {
+        setAssignOpen(false)
+        return
+      }
+
+      try {
+        setAssigning(true)
+        await assignAdminClassSemesterToClass(id, selectedKelasSemesterId)
+        setAssignOpen(false)
+        setSelectedKelasSemesterId("")
+        fetchClass()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Gagal assign kelas semester")
+      } finally {
+        setAssigning(false)
+      }
     }
   }
 
@@ -532,43 +587,111 @@ export default function AdminClassDetailPage() {
           footer={
             <>
               <AdminButton variant="secondary" onClick={() => setAssignOpen(false)}>Batal</AdminButton>
-              <AdminButton onClick={handleAssign} disabled={assigning}>
+              <AdminButton
+                onClick={handleAssign}
+                disabled={
+                  assigning ||
+                  (assignMode === "individual" && selectedStudentIds.length === 0) ||
+                  (assignMode === "classSemester" && !selectedKelasSemesterId)
+                }
+              >
                 {assigning ? "Mengassign..." : "Assign"}
               </AdminButton>
             </>
           }
         >
           <div className="space-y-4">
-            <FieldRow label="Semester Mahasiswa">
-              <select className={inputClass} value={studentSemester} onChange={(event) => setStudentSemester(event.target.value)}>
-                <option value="all">Semua Semester</option>
-                {studentSemesterOptions.map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-            </FieldRow>
-            <FieldRow label="Cari Mahasiswa">
-              <AdminSearchInput value={query} onChange={setQuery} placeholder="NIM / Nama" />
-            </FieldRow>
-            <div className="max-h-60 overflow-y-auto space-y-2 pr-2 border border-gray-200 rounded-md p-3 bg-gray-50">
-              {candidates.length ? candidates.map((student) => (
-                <label key={student.id} className="flex items-center gap-3 text-sm cursor-pointer hover:bg-gray-100 p-1.5 rounded transition-colors">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    checked={selectedStudentIds.includes(student.id)}
-                    onChange={() => toggleStudent(student.id)}
-                  />
-                  <span className="text-gray-700 select-none">{student.nim} - {student.fullname}</span>
-                </label>
-              )) : (
-                <p className="text-sm text-gray-500 text-center py-2">
-                  {query || studentSemester !== "all"
-                    ? "Tidak ada kandidat yang sesuai filter."
-                    : "Tidak ada kandidat mahasiswa yang tersedia."}
-                </p>
-              )}
+            <div className="flex rounded-lg bg-gray-100 p-1">
+              <button
+                type="button"
+                onClick={() => setAssignMode("individual")}
+                className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition ${
+                  assignMode === "individual" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-900"
+                }`}
+              >
+                Pilih Mahasiswa
+              </button>
+              <button
+                type="button"
+                onClick={() => setAssignMode("classSemester")}
+                className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition ${
+                  assignMode === "classSemester" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-900"
+                }`}
+              >
+                Assign dari Kelas Semester
+              </button>
             </div>
+
+            {assignMode === "individual" ? (
+              <>
+                <FieldRow label="Semester Mahasiswa">
+                  <select className={inputClass} value={studentSemester} onChange={(event) => setStudentSemester(event.target.value)}>
+                    <option value="all">Semua Semester</option>
+                    {studentSemesterOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </FieldRow>
+                <FieldRow label="Cari Mahasiswa">
+                  <AdminSearchInput value={query} onChange={setQuery} placeholder="NIM / Nama" />
+                </FieldRow>
+                <div className="max-h-60 overflow-y-auto space-y-2 pr-2 border border-gray-200 rounded-md p-3 bg-gray-50">
+                  {candidates.length ? candidates.map((student) => (
+                    <label key={student.id} className="flex items-center gap-3 text-sm cursor-pointer hover:bg-gray-100 p-1.5 rounded transition-colors">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        checked={selectedStudentIds.includes(student.id)}
+                        onChange={() => toggleStudent(student.id)}
+                      />
+                      <span className="text-gray-700 select-none">{student.nim} - {student.fullname}</span>
+                    </label>
+                  )) : (
+                    <p className="text-sm text-gray-500 text-center py-2">
+                      {query || studentSemester !== "all"
+                        ? "Tidak ada kandidat yang sesuai filter."
+                        : "Tidak ada kandidat mahasiswa yang tersedia."}
+                    </p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <FieldRow label="Kelas Semester">
+                  {loadingKelasSemesters ? (
+                    <p className="text-xs text-gray-500">Memuat kelas semester...</p>
+                  ) : kelasSemesters.length ? (
+                    <select
+                      className={inputClass}
+                      value={selectedKelasSemesterId}
+                      onChange={(e) => setSelectedKelasSemesterId(e.target.value)}
+                    >
+                      <option value="">Pilih Kelas Semester</option>
+                      {kelasSemesters.map((ks) => (
+                        <option key={ks.id} value={ks.id}>
+                          Kelas {ks.semester}{ks.kelas} ({ks.jumlah_mahasiswa} Mahasiswa)
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-xs text-red-500">Tidak ada kelas semester pada semester akademik ini.</p>
+                  )}
+                </FieldRow>
+                
+                {(() => {
+                  const selectedKs = kelasSemesters.find((ks) => ks.id === selectedKelasSemesterId);
+                  if (!selectedKs) return null;
+                  return (
+                    <div className="rounded-lg bg-blue-50 border border-blue-100 p-3">
+                      <p className="text-xs text-blue-700 leading-relaxed font-medium">
+                        Info: Anda akan meng-assign seluruh mahasiswa dari Kelas Semester{" "}
+                        <span className="font-bold">{selectedKs.semester}{selectedKs.kelas}</span> ({selectedKs.jumlah_mahasiswa} mahasiswa) ke kelas praktikum ini secara bulk.
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </div>
         </AdminModal>
       )}

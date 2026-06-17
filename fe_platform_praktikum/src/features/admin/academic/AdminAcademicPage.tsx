@@ -43,6 +43,7 @@ import type {
   AcademicSemester,
   AdminLecturer,
   AdminTab,
+  AdminUserStatus,
   ClassClonePreview,
   ClassTemplate,
   Department,
@@ -64,7 +65,7 @@ type CourseFormState = {
   name: string
   semester: string
   sks: string
-  status: "Aktif" | "Nonaktif" | ""
+  status: AdminUserStatus | ""
 }
 
 type ClassFormState = {

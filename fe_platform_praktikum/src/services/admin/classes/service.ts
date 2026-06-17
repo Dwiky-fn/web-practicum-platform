@@ -104,3 +104,14 @@ export const removeAdminStudentFromClass = async (
     method: "DELETE",
   })
 }
+
+export const assignAdminClassSemesterToClass = async (
+  classId: string,
+  kelasSemesterId: string,
+): Promise<AdminStudent[]> => {
+  const res = await apiFetch(`/admin/classes/${classId}/assign-class-semester`, {
+    method: "POST",
+    body: JSON.stringify({ kelasSemesterId }),
+  })
+  return res.data.students
+}

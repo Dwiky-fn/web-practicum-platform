@@ -1,8 +1,6 @@
 const Joi = require('joi');
 const { validateWithSchema } = require('../utils');
-
-const statusSchema = Joi.string().valid('Aktif', 'Nonaktif', 'AKTIF', 'NONAKTIF', 'aktif', 'nonaktif');
-
+const statusSchema = Joi.string().valid('Aktif', 'Nonaktif', 'Cuti', 'AKTIF', 'NONAKTIF', 'CUTI', 'aktif', 'nonaktif', 'cuti');
 const baseUserPayloadSchema = Joi.object({
   id: Joi.string().allow('', null),
   fullname: Joi.string().trim().min(2).max(150).required(),

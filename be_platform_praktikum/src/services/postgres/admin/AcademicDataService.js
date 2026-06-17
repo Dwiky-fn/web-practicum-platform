@@ -612,7 +612,7 @@ class AcademicDataService {
     const keyword = `%${(filters.keyword || '').toLowerCase()}%`;
     const params = [keyword];
     let clause = '';
-    ['id_tahun_semester', 'id_semester', 'id_kelas'].forEach((key) => {
+    ['id_tahun_semester', 'id_semester', 'id_kelas', 'id_kelas_semester'].forEach((key) => {
       if (filters[key]) {
         params.push(filters[key]);
         clause += ` AND km.${key} = $${params.length}`;
@@ -755,6 +755,90 @@ class AcademicDataService {
       await this._ensureUnused('student_jobsheet_progress', 'id_kelas_mhs', id, 'KELAS_MAHASISWA_USED');
       const result = await this._pool.query('DELETE FROM kelas_mhs WHERE id = $1 RETURNING id', [id]);
       if (!result.rows.length) throw new Error('KELAS_MAHASISWA_NOT_FOUND');
+    }
+  }
+
+  async transitionStudents(payload) {
+    const { targetTahunSemesterId, transitions } = payload;
+    const client = await this._pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      for (const t of transitions) {
+        const { studentId, action, targetSemesterId, targetKelasId } = t;
+
+        // Get numeric semester from master semester id
+        let semesterNum = null;
+        if (targetSemesterId) {
+          const semRes = await client.query('SELECT semester FROM semester WHERE id = $1', [targetSemesterId]);
+          if (semRes.rows.length) semesterNum = semRes.rows[0].semester;
+        }
+
+        let profileStatus = 'Aktif';
+        let isActive = true;
+
+        if (action === 'cuti') {
+          profileStatus = 'Cuti';
+          isActive = false;
+        } else if (action === 'drop') {
+          profileStatus = 'Nonaktif';
+          isActive = false;
+        }
+
+        // 1. Update user active status
+        await client.query(
+          'UPDATE users SET is_active = $2 WHERE id = $1',
+          [studentId, isActive]
+        );
+
+        // 2. Update student profile semester & status
+        let semesterClause = '';
+        const params = [studentId, profileStatus];
+        if (semesterNum !== null && (action === 'promote' || action === 'retain')) {
+          params.push(semesterNum);
+          semesterClause = ', semester = $3';
+        }
+
+        await client.query(
+          `UPDATE student_profiles SET status = $2${semesterClause} WHERE user_id = $1`,
+          params
+         );
+
+        // 3. Create target kelas_mhs map if active (promote/retain)
+        if (action === 'promote' || action === 'retain') {
+          // Fetch or create kelas_semester target group
+          const groupResult = await client.query(
+            'SELECT id FROM kelas_semester WHERE id_tahun_semester = $1 AND id_semester = $2 AND id_kelas = $3 LIMIT 1',
+            [targetTahunSemesterId, targetSemesterId, targetKelasId]
+          );
+          let id_kelas_semester = groupResult.rows[0]?.id || null;
+          if (!id_kelas_semester) {
+            id_kelas_semester = createId('ks');
+            await client.query(
+              `INSERT INTO kelas_semester (id, id_tahun_semester, id_semester, id_kelas, status)
+               VALUES ($1, $2, $3, $4, $5)`,
+              [id_kelas_semester, targetTahunSemesterId, targetSemesterId, targetKelasId, 'active']
+            );
+          }
+
+          // Upsert kelas_mhs record
+          const kmId = createId('km');
+          await client.query(
+            `INSERT INTO kelas_mhs (id, id_tahun_semester, id_semester, id_kelas, id_mahasiswa, status, id_kelas_semester)
+             VALUES ($1, $2, $3, $4, $5, 'active', $6)
+             ON CONFLICT (id_tahun_semester, id_mahasiswa)
+             DO UPDATE SET id_semester = $3, id_kelas = $4, status = 'active', id_kelas_semester = $6`,
+            [kmId, targetTahunSemesterId, targetSemesterId, targetKelasId, studentId, id_kelas_semester]
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
   }
 

@@ -290,6 +290,19 @@ export default function AdminAcademicNativePage() {
   const [students, setStudents] = useState<AdminStudent[]>([])
   const [lecturers, setLecturers] = useState<AdminLecturer[]>([])
 
+  // Promotion/Transition Wizard states
+  const [isPromotionWizardOpen, setIsPromotionWizardOpen] = useState(false)
+  const [promotionTargetTahunSemesterId, setPromotionTargetTahunSemesterId] = useState("")
+  const [promotionTransitions, setPromotionTransitions] = useState<Array<{
+    studentId: string
+    nim: string
+    fullname: string
+    action: "promote" | "retain" | "cuti" | "drop"
+    targetSemesterId: string
+    targetKelasId: string
+  }>>([])
+  const [submittingPromotion, setSubmittingPromotion] = useState(false)
+
   const activeTahunSemester = tahunSemester.find((item) => item.status === "active") ?? null
   const activeKurikulum = kurikulum.find((item) => item.status === "active") ?? null
   const activeTabMeta = pageCopy[activeTab]
@@ -418,7 +431,81 @@ export default function AdminAcademicNativePage() {
     }
   }, [kelasPraktikumDetailId, kelasPraktikum, detail?.id, openDetail])
 
+  const openPromotionWizard = () => {
+    const targetTahunSemesters = tahunSemester.filter((ts) => ts.id !== tahunSemesterId)
+    const defaultTargetId = targetTahunSemesters.find((ts) => ts.status === "active")?.id || targetTahunSemesters[0]?.id || ""
+    setPromotionTargetTahunSemesterId(defaultTargetId)
 
+    const currentSemObj = semester.find((s) => s.id === paramSemesterId)
+    const currentSemNum = currentSemObj?.semester ?? 1
+    const nextSemNum = currentSemNum + 1
+    const nextSemObj = semester.find((s) => s.semester === nextSemNum)
+    const nextSemId = nextSemObj?.id || paramSemesterId
+
+    const initialTransitions = classStudents.map((item) => ({
+      studentId: item.id_mahasiswa,
+      nim: item.nim ?? "",
+      fullname: item.fullname ?? "",
+      action: "promote" as const,
+      targetSemesterId: nextSemId,
+      targetKelasId: paramKelasId ?? "",
+    }))
+
+    setPromotionTransitions(initialTransitions)
+    setIsPromotionWizardOpen(true)
+  }
+
+  const updateStudentTransition = (studentId: string, updates: Partial<typeof promotionTransitions[0]>) => {
+    setPromotionTransitions((prev) =>
+      prev.map((t) => (t.studentId === studentId ? { ...t, ...updates } : t))
+    )
+  }
+
+  const setAllTransitions = (action: "promote" | "retain" | "cuti") => {
+    const currentSemObj = semester.find((s) => s.id === paramSemesterId)
+    const currentSemNum = currentSemObj?.semester ?? 1
+    const nextSemNum = currentSemNum + 1
+    const nextSemObj = semester.find((s) => s.semester === nextSemNum)
+    const nextSemId = nextSemObj?.id || paramSemesterId
+
+    setPromotionTransitions((prev) =>
+      prev.map((t) => ({
+        ...t,
+        action,
+        targetSemesterId: action === "promote" ? nextSemId : paramSemesterId ?? "",
+        targetKelasId: paramKelasId ?? "",
+      }))
+    )
+  }
+
+  const handlePromotionSubmit = async () => {
+    if (!promotionTargetTahunSemesterId) {
+      toast.error("Silakan pilih Tahun Semester Target")
+      return
+    }
+
+    setSubmittingPromotion(true)
+    try {
+      const payload = {
+        targetTahunSemesterId: promotionTargetTahunSemesterId,
+        transitions: promotionTransitions.map((t) => ({
+          studentId: t.studentId,
+          action: t.action,
+          targetSemesterId: (t.action === "promote" || t.action === "retain") ? t.targetSemesterId : undefined,
+          targetKelasId: (t.action === "promote" || t.action === "retain") ? t.targetKelasId : undefined,
+        })),
+      }
+
+      await academicDataApi.transitionStudents(payload)
+      toast.success("Perpindahan semester mahasiswa berhasil diproses!")
+      setIsPromotionWizardOpen(false)
+      loadData()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal memproses perpindahan semester")
+    } finally {
+      setSubmittingPromotion(false)
+    }
+  }
 
   const mataKuliahPrioritized = useMemo(() => {
     return [...mataKuliah].sort((left, right) => {
@@ -1274,6 +1361,9 @@ export default function AdminAcademicNativePage() {
               </div>
               <div className="flex flex-col gap-3 md:flex-row md:items-center">
                 <AdminSearchInput value={detailKelasMahasiswaSearch} onChange={setDetailKelasMahasiswaSearch} placeholder="Cari NIM atau nama" />
+                <AdminButton variant="secondary" onClick={openPromotionWizard} disabled={classStudents.length === 0}>
+                  Kelola Perpindahan Semester
+                </AdminButton>
                 <AdminButton onClick={() => openModal("kelas-mahasiswa")} disabled={Boolean(getPrerequisiteWarning("kelas-mahasiswa"))}>
                   <Plus size={16} />
                   Assign Mahasiswa
@@ -1298,6 +1388,131 @@ export default function AdminAcademicNativePage() {
           </AdminPanel>
         </div>
         {renderModals()}
+        {isPromotionWizardOpen && (
+          <AdminModal
+            title="Kelola Perpindahan Semester Mahasiswa"
+            onClose={() => setIsPromotionWizardOpen(false)}
+            footer={
+              <>
+                <AdminButton variant="secondary" onClick={() => setIsPromotionWizardOpen(false)}>
+                  Batal
+                </AdminButton>
+                <AdminButton onClick={handlePromotionSubmit} disabled={submittingPromotion || !promotionTargetTahunSemesterId}>
+                  {submittingPromotion ? "Memproses..." : "Proses"}
+                </AdminButton>
+              </>
+            }
+          >
+            <div className="space-y-4">
+              <FieldRow label="Tahun Semester Target">
+                <select
+                  className={inputClass}
+                  value={promotionTargetTahunSemesterId}
+                  onChange={(e) => setPromotionTargetTahunSemesterId(e.target.value)}
+                >
+                  <option value="">Pilih Tahun Semester</option>
+                  {tahunSemester
+                    .filter((ts) => ts.id !== tahunSemesterId)
+                    .map((ts) => (
+                      <option key={ts.id} value={ts.id}>
+                        {ts.tahun_semester} {ts.status === "active" ? "(Aktif)" : ""}
+                      </option>
+                    ))}
+                </select>
+              </FieldRow>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAllTransitions("promote")}
+                  className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold rounded-md border border-blue-200 transition"
+                >
+                  Set Semua Naik
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAllTransitions("retain")}
+                  className="px-3 py-1.5 bg-gray-50 text-gray-700 hover:bg-gray-100 text-xs font-semibold rounded-md border border-gray-200 transition"
+                >
+                  Set Semua Tetap
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAllTransitions("cuti")}
+                  className="px-3 py-1.5 bg-yellow-50 text-yellow-700 hover:bg-yellow-100 text-xs font-semibold rounded-md border border-yellow-200 transition"
+                >
+                  Set Semua Cuti
+                </button>
+              </div>
+
+              <div className="max-h-[350px] overflow-y-auto border border-gray-200 rounded-md">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-gray-100 sticky top-0 z-10 border-b border-gray-200">
+                      <th className="p-2.5 font-semibold text-gray-700">Mahasiswa</th>
+                      <th className="p-2.5 font-semibold text-gray-700">Aksi</th>
+                      <th className="p-2.5 font-semibold text-gray-700">Target Semester</th>
+                      <th className="p-2.5 font-semibold text-gray-700">Target Kelas</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {promotionTransitions.map((t) => (
+                      <tr key={t.studentId} className="hover:bg-gray-50/50">
+                        <td className="p-2.5">
+                          <div className="font-mono text-gray-900 font-medium">{t.nim}</div>
+                          <div className="text-gray-500 font-semibold mt-0.5">{t.fullname}</div>
+                        </td>
+                        <td className="p-2.5">
+                          <select
+                            className="px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            value={t.action}
+                            onChange={(e) => {
+                              const act = e.target.value as "promote" | "retain" | "cuti" | "drop";
+                              updateStudentTransition(t.studentId, { action: act });
+                            }}
+                          >
+                            <option value="promote">Naik Semester</option>
+                            <option value="retain">Tetap</option>
+                            <option value="cuti">Cuti</option>
+                            <option value="drop">Tidak Lanjut</option>
+                          </select>
+                        </td>
+                        <td className="p-2.5">
+                          <select
+                            disabled={t.action === "cuti" || t.action === "drop"}
+                            className="px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-gray-50 disabled:text-gray-400"
+                            value={t.targetSemesterId}
+                            onChange={(e) => updateStudentTransition(t.studentId, { targetSemesterId: e.target.value })}
+                          >
+                            {semester.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                Sem {s.semester}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="p-2.5">
+                          <select
+                            disabled={t.action === "cuti" || t.action === "drop"}
+                            className="px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-gray-50 disabled:text-gray-400"
+                            value={t.targetKelasId}
+                            onChange={(e) => updateStudentTransition(t.studentId, { targetKelasId: e.target.value })}
+                          >
+                            {kelas.map((k) => (
+                              <option key={k.id} value={k.id}>
+                                Kelas {k.kelas}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </AdminModal>
+        )}
       </AdminLayout>
     )
   }

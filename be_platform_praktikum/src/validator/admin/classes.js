@@ -106,6 +106,10 @@ const getClassTemplatesQuerySchema = Joi.object({
   keyword: Joi.string().allow('', null),
 });
 
+const assignClassSemesterPayloadSchema = Joi.object({
+  kelasSemesterId: Joi.string().required(),
+});
+
 module.exports = {
   validateClassesQuery: (query) => validateWithSchema(classesQuerySchema, query),
   validateCreateClassPayload: (payload) => validateWithSchema(classPayloadSchema, payload),
@@ -113,4 +117,5 @@ module.exports = {
   validateAssignStudentsPayload: (payload) => validateWithSchema(assignStudentsPayloadSchema, payload),
   validateCloneClassPayload: (payload) => validateWithSchema(cloneClassPayloadSchema, payload),
   validateGetClassTemplatesQuery: (query) => validateWithSchema(getClassTemplatesQuerySchema, query),
+  validateAssignClassSemesterPayload: (payload) => validateWithSchema(assignClassSemesterPayloadSchema, payload),
 };

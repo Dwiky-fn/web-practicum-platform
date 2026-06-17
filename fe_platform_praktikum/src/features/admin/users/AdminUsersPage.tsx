@@ -98,30 +98,35 @@ export default function AdminUsersPage() {
             >
               &lt;
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter((p) => {
-                return p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2
-              })
-              .map((p, idx, arr) => {
-                const prevPage = arr[idx - 1]
-                const showEllipsis = prevPage && p - prevPage > 1
-                return (
-                  <div key={p} className="flex items-center gap-1.5">
-                    {showEllipsis && <span className="text-gray-400 px-1 font-semibold">...</span>}
-                    <button
-                      type="button"
-                      onClick={() => onPageChange(p)}
-                      className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold transition cursor-pointer ${
-                        currentPage === p
-                          ? "bg-blue-600 text-white shadow-sm shadow-blue-100"
-                          : "border border-gray-200 text-gray-600 hover:bg-gray-50"
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  </div>
-                )
-              })}
+            {(() => {
+              const maxPagesToShow = 10
+              let startPage = Math.max(1, currentPage - 5)
+              let endPage = startPage + maxPagesToShow - 1
+              if (endPage > totalPages) {
+                endPage = totalPages
+                startPage = Math.max(1, endPage - maxPagesToShow + 1)
+              }
+
+              const pages = []
+              for (let p = startPage; p <= endPage; p++) {
+                pages.push(p)
+              }
+
+              return pages.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => onPageChange(p)}
+                  className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold transition cursor-pointer ${
+                    currentPage === p
+                      ? "bg-blue-600 text-white shadow-sm shadow-blue-100"
+                      : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))
+            })()}
             <button
               type="button"
               disabled={currentPage === totalPages}

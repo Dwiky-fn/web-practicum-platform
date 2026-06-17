@@ -252,7 +252,7 @@ export default function AdminDashboard() {
           <StatCard
             title="Mata Kuliah"
             value={String(nativeStats.mataKuliahTotal)}
-            caption="Data Akademik native"
+            caption="Data Akademik"
             icon={<BookOpen size={24} />}
           />
         )}
@@ -283,7 +283,7 @@ export default function AdminDashboard() {
             <SummaryPanel
               title="Struktur Akademik"
               rows={[
-                ["Mata Kuliah Native", nativeStats.mataKuliahTotal],
+                ["Mata Kuliah", nativeStats.mataKuliahTotal],
                 ["Total Kelas Praktikum", nativeStats.kelasPraktikumTotal],
                 ["Kelas Praktikum Aktif", nativeStats.kelasPraktikumAktif],
                 ["Kelas Praktikum Nonaktif", Math.max(nativeStats.kelasPraktikumTotal - nativeStats.kelasPraktikumAktif, 0)],

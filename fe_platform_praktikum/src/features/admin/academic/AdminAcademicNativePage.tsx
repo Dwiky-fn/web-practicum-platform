@@ -1014,15 +1014,7 @@ export default function AdminAcademicNativePage() {
             Detail
           </AdminButton>
         )}
-        {tab === "kelas-praktikum" && kelasPraktikumItem.legacy_class_id && (
-          <AdminButton
-            variant="ghost"
-            className="h-8 px-2"
-            onClick={() => navigate(`/kelas-praktikum/${kelasPraktikumItem.legacy_class_id}`)}
-          >
-            Kelola
-          </AdminButton>
-        )}
+
         {(tab === "tahun" || tab === "kurikulum") && statusItem.status !== "active" && (
           <AdminButton variant="ghost" className="h-8 px-2" disabled={submitting} onClick={() => activate(tab, item.id)}>
             Aktifkan

@@ -56,8 +56,6 @@ export interface AcademicClass {
   id_mata_kuliah?: string
   kelasMahasiswaId?: string
   id_kelas_mhs?: string
-  legacyClassId?: string
-  legacy_class_id?: string
   name: string
   courseName: string
   courseId: string

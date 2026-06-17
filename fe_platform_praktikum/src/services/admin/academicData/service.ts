@@ -81,7 +81,6 @@ export type KelasPraktikum = {
   nama_mk?: string
   semester?: number
   kelas?: string
-  legacy_class_id?: string
 }
 
 export type Pengampu = {

@@ -254,7 +254,7 @@ export default function AdminAcademicNativePage() {
   const isDashboard = !section && !detailId && !tahunSemesterId
 
   const [keyword, setKeyword] = useState("")
-  const [limit, setLimit] = useState(25)
+  const [limit, setLimit] = useState(10)
   const [page, setPage] = useState(1)
 
   useEffect(() => {
@@ -344,11 +344,10 @@ export default function AdminAcademicNativePage() {
                   key={p}
                   type="button"
                   onClick={() => onPageChange(p)}
-                  className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold transition cursor-pointer ${
-                    currentPage === p
+                  className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold transition cursor-pointer ${currentPage === p
                       ? "bg-blue-600 text-white shadow-sm shadow-blue-100"
                       : "border border-gray-200 text-gray-600 hover:bg-gray-50"
-                  }`}
+                    }`}
                 >
                   {p}
                 </button>
@@ -1135,7 +1134,7 @@ export default function AdminAcademicNativePage() {
   function renderTable() {
     if (activeTab === "kelas-mahasiswa") return renderKelasMahasiswa()
     if (!filtered.length) return <EmptyState title={emptyLabel(activeTab)} action={<AdminButton onClick={() => openModal(activeTab)}><Plus size={16} />{activeTabMeta.addLabel}</AdminButton>} />
-    
+
     const displayedData = filtered.slice((page - 1) * limit, page * limit)
 
     if (activeTab === "tahun") {
@@ -1365,8 +1364,8 @@ export default function AdminAcademicNativePage() {
           const warningKey = deleteTarget.tab === "kelas-mahasiswa" && isKelasMahasiswaDetail
             ? "kelas-mahasiswa-detail"
             : deleteTarget.tab === "kelas-mahasiswa"
-            ? "kelas-semester"
-            : deleteTarget.tab
+              ? "kelas-semester"
+              : deleteTarget.tab
           const warningText = tabDeleteWarning[warningKey as keyof typeof tabDeleteWarning] ?? ""
           return (
             <AdminConfirmModal
@@ -1797,7 +1796,7 @@ export default function AdminAcademicNativePage() {
         >
           <form id="native-academic-form" className="space-y-4" onSubmit={submitForm}>
             {formTab === "tahun" && renderTahunSemesterFields()}
-              {formTab === "kurikulum" && <><FieldRow label="Tahun Kurikulum"><input className={inputClass} value={form.tahun_kurikulum ?? ""} onChange={(e) => setField("tahun_kurikulum", e.target.value)} placeholder="2024" required /></FieldRow><FieldRow label="Nama Kurikulum"><input className={inputClass} value={form.nama_kurikulum ?? ""} onChange={(e) => setField("nama_kurikulum", e.target.value)} placeholder="Kurikulum 2024" required /></FieldRow><FieldRow label="Status Kurikulum"><AdminSelect value={form.status ?? "inactive"} onChange={(v) => setField("status", v)}>{statusOptions.map((item) => option(item.value, item.label))}</AdminSelect></FieldRow></>}
+            {formTab === "kurikulum" && <><FieldRow label="Tahun Kurikulum"><input className={inputClass} value={form.tahun_kurikulum ?? ""} onChange={(e) => setField("tahun_kurikulum", e.target.value)} placeholder="2024" required /></FieldRow><FieldRow label="Nama Kurikulum"><input className={inputClass} value={form.nama_kurikulum ?? ""} onChange={(e) => setField("nama_kurikulum", e.target.value)} placeholder="Kurikulum 2024" required /></FieldRow><FieldRow label="Status Kurikulum"><AdminSelect value={form.status ?? "inactive"} onChange={(v) => setField("status", v)}>{statusOptions.map((item) => option(item.value, item.label))}</AdminSelect></FieldRow></>}
             {formTab === "semester" && <FieldRow label="Semester"><input className={inputClass} type="number" min="1" value={form.semester ?? ""} onChange={(e) => setField("semester", e.target.value)} required /></FieldRow>}
             {formTab === "kelas" && <FieldRow label="Kelas/Rombel"><input className={inputClass} value={form.kelas ?? ""} onChange={(e) => setField("kelas", e.target.value)} placeholder="A" required /></FieldRow>}
             {formTab === "mata-kuliah" && <><FieldRow label="Kurikulum">{!activeKurikulum && warningBox("Aktifkan kurikulum terlebih dahulu sebelum menambahkan mata kuliah.")}<AdminSelect value={form.id_kurikulum ?? ""} onChange={(v) => setField("id_kurikulum", v)} required><option value="">Pilih kurikulum</option>{kurikulum.map((i) => option(i.id, `${i.nama_kurikulum} (${i.tahun_kurikulum})${formatActiveSuffix(i.status)}`))}</AdminSelect></FieldRow><FieldRow label="Semester">{!semester.length && warningBox("Tambahkan master semester terlebih dahulu sebelum menambahkan mata kuliah.")}<AdminSelect value={form.id_semester ?? ""} onChange={(v) => setField("id_semester", v)} required><option value="">Pilih semester</option>{semester.map((i) => option(i.id, `Semester ${i.semester}`))}</AdminSelect></FieldRow><FieldRow label="Kode MK"><input className={inputClass} value={form.kode_mk ?? ""} onChange={(e) => setField("kode_mk", e.target.value)} required /></FieldRow><FieldRow label="Nama MK"><input className={inputClass} value={form.nama_mk ?? ""} onChange={(e) => setField("nama_mk", e.target.value)} required /></FieldRow><FieldRow label="SKS"><input className={inputClass} type="number" min="1" value={form.sks ?? ""} onChange={(e) => setField("sks", e.target.value)} required /></FieldRow><FieldRow label="Tipe"><AdminSelect value={form.tipe ?? "praktikum"} onChange={(v) => setField("tipe", v)}>{tipeOptions.map((v) => option(v, v))}</AdminSelect></FieldRow></>}
@@ -1893,7 +1892,7 @@ export default function AdminAcademicNativePage() {
                 )}
               </>
             )}
-                      {formTab === "kelas-praktikum" && <>{!isTahunSemesterDetail && <FieldRow label="Tahun Semester"><AdminSelect value={form.id_tahun_semester ?? ""} onChange={(v) => setField("id_tahun_semester", v)} required><option value="">Pilih tahun semester</option>{tahunSemester.map((i) => option(i.id, `${i.tahun_semester}${formatActiveSuffix(i.status)}`))}</AdminSelect></FieldRow>}<FieldRow label="Mata Kuliah"><AdminSelect value={form.id_mata_kuliah ?? ""} onChange={(v) => setField("id_mata_kuliah", v)} required><option value="">Pilih mata kuliah</option>{mataKuliahPrioritized.map((i) => option(i.id, `${i.kode_mk} - ${i.nama_mk}${activeKurikulum?.id === i.id_kurikulum ? " - Kurikulum Aktif" : ""}`))}</AdminSelect></FieldRow><FieldRow label="Semester Otomatis"><input className={`${inputClass} bg-gray-100 text-gray-700`} value={selectedSemester ? `Semester ${selectedSemester.semester}` : ""} readOnly disabled /></FieldRow><FieldRow label="Kelas"><AdminSelect value={form.id_kelas ?? ""} onChange={(v) => setField("id_kelas", v)} required><option value="">Pilih kelas</option>{kelas.map((i) => option(i.id, i.kelas))}</AdminSelect></FieldRow><FieldRow label="Dosen Pengampu"><AdminSelect value={form.id_dosen ?? ""} onChange={(v) => setField("id_dosen", v)} required><option value="">Pilih dosen</option>{lecturers.map((i) => option(i.id, `${i.nip ?? "-"} - ${i.fullname}`))}</AdminSelect></FieldRow><FieldRow label="Nama Kelas Otomatis"><input className={`${inputClass} bg-gray-100 text-gray-700`} value={generatedKelasPraktikumName} readOnly disabled /></FieldRow></>}
+            {formTab === "kelas-praktikum" && <>{!isTahunSemesterDetail && <FieldRow label="Tahun Semester"><AdminSelect value={form.id_tahun_semester ?? ""} onChange={(v) => setField("id_tahun_semester", v)} required><option value="">Pilih tahun semester</option>{tahunSemester.map((i) => option(i.id, `${i.tahun_semester}${formatActiveSuffix(i.status)}`))}</AdminSelect></FieldRow>}<FieldRow label="Mata Kuliah"><AdminSelect value={form.id_mata_kuliah ?? ""} onChange={(v) => setField("id_mata_kuliah", v)} required><option value="">Pilih mata kuliah</option>{mataKuliahPrioritized.map((i) => option(i.id, `${i.kode_mk} - ${i.nama_mk}${activeKurikulum?.id === i.id_kurikulum ? " - Kurikulum Aktif" : ""}`))}</AdminSelect></FieldRow><FieldRow label="Semester Otomatis"><input className={`${inputClass} bg-gray-100 text-gray-700`} value={selectedSemester ? `Semester ${selectedSemester.semester}` : ""} readOnly disabled /></FieldRow><FieldRow label="Kelas"><AdminSelect value={form.id_kelas ?? ""} onChange={(v) => setField("id_kelas", v)} required><option value="">Pilih kelas</option>{kelas.map((i) => option(i.id, i.kelas))}</AdminSelect></FieldRow><FieldRow label="Dosen Pengampu"><AdminSelect value={form.id_dosen ?? ""} onChange={(v) => setField("id_dosen", v)} required><option value="">Pilih dosen</option>{lecturers.map((i) => option(i.id, `${i.nip ?? "-"} - ${i.fullname}`))}</AdminSelect></FieldRow><FieldRow label="Nama Kelas Otomatis"><input className={`${inputClass} bg-gray-100 text-gray-700`} value={generatedKelasPraktikumName} readOnly disabled /></FieldRow></>}
           </form>
         </AdminModal>
       )}
@@ -1949,8 +1948,8 @@ export default function AdminAcademicNativePage() {
         const warningKey = deleteTarget.tab === "kelas-mahasiswa" && isKelasMahasiswaDetail
           ? "kelas-mahasiswa-detail"
           : deleteTarget.tab === "kelas-mahasiswa"
-          ? "kelas-semester"
-          : deleteTarget.tab
+            ? "kelas-semester"
+            : deleteTarget.tab
         const warningText = tabDeleteWarning[warningKey as keyof typeof tabDeleteWarning] ?? ""
         return (
           <AdminConfirmModal

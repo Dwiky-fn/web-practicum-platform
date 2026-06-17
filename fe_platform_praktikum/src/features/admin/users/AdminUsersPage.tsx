@@ -60,7 +60,7 @@ export default function AdminUsersPage() {
   const navigate = useNavigate()
   const [keyword, setKeyword] = useState("")
   const [semester, setSemester] = useState("all")
-  const [limit, setLimit] = useState(25)
+  const [limit, setLimit] = useState(10)
   const [page, setPage] = useState(1)
 
   useEffect(() => {
@@ -117,11 +117,10 @@ export default function AdminUsersPage() {
                   key={p}
                   type="button"
                   onClick={() => onPageChange(p)}
-                  className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold transition cursor-pointer ${
-                    currentPage === p
+                  className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold transition cursor-pointer ${currentPage === p
                       ? "bg-blue-600 text-white shadow-sm shadow-blue-100"
                       : "border border-gray-200 text-gray-600 hover:bg-gray-50"
-                  }`}
+                    }`}
                 >
                   {p}
                 </button>
@@ -476,7 +475,7 @@ export default function AdminUsersPage() {
       const normalizedRows = rows[0]?.[0]?.toLowerCase().includes(isStudent ? "nim" : "nip")
         ? rows.slice(1)
         : rows
- 
+
       for (const row of normalizedRows) {
         if (isStudent) {
           const [nim, fullname, angkatan, semesterValue, email, programStudi, jurusan] = row
@@ -542,18 +541,17 @@ export default function AdminUsersPage() {
           <form id="admin-import-form" className="space-y-5" onSubmit={handleImportSubmit}>
             <div>
               <p className="text-sm font-medium text-gray-700 mb-2">Upload File Import</p>
-              
+
               <div
                 onDragEnter={handleDragEnter}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDropImportFile}
                 onClick={() => fileInputRef.current?.click()}
-                className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition cursor-pointer ${
-                  isDraggingFile
+                className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition cursor-pointer ${isDraggingFile
                     ? "border-blue-500 bg-blue-50"
                     : "border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400"
-                }`}
+                  }`}
               >
                 <input
                   ref={fileInputRef}
@@ -567,7 +565,7 @@ export default function AdminUsersPage() {
                     }
                   }}
                 />
-                
+
                 <FileUp className={`h-10 w-10 mb-3 ${isDraggingFile ? "text-blue-500" : "text-gray-400"}`} />
                 <p className="text-sm font-medium text-gray-700">
                   Drag & drop file di sini atau klik untuk memilih file
@@ -623,10 +621,10 @@ export default function AdminUsersPage() {
         onClose={closeUserModal}
         footer={
           <>
-              <AdminButton variant="secondary" onClick={closeUserModal} disabled={submitting}>Batal</AdminButton>
-              <AdminButton type="submit" form="admin-user-form" disabled={submitting}>
-                {submitting ? "Menyimpan..." : isStudent ? "Tambah Mahasiswa dan Akun" : "Tambah Dosen"}
-              </AdminButton>
+            <AdminButton variant="secondary" onClick={closeUserModal} disabled={submitting}>Batal</AdminButton>
+            <AdminButton type="submit" form="admin-user-form" disabled={submitting}>
+              {submitting ? "Menyimpan..." : isStudent ? "Tambah Mahasiswa dan Akun" : "Tambah Dosen"}
+            </AdminButton>
           </>
         }
       >
@@ -785,15 +783,105 @@ export default function AdminUsersPage() {
         students.length ? (
           <>
             <AdminTable headers={selectedIds.length > 0 ? ["", "NIM", "Nama", "Semester", "Status", "Aksi"] : ["NIM", "Nama", "Semester", "Status", "Aksi"]}>
-            {students.slice((page - 1) * limit, page * limit).map((student) => (
+              {students.slice((page - 1) * limit, page * limit).map((student) => (
+                <tr
+                  key={student.id}
+                  className={`${selectedIds.includes(student.id) ? "bg-blue-50/40" : ""} cursor-default select-none`}
+                  onMouseDown={() => handleMouseDown(student.id)}
+                  onMouseUp={() => handleMouseUp(student.id)}
+                  onMouseLeave={cancelLongPress}
+                  onTouchStart={() => handleTouchStart(student.id)}
+                  onTouchEnd={() => handleTouchEnd(student.id)}
+                >
+                  {selectedIds.length > 0 && (
+                    <td
+                      className="px-4 py-3 text-center"
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onClick={(event) => event.stopPropagation()}
+                      onTouchStart={(event) => event.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        checked={selectedIds.includes(student.id)}
+                        onChange={() => toggleSelection(student.id)}
+                      />
+                    </td>
+                  )}
+                  <td className="px-4 py-3 font-mono tracking-wide">{student.nim}</td>
+                  <td className="px-4 py-3">
+                    <span className="font-medium text-gray-900">{student.fullname}</span>
+                  </td>
+                  <td className="px-4 py-3">{student.semester}</td>
+                  <td className="px-4 py-3">{student.status}</td>
+                  <AdminActionCell>
+                    <AdminButton
+                      variant="ghost"
+                      className="h-8 px-2"
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onTouchStart={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        navigate(`/users/students/${student.id}`)
+                      }}
+                    >
+                      Detail
+                    </AdminButton>
+                    <AdminButton
+                      variant="ghost"
+                      className="h-8 px-2"
+                      disabled={Boolean(actionLoading)}
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onTouchStart={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setConfirm({
+                          action: student.status === "Aktif" ? "deactivate" : "activate",
+                          user: student,
+                        })
+                      }}
+                    >
+                      {student.status === "Aktif" ? <UserX size={14} /> : <UserCheck size={14} />}
+                      {student.status === "Aktif" ? "Nonaktifkan" : "Aktifkan"}
+                    </AdminButton>
+                    <AdminButton
+                      variant="danger"
+                      className="h-8 px-2"
+                      disabled={Boolean(actionLoading)}
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onTouchStart={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setConfirm({ action: "delete", user: student })
+                      }}
+                    >
+                      <Trash2 size={14} />
+                      Hapus
+                    </AdminButton>
+                  </AdminActionCell>
+                </tr>
+              ))}
+            </AdminTable>
+            {renderPagination(page, Math.ceil(students.length / limit), setPage, students.length)}
+          </>
+        ) : (
+          <EmptyState
+            title="Belum ada data mahasiswa"
+            action={<AdminButton onClick={() => setModal("add")}><Plus size={16} />Tambah Mahasiswa dan Akun</AdminButton>}
+          />
+        )
+      ) : lecturers.length ? (
+        <>
+          <AdminTable headers={selectedIds.length > 0 ? ["", "NIP", "Nama", "Email", "Status", "Aksi"] : ["NIP", "Nama", "Email", "Status", "Aksi"]}>
+            {lecturers.slice((page - 1) * limit, page * limit).map((lecturer) => (
               <tr
-                key={student.id}
-                className={`${selectedIds.includes(student.id) ? "bg-blue-50/40" : ""} cursor-default select-none`}
-                onMouseDown={() => handleMouseDown(student.id)}
-                onMouseUp={() => handleMouseUp(student.id)}
+                key={lecturer.id}
+                className={`${selectedIds.includes(lecturer.id) ? "bg-blue-50/40" : ""} cursor-default select-none`}
+                onMouseDown={() => handleMouseDown(lecturer.id)}
+                onMouseUp={() => handleMouseUp(lecturer.id)}
                 onMouseLeave={cancelLongPress}
-                onTouchStart={() => handleTouchStart(student.id)}
-                onTouchEnd={() => handleTouchEnd(student.id)}
+                onTouchStart={() => handleTouchStart(lecturer.id)}
+                onTouchEnd={() => handleTouchEnd(lecturer.id)}
               >
                 {selectedIds.length > 0 && (
                   <td
@@ -805,17 +893,17 @@ export default function AdminUsersPage() {
                     <input
                       type="checkbox"
                       className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      checked={selectedIds.includes(student.id)}
-                      onChange={() => toggleSelection(student.id)}
+                      checked={selectedIds.includes(lecturer.id)}
+                      onChange={() => toggleSelection(lecturer.id)}
                     />
                   </td>
                 )}
-                <td className="px-4 py-3 font-mono tracking-wide">{student.nim}</td>
+                <td className="px-4 py-3 font-mono tracking-wide">{lecturer.nip}</td>
                 <td className="px-4 py-3">
-                  <span className="font-medium text-gray-900">{student.fullname}</span>
+                  <span className="font-medium text-gray-900">{lecturer.fullname}</span>
                 </td>
-                <td className="px-4 py-3">{student.semester}</td>
-                <td className="px-4 py-3">{student.status}</td>
+                <td className="px-4 py-3">{lecturer.email}</td>
+                <td className="px-4 py-3">{lecturer.status}</td>
                 <AdminActionCell>
                   <AdminButton
                     variant="ghost"
@@ -824,7 +912,7 @@ export default function AdminUsersPage() {
                     onTouchStart={(event) => event.stopPropagation()}
                     onClick={(event) => {
                       event.stopPropagation()
-                      navigate(`/users/students/${student.id}`)
+                      navigate(`/users/lecturers/${lecturer.id}`)
                     }}
                   >
                     Detail
@@ -838,13 +926,13 @@ export default function AdminUsersPage() {
                     onClick={(event) => {
                       event.stopPropagation()
                       setConfirm({
-                        action: student.status === "Aktif" ? "deactivate" : "activate",
-                        user: student,
+                        action: lecturer.status === "Aktif" ? "deactivate" : "activate",
+                        user: lecturer,
                       })
                     }}
                   >
-                    {student.status === "Aktif" ? <UserX size={14} /> : <UserCheck size={14} />}
-                    {student.status === "Aktif" ? "Nonaktifkan" : "Aktifkan"}
+                    {lecturer.status === "Aktif" ? <UserX size={14} /> : <UserCheck size={14} />}
+                    {lecturer.status === "Aktif" ? "Nonaktifkan" : "Aktifkan"}
                   </AdminButton>
                   <AdminButton
                     variant="danger"
@@ -854,7 +942,7 @@ export default function AdminUsersPage() {
                     onTouchStart={(event) => event.stopPropagation()}
                     onClick={(event) => {
                       event.stopPropagation()
-                      setConfirm({ action: "delete", user: student })
+                      setConfirm({ action: "delete", user: lecturer })
                     }}
                   >
                     <Trash2 size={14} />
@@ -864,97 +952,7 @@ export default function AdminUsersPage() {
               </tr>
             ))}
           </AdminTable>
-          {renderPagination(page, Math.ceil(students.length / limit), setPage, students.length)}
-          </>
-        ) : (
-          <EmptyState
-            title="Belum ada data mahasiswa"
-            action={<AdminButton onClick={() => setModal("add")}><Plus size={16} />Tambah Mahasiswa dan Akun</AdminButton>}
-          />
-        )
-      ) : lecturers.length ? (
-        <>
-          <AdminTable headers={selectedIds.length > 0 ? ["", "NIP", "Nama", "Email", "Status", "Aksi"] : ["NIP", "Nama", "Email", "Status", "Aksi"]}>
-          {lecturers.slice((page - 1) * limit, page * limit).map((lecturer) => (
-            <tr
-              key={lecturer.id}
-              className={`${selectedIds.includes(lecturer.id) ? "bg-blue-50/40" : ""} cursor-default select-none`}
-              onMouseDown={() => handleMouseDown(lecturer.id)}
-              onMouseUp={() => handleMouseUp(lecturer.id)}
-              onMouseLeave={cancelLongPress}
-              onTouchStart={() => handleTouchStart(lecturer.id)}
-              onTouchEnd={() => handleTouchEnd(lecturer.id)}
-            >
-              {selectedIds.length > 0 && (
-                <td
-                  className="px-4 py-3 text-center"
-                  onMouseDown={(event) => event.stopPropagation()}
-                  onClick={(event) => event.stopPropagation()}
-                  onTouchStart={(event) => event.stopPropagation()}
-                >
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    checked={selectedIds.includes(lecturer.id)}
-                    onChange={() => toggleSelection(lecturer.id)}
-                  />
-                </td>
-              )}
-              <td className="px-4 py-3 font-mono tracking-wide">{lecturer.nip}</td>
-              <td className="px-4 py-3">
-                <span className="font-medium text-gray-900">{lecturer.fullname}</span>
-              </td>
-              <td className="px-4 py-3">{lecturer.email}</td>
-              <td className="px-4 py-3">{lecturer.status}</td>
-              <AdminActionCell>
-                <AdminButton
-                  variant="ghost"
-                  className="h-8 px-2"
-                  onMouseDown={(event) => event.stopPropagation()}
-                  onTouchStart={(event) => event.stopPropagation()}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    navigate(`/users/lecturers/${lecturer.id}`)
-                  }}
-                >
-                  Detail
-                </AdminButton>
-                <AdminButton
-                  variant="ghost"
-                  className="h-8 px-2"
-                  disabled={Boolean(actionLoading)}
-                  onMouseDown={(event) => event.stopPropagation()}
-                  onTouchStart={(event) => event.stopPropagation()}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    setConfirm({
-                      action: lecturer.status === "Aktif" ? "deactivate" : "activate",
-                      user: lecturer,
-                    })
-                  }}
-                >
-                  {lecturer.status === "Aktif" ? <UserX size={14} /> : <UserCheck size={14} />}
-                  {lecturer.status === "Aktif" ? "Nonaktifkan" : "Aktifkan"}
-                </AdminButton>
-                <AdminButton
-                  variant="danger"
-                  className="h-8 px-2"
-                  disabled={Boolean(actionLoading)}
-                  onMouseDown={(event) => event.stopPropagation()}
-                  onTouchStart={(event) => event.stopPropagation()}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    setConfirm({ action: "delete", user: lecturer })
-                  }}
-                >
-                  <Trash2 size={14} />
-                  Hapus
-                </AdminButton>
-              </AdminActionCell>
-            </tr>
-          ))}
-        </AdminTable>
-        {renderPagination(page, Math.ceil(lecturers.length / limit), setPage, lecturers.length)}
+          {renderPagination(page, Math.ceil(lecturers.length / limit), setPage, lecturers.length)}
         </>
       ) : (
         <EmptyState
@@ -970,22 +968,22 @@ export default function AdminUsersPage() {
             confirm.action === "delete"
               ? "Hapus Pengguna?"
               : confirm.action === "activate"
-              ? "Aktifkan Pengguna?"
-              : "Nonaktifkan Pengguna?"
+                ? "Aktifkan Pengguna?"
+                : "Nonaktifkan Pengguna?"
           }
           message={
             confirm.action === "delete"
               ? `Pengguna ${confirm.user.fullname} akan dihapus dari sistem.`
               : confirm.action === "activate"
-              ? `Pengguna ${confirm.user.fullname} akan diaktifkan kembali.`
-              : `Pengguna ${confirm.user.fullname} akan dinonaktifkan.`
+                ? `Pengguna ${confirm.user.fullname} akan diaktifkan kembali.`
+                : `Pengguna ${confirm.user.fullname} akan dinonaktifkan.`
           }
           confirmLabel={
             confirm.action === "delete"
               ? "Hapus"
               : confirm.action === "activate"
-              ? "Aktifkan"
-              : "Nonaktifkan"
+                ? "Aktifkan"
+                : "Nonaktifkan"
           }
           variant={confirm.action === "delete" ? "danger" : "primary"}
           onCancel={() => setConfirm(null)}
@@ -1042,22 +1040,22 @@ export default function AdminUsersPage() {
             bulkConfirm.action === "delete"
               ? `Hapus ${bulkConfirm.ids.length} Pengguna?`
               : bulkConfirm.action === "activate"
-              ? `Aktifkan ${bulkConfirm.ids.length} Pengguna?`
-              : `Nonaktifkan ${bulkConfirm.ids.length} Pengguna?`
+                ? `Aktifkan ${bulkConfirm.ids.length} Pengguna?`
+                : `Nonaktifkan ${bulkConfirm.ids.length} Pengguna?`
           }
           message={
             bulkConfirm.action === "delete"
               ? `Apakah Anda yakin ingin menghapus ${bulkConfirm.ids.length} pengguna dari sistem? Tindakan ini tidak dapat dibatalkan.`
               : bulkConfirm.action === "activate"
-              ? `Apakah Anda yakin ingin mengaktifkan kembali ${bulkConfirm.ids.length} pengguna?`
-              : `Apakah Anda yakin ingin menonaktifkan ${bulkConfirm.ids.length} pengguna?`
+                ? `Apakah Anda yakin ingin mengaktifkan kembali ${bulkConfirm.ids.length} pengguna?`
+                : `Apakah Anda yakin ingin menonaktifkan ${bulkConfirm.ids.length} pengguna?`
           }
           confirmLabel={
             bulkConfirm.action === "delete"
               ? "Hapus Semua"
               : bulkConfirm.action === "activate"
-              ? "Aktifkan Semua"
-              : "Nonaktifkan Semua"
+                ? "Aktifkan Semua"
+                : "Nonaktifkan Semua"
           }
           variant={bulkConfirm.action === "delete" ? "danger" : "primary"}
           onCancel={() => setBulkConfirm(null)}

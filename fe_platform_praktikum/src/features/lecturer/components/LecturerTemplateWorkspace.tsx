@@ -1,6 +1,6 @@
 import Editor from "@monaco-editor/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Play, RotateCcw, Square, Terminal } from "lucide-react"
+import { Play, RotateCcw, Square, Terminal, AlertTriangle } from "lucide-react"
 import { ExecutionClient } from "../../../services/execution/executionClient"
 import CodeEditorPanel from "../../../components/code-editor/CodeEditorPanel"
 
@@ -73,6 +73,9 @@ export default function LecturerTemplateWorkspace({
   const [stdin, setStdin] = useState("")
   const [terminalOutput, setTerminalOutput] = useState("")
   const [runTime, setRunTime] = useState("")
+  // ── Confirm dialog state ──
+  const [confirmReset, setConfirmReset] = useState(false)
+  const [confirmDeleteFile, setConfirmDeleteFile] = useState(false)
   
   const executionClientRef = useRef<ExecutionClient | null>(null)
   const terminalScrollRef = useRef<HTMLDivElement | null>(null)
@@ -199,12 +202,7 @@ export default function LecturerTemplateWorkspace({
   }
 
   const handleResetTemplate = () => {
-    const confirm = window.confirm(
-      `Apakah Anda yakin ingin menggunakan template default ${language === "python" ? "Python" : "Java"}? Kode saat ini akan ditimpa.`
-    )
-    if (confirm) {
-      onChange(getDefaultTemplateCode(language))
-    }
+    setConfirmReset(true)
   }
 
   const handleSimpleAddFile = () => {
@@ -259,19 +257,93 @@ export default function LecturerTemplateWorkspace({
 
   const handleSimpleDeleteFile = () => {
     if (Object.keys(filesRecord).length <= 1) return
-    const confirm = window.confirm(`Apakah Anda yakin ingin menghapus file ${activeFile}?`)
-    if (!confirm) return
+    setConfirmDeleteFile(true)
+  }
 
-    const nextFiles = { ...filesRecord }
-    delete nextFiles[activeFile]
-
-    const remaining = Object.keys(nextFiles)
-    onChange(JSON.stringify(nextFiles))
-    setActiveFile(remaining[0])
+  // ── Shared mini confirm modal ──
+  function MiniConfirmModal({
+    open,
+    title,
+    description,
+    onConfirm,
+    onCancel,
+    confirmLabel = "Ya, Lanjutkan",
+  }: {
+    open: boolean
+    title: string
+    description: string
+    onConfirm: () => void
+    onCancel: () => void
+    confirmLabel?: string
+  }) {
+    if (!open) return null
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+        onClick={onCancel}
+      >
+        <div
+          className="bg-white rounded-xl shadow-2xl border border-gray-200 p-5 w-80 mx-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100">
+              <AlertTriangle size={16} className="text-amber-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-gray-900">{title}</h3>
+              <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{description}</p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600"
+            >
+              {confirmLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="mt-3 overflow-hidden rounded-lg border border-gray-200 bg-white font-sans">
+      <MiniConfirmModal
+        open={confirmReset}
+        title="Reset ke Template Default"
+        description={`Kode saat ini akan ditimpa oleh template default ${language === "python" ? "Python" : "Java"}. Perubahan yang belum disimpan akan hilang.`}
+        confirmLabel="Reset Template"
+        onCancel={() => setConfirmReset(false)}
+        onConfirm={() => {
+          onChange(getDefaultTemplateCode(language))
+          setConfirmReset(false)
+        }}
+      />
+      <MiniConfirmModal
+        open={confirmDeleteFile}
+        title={`Hapus File "${activeFile}"`}
+        description="File ini akan dihapus dari template. Tindakan ini tidak dapat dibatalkan."
+        confirmLabel="Hapus File"
+        onCancel={() => setConfirmDeleteFile(false)}
+        onConfirm={() => {
+          const nextFiles = { ...filesRecord }
+          delete nextFiles[activeFile]
+          const remaining = Object.keys(nextFiles)
+          onChange(JSON.stringify(nextFiles))
+          setActiveFile(remaining[0])
+          setConfirmDeleteFile(false)
+        }}
+      />
       <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider select-none">
         <span>Template Editor ({label})</span>
         <span className="font-mono text-gray-400">{activeFile}</span>

@@ -32,7 +32,6 @@ export default function StudentCoursePage() {
         const courses = await getCoursesByStudentId(user.id)
         setCourses(courses)
       } catch (error) {
-        console.error(error);
         setError(error instanceof Error ? error.message : "Gagal memuat mata kuliah.")
       } finally {
         setLoading(false)

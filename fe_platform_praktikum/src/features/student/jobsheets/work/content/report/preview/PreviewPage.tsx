@@ -59,7 +59,6 @@ export default function PreviewPage() {
       await updateSubmission(effectiveCourseId, jobsheetId, user.id, buildReport(submission), undefined, academicScope)
       toast.success("Draf laporan berhasil disimpan.")
     } catch (err) {
-      console.error("Save draft error:", err)
       toast.error(err instanceof Error ? err.message : "Gagal menyimpan draf.")
     } finally {
       setSavingDraft(false)
@@ -98,10 +97,9 @@ export default function PreviewPage() {
         studentId: user.id,
         kelasPraktikumId,
         activityType: "submit_answer",
-      }).catch(console.error)
+      }).catch(() => { /* silent: tracking is non-critical */ })
       setShowSuccess(true)
     } catch (err) {
-      console.error("Submit error:", err)
       setError(err instanceof Error ? err.message : "Gagal submit laporan.")
     } finally {
       setSubmitting(false)

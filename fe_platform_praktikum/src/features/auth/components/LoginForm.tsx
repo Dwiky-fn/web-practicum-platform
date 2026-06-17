@@ -39,7 +39,6 @@ export default function LoginForm() {
       const response = await login({ identifier, password })
       saveLoginSession(response)
     } catch (err) {
-      console.error(err);
       setErrorMessage(
         err instanceof Error ? err.message : "Login gagal, silakan coba lagi",
       )
@@ -57,7 +56,6 @@ export default function LoginForm() {
         const response = await loginWithGoogle({ credential })
         saveLoginSession(response)
       } catch (err) {
-        console.error(err)
         setErrorMessage(
           err instanceof Error
             ? err.message

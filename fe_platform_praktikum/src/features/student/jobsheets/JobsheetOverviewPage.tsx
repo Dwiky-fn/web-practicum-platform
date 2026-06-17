@@ -57,7 +57,6 @@ export default function JobsheetOverviewPage() {
         setJobsheet(raw);
         setSubmission(sub);
       } catch (error) {
-        console.error(error);
         setError(
           error instanceof Error
             ? error.message

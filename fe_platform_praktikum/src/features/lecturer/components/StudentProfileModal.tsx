@@ -41,7 +41,6 @@ export default function StudentProfileModal({ studentId, onClose, isInline = fal
         const data = await getUserById(studentId)
         setProfile(data)
       } catch (err) {
-        console.error("Gagal memuat profil:", err)
         setError("Gagal memuat data profil.")
       } finally {
         setLoading(false)
@@ -57,7 +56,7 @@ export default function StudentProfileModal({ studentId, onClose, isInline = fal
     if (isEditing && semesters.length === 0) {
       getAdminSemesters()
         .then(setSemesters)
-        .catch((err) => console.error("Gagal mengambil data semester:", err))
+        .catch(() => { /* silent: dropdown uses fallback values */ })
     }
   }, [isEditing, semesters.length])
 

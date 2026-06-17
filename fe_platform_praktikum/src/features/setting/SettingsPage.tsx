@@ -82,7 +82,6 @@ export default function SettingsPage() {
       applyUser(updatedUser);
       toast.success(successMessage);
     } catch (error) {
-      console.error(error);
       showSettingsError(getErrorMessage(error, "Gagal memperbarui data pribadi."));
     } finally {
       setProfileSaving(false);
@@ -97,7 +96,6 @@ export default function SettingsPage() {
       applyUser(updatedUser);
       toast.success("Foto profil berhasil diperbarui.");
     } catch (error) {
-      console.error(error);
       showSettingsError(getErrorMessage(error, "Gagal memperbarui foto profil."));
     } finally {
       setProfileSaving(false);
@@ -121,7 +119,6 @@ export default function SettingsPage() {
       await verifyUserPassword(user.id, payload.currentPassword);
       setPendingEmailChange(payload);
     } catch (error) {
-      console.error(error);
       showSettingsError(getErrorMessage(error, "Gagal memverifikasi password."));
       throw error;
     } finally {
@@ -140,7 +137,6 @@ export default function SettingsPage() {
       await requestUserEmailChangeOtp(user.id, pendingEmailChange);
       toast.info("Kode OTP telah dikirim ke email baru.");
     } catch (error) {
-      console.error(error);
       showSettingsError(getErrorMessage(error, "Gagal mengirim OTP."));
       throw error;
     } finally {
@@ -170,7 +166,6 @@ export default function SettingsPage() {
       setPendingEmailChange(null);
       toast.success("Email berhasil diperbarui.");
     } catch (error) {
-      console.error(error);
       showSettingsError(getErrorMessage(error, "Gagal memperbarui email."));
       throw error;
     } finally {
@@ -189,7 +184,6 @@ export default function SettingsPage() {
       await updateUserPassword(user.id, payload);
       toast.success("Password berhasil diperbarui.");
     } catch (error) {
-      console.error(error);
       showSettingsError(getErrorMessage(error, "Gagal memperbarui password."));
       throw error;
     } finally {

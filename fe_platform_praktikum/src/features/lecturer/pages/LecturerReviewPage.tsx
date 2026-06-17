@@ -59,6 +59,71 @@ function removeAiDerivedFeedbacks(submissionId: string) {
   )
 }
 
+function parseAiFeedbackToFeedbacks(submissionId: string, aiFeedback: any): ReviewFeedback[] {
+  const initialFeedbacks: ReviewFeedback[] = []
+  if (!aiFeedback) return initialFeedbacks
+
+  if (aiFeedback.jobsheetFeedback) {
+    initialFeedbacks.push({
+      id: `ai-jobsheet-${submissionId}`,
+      submissionId,
+      scope: "jobsheet" as const,
+      content: aiFeedback.jobsheetFeedback.summary || "",
+      strengths: aiFeedback.jobsheetFeedback.strengths || [],
+      issues: aiFeedback.jobsheetFeedback.issues || [],
+      suggestions: aiFeedback.jobsheetFeedback.learningSuggestions || [],
+      source: "ai" as const,
+      status: "draft" as const,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    })
+  }
+
+  if (Array.isArray(aiFeedback.experimentResults)) {
+    aiFeedback.experimentResults.forEach((res: any) => {
+      if (res.status !== "failed") {
+        initialFeedbacks.push({
+          id: `ai-experiment-${res.experimentId}`,
+          submissionId,
+          experimentId: res.experimentId,
+          scope: "experiment" as const,
+          content: res.summary || "",
+          strengths: res.strengths || [],
+          issues: res.issues || [],
+          suggestions: res.suggestions || [],
+          source: "ai" as const,
+          status: "draft" as const,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+      }
+    })
+  }
+
+  if (Array.isArray(aiFeedback.codeFeedbacks)) {
+    aiFeedback.codeFeedbacks.forEach((fb: any, index: number) => {
+      initialFeedbacks.push({
+        id: `ai-code-${fb.experimentId}-${index}`,
+        submissionId,
+        experimentId: fb.experimentId,
+        codeBlockId: `code-${fb.experimentId}`,
+        fileName: fb.filePath,
+        scope: "code" as const,
+        startLine: fb.startLine,
+        endLine: fb.endLine,
+        selectedCode: fb.selectedCode || "",
+        content: `${fb.message}\nSaran: ${fb.suggestion}`,
+        source: "ai" as const,
+        status: "draft" as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+    })
+  }
+
+  return initialFeedbacks
+}
+
 
 
 export default function LecturerReviewPage() {
@@ -91,6 +156,7 @@ export default function LecturerReviewPage() {
   const [isEditingReview, setIsEditingReview] = useState(false)
   const [triggeringAi, setTriggeringAi] = useState(false)
   const [deletingAiFeedback, setDeletingAiFeedback] = useState(false)
+  const [confirmDeleteAiFeedback, setConfirmDeleteAiFeedback] = useState(false)
 
   useEffect(() => {
     async function loadData() {
@@ -138,67 +204,7 @@ export default function LecturerReviewPage() {
             const filteredAll = all.filter((f) => f.submissionId !== selectedSubmission.id);
             saveStoredFeedbacks([...filteredAll, ...reviewFeedbacks]);
           } else if (reviewFeedbacks.length === 0 && selectedSubmission.review?.aiFeedback) {
-            const ai = selectedSubmission.review.aiFeedback;
-            const initialFeedbacks: ReviewFeedback[] = [];
-            
-            if (ai.jobsheetFeedback) {
-              initialFeedbacks.push({
-                id: `ai-jobsheet-${selectedSubmission.id}`,
-                submissionId: selectedSubmission.id,
-                scope: "jobsheet" as const,
-                content: ai.jobsheetFeedback.summary || "",
-                strengths: ai.jobsheetFeedback.strengths || [],
-                issues: ai.jobsheetFeedback.issues || [],
-                suggestions: ai.jobsheetFeedback.learningSuggestions || [],
-                source: "ai" as const,
-                status: "draft" as const,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-              });
-            }
-            
-            if (Array.isArray(ai.experimentResults)) {
-              ai.experimentResults.forEach((res: any) => {
-                if (res.status !== "failed") {
-                  initialFeedbacks.push({
-                    id: `ai-experiment-${res.experimentId}`,
-                    submissionId: selectedSubmission.id,
-                    experimentId: res.experimentId,
-                    scope: "experiment" as const,
-                    content: res.summary || "",
-                    strengths: res.strengths || [],
-                    issues: res.issues || [],
-                    suggestions: res.suggestions || [],
-                    source: "ai" as const,
-                    status: "draft" as const,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                  });
-                }
-              });
-            }
-            
-            if (Array.isArray(ai.codeFeedbacks)) {
-              ai.codeFeedbacks.forEach((fb: any, index: number) => {
-                initialFeedbacks.push({
-                  id: `ai-code-${fb.experimentId}-${index}`,
-                  submissionId: selectedSubmission.id,
-                  experimentId: fb.experimentId,
-                  codeBlockId: `code-${fb.experimentId}`,
-                  fileName: fb.filePath,
-                  scope: "code" as const,
-                  startLine: fb.startLine,
-                  endLine: fb.endLine,
-                  selectedCode: fb.selectedCode || "",
-                  content: `${fb.message}\nSaran: ${fb.suggestion}`,
-                  source: "ai" as const,
-                  status: "draft" as const,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString()
-                });
-              });
-            }
-            
+            const initialFeedbacks = parseAiFeedbackToFeedbacks(selectedSubmission.id, selectedSubmission.review.aiFeedback);
             if (initialFeedbacks.length > 0) {
               reviewFeedbacks = initialFeedbacks;
               const all = getStoredFeedbacks();
@@ -252,11 +258,6 @@ export default function LecturerReviewPage() {
   async function handleDeleteAiFeedback() {
     if (!submission) return
 
-    const confirmed = window.confirm(
-      "Hapus feedback AI untuk submission ini? Data jobsheet dan task submission tidak akan diubah.",
-    )
-    if (!confirmed) return
-
     try {
       setDeletingAiFeedback(true)
       setError("")
@@ -288,6 +289,7 @@ export default function LecturerReviewPage() {
       toast.error(err instanceof Error ? err.message : "Gagal menghapus feedback AI.")
     } finally {
       setDeletingAiFeedback(false)
+      setConfirmDeleteAiFeedback(false)
     }
   }
 
@@ -327,67 +329,7 @@ export default function LecturerReviewPage() {
                 reviewFeedbacks = refreshedSubmission.review.aiFeedback.feedbacks
                 saveStoredFeedbacks([...filtered, ...reviewFeedbacks])
               } else if (reviewFeedbacks.length === 0 && refreshedSubmission.review?.aiFeedback) {
-                const ai = refreshedSubmission.review.aiFeedback
-                const initialFeedbacks: ReviewFeedback[] = []
-
-                if (ai.jobsheetFeedback) {
-                  initialFeedbacks.push({
-                    id: `ai-jobsheet-${refreshedSubmission.id}`,
-                    submissionId: refreshedSubmission.id,
-                    scope: "jobsheet" as const,
-                    content: ai.jobsheetFeedback.summary || "",
-                    strengths: ai.jobsheetFeedback.strengths || [],
-                    issues: ai.jobsheetFeedback.issues || [],
-                    suggestions: ai.jobsheetFeedback.learningSuggestions || [],
-                    source: "ai" as const,
-                    status: "draft" as const,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  })
-                }
-
-                if (Array.isArray(ai.experimentResults)) {
-                  ai.experimentResults.forEach((res: any) => {
-                    if (res.status !== "failed") {
-                      initialFeedbacks.push({
-                        id: `ai-experiment-${res.experimentId}`,
-                        submissionId: refreshedSubmission.id,
-                        experimentId: res.experimentId,
-                        scope: "experiment" as const,
-                        content: res.summary || "",
-                        strengths: res.strengths || [],
-                        issues: res.issues || [],
-                        suggestions: res.suggestions || [],
-                        source: "ai" as const,
-                        status: "draft" as const,
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                      })
-                    }
-                  })
-                }
-
-                if (Array.isArray(ai.codeFeedbacks)) {
-                  ai.codeFeedbacks.forEach((fb: any, index: number) => {
-                    initialFeedbacks.push({
-                      id: `ai-code-${fb.experimentId}-${index}`,
-                      submissionId: refreshedSubmission.id,
-                      experimentId: fb.experimentId,
-                      codeBlockId: `code-${fb.experimentId}`,
-                      fileName: fb.filePath,
-                      scope: "code" as const,
-                      startLine: fb.startLine,
-                      endLine: fb.endLine,
-                      selectedCode: fb.selectedCode || "",
-                      content: `${fb.message}\nSaran: ${fb.suggestion}`,
-                      source: "ai" as const,
-                      status: "draft" as const,
-                      createdAt: new Date().toISOString(),
-                      updatedAt: new Date().toISOString(),
-                    })
-                  })
-                }
-
+                const initialFeedbacks = parseAiFeedbackToFeedbacks(refreshedSubmission.id, refreshedSubmission.review.aiFeedback)
                 if (initialFeedbacks.length > 0) {
                   reviewFeedbacks = initialFeedbacks
                   saveStoredFeedbacks([...filtered, ...reviewFeedbacks])
@@ -397,7 +339,7 @@ export default function LecturerReviewPage() {
             }
           }
         } catch (err) {
-          console.error("Failed to poll AI evaluation status:", err)
+          // Gagal memantau status evaluasi AI (silent fallback)
         }
       }, 2500)
     }
@@ -558,6 +500,29 @@ export default function LecturerReviewPage() {
 
   return (
     <LecturerLayout>
+      {/* ── Confirm Delete AI Feedback Modal ── */}
+      {confirmDeleteAiFeedback && (
+        <LecturerModal
+          title="Hapus Feedback AI?"
+          onClose={() => setConfirmDeleteAiFeedback(false)}
+          footer={
+            <>
+              <LecturerButton variant="secondary" onClick={() => setConfirmDeleteAiFeedback(false)}>
+                Batal
+              </LecturerButton>
+              <LecturerButton onClick={handleDeleteAiFeedback} disabled={deletingAiFeedback}>
+                {deletingAiFeedback ? "Menghapus..." : "Ya, Hapus Feedback AI"}
+              </LecturerButton>
+            </>
+          }
+        >
+          <p className="text-sm text-gray-700">
+            Feedback AI untuk submission ini akan dihapus. <strong>Data jobsheet dan task submission tidak akan diubah.</strong>
+          </p>
+          <p className="mt-2 text-xs text-gray-500">Tindakan ini tidak dapat dibatalkan setelah dikonfirmasi.</p>
+        </LecturerModal>
+      )}
+
       <button
         type="button"
         onClick={() => navigate(-1)}
@@ -772,7 +737,7 @@ export default function LecturerReviewPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={handleDeleteAiFeedback}
+                          onClick={() => setConfirmDeleteAiFeedback(true)}
                           disabled={
                             deletingAiFeedback ||
                             triggeringAi ||
@@ -784,10 +749,6 @@ export default function LecturerReviewPage() {
                         >
                           {deletingAiFeedback ? "Menghapus Feedback AI..." : "Hapus Feedback AI"}
                         </button>
-                        
-                        <span className="text-[10px] bg-amber-50 text-amber-700 font-semibold px-2 py-1 rounded border border-amber-200 uppercase tracking-wider">
-                          Fitur Sementara
-                        </span>
                       </div>
                     </div>
 

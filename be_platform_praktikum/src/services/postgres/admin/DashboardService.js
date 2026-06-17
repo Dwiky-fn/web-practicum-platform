@@ -1,6 +1,14 @@
 const pool = require('..');
 const { displayTerm } = require('./utils');
 
+const parseTahunSemester = (str) => {
+  if (!str) return { year: '', term: '' };
+  const parts = str.includes('-') ? str.split('-') : str.split(' ');
+  const year = parts[0] || '';
+  const term = (parts[1] || '').toUpperCase();
+  return { year, term };
+};
+
 class DashboardService {
   constructor() {
     this._pool = pool;
@@ -61,11 +69,11 @@ class DashboardService {
     const semester = activeSemester.rows[0];
     let activeSem = null;
     if (semester) {
-      const parts = semester.tahun_semester.split('-');
+      const { year, term } = parseTahunSemester(semester.tahun_semester);
       activeSem = {
         id: semester.id,
-        year: parts[0] || semester.tahun_semester,
-        term: displayTerm(parts[1] || ''),
+        year,
+        term: displayTerm(term),
       };
     }
 

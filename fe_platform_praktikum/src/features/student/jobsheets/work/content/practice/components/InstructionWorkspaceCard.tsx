@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { JSONContent } from "@tiptap/react"
-import { ChevronDown, ChevronUp, Play, RotateCcw, Save, Square } from "lucide-react"
+import { ChevronDown, ChevronUp, Play, RotateCcw, Save, Square, AlertTriangle } from "lucide-react"
 import CodeEditorPanel from "../../../../../../../components/code-editor/CodeEditorPanel"
 import AnalysisEditor from "./workSpace/AnalysisEditor"
 import { ExecutionClient } from "../../../../../../../services/execution/executionClient"
@@ -96,6 +96,8 @@ export default function InstructionWorkspaceCard({
   const [bottomPanelTab, setBottomPanelTab] = useState<BottomPanelTab>("terminal")
   const [isBottomPanelExpanded, setIsBottomPanelExpanded] = useState(true)
   const [bottomPanelHeight, setBottomPanelHeight] = useState(220)
+  // ── Confirm delete file state ──
+  const [confirmDeleteFile, setConfirmDeleteFile] = useState(false)
   const codingBodyRef = useRef<HTMLDivElement | null>(null)
   const executionClientRef = useRef<ExecutionClient | null>(null)
   const terminalOutputRef = useRef<Record<number, string>>({})
@@ -405,14 +407,7 @@ export default function InstructionWorkspaceCard({
       alert("Minimal harus ada satu file pada template kode.")
       return
     }
-    const confirm = window.confirm(`Apakah Anda yakin ingin menghapus file ${activeFile}?`)
-    if (!confirm) return
-
-    const nextFiles = { ...currentFiles }
-    delete nextFiles[activeFile]
-
-    const remaining = Object.keys(nextFiles)
-    handleFilesChange(nextFiles, remaining[0])
+    setConfirmDeleteFile(true)
   }
 
   const handleBottomPanelResize = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -459,6 +454,51 @@ export default function InstructionWorkspaceCard({
 
   return (
     <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      {/* ── Delete File Confirm Modal ── */}
+      {confirmDeleteFile && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setConfirmDeleteFile(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl border border-gray-200 p-5 w-80 mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100">
+                <AlertTriangle size={16} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">Hapus File "{activeFile}"</h3>
+                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">File ini akan dihapus dari workspace. Tindakan ini tidak dapat dibatalkan.</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteFile(false)}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const currentFiles = codeMap[activeIndex] || {}
+                  const nextFiles = { ...currentFiles }
+                  delete nextFiles[activeFile]
+                  const remaining = Object.keys(nextFiles)
+                  handleFilesChange(nextFiles, remaining[0])
+                  setConfirmDeleteFile(false)
+                }}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700"
+              >
+                Hapus File
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {!isWorkspaceExpanded ? (
         <div className="flex flex-col gap-3 px-5 py-4 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">

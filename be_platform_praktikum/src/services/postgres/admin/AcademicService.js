@@ -18,6 +18,14 @@ const createClientError = (message, statusCode = 400) => {
   return error;
 };
 
+const parseTahunSemester = (str) => {
+  if (!str) return { year: '', term: '' };
+  const parts = str.includes('-') ? str.split('-') : str.split(' ');
+  const year = parts[0] || '';
+  const term = (parts[1] || '').toUpperCase();
+  return { year, term };
+};
+
 class AcademicService {
   constructor() {
     this._pool = pool;
@@ -25,40 +33,44 @@ class AcademicService {
 
   async getSemesters() {
     const result = await this._pool.query(`
-      SELECT id, year, semester_type, is_active
-      FROM academic_periods
-      ORDER BY is_active DESC, year DESC, semester_type ASC
+      SELECT id, tahun_semester, status
+      FROM tahun_semester
+      ORDER BY status = 'active' DESC, tahun_semester DESC
     `);
 
-    return result.rows.map((row) => ({
-      id: row.id,
-      year: row.year,
-      term: displayTerm(row.semester_type),
-      status: row.is_active ? 'Aktif' : 'Nonaktif',
-    }));
+    return result.rows.map((row) => {
+      const { year, term } = parseTahunSemester(row.tahun_semester);
+      return {
+        id: row.id,
+        year: year,
+        term: displayTerm(term),
+        status: row.status === 'active' ? 'Aktif' : 'Nonaktif',
+      };
+    });
   }
 
   async createSemester(payload) {
     const client = await this._pool.connect();
-    const id = payload.id || createId('ap');
-    const isActive = normalizeStatus(payload.status) === 'AKTIF';
-    const term = dbTerm(payload.term || payload.semester);
+    const id = payload.id || createId('ts');
+    const termDb = dbTerm(payload.term || payload.semester);
+    const tahunSemesterStr = `${payload.year}-${termDb}`;
+    const status = payload.status === 'Aktif' ? 'active' : 'inactive';
 
     try {
       await client.query('BEGIN');
       const duplicate = await client.query(
-        'SELECT id FROM academic_periods WHERE year = $1 AND semester_type = $2 LIMIT 1',
-        [payload.year, term],
+        'SELECT id FROM tahun_semester WHERE LOWER(tahun_semester) = LOWER($1) LIMIT 1',
+        [tahunSemesterStr],
       );
       if (duplicate.rows.length) throw new Error('SEMESTER_DUPLICATE');
 
-      if (isActive) {
-        await client.query('UPDATE academic_periods SET is_active = false');
+      if (status === 'active') {
+        await client.query("UPDATE tahun_semester SET status = 'inactive', updated_at = CURRENT_TIMESTAMP WHERE status = 'active'");
       }
       await client.query(
-        `INSERT INTO academic_periods (id, year, semester_type, is_active)
-         VALUES ($1, $2, $3, $4)`,
-        [id, payload.year, term, isActive],
+        `INSERT INTO tahun_semester (id, tahun_semester, status)
+         VALUES ($1, $2, $3)`,
+        [id, tahunSemesterStr, status],
       );
       await client.query('COMMIT');
       return (await this.getSemesters()).find((item) => item.id === id);
@@ -75,10 +87,10 @@ class AcademicService {
 
     try {
       await client.query('BEGIN');
-      const found = await client.query('SELECT id FROM academic_periods WHERE id = $1', [id]);
+      const found = await client.query('SELECT id FROM tahun_semester WHERE id = $1', [id]);
       if (!found.rows.length) throw new Error('SEMESTER_NOT_FOUND');
-      await client.query('UPDATE academic_periods SET is_active = false');
-      await client.query('UPDATE academic_periods SET is_active = true WHERE id = $1', [id]);
+      await client.query("UPDATE tahun_semester SET status = 'inactive', updated_at = CURRENT_TIMESTAMP WHERE status = 'active'");
+      await client.query("UPDATE tahun_semester SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
@@ -90,11 +102,11 @@ class AcademicService {
 
   async deleteSemester(id, force = false) {
     const found = await this._pool.query(
-      'SELECT id, is_active FROM academic_periods WHERE id = $1',
+      "SELECT id, status FROM tahun_semester WHERE id = $1",
       [id],
     );
     if (!found.rows.length) throw new Error('SEMESTER_NOT_FOUND');
-    if (found.rows[0].is_active) throw new Error('SEMESTER_ACTIVE_DELETE');
+    if (found.rows[0].status === 'active') throw new Error('SEMESTER_ACTIVE_DELETE');
 
     if (force) {
       const client = await this._pool.connect();
@@ -126,7 +138,7 @@ class AcademicService {
           await client.query('DELETE FROM pengampu WHERE id_kelas_praktikum = ANY($1)', [kpIds]);
           await client.query('DELETE FROM kelas_praktikum WHERE id_tahun_semester = $1', [id]);
         }
-        await client.query('DELETE FROM academic_periods WHERE id = $1', [id]);
+        await client.query('DELETE FROM tahun_semester WHERE id = $1', [id]);
         await client.query('COMMIT');
       } catch (err) {
         await client.query('ROLLBACK');
@@ -141,7 +153,7 @@ class AcademicService {
       );
       if (used.rows.length) throw new Error('SEMESTER_HAS_CLASSES');
 
-      await this._pool.query('DELETE FROM academic_periods WHERE id = $1', [id]);
+      await this._pool.query('DELETE FROM tahun_semester WHERE id = $1', [id]);
     }
   }
 
@@ -168,12 +180,13 @@ class AcademicService {
         params,
       ),
       this._pool.query(
-        'SELECT semester_type FROM academic_periods WHERE is_active = true LIMIT 1',
+        "SELECT tahun_semester FROM tahun_semester WHERE status = 'active' LIMIT 1",
       ),
     ]);
 
-    const activeStudentSemesters =
-      activeStudentSemestersByTerm[activePeriod.rows[0]?.semester_type] || [];
+    const activePeriodName = activePeriod.rows[0]?.tahun_semester || '';
+    const { term: termDb } = parseTahunSemester(activePeriodName);
+    const activeStudentSemesters = activeStudentSemestersByTerm[termDb] || [];
 
     return result.rows.map((row) => ({
       ...row,
@@ -350,15 +363,15 @@ class AcademicService {
       await client.query('BEGIN');
 
       const activeResult = await client.query(
-        'SELECT id, year, semester_type FROM academic_periods WHERE is_active = true LIMIT 1'
+        "SELECT id, tahun_semester FROM tahun_semester WHERE status = 'active' LIMIT 1"
       );
       const activePeriod = activeResult.rows[0];
       if (!activePeriod) {
         throw createClientError('Semester aktif belum tersedia', 400);
       }
 
-      const currentYear = activePeriod.year;
-      const currentType = activePeriod.semester_type;
+      const activePeriodName = activePeriod.tahun_semester;
+      const { year: currentYear, term: currentType } = parseTahunSemester(activePeriodName);
 
       let nextYear = currentYear;
       let nextType = '';
@@ -367,10 +380,10 @@ class AcademicService {
         nextType = 'GENAP';
       } else if (currentType === 'GENAP') {
         nextType = 'GANJIL';
-        const parts = currentYear.split('/');
-        if (parts.length === 2) {
-          const startYear = Number(parts[0]);
-          const endYear = Number(parts[1]);
+        const yearParts = currentYear.split('/');
+        if (yearParts.length === 2) {
+          const startYear = Number(yearParts[0]);
+          const endYear = Number(yearParts[1]);
           if (!Number.isNaN(startYear) && !Number.isNaN(endYear)) {
             nextYear = `${startYear + 1}/${endYear + 1}`;
           } else {
@@ -383,46 +396,50 @@ class AcademicService {
         throw createClientError('Semester aktif tidak valid', 400);
       }
 
+      const nextTahunSemesterStr = `${nextYear}-${nextType}`;
+
       let nextPeriodId = '';
       const checkResult = await client.query(
-        'SELECT id, year, semester_type, is_active FROM academic_periods WHERE year = $1 AND semester_type = $2 LIMIT 1',
-        [nextYear, nextType]
+        'SELECT id, tahun_semester, status FROM tahun_semester WHERE tahun_semester = $1 LIMIT 1',
+        [nextTahunSemesterStr]
       );
 
       let nextPeriod = checkResult.rows[0];
       if (!nextPeriod) {
-        nextPeriodId = createId('ap');
+        nextPeriodId = createId('ts');
         await client.query(
-          `INSERT INTO academic_periods (id, year, semester_type, is_active)
-           VALUES ($1, $2, $3, $4)`,
-          [nextPeriodId, nextYear, nextType, false]
+          `INSERT INTO tahun_semester (id, tahun_semester, status)
+           VALUES ($1, $2, 'inactive')`,
+          [nextPeriodId, nextTahunSemesterStr]
         );
         nextPeriod = {
           id: nextPeriodId,
-          year: nextYear,
-          semester_type: nextType,
-          is_active: false
+          tahun_semester: nextTahunSemesterStr,
+          status: 'inactive'
         };
       } else {
         nextPeriodId = nextPeriod.id;
       }
 
-      await client.query('UPDATE academic_periods SET is_active = false');
-      await client.query('UPDATE academic_periods SET is_active = true WHERE id = $1', [nextPeriodId]);
+      await client.query("UPDATE tahun_semester SET status = 'inactive', updated_at = CURRENT_TIMESTAMP");
+      await client.query("UPDATE tahun_semester SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [nextPeriodId]);
 
       await client.query('COMMIT');
 
+      const prevParsed = parseTahunSemester(activePeriodName);
+      const nextParsed = parseTahunSemester(nextTahunSemesterStr);
+
       return {
         previous_semester: {
-          academic_year: activePeriod.year,
-          semester: displayTerm(activePeriod.semester_type),
-          name: `${activePeriod.year} - ${displayTerm(activePeriod.semester_type)}`
+          academic_year: prevParsed.year,
+          semester: displayTerm(prevParsed.term),
+          name: `${prevParsed.year} - ${displayTerm(prevParsed.term)}`
         },
         active_semester: {
           id: nextPeriodId,
-          academic_year: nextPeriod.year,
-          semester: displayTerm(nextPeriod.semester_type),
-          name: `${nextPeriod.year} - ${displayTerm(nextPeriod.semester_type)}`,
+          academic_year: nextParsed.year,
+          semester: displayTerm(nextParsed.term),
+          name: `${nextParsed.year} - ${displayTerm(nextParsed.term)}`,
           is_active: true
         }
       };

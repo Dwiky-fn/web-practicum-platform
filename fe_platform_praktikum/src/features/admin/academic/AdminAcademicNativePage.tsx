@@ -241,19 +241,20 @@ function formatKelasPraktikumName(item: { nama_mk?: string; semester?: number; k
 }
 
 export default function AdminAcademicNativePage() {
-  const { section, id: detailId, tahunSemesterId } = useParams<{ section?: string; id?: string; tahunSemesterId?: string }>()
+  const { section, id: detailId, tahunSemesterId, semId, kelasId } = useParams<{ section?: string; id?: string; tahunSemesterId?: string; semId?: string; kelasId?: string }>()
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
-  const paramSemesterId = searchParams.get("semesterId") || ""
-  const paramKelasId = searchParams.get("kelasId") || ""
+  const paramSemesterId = searchParams.get("semesterId") || semId || ""
+  const paramKelasId = searchParams.get("kelasId") || kelasId || ""
   const isTahunSemesterDetail = Boolean(tahunSemesterId)
-  const isKelasMahasiswaDetail = isTahunSemesterDetail && location.pathname.endsWith("/kelas-mahasiswa")
+  const isKelasMahasiswaDetail = isTahunSemesterDetail && location.pathname.includes("/kelas-mahasiswa")
   const kelasPraktikumDetailId = isTahunSemesterDetail ? undefined : detailId
   const activeTab = kelasPraktikumDetailId ? "kelas-praktikum" : section ? routeToTab[section] ?? "tahun" : "tahun"
   const isDashboard = !section && !detailId && !tahunSemesterId
 
   const [keyword, setKeyword] = useState("")
+  const [limit, setLimit] = useState(25)
   const [kelasMahasiswaSearch, setKelasMahasiswaSearch] = useState("")
   const [detailKelasMahasiswaSearch, setDetailKelasMahasiswaSearch] = useState("")
   const [kelasPraktikumSearch, setKelasPraktikumSearch] = useState("")
@@ -695,7 +696,7 @@ export default function AdminAcademicNativePage() {
                 })
                 successCount++
               } catch (err) {
-                console.error(`Gagal assign mahasiswa dengan ID ${studentId}:`, err)
+                toast.error(err instanceof Error ? err.message : `Gagal assign mahasiswa dengan ID ${studentId}`)
                 failCount++
               }
             }
@@ -840,6 +841,15 @@ export default function AdminAcademicNativePage() {
             Detail
           </AdminButton>
         )}
+        {tab === "kelas-praktikum" && kelasPraktikumItem.legacy_class_id && (
+          <AdminButton
+            variant="ghost"
+            className="h-8 px-2"
+            onClick={() => navigate(`/kelas-praktikum/${kelasPraktikumItem.legacy_class_id}`)}
+          >
+            Kelola
+          </AdminButton>
+        )}
         {(tab === "tahun" || tab === "kurikulum") && statusItem.status !== "active" && (
           <AdminButton variant="ghost" className="h-8 px-2" disabled={submitting} onClick={() => activate(tab, item.id)}>
             Aktifkan
@@ -859,9 +869,10 @@ export default function AdminAcademicNativePage() {
 
   function renderKelasMahasiswa() {
     if (!groupedKelasMahasiswa.length) return <EmptyState title={emptyLabel("kelas-mahasiswa")} action={<AdminButton onClick={() => openModal("kelas-mahasiswa")}><Plus size={16} />Tambah Kelas Mahasiswa</AdminButton>} />
+    const displayedData = groupedKelasMahasiswa.slice(0, limit)
     return (
       <AdminTable headers={["Nama Kelas", "Jumlah Mahasiswa", "Aksi"]}>
-        {groupedKelasMahasiswa.map((group) => {
+        {displayedData.map((group) => {
           const displayClassName = formatKelasMahasiswaName(group)
           return (
             <tr key={`${group.id_semester}_${group.id_kelas}`}>
@@ -950,22 +961,25 @@ export default function AdminAcademicNativePage() {
   function renderTable() {
     if (activeTab === "kelas-mahasiswa") return renderKelasMahasiswa()
     if (!filtered.length) return <EmptyState title={emptyLabel(activeTab)} action={<AdminButton onClick={() => openModal(activeTab)}><Plus size={16} />{activeTabMeta.addLabel}</AdminButton>} />
+    
+    const displayedData = filtered.slice(0, limit)
+
     if (activeTab === "tahun") {
-      return <AdminTable headers={["Tahun Semester", "Status Semester", "Aksi"]}>{(filtered as TahunSemester[]).map((i) => <tr key={i.id}><td className="px-4 py-3 font-medium">{i.tahun_semester}</td><td className="px-4 py-3">{statusBadgeIndo(i.status)}</td>{actionCell("tahun", i, i.tahun_semester)}</tr>)}</AdminTable>
+      return <AdminTable headers={["Tahun Semester", "Status Semester", "Aksi"]}>{(displayedData as TahunSemester[]).map((i) => <tr key={i.id}><td className="px-4 py-3 font-medium">{i.tahun_semester}</td><td className="px-4 py-3">{statusBadgeIndo(i.status)}</td>{actionCell("tahun", i, i.tahun_semester)}</tr>)}</AdminTable>
     }
     if (activeTab === "kurikulum") {
-      return <AdminTable headers={["Tahun Kurikulum", "Nama Kurikulum", "Status Kurikulum", "Aksi"]}>{(filtered as Kurikulum[]).map((i) => <tr key={i.id}><td className="px-4 py-3">{i.tahun_kurikulum}</td><td className="px-4 py-3 font-medium">{i.nama_kurikulum}</td><td className="px-4 py-3">{statusBadgeIndo(i.status)}</td>{actionCell("kurikulum", i, i.nama_kurikulum)}</tr>)}</AdminTable>
+      return <AdminTable headers={["Tahun Kurikulum", "Nama Kurikulum", "Status Kurikulum", "Aksi"]}>{(displayedData as Kurikulum[]).map((i) => <tr key={i.id}><td className="px-4 py-3">{i.tahun_kurikulum}</td><td className="px-4 py-3 font-medium">{i.nama_kurikulum}</td><td className="px-4 py-3">{statusBadgeIndo(i.status)}</td>{actionCell("kurikulum", i, i.nama_kurikulum)}</tr>)}</AdminTable>
     }
     if (activeTab === "semester") {
-      return <AdminTable headers={["Semester", "Aksi"]}>{(filtered as SemesterMaster[]).map((i) => <tr key={i.id}><td className="px-4 py-3">Semester {i.semester}</td>{actionCell("semester", i, `Semester ${i.semester}`)}</tr>)}</AdminTable>
+      return <AdminTable headers={["Semester", "Aksi"]}>{(displayedData as SemesterMaster[]).map((i) => <tr key={i.id}><td className="px-4 py-3">Semester {i.semester}</td>{actionCell("semester", i, `Semester ${i.semester}`)}</tr>)}</AdminTable>
     }
     if (activeTab === "kelas") {
-      return <AdminTable headers={["Kelas", "Aksi"]}>{(filtered as KelasMaster[]).map((i) => <tr key={i.id}><td className="px-4 py-3 font-semibold">{i.kelas}</td>{actionCell("kelas", i, i.kelas)}</tr>)}</AdminTable>
+      return <AdminTable headers={["Kelas", "Aksi"]}>{(displayedData as KelasMaster[]).map((i) => <tr key={i.id}><td className="px-4 py-3 font-semibold">{i.kelas}</td>{actionCell("kelas", i, i.kelas)}</tr>)}</AdminTable>
     }
     if (activeTab === "mata-kuliah") {
-      return <AdminTable headers={["Kode", "Mata Kuliah", "SKS", "Tipe", "Semester", "Kurikulum", "Aksi"]}>{(filtered as MataKuliah[]).map((i) => <tr key={i.id}><td className="px-4 py-3 font-mono">{i.kode_mk}</td><td className="px-4 py-3 font-medium">{i.nama_mk}</td><td className="px-4 py-3">{i.sks}</td><td className="px-4 py-3">{i.tipe}</td><td className="px-4 py-3">{i.semester}</td><td className="px-4 py-3">{i.nama_kurikulum}</td>{actionCell("mata-kuliah", i, i.nama_mk)}</tr>)}</AdminTable>
+      return <AdminTable headers={["Kode", "Mata Kuliah", "SKS", "Tipe", "Semester", "Kurikulum", "Aksi"]}>{(displayedData as MataKuliah[]).map((i) => <tr key={i.id}><td className="px-4 py-3 font-mono">{i.kode_mk}</td><td className="px-4 py-3 font-medium">{i.nama_mk}</td><td className="px-4 py-3">{i.sks}</td><td className="px-4 py-3">{i.tipe}</td><td className="px-4 py-3">{i.semester}</td><td className="px-4 py-3">{i.nama_kurikulum}</td>{actionCell("mata-kuliah", i, i.nama_mk)}</tr>)}</AdminTable>
     }
-    return renderKelasPraktikum()
+    return renderKelasPraktikum(displayedData as KelasPraktikum[])
   }
 
   const option = (id: string, label: string) => <option key={id} value={id}>{label}</option>
@@ -1436,6 +1450,15 @@ export default function AdminAcademicNativePage() {
                 ))}
               </AdminSelect>
             )}
+            <AdminSelect value={String(limit)} onChange={(val) => setLimit(Number(val))} label="Limit Tampilan" className="w-full md:w-36">
+              <option value="5">Tampilkan 5</option>
+              <option value="10">Tampilkan 10</option>
+              <option value="15">Tampilkan 15</option>
+              <option value="20">Tampilkan 20</option>
+              <option value="25">Tampilkan 25</option>
+              <option value="50">Tampilkan 50</option>
+              <option value="1000000">Tampilkan Semua</option>
+            </AdminSelect>
             <AdminSearchInput
               value={keyword}
               onChange={setKeyword}

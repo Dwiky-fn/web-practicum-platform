@@ -60,6 +60,7 @@ export default function AdminUsersPage() {
   const navigate = useNavigate()
   const [keyword, setKeyword] = useState("")
   const [semester, setSemester] = useState("all")
+  const [limit, setLimit] = useState(25)
   const [modal, setModal] = useState<ModalMode>(null)
   const [semesters, setSemesters] = useState<AcademicSemester[]>([])
   const [students, setStudents] = useState<AdminStudent[]>([])
@@ -239,7 +240,7 @@ export default function AdminUsersPage() {
         const data = await getAdminDepartments()
         setDepartments(data)
       } catch (err) {
-        console.error("Gagal mengambil data jurusan:", err)
+        toast.error(err instanceof Error ? err.message : "Gagal memuat data jurusan.")
       }
     }
     fetchDepartments()
@@ -642,6 +643,15 @@ export default function AdminUsersPage() {
         description={`Mengelola data ${isStudent ? "mahasiswa" : "dosen"} Program Studi Teknik Informatika`}
         actions={
           <>
+            <AdminSelect value={String(limit)} onChange={(val) => setLimit(Number(val))} label="Limit Tampilan" className="w-full md:w-36">
+              <option value="5">Tampilkan 5</option>
+              <option value="10">Tampilkan 10</option>
+              <option value="15">Tampilkan 15</option>
+              <option value="20">Tampilkan 20</option>
+              <option value="25">Tampilkan 25</option>
+              <option value="50">Tampilkan 50</option>
+              <option value="1000000">Tampilkan Semua</option>
+            </AdminSelect>
             {isStudent && (
               <AdminSelect value={semester} onChange={setSemester} label="Filter semester">
                 <option value="all">Semua Semester</option>
@@ -695,7 +705,7 @@ export default function AdminUsersPage() {
       ) : isStudent ? (
         students.length ? (
           <AdminTable headers={selectedIds.length > 0 ? ["", "NIM", "Nama", "Semester", "Status", "Aksi"] : ["NIM", "Nama", "Semester", "Status", "Aksi"]}>
-            {students.map((student) => (
+            {students.slice(0, limit).map((student) => (
               <tr
                 key={student.id}
                 className={`${selectedIds.includes(student.id) ? "bg-blue-50/40" : ""} cursor-default select-none`}
@@ -782,7 +792,7 @@ export default function AdminUsersPage() {
         )
       ) : lecturers.length ? (
         <AdminTable headers={selectedIds.length > 0 ? ["", "NIP", "Nama", "Email", "Status", "Aksi"] : ["NIP", "Nama", "Email", "Status", "Aksi"]}>
-          {lecturers.map((lecturer) => (
+          {lecturers.slice(0, limit).map((lecturer) => (
             <tr
               key={lecturer.id}
               className={`${selectedIds.includes(lecturer.id) ? "bg-blue-50/40" : ""} cursor-default select-none`}

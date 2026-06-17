@@ -98,6 +98,10 @@ function AppContent() {
         element={byRole({ admin: <AdminAcademicNativePage /> })}
       />
       <Route
+        path="/admin/academic/tahun-semester/:tahunSemesterId/kelas-mahasiswa/:semId/:kelasId"
+        element={byRole({ admin: <AdminAcademicNativePage /> })}
+      />
+      <Route
         path="/admin/academic/kelas-praktikum/:id"
         element={byRole({ admin: <AdminAcademicNativePage /> })}
       />

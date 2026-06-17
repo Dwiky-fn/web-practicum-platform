@@ -70,7 +70,6 @@ export default function CourseDetailPage() {
           submissionList.filter(Boolean) as JobsheetSubmission[]
         );
       } catch (error) {
-        console.error(error);
         setError(error instanceof Error ? error.message : "Gagal memuat detail mata kuliah.");
       } finally {
         setLoading(false);

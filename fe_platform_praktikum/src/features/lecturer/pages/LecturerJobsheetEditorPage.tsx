@@ -1,5 +1,5 @@
 import type { JSONContent } from "@tiptap/react"
-import { ArrowLeft, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, AlertTriangle } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import RichTextEditor from "../../../components/editor/RichTextEditor"
@@ -129,6 +129,9 @@ export default function LecturerJobsheetEditorPage() {
   const [conclusionRequired, setConclusionRequired] = useState(false)
   const [conclusionMinWord, setConclusionMinWord] = useState("150")
   const [publishSettings, setPublishSettings] = useState<PublishClassSetting[]>([])
+  // ── Confirm change language state ──
+  const [confirmChangeLang, setConfirmChangeLang] = useState(false)
+  const [pendingLang, setPendingLang] = useState<"java" | "python" | null>(null)
 
   const isCreate = !savedJobsheetId
   const activeJobsheetId = savedJobsheetId || jobsheetId || ""
@@ -376,34 +379,36 @@ export default function LecturerJobsheetEditorPage() {
 
   const handleLanguageChange = (newLang: "java" | "python") => {
     if (programmingLanguage && programmingLanguage !== newLang) {
-      const confirm = window.confirm(
-        "Apakah Anda yakin ingin mengubah bahasa pemrograman? Kode template percobaan/latihan yang belum disimpan akan di-reset ke default bahasa baru."
-      )
-      if (!confirm) return
-
-      // Auto-update templates to default code of the new language
-      setExperiments((current) =>
-        current.map((item) => ({
-          ...item,
-          templateCode: newLang === "python" ? 'print("Hello, Python!")' : `public class Main {
-    public static void main(String[] args) {
-        System.out.println("Hello, Java!");
-    }
-}`,
-        }))
-      )
-      setExercises((current) =>
-        current.map((item) => ({
-          ...item,
-          templateCode: newLang === "python" ? 'print("Hello, Python!")' : `public class Main {
-    public static void main(String[] args) {
-        System.out.println("Hello, Java!");
-    }
-}`,
-        }))
-      )
+      setPendingLang(newLang)
+      setConfirmChangeLang(true)
+      return
     }
     setProgrammingLanguage(newLang)
+  }
+
+  function applyLanguageChange(lang: "java" | "python") {
+    // Auto-update templates to default code of the new language
+    setExperiments((current) =>
+      current.map((item) => ({
+        ...item,
+        templateCode: lang === "python" ? 'print("Hello, Python!")' : `public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, Java!");
+    }
+}`,
+      }))
+    )
+    setExercises((current) =>
+      current.map((item) => ({
+        ...item,
+        templateCode: lang === "python" ? 'print("Hello, Python!")' : `public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, Java!");
+    }
+}`,
+      }))
+    )
+    setProgrammingLanguage(lang)
   }
 
   if (loading) {
@@ -412,6 +417,52 @@ export default function LecturerJobsheetEditorPage() {
 
   return (
     <LecturerLayout>
+      {/* ── Confirm Change Language Modal ── */}
+      {confirmChangeLang && pendingLang && (
+        <LecturerModal
+          title="Ubah Bahasa Pemrograman?"
+          onClose={() => {
+            setConfirmChangeLang(false)
+            setPendingLang(null)
+          }}
+          footer={
+            <>
+              <LecturerButton
+                variant="secondary"
+                onClick={() => {
+                  setConfirmChangeLang(false)
+                  setPendingLang(null)
+                }}
+              >
+                Batal
+              </LecturerButton>
+              <LecturerButton
+                onClick={() => {
+                  applyLanguageChange(pendingLang)
+                  setConfirmChangeLang(false)
+                  setPendingLang(null)
+                }}
+              >
+                Ya, Ubah ke {pendingLang === "python" ? "Python" : "Java"}
+              </LecturerButton>
+            </>
+          }
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
+              <AlertTriangle size={20} className="text-amber-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-700">
+                Mengubah bahasa pemrograman akan me-reset semua <strong>kode template percobaan dan latihan</strong> ke kode default{" "}
+                {pendingLang === "python" ? "Python" : "Java"}.
+              </p>
+              <p className="mt-2 text-xs text-gray-500">Pastikan Anda sudah menyimpan kode template yang ingin dipertahankan.</p>
+            </div>
+          </div>
+        </LecturerModal>
+      )}
+
       <button
         type="button"
         onClick={() => navigate(-1)}

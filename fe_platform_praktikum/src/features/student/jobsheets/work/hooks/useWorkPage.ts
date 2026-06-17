@@ -12,6 +12,7 @@ import { getStudentProgress, upsertStudentProgress, updateStudentProgressApi } f
 import type { StudentProgressItem } from "../../../../../services/progress/types"
 import { useCurrentUser } from "../../../../../services/user/useCurrentUser"
 import { buildWorkNavigation } from "../utils/buildNavigation"
+import { toast } from "../../../../../components/toast/toastStore"
 
 type StepData = {
   files: Record<string, string>
@@ -138,7 +139,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
         metadata: opts?.metadata || {},
       })
     } catch (err) {
-      console.error("Failed to track activity:", activityType, err)
+      // Gagal melacak aktivitas (silent fallback)
     }
   }, [academicScope, jobsheetId, user, jobsheet, courseId, location.pathname, location.search, kelasPraktikumId])
 
@@ -235,7 +236,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
         setLastSavedPage(progressData?.last_page ?? "")
 
       } catch (err) {
-        console.error("Error loading data:", err)
+        toast.error(err instanceof Error ? err.message : "Gagal memuat data.")
         setError(err instanceof Error ? err.message : "Gagal memuat jobsheet.")
         setLastSavedPage("")
       } finally {
@@ -376,7 +377,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
       classId,
       kelasPraktikumId,
     }).catch((err) => {
-      console.error("PROGRESS SAVE ERROR", err)
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan progres.")
     })
   }, [
     courseId,

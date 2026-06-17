@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Trash2, Sparkles, User, FileEdit, MessageSquare, Pencil } from "lucide-react"
 
 import { LecturerButton } from "../LecturerUI"
+import { toast } from "../../../../components/toast/toastStore"
 import type { ReviewFeedback } from "../../../../services/reviewFeedbackService"
 import type { SelectedLineRange } from "./CodeReviewBlock"
 
@@ -65,6 +66,9 @@ export default function ReviewSidePanel({
   // ── Inline code comment editor state ──
   const [inlineComment, setInlineComment] = useState("")
   const [isEditingCode, setIsEditingCode] = useState(false)
+  // ── Delete comment confirm state ──
+  const [deletingFeedbackId, setDeletingFeedbackId] = useState<string | null>(null)
+  const confirmDeleteRef = useRef<HTMLDivElement | null>(null)
 
   // ── Experiment-level feedback local state (controlled per blur save) ──
   const [expContent, setExpContent] = useState("")
@@ -192,7 +196,7 @@ export default function ReviewSidePanel({
         await onCreateFeedback(payload)
       }
     } catch (err) {
-      console.error(err)
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan feedback percobaan.")
     }
   }
 
@@ -221,7 +225,7 @@ export default function ReviewSidePanel({
         await onCreateFeedback(payload)
       }
     } catch (err) {
-      console.error(err)
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan feedback jobsheet.")
     }
   }
 
@@ -258,7 +262,7 @@ export default function ReviewSidePanel({
       setInlineComment("")
       setIsEditingCode(false)
     } catch (err) {
-      console.error(err)
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan komentar kode.")
     }
   }
 
@@ -572,9 +576,7 @@ export default function ReviewSidePanel({
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation()
-                                      if (window.confirm("Hapus komentar ini?")) {
-                                        onDeleteFeedback(fb.id)
-                                      }
+                                      setDeletingFeedbackId(fb.id)
                                     }}
                                     className="text-gray-400 hover:text-red-500"
                                     title="Hapus komentar"
@@ -758,6 +760,49 @@ export default function ReviewSidePanel({
           </div>
         )}
       </div>
+
+      {/* ── Delete Comment Confirm Modal ── */}
+      {deletingFeedbackId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setDeletingFeedbackId(null)}
+        >
+          <div
+            ref={confirmDeleteRef}
+            className="bg-white rounded-xl shadow-2xl border border-gray-200 p-5 w-72 mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100">
+                <Trash2 size={16} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">Hapus Komentar</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Komentar kode ini akan dihapus permanen.</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setDeletingFeedbackId(null)}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onDeleteFeedback(deletingFeedbackId)
+                  setDeletingFeedbackId(null)
+                }}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import StudentProfileModal from "../components/StudentProfileModal"
+import { toast } from "../../../components/toast/toastStore"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import type { Jobsheet } from "../../../services/jobsheet/types"
@@ -90,7 +91,7 @@ export default function LecturerJobsheetDetailPage() {
         const progress = await getLecturerClassProgress(jobsheetId, classId, kelasPraktikumId)
         setMonitoringData(progress)
       } catch (err) {
-        console.error("Gagal memuat monitoring progress:", err)
+        toast.error(err instanceof Error ? err.message : "Gagal memuat monitoring progress.")
       } finally {
         setLoadingMonitoring(false)
       }
@@ -119,7 +120,7 @@ export default function LecturerJobsheetDetailPage() {
         const detail = await getLecturerStudentDetailProgress(jobsheetId, selectedStudentId, classId, kelasPraktikumId)
         setStudentDetail(detail)
       } catch (err) {
-        console.error("Gagal memuat detail progress mahasiswa:", err)
+        toast.error(err instanceof Error ? err.message : "Gagal memuat detail progress mahasiswa.")
       } finally {
         setLoadingDetail(false)
       }
@@ -493,7 +494,7 @@ export default function LecturerJobsheetDetailPage() {
                           const progress = await getLecturerClassProgress(jobsheetId, classId, kelasPraktikumId)
                           setMonitoringData(progress)
                         } catch (e) {
-                          console.error(e)
+                          toast.error(e instanceof Error ? e.message : "Gagal memperbarui data monitoring.")
                         } finally {
                           setLoadingMonitoring(false)
                         }

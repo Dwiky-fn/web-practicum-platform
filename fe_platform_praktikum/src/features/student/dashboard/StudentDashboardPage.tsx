@@ -82,7 +82,6 @@ export default function StudentDashboardPage() {
 
         setSubmissions(submissionResponses.filter(Boolean) as JobsheetSubmission[])
       } catch (error) {
-        console.error(error);
         setError(error instanceof Error ? error.message : "Gagal memuat dashboard mahasiswa.");
       } finally {
         setLoading(false);

@@ -659,7 +659,6 @@ class UsersService {
     }
 
     try {
-      // TODO: Tambahkan OTP verifikasi email baru sebelum update email.
       await this._pool.query('UPDATE users SET email = $2 WHERE id = $1', [
         userId,
         newEmail,

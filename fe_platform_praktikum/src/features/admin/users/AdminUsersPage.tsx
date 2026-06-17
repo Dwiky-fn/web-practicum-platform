@@ -61,6 +61,12 @@ export default function AdminUsersPage() {
   const [keyword, setKeyword] = useState("")
   const [semester, setSemester] = useState("all")
   const [limit, setLimit] = useState(25)
+  const [page, setPage] = useState(1)
+
+  useEffect(() => {
+    setPage(1)
+  }, [keyword, semester, role])
+
   const [modal, setModal] = useState<ModalMode>(null)
   const [semesters, setSemesters] = useState<AcademicSemester[]>([])
   const [students, setStudents] = useState<AdminStudent[]>([])
@@ -75,6 +81,82 @@ export default function AdminUsersPage() {
   const [actionLoading, setActionLoading] = useState("")
   const [error, setError] = useState("")
   const isStudent = role === "students"
+
+  function renderPagination(currentPage: number, totalPages: number, onPageChange: (p: number) => void, totalItems: number) {
+    if (totalItems === 0) return null
+
+    return (
+      <div className="mt-6 flex flex-col items-center justify-center gap-4 border-t border-gray-100 pt-6">
+        {/* Page Number Navigation */}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              disabled={currentPage === 1}
+              onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent transition cursor-pointer text-sm font-semibold"
+            >
+              &lt;
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((p) => {
+                return p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2
+              })
+              .map((p, idx, arr) => {
+                const prevPage = arr[idx - 1]
+                const showEllipsis = prevPage && p - prevPage > 1
+                return (
+                  <div key={p} className="flex items-center gap-1.5">
+                    {showEllipsis && <span className="text-gray-400 px-1 font-semibold">...</span>}
+                    <button
+                      type="button"
+                      onClick={() => onPageChange(p)}
+                      className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold transition cursor-pointer ${
+                        currentPage === p
+                          ? "bg-blue-600 text-white shadow-sm shadow-blue-100"
+                          : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  </div>
+                )
+              })}
+            <button
+              type="button"
+              disabled={currentPage === totalPages}
+              onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent transition cursor-pointer text-sm font-semibold"
+            >
+              &gt;
+            </button>
+          </div>
+        )}
+
+        {/* Page Size Dropdown */}
+        <div className="flex items-center gap-2 text-xs text-gray-500 font-medium">
+          <span>Tampilkan</span>
+          <select
+            value={limit}
+            onChange={(e) => {
+              setLimit(Number(e.target.value))
+              onPageChange(1) // Reset to first page
+            }}
+            className="rounded-md border border-gray-200 bg-white px-2.5 py-1 text-gray-700 font-bold focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+          >
+            <option value={5}>5</option>
+            <option value={10}>10</option>
+            <option value={15}>15</option>
+            <option value={20}>20</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+          <span>data per halaman</span>
+        </div>
+      </div>
+    )
+  }
 
   // Department & Study Program states
   const [departments, setDepartments] = useState<Department[]>([])
@@ -644,15 +726,6 @@ export default function AdminUsersPage() {
         description={`Mengelola data ${isStudent ? "mahasiswa" : "dosen"} Program Studi Teknik Informatika`}
         actions={
           <>
-            <AdminSelect value={String(limit)} onChange={(val) => setLimit(Number(val))} label="Limit Tampilan" className="w-full md:w-36">
-              <option value="5">Tampilkan 5</option>
-              <option value="10">Tampilkan 10</option>
-              <option value="15">Tampilkan 15</option>
-              <option value="20">Tampilkan 20</option>
-              <option value="25">Tampilkan 25</option>
-              <option value="50">Tampilkan 50</option>
-              <option value="1000000">Tampilkan Semua</option>
-            </AdminSelect>
             {isStudent && (
               <AdminSelect value={semester} onChange={setSemester} label="Filter semester">
                 <option value="all">Semua Semester</option>
@@ -705,8 +778,9 @@ export default function AdminUsersPage() {
         <EmptyState title="Memuat data pengguna..." />
       ) : isStudent ? (
         students.length ? (
-          <AdminTable headers={selectedIds.length > 0 ? ["", "NIM", "Nama", "Semester", "Status", "Aksi"] : ["NIM", "Nama", "Semester", "Status", "Aksi"]}>
-            {students.slice(0, limit).map((student) => (
+          <>
+            <AdminTable headers={selectedIds.length > 0 ? ["", "NIM", "Nama", "Semester", "Status", "Aksi"] : ["NIM", "Nama", "Semester", "Status", "Aksi"]}>
+            {students.slice((page - 1) * limit, page * limit).map((student) => (
               <tr
                 key={student.id}
                 className={`${selectedIds.includes(student.id) ? "bg-blue-50/40" : ""} cursor-default select-none`}
@@ -785,6 +859,8 @@ export default function AdminUsersPage() {
               </tr>
             ))}
           </AdminTable>
+          {renderPagination(page, Math.ceil(students.length / limit), setPage, students.length)}
+          </>
         ) : (
           <EmptyState
             title="Belum ada data mahasiswa"
@@ -792,8 +868,9 @@ export default function AdminUsersPage() {
           />
         )
       ) : lecturers.length ? (
-        <AdminTable headers={selectedIds.length > 0 ? ["", "NIP", "Nama", "Email", "Status", "Aksi"] : ["NIP", "Nama", "Email", "Status", "Aksi"]}>
-          {lecturers.slice(0, limit).map((lecturer) => (
+        <>
+          <AdminTable headers={selectedIds.length > 0 ? ["", "NIP", "Nama", "Email", "Status", "Aksi"] : ["NIP", "Nama", "Email", "Status", "Aksi"]}>
+          {lecturers.slice((page - 1) * limit, page * limit).map((lecturer) => (
             <tr
               key={lecturer.id}
               className={`${selectedIds.includes(lecturer.id) ? "bg-blue-50/40" : ""} cursor-default select-none`}
@@ -872,6 +949,8 @@ export default function AdminUsersPage() {
             </tr>
           ))}
         </AdminTable>
+        {renderPagination(page, Math.ceil(lecturers.length / limit), setPage, lecturers.length)}
+        </>
       ) : (
         <EmptyState
           title="Belum ada data dosen"

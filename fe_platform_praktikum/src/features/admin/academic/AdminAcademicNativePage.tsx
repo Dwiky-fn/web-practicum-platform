@@ -255,6 +255,12 @@ export default function AdminAcademicNativePage() {
 
   const [keyword, setKeyword] = useState("")
   const [limit, setLimit] = useState(25)
+  const [page, setPage] = useState(1)
+
+  useEffect(() => {
+    setPage(1)
+  }, [keyword, activeTab])
+
   const [kelasMahasiswaSearch, setKelasMahasiswaSearch] = useState("")
   const [detailKelasMahasiswaSearch, setDetailKelasMahasiswaSearch] = useState("")
   const [kelasPraktikumSearch, setKelasPraktikumSearch] = useState("")
@@ -302,6 +308,82 @@ export default function AdminAcademicNativePage() {
     targetKelasId: string
   }>>([])
   const [submittingPromotion, setSubmittingPromotion] = useState(false)
+
+  function renderPagination(currentPage: number, totalPages: number, onPageChange: (p: number) => void, totalItems: number) {
+    if (totalItems === 0) return null
+
+    return (
+      <div className="mt-6 flex flex-col items-center justify-center gap-4 border-t border-gray-100 pt-6">
+        {/* Page Number Navigation */}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              disabled={currentPage === 1}
+              onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent transition cursor-pointer text-sm font-semibold"
+            >
+              &lt;
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((p) => {
+                return p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2
+              })
+              .map((p, idx, arr) => {
+                const prevPage = arr[idx - 1]
+                const showEllipsis = prevPage && p - prevPage > 1
+                return (
+                  <div key={p} className="flex items-center gap-1.5">
+                    {showEllipsis && <span className="text-gray-400 px-1 font-semibold">...</span>}
+                    <button
+                      type="button"
+                      onClick={() => onPageChange(p)}
+                      className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold transition cursor-pointer ${
+                        currentPage === p
+                          ? "bg-blue-600 text-white shadow-sm shadow-blue-100"
+                          : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  </div>
+                )
+              })}
+            <button
+              type="button"
+              disabled={currentPage === totalPages}
+              onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent transition cursor-pointer text-sm font-semibold"
+            >
+              &gt;
+            </button>
+          </div>
+        )}
+
+        {/* Page Size Dropdown */}
+        <div className="flex items-center gap-2 text-xs text-gray-500 font-medium">
+          <span>Tampilkan</span>
+          <select
+            value={limit}
+            onChange={(e) => {
+              setLimit(Number(e.target.value))
+              onPageChange(1) // Reset to first page
+            }}
+            className="rounded-md border border-gray-200 bg-white px-2.5 py-1 text-gray-700 font-bold focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+          >
+            <option value={5}>5</option>
+            <option value={10}>10</option>
+            <option value={15}>15</option>
+            <option value={20}>20</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+          <span>data per halaman</span>
+        </div>
+      </div>
+    )
+  }
 
   const activeTahunSemester = tahunSemester.find((item) => item.status === "active") ?? null
   const activeKurikulum = kurikulum.find((item) => item.status === "active") ?? null
@@ -956,7 +1038,7 @@ export default function AdminAcademicNativePage() {
 
   function renderKelasMahasiswa() {
     if (!groupedKelasMahasiswa.length) return <EmptyState title={emptyLabel("kelas-mahasiswa")} action={<AdminButton onClick={() => openModal("kelas-mahasiswa")}><Plus size={16} />Tambah Kelas Mahasiswa</AdminButton>} />
-    const displayedData = groupedKelasMahasiswa.slice(0, limit)
+    const displayedData = groupedKelasMahasiswa.slice((page - 1) * limit, page * limit)
     return (
       <AdminTable headers={["Nama Kelas", "Jumlah Mahasiswa", "Aksi"]}>
         {displayedData.map((group) => {
@@ -1049,7 +1131,7 @@ export default function AdminAcademicNativePage() {
     if (activeTab === "kelas-mahasiswa") return renderKelasMahasiswa()
     if (!filtered.length) return <EmptyState title={emptyLabel(activeTab)} action={<AdminButton onClick={() => openModal(activeTab)}><Plus size={16} />{activeTabMeta.addLabel}</AdminButton>} />
     
-    const displayedData = filtered.slice(0, limit)
+    const displayedData = filtered.slice((page - 1) * limit, page * limit)
 
     if (activeTab === "tahun") {
       return <AdminTable headers={["Tahun Semester", "Status Semester", "Aksi"]}>{(displayedData as TahunSemester[]).map((i) => <tr key={i.id}><td className="px-4 py-3 font-medium">{i.tahun_semester}</td><td className="px-4 py-3">{statusBadgeIndo(i.status)}</td>{actionCell("tahun", i, i.tahun_semester)}</tr>)}</AdminTable>
@@ -1665,15 +1747,6 @@ export default function AdminAcademicNativePage() {
                 ))}
               </AdminSelect>
             )}
-            <AdminSelect value={String(limit)} onChange={(val) => setLimit(Number(val))} label="Limit Tampilan" className="w-full md:w-36">
-              <option value="5">Tampilkan 5</option>
-              <option value="10">Tampilkan 10</option>
-              <option value="15">Tampilkan 15</option>
-              <option value="20">Tampilkan 20</option>
-              <option value="25">Tampilkan 25</option>
-              <option value="50">Tampilkan 50</option>
-              <option value="1000000">Tampilkan Semua</option>
-            </AdminSelect>
             <AdminSearchInput
               value={keyword}
               onChange={setKeyword}
@@ -1690,7 +1763,19 @@ export default function AdminAcademicNativePage() {
         {currentWarning && warningBox(currentWarning)}
 
         <AdminPanel>
-          <div className="p-4">{loading ? <p className="text-sm text-gray-500">Memuat data akademik...</p> : renderTable()}</div>
+          <div className="p-4">
+            {loading ? (
+              <p className="text-sm text-gray-500">Memuat data akademik...</p>
+            ) : (
+              <>
+                {renderTable()}
+                {(() => {
+                  const totalItems = activeTab === "kelas-mahasiswa" ? groupedKelasMahasiswa.length : filtered.length
+                  return renderPagination(page, Math.ceil(totalItems / limit), setPage, totalItems)
+                })()}
+              </>
+            )}
+          </div>
         </AdminPanel>
       </div>
 

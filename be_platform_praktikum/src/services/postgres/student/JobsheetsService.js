@@ -320,7 +320,7 @@ class JobsheetsService {
             canSubmit: false,
             attemptType: 'normal',
             attemptNo: sub.attempt_no,
-            attemptLabel: undefined,
+            attemptLabel: 'Pengerjaan Normal',
           };
         }
         return {
@@ -330,7 +330,7 @@ class JobsheetsService {
           canSubmit: false,
           attemptType: 'normal',
           attemptNo: sub.attempt_no,
-          attemptLabel: undefined,
+          attemptLabel: 'Pengerjaan Normal',
         };
       }
 
@@ -344,7 +344,7 @@ class JobsheetsService {
           message: 'Deadline pengerjaan telah berakhir.',
           attemptType: 'normal',
           attemptNo: sub.attempt_no,
-          attemptLabel: undefined,
+          attemptLabel: 'Pengerjaan Normal',
         };
       }
 
@@ -355,7 +355,7 @@ class JobsheetsService {
         canSubmit: true,
         attemptType: 'normal',
         attemptNo: sub.attempt_no,
-        attemptLabel: undefined,
+        attemptLabel: 'Pengerjaan Normal',
       };
     }
 
@@ -369,7 +369,7 @@ class JobsheetsService {
         message: 'Deadline pengerjaan telah berakhir.',
         attemptType: 'normal',
         attemptNo: 1,
-        attemptLabel: undefined,
+        attemptLabel: 'Pengerjaan Normal',
       };
     }
 
@@ -380,7 +380,7 @@ class JobsheetsService {
       canSubmit: true,
       attemptType: 'normal',
       attemptNo: 1,
-      attemptLabel: undefined,
+      attemptLabel: 'Pengerjaan Normal',
     };
   }
 

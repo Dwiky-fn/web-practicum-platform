@@ -100,6 +100,7 @@ class SubmissionsHandler {
         kelasPraktikumId: req.query.kelasPraktikumId || req.query.id_kelas_praktikum || req.body?.kelasPraktikumId || req.body?.id_kelas_praktikum,
         submissionId: req.query.submissionId,
         attemptNo: req.query.attemptNo ? Number(req.query.attemptNo) : undefined,
+        reqUser: req.user,
       },
     );
 
@@ -124,6 +125,7 @@ class SubmissionsHandler {
         kelasPraktikumId: req.query.kelasPraktikumId || req.query.id_kelas_praktikum || req.body?.kelasPraktikumId || req.body?.id_kelas_praktikum,
         submissionId: req.query.submissionId,
         attemptNo: req.query.attemptNo ? Number(req.query.attemptNo) : undefined,
+        reqUser: req.user,
       },
     );
 
@@ -220,6 +222,18 @@ class SubmissionsHandler {
     return res.json({
       status: 'success',
       data: { items },
+    });
+  }
+
+  async getStudentSubmissionReviewHandler(req, res) {
+    const { submissionId } = req.params;
+    const studentId = req.user.id;
+
+    const review = await this._service.getStudentSubmissionReview(submissionId, studentId);
+
+    return res.json({
+      status: 'success',
+      data: { review },
     });
   }
 }

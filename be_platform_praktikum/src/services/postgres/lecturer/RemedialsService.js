@@ -150,11 +150,9 @@ class RemedialsService {
         );
 
         const parentSubmissionId = parentSubRes.rows[0]?.id || null;
-        let reportHtml = parentSubRes.rows[0]?.report_html;
-
-        if (!reportHtml) {
-          reportHtml = JSON.stringify(this._generateInitialReport(jobsheet));
-        }
+        
+        // Start from empty template for remedial
+        const reportHtml = JSON.stringify(this._generateInitialReport(jobsheet));
 
         // Determine next attempt number
         const maxAttemptRes = await client.query(
@@ -166,7 +164,7 @@ class RemedialsService {
 
         const attemptNo = maxAttemptRes.rows[0].max_attempt + 1;
         const attemptType = 'remedial';
-        const attemptLabel = 'Remedial';
+        const attemptLabel = `Remedial ${attemptNo - 1}`;
 
         // Create remedial submission record
         const newSubmissionId = `sub-${randomUUID().slice(0, 12)}`;
@@ -177,17 +175,10 @@ class RemedialsService {
           [newSubmissionId, jobsheetId, studentId, kelasPraktikumId, idKelasMhs, reportHtml, attemptNo, attemptType, attemptLabel, remedialId, parentSubmissionId]
         );
 
-        // Copy/Create progress context
-        const parentProgressRes = await client.query(
-          `SELECT progress, last_page, completed_items FROM student_progress
-           WHERE student_id = $1 AND jobsheet_id = $2 AND id_kelas_praktikum = $3
-           ORDER BY attempt_no DESC LIMIT 1`,
-          [studentId, jobsheetId, kelasPraktikumId]
-        );
-
-        const progress = parentProgressRes.rows[0]?.progress || 0;
-        const lastPage = parentProgressRes.rows[0]?.last_page || null;
-        const completedItems = parentProgressRes.rows[0]?.completed_items || [];
+        // Reset progress context for remedial (start fresh)
+        const progress = 0;
+        const lastPage = null;
+        const completedItems = [];
 
         const newProgressId = `progress-${randomUUID().slice(0, 8)}`;
         await client.query(
@@ -197,20 +188,25 @@ class RemedialsService {
           [newProgressId, studentId, jobsheetId, kelasPraktikumId, idKelasMhs, progress, lastPage, JSON.stringify(completedItems), attemptNo, attemptType, remedialId]
         );
 
-        // Copy/Create student jobsheet progress snapshot
+        // Reset student jobsheet progress snapshot for remedial (start fresh)
         const parentJobsheetProgressRes = await client.query(
-          `SELECT module_id, current_experiment_id, current_instruction_id, completed_steps, total_steps, progress_percentage FROM student_jobsheet_progress
+          `SELECT module_id, total_steps FROM student_jobsheet_progress
            WHERE student_id = $1 AND jobsheet_id = $2 AND id_kelas_praktikum = $3
            ORDER BY attempt_no DESC LIMIT 1`,
           [studentId, jobsheetId, kelasPraktikumId]
         );
 
+        const theoryCount = Array.isArray(jobsheet.theory) ? jobsheet.theory.length : 0;
+        const expCount = Array.isArray(jobsheet.experiments) ? jobsheet.experiments.length : 0;
+        const exeCount = Array.isArray(jobsheet.exercises) ? jobsheet.exercises.length : 0;
+        const fallbackTotalSteps = theoryCount + expCount + exeCount + 1;
+
         const moduleId = (parentJobsheetProgressRes.rows[0]?.module_id || `jobsheet:${jobsheetId}`).slice(0, 20);
-        const currentExperimentId = parentJobsheetProgressRes.rows[0]?.current_experiment_id || null;
-        const currentInstructionId = parentJobsheetProgressRes.rows[0]?.current_instruction_id || null;
-        const completedSteps = parentJobsheetProgressRes.rows[0]?.completed_steps || 0;
-        const totalSteps = parentJobsheetProgressRes.rows[0]?.total_steps || 0;
-        const progressPercentage = parentJobsheetProgressRes.rows[0]?.progress_percentage || 0;
+        const currentExperimentId = null;
+        const currentInstructionId = null;
+        const completedSteps = 0;
+        const totalSteps = parentJobsheetProgressRes.rows[0]?.total_steps || fallbackTotalSteps;
+        const progressPercentage = 0;
 
         const newJobsheetProgressId = `prog-${randomUUID().slice(0, 8)}`;
         await client.query(
@@ -369,11 +365,9 @@ class RemedialsService {
         );
 
         const parentSubmissionId = parentSubRes.rows[0]?.id || null;
-        let reportHtml = parentSubRes.rows[0]?.report_html;
-
-        if (!reportHtml) {
-          reportHtml = JSON.stringify(this._generateInitialReport(jobsheet));
-        }
+        
+        // Start from empty template for remedial
+        const reportHtml = JSON.stringify(this._generateInitialReport(jobsheet));
 
         const maxAttemptRes = await client.query(
           `SELECT COALESCE(MAX(attempt_no), 0) AS max_attempt
@@ -384,7 +378,7 @@ class RemedialsService {
 
         const attemptNo = maxAttemptRes.rows[0].max_attempt + 1;
         const attemptType = 'remedial';
-        const attemptLabel = 'Remedial';
+        const attemptLabel = `Remedial ${attemptNo - 1}`;
 
         const newSubmissionId = `sub-${randomUUID().slice(0, 12)}`;
         await client.query(
@@ -394,16 +388,10 @@ class RemedialsService {
           [newSubmissionId, jobsheetId, studentId, kelasPraktikumId, idKelasMhs, reportHtml, attemptNo, attemptType, attemptLabel, remedialId, parentSubmissionId]
         );
 
-        // Copy progress
-        const parentProgressRes = await client.query(
-          `SELECT progress, last_page, completed_items FROM student_progress
-           WHERE student_id = $1 AND jobsheet_id = $2 AND id_kelas_praktikum = $3
-           ORDER BY attempt_no DESC LIMIT 1`,
-          [studentId, jobsheetId, kelasPraktikumId]
-        );
-        const progress = parentProgressRes.rows[0]?.progress || 0;
-        const lastPage = parentProgressRes.rows[0]?.last_page || null;
-        const completedItems = parentProgressRes.rows[0]?.completed_items || [];
+        // Reset progress context for remedial (start fresh)
+        const progress = 0;
+        const lastPage = null;
+        const completedItems = [];
 
         const newProgressId = `progress-${randomUUID().slice(0, 8)}`;
         await client.query(
@@ -413,19 +401,25 @@ class RemedialsService {
           [newProgressId, studentId, jobsheetId, kelasPraktikumId, idKelasMhs, progress, lastPage, JSON.stringify(completedItems), attemptNo, attemptType, remedialId]
         );
 
-        // Copy jobsheet progress snapshot
+        // Reset student jobsheet progress snapshot for remedial (start fresh)
         const parentJobsheetProgressRes = await client.query(
-          `SELECT module_id, current_experiment_id, current_instruction_id, completed_steps, total_steps, progress_percentage FROM student_jobsheet_progress
+          `SELECT module_id, total_steps FROM student_jobsheet_progress
            WHERE student_id = $1 AND jobsheet_id = $2 AND id_kelas_praktikum = $3
            ORDER BY attempt_no DESC LIMIT 1`,
           [studentId, jobsheetId, kelasPraktikumId]
         );
+
+        const theoryCount = Array.isArray(jobsheet.theory) ? jobsheet.theory.length : 0;
+        const expCount = Array.isArray(jobsheet.experiments) ? jobsheet.experiments.length : 0;
+        const exeCount = Array.isArray(jobsheet.exercises) ? jobsheet.exercises.length : 0;
+        const fallbackTotalSteps = theoryCount + expCount + exeCount + 1;
+
         const moduleId = (parentJobsheetProgressRes.rows[0]?.module_id || `jobsheet:${jobsheetId}`).slice(0, 20);
-        const currentExperimentId = parentJobsheetProgressRes.rows[0]?.current_experiment_id || null;
-        const currentInstructionId = parentJobsheetProgressRes.rows[0]?.current_instruction_id || null;
-        const completedSteps = parentJobsheetProgressRes.rows[0]?.completed_steps || 0;
-        const totalSteps = parentJobsheetProgressRes.rows[0]?.total_steps || 0;
-        const progressPercentage = parentJobsheetProgressRes.rows[0]?.progress_percentage || 0;
+        const currentExperimentId = null;
+        const currentInstructionId = null;
+        const completedSteps = 0;
+        const totalSteps = parentJobsheetProgressRes.rows[0]?.total_steps || fallbackTotalSteps;
+        const progressPercentage = 0;
 
         const newJobsheetProgressId = `prog-${randomUUID().slice(0, 8)}`;
         await client.query(

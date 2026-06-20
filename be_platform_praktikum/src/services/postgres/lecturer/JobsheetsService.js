@@ -95,8 +95,8 @@ class LecturerJobsheetsService {
       throw new Error('Semua bobot harus berada pada rentang 0 sampai 100 dan maksimal 2 angka desimal.');
     }
 
-    const totalWeight = items.reduce((total, item) => total + item.weight, 0);
-    if (Math.abs(totalWeight - 100) > 0.01) {
+    const totalHundredths = items.reduce((total, item) => total + Math.round(item.weight * 100), 0);
+    if (totalHundredths !== 10000) {
       throw new Error('Total bobot seluruh Dasar Teori, Percobaan, dan Latihan harus tepat 100%.');
     }
   }

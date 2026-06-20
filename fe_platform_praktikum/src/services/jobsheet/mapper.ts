@@ -103,7 +103,7 @@ export const mapJobsheet = (data: RawJobsheet): Jobsheet => {
       title: t.title,
       order: t.order ?? index + 1,
       content: t.content || emptyDoc,
-      rubric: t.rubric ?? 0,
+      rubric: t.rubric != null ? Number(t.rubric) : undefined,
     })),
   }
 }

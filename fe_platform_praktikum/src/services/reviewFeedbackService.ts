@@ -34,36 +34,21 @@ export interface ReviewFeedback {
   publishedAt?: string | null;
 }
 
-// LocalStorage Mock Helpers
-const STORAGE_KEY = "praktikum_review_feedbacks";
-
-export const getStoredFeedbacks = (): ReviewFeedback[] => {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch (e) {
-    console.error("Failed to parse stored feedbacks", e);
-    return [];
-  }
-};
-
-export const saveStoredFeedbacks = (feedbacks: ReviewFeedback[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(feedbacks));
-};
-
 export const getFeedbacks = async (submissionId: string): Promise<ReviewFeedback[]> => {
-  // Try network first, fall back to mock
-  try {
+  const isStudent = window.location.pathname.includes("/student/");
+  if (isStudent) {
+    const res = await apiFetch(`/student/submissions/${submissionId}/review`);
+    if (res.data?.review?.feedback_details) {
+      return res.data.review.feedback_details;
+    }
+    return [];
+  } else {
     const res = await apiFetch(`/submissions/${submissionId}/feedbacks`);
     if (res.data?.feedbacks) {
       return res.data.feedbacks;
     }
-  } catch (e) {
-    // Ignore network error for mock
+    return [];
   }
-
-  const all = getStoredFeedbacks();
-  return all.filter((f) => f.submissionId === submissionId);
 };
 
 export const createFeedback = async (payload: Omit<ReviewFeedback, "id" | "createdAt" | "updatedAt">): Promise<ReviewFeedback> => {
@@ -75,91 +60,63 @@ export const createFeedback = async (payload: Omit<ReviewFeedback, "id" | "creat
     publishedAt: payload.status === "published" ? new Date().toISOString() : null,
   };
 
-  try {
-    const res = await apiFetch(`/submissions/${payload.submissionId}/feedbacks`, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    if (res.data?.feedback) {
-      return res.data.feedback;
-    }
-  } catch (e) {
-    // Mock save
-  }
+  const current = await getFeedbacks(payload.submissionId);
+  current.push(newFeedback);
 
-  const all = getStoredFeedbacks();
-  all.push(newFeedback);
-  saveStoredFeedbacks(all);
+  await apiFetch(`/submissions/${payload.submissionId}/feedbacks`, {
+    method: "PUT",
+    body: JSON.stringify({ feedbacks: current }),
+  });
+
   return newFeedback;
 };
 
 export const updateFeedback = async (
+  submissionId: string,
   feedbackId: string,
   payload: Partial<Omit<ReviewFeedback, "id" | "createdAt" | "updatedAt">>,
 ): Promise<ReviewFeedback> => {
-  try {
-    const res = await apiFetch(`/feedbacks/${feedbackId}`, {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    });
-    if (res.data?.feedback) {
-      return res.data.feedback;
-    }
-  } catch (e) {
-    // Mock update
-  }
-
-  const all = getStoredFeedbacks();
-  const index = all.findIndex((f) => f.id === feedbackId);
+  const current = await getFeedbacks(submissionId);
+  const index = current.findIndex((f) => f.id === feedbackId);
   if (index === -1) throw new Error("Feedback not found");
 
   const updated: ReviewFeedback = {
-    ...all[index],
+    ...current[index],
     ...payload,
     updatedAt: new Date().toISOString(),
     publishedAt:
-      payload.status === "published" && !all[index].publishedAt
+      payload.status === "published" && !current[index].publishedAt
         ? new Date().toISOString()
-        : all[index].publishedAt,
+        : current[index].publishedAt,
   };
 
-  all[index] = updated;
-  saveStoredFeedbacks(all);
+  current[index] = updated;
+
+  await apiFetch(`/submissions/${submissionId}/feedbacks`, {
+    method: "PUT",
+    body: JSON.stringify({ feedbacks: current }),
+  });
+
   return updated;
 };
 
-export const deleteFeedback = async (feedbackId: string): Promise<void> => {
-  try {
-    await apiFetch(`/feedbacks/${feedbackId}`, {
-      method: "DELETE",
-    });
-    return;
-  } catch (e) {
-    // Mock delete
-  }
+export const deleteFeedback = async (submissionId: string, feedbackId: string): Promise<void> => {
+  const current = await getFeedbacks(submissionId);
+  const filtered = current.filter((f) => f.id !== feedbackId);
 
-  const all = getStoredFeedbacks();
-  const filtered = all.filter((f) => f.id !== feedbackId);
-  saveStoredFeedbacks(filtered);
+  await apiFetch(`/submissions/${submissionId}/feedbacks`, {
+    method: "PUT",
+    body: JSON.stringify({ feedbacks: filtered }),
+  });
 };
 
-export const publishFeedback = async (feedbackId: string): Promise<ReviewFeedback> => {
-  return updateFeedback(feedbackId, { status: "published" });
+export const publishFeedback = async (submissionId: string, feedbackId: string): Promise<ReviewFeedback> => {
+  return updateFeedback(submissionId, feedbackId, { status: "published" });
 };
 
-export const publishMultipleFeedbacks = async (feedbackIds: string[]): Promise<void> => {
-  try {
-    await apiFetch(`/feedbacks/bulk-publish`, {
-      method: "POST",
-      body: JSON.stringify({ feedbackIds }),
-    });
-    return;
-  } catch (e) {
-    // Mock bulk publish
-  }
-
-  const all = getStoredFeedbacks();
-  const updated = all.map((f) => {
+export const publishMultipleFeedbacks = async (submissionId: string, feedbackIds: string[]): Promise<void> => {
+  const current = await getFeedbacks(submissionId);
+  const updated = current.map((f) => {
     if (feedbackIds.includes(f.id) && f.status === "draft") {
       return {
         ...f,
@@ -170,11 +127,15 @@ export const publishMultipleFeedbacks = async (feedbackIds: string[]): Promise<v
     }
     return f;
   });
-  saveStoredFeedbacks(updated);
+
+  await apiFetch(`/submissions/${submissionId}/feedbacks`, {
+    method: "PUT",
+    body: JSON.stringify({ feedbacks: updated }),
+  });
 };
 
-export const resolveFeedback = async (feedbackId: string): Promise<ReviewFeedback> => {
-  return updateFeedback(feedbackId, { status: "resolved" });
+export const resolveFeedback = async (submissionId: string, feedbackId: string): Promise<ReviewFeedback> => {
+  return updateFeedback(submissionId, feedbackId, { status: "resolved" });
 };
 
 // Mock AI evaluation response generator
@@ -302,9 +263,13 @@ export const generateAiEvaluation = async (
   progress["jobsheet"] = "success";
   onProgress?.({ ...progress });
 
-  // Store in LocalStorage
-  const all = getStoredFeedbacks();
-  saveStoredFeedbacks([...all, ...aiFeedbacks]);
+  // Store in database
+  const current = await getFeedbacks(submissionId);
+  const updatedFeedbacks = [...current, ...aiFeedbacks];
+  await apiFetch(`/submissions/${submissionId}/feedbacks`, {
+    method: "PUT",
+    body: JSON.stringify({ feedbacks: updatedFeedbacks }),
+  });
 
   return aiFeedbacks;
 };
@@ -350,8 +315,12 @@ export const retryAiEvaluation = async (
     }];
   }
 
-  const all = getStoredFeedbacks();
-  saveStoredFeedbacks([...all, ...generated]);
+  const current = await getFeedbacks(submissionId);
+  const updatedFeedbacks = [...current, ...generated];
+  await apiFetch(`/submissions/${submissionId}/feedbacks`, {
+    method: "PUT",
+    body: JSON.stringify({ feedbacks: updatedFeedbacks }),
+  });
 
   return generated;
 };

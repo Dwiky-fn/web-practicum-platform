@@ -19,6 +19,7 @@ import {
   retryAiReview,
   deleteAiFeedback,
 } from "../service"
+import { apiFetch } from "../../../services/api"
 import {
   getFeedbacks,
   createFeedback,
@@ -26,8 +27,6 @@ import {
   deleteFeedback,
   publishFeedback,
   publishMultipleFeedbacks,
-  getStoredFeedbacks,
-  saveStoredFeedbacks,
 } from "../../../services/reviewFeedbackService"
 import type { ReviewFeedback } from "../../../services/reviewFeedbackService"
 import type { SelectedLineRange } from "../components/review/CodeReviewBlock"
@@ -59,15 +58,13 @@ function scoreItemTypeLabel(type: "theory" | "experiment" | "exercise") {
   return "Latihan"
 }
 
-function removeAiDerivedFeedbacks(submissionId: string) {
-  const all = getStoredFeedbacks()
-  saveStoredFeedbacks(
-    all.filter(
-      (item) =>
-        item.submissionId !== submissionId ||
-        !isAiDerivedFeedback(item),
-    ),
-  )
+async function removeAiDerivedFeedbacks(submissionId: string) {
+  const current = await getFeedbacks(submissionId)
+  const filtered = current.filter((item) => !isAiDerivedFeedback(item))
+  await apiFetch(`/submissions/${submissionId}/feedbacks`, {
+    method: "PUT",
+    body: JSON.stringify({ feedbacks: filtered }),
+  })
 }
 
 function parseAiFeedbackToFeedbacks(submissionId: string, aiFeedback: any): ReviewFeedback[] {
@@ -207,22 +204,24 @@ export default function LecturerReviewPage() {
           const hasAiFeedback = hasAiFeedbackPayload(selectedSubmission.review?.aiFeedback)
 
           if (!hasAiFeedback) {
-            removeAiDerivedFeedbacks(selectedSubmission.id)
+            await removeAiDerivedFeedbacks(selectedSubmission.id)
             reviewFeedbacks = reviewFeedbacks.filter((item) => !isAiDerivedFeedback(item))
           }
           
           if (reviewFeedbacks.length === 0 && selectedSubmission.review?.aiFeedback?.feedbacks) {
-            reviewFeedbacks = selectedSubmission.review.aiFeedback.feedbacks;
-            const all = getStoredFeedbacks();
-            const filteredAll = all.filter((f) => f.submissionId !== selectedSubmission.id);
-            saveStoredFeedbacks([...filteredAll, ...reviewFeedbacks]);
+            reviewFeedbacks = selectedSubmission.review.aiFeedback.feedbacks
+            await apiFetch(`/submissions/${selectedSubmission.id}/feedbacks`, {
+              method: "PUT",
+              body: JSON.stringify({ feedbacks: reviewFeedbacks }),
+            })
           } else if (reviewFeedbacks.length === 0 && selectedSubmission.review?.aiFeedback) {
-            const initialFeedbacks = parseAiFeedbackToFeedbacks(selectedSubmission.id, selectedSubmission.review.aiFeedback);
+            const initialFeedbacks = parseAiFeedbackToFeedbacks(selectedSubmission.id, selectedSubmission.review.aiFeedback)
             if (initialFeedbacks.length > 0) {
-              reviewFeedbacks = initialFeedbacks;
-              const all = getStoredFeedbacks();
-              const filteredAll = all.filter((f) => f.submissionId !== selectedSubmission.id);
-              saveStoredFeedbacks([...filteredAll, ...reviewFeedbacks]);
+              reviewFeedbacks = initialFeedbacks
+              await apiFetch(`/submissions/${selectedSubmission.id}/feedbacks`, {
+                method: "PUT",
+                body: JSON.stringify({ feedbacks: reviewFeedbacks }),
+              })
             }
           }
           setFeedbacks(reviewFeedbacks)
@@ -324,30 +323,29 @@ export default function LecturerReviewPage() {
               refreshedSubmission.aiEvaluationStatus === "completed" ||
               refreshedSubmission.aiEvaluationStatus === "partially_failed"
             ) {
-              // Clear local feedbacks for this submission so we load the new AI ones
-              const all = getStoredFeedbacks()
-              const filtered = all.filter((f) => f.submissionId !== refreshedSubmission.id)
-              saveStoredFeedbacks(filtered)
-
-              // Load the feedbacks
-              let reviewFeedbacks = await getFeedbacks(refreshedSubmission.id)
+              // Parse the new AI feedbacks from the refreshed submission
+              let newFbs: ReviewFeedback[] = []
               const hasAiFeedback = hasAiFeedbackPayload(refreshedSubmission.review?.aiFeedback)
-
-              if (!hasAiFeedback) {
-                removeAiDerivedFeedbacks(refreshedSubmission.id)
-                reviewFeedbacks = reviewFeedbacks.filter((item) => !isAiDerivedFeedback(item))
-              }
-
-              if (reviewFeedbacks.length === 0 && refreshedSubmission.review?.aiFeedback?.feedbacks) {
-                reviewFeedbacks = refreshedSubmission.review.aiFeedback.feedbacks
-                saveStoredFeedbacks([...filtered, ...reviewFeedbacks])
-              } else if (reviewFeedbacks.length === 0 && refreshedSubmission.review?.aiFeedback) {
-                const initialFeedbacks = parseAiFeedbackToFeedbacks(refreshedSubmission.id, refreshedSubmission.review.aiFeedback)
-                if (initialFeedbacks.length > 0) {
-                  reviewFeedbacks = initialFeedbacks
-                  saveStoredFeedbacks([...filtered, ...reviewFeedbacks])
+              if (hasAiFeedback && refreshedSubmission.review) {
+                if (Array.isArray(refreshedSubmission.review.aiFeedback?.feedbacks)) {
+                  newFbs = refreshedSubmission.review.aiFeedback.feedbacks
+                } else {
+                  newFbs = parseAiFeedbackToFeedbacks(refreshedSubmission.id, refreshedSubmission.review.aiFeedback)
                 }
               }
+
+              // Overwrite database feedbacks list with the new AI feedbacks
+              if (newFbs.length > 0) {
+                await apiFetch(`/submissions/${refreshedSubmission.id}/feedbacks`, {
+                  method: "PUT",
+                  body: JSON.stringify({ feedbacks: newFbs }),
+                })
+              } else {
+                await removeAiDerivedFeedbacks(refreshedSubmission.id)
+              }
+
+              // Load the feedbacks from database
+              const reviewFeedbacks = await getFeedbacks(refreshedSubmission.id)
               setFeedbacks(reviewFeedbacks)
             }
           }
@@ -438,13 +436,15 @@ export default function LecturerReviewPage() {
   }
 
   const handleUpdateFeedback = async (id: string, payload: any) => {
-    const updated = await updateFeedback(id, payload)
+    if (!submission) return
+    const updated = await updateFeedback(submission.id, id, payload)
     setFeedbacks((prev) => prev.map((f) => (f.id === id ? updated : f)))
     return updated
   }
 
   const handleDeleteFeedback = async (id: string) => {
-    await deleteFeedback(id)
+    if (!submission) return
+    await deleteFeedback(submission.id, id)
     setFeedbacks((prev) => prev.filter((f) => f.id !== id))
     if (activeFeedbackId === id) {
       setActiveFeedbackId(null)
@@ -452,13 +452,15 @@ export default function LecturerReviewPage() {
   }
 
   const handlePublishFeedback = async (id: string) => {
-    const published = await publishFeedback(id)
+    if (!submission) return
+    const published = await publishFeedback(submission.id, id)
     setFeedbacks((prev) => prev.map((f) => (f.id === id ? published : f)))
     return published
   }
 
   const handlePublishMultipleFeedbacks = async (ids: string[]) => {
-    await publishMultipleFeedbacks(ids)
+    if (!submission) return
+    await publishMultipleFeedbacks(submission.id, ids)
     setFeedbacks((prev) =>
       prev.map((f) =>
         ids.includes(f.id)
@@ -672,7 +674,9 @@ export default function LecturerReviewPage() {
                 </div>
 
                 {!scoreBreakdownItems.length ? (
-                  <p className="text-sm text-gray-500">Rincian nilai progress belum tersedia.</p>
+                  <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3 text-center font-medium">
+                    Nilai Progress belum tersedia untuk pengerjaan lama.
+                  </p>
                 ) : (
                   <div className="space-y-2">
                     {scoreBreakdownItems.map((item) => (

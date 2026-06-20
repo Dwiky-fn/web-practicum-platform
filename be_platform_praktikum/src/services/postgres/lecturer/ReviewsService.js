@@ -56,6 +56,8 @@ class LecturerReviewsService {
         ? Math.min(100, Math.max(0, Number(payload.finalScore)))
         : null;
 
+      const feedbacks = aiFeedback.feedbacks || [];
+
       if (existing.rows.length) {
         await client.query(
           `
@@ -66,7 +68,8 @@ class LecturerReviewsService {
             final_score = $4,
             ai_feedback = $5,
             feedback = $6,
-            decision = $7
+            decision = $7,
+            feedback_details = $8
           WHERE id = $1
           `,
           [
@@ -77,6 +80,7 @@ class LecturerReviewsService {
             JSON.stringify(aiFeedback),
             payload.feedback || null,
             payload.decision || 'PENDING',
+            JSON.stringify(feedbacks),
           ],
         );
       } else {
@@ -84,9 +88,9 @@ class LecturerReviewsService {
           `
           INSERT INTO submission_reviews (
             id, submission_id, lecturer_id, ai_score, final_score,
-            ai_feedback, feedback, decision
+            ai_feedback, feedback, decision, feedback_details
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
           `,
           [
             reviewId,
@@ -97,6 +101,7 @@ class LecturerReviewsService {
             JSON.stringify(aiFeedback),
             payload.feedback || null,
             payload.decision || 'PENDING',
+            JSON.stringify(feedbacks),
           ],
         );
       }
@@ -154,6 +159,77 @@ class LecturerReviewsService {
     return {
       affectedReviews: result.rowCount,
     };
+  }
+  async getFeedbacks(submissionId, lecturerId) {
+    await this.ensureSubmissionAccess(submissionId, lecturerId);
+    const result = await this._pool.query(
+      `
+      SELECT feedback_details
+      FROM submission_reviews
+      WHERE submission_id = $1
+      ORDER BY id DESC
+      LIMIT 1
+      `,
+      [submissionId],
+    );
+    if (!result.rows.length) {
+      return [];
+    }
+    const details = result.rows[0].feedback_details;
+    return typeof details === 'string' ? JSON.parse(details) : (details || []);
+  }
+
+  async saveFeedbacks(submissionId, feedbacks, lecturerId) {
+    const client = await this._pool.connect();
+    try {
+      await client.query('BEGIN');
+      await this.ensureSubmissionAccess(submissionId, lecturerId, client);
+      const existing = await client.query(
+        `
+        SELECT id, ai_feedback
+        FROM submission_reviews
+        WHERE submission_id = $1
+        ORDER BY id DESC
+        LIMIT 1
+        `,
+        [submissionId],
+      );
+      if (existing.rows.length) {
+        const reviewId = existing.rows[0].id;
+        const aiFeedback = existing.rows[0].ai_feedback || {};
+        const newAiFeedback = {
+          ...aiFeedback,
+          feedbacks: feedbacks,
+        };
+        await client.query(
+          `
+          UPDATE submission_reviews
+          SET feedback_details = $2, ai_feedback = $3
+          WHERE id = $1
+          `,
+          [reviewId, JSON.stringify(feedbacks), JSON.stringify(newAiFeedback)],
+        );
+      } else {
+        const reviewId = createId('rev');
+        const aiFeedback = { feedbacks: feedbacks };
+        await client.query(
+          `
+          INSERT INTO submission_reviews (
+            id, submission_id, lecturer_id, decision, feedback_details, ai_feedback
+          )
+          VALUES ($1, $2, $3, 'PENDING', $4, $5)
+          `,
+          [reviewId, submissionId, lecturerId, JSON.stringify(feedbacks), JSON.stringify(aiFeedback)],
+        );
+      }
+      await client.query('COMMIT');
+      return feedbacks;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 

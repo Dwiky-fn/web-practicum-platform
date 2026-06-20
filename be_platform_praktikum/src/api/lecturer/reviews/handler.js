@@ -63,6 +63,26 @@ class LecturerReviewsHandler {
       return handleAdminError(error, res);
     }
   }
+  async getFeedbacksHandler(req, res) {
+    try {
+      const { submissionId } = req.params;
+      const feedbacks = await this._service.getFeedbacks(submissionId, req.user.id);
+      return ok(res, { feedbacks });
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
+
+  async putFeedbacksHandler(req, res) {
+    try {
+      const { submissionId } = req.params;
+      const { feedbacks } = req.body;
+      const result = await this._service.saveFeedbacks(submissionId, feedbacks, req.user.id);
+      return ok(res, { feedbacks: result }, 'Feedback submission berhasil disimpan');
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
 }
 
 module.exports = LecturerReviewsHandler;

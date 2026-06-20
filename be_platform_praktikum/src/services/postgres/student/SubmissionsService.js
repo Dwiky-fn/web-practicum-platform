@@ -3,6 +3,7 @@ const { randomUUID } = require('crypto');
 const AiEvaluationQueue = require('../../execution/AiEvaluationQueue');
 const DeadlineAccessService = require('./DeadlineAccessService');
 const JobsheetProgressScoringService = require('../../scoring/JobsheetProgressScoringService');
+const { AuthorizationError } = require('../../../exceptions');
 
 function extractSteps(content) {
   if (!content || !content.content) return [];
@@ -343,6 +344,8 @@ class SubmissionsService {
   }
 
   async getSubmissionByJobsheetId(jobsheetId, studentId, options = {}) {
+    const reqUser = options.reqUser;
+
     if (options.submissionId) {
       const result = await this._pool.query(
         `
@@ -353,7 +356,66 @@ class SubmissionsService {
         [options.submissionId]
       );
       const submission = this._mapSubmissionRow(result.rows[0]) || null;
+      if (submission && reqUser) {
+        if (reqUser.role === 'DOSEN') {
+          if (submission.id_kelas_praktikum !== null) {
+            const pengampuRes = await this._pool.query(
+              'SELECT 1 FROM pengampu WHERE id_kelas_praktikum = $1 AND id_dosen = $2 LIMIT 1',
+              [submission.id_kelas_praktikum, reqUser.id]
+            );
+            if (!pengampuRes.rows.length) {
+              throw new AuthorizationError('Anda tidak memiliki akses ke kelas praktikum submission ini.');
+            }
+          }
+        } else if (reqUser.role === 'MAHASISWA') {
+          if (submission.student_id !== reqUser.id) {
+            throw new AuthorizationError('Anda tidak memiliki akses ke data submission mahasiswa lain.');
+          }
+          if (jobsheetId && submission.jobsheet_id !== jobsheetId) {
+            throw new AuthorizationError('Anda tidak memiliki akses ke submission ini.');
+          }
+          if (submission.id_kelas_praktikum !== null) {
+            const contextResult = await this._pool.query(
+              `SELECT 1
+               FROM jobsheet_classes jc
+               JOIN kelas_praktikum kp ON kp.id = jc.id_kelas_praktikum
+               JOIN kelas_semester ks ON ks.id_tahun_semester = kp.id_tahun_semester
+                 AND ks.id_semester = kp.id_semester
+                 AND ks.id_kelas = kp.id_kelas
+               JOIN kelas_mhs km ON km.id_kelas_semester = ks.id
+                 AND km.id_mahasiswa = $1
+                 AND km.status = 'active'
+               WHERE jc.jobsheet_id = $2
+                 AND jc.is_active = true
+                 AND kp.id = $3
+                 AND km.id = $4
+               LIMIT 1`,
+              [reqUser.id, submission.jobsheet_id, submission.id_kelas_praktikum, submission.id_kelas_mhs]
+            );
+            if (!contextResult.rows.length) {
+              throw new AuthorizationError('Akses ditolak: konteks akademik tidak valid.');
+            }
+          }
+        }
+      }
       return await this._enrichSubmission(submission);
+    }
+
+    if (reqUser && reqUser.role === 'DOSEN') {
+      const kpId = this._resolveKelasPraktikumParam(options);
+      if (kpId !== null) {
+        const pengampuRes = await this._pool.query(
+          'SELECT 1 FROM pengampu WHERE id_kelas_praktikum = $1 AND id_dosen = $2 LIMIT 1',
+          [kpId, reqUser.id]
+        );
+        if (!pengampuRes.rows.length) {
+          throw new AuthorizationError('Anda tidak memiliki akses ke kelas praktikum ini.');
+        }
+      }
+    } else if (reqUser && reqUser.role === 'MAHASISWA') {
+      if (studentId !== reqUser.id) {
+        throw new AuthorizationError('Anda tidak memiliki akses ke data submission mahasiswa lain.');
+      }
     }
 
     const requestedKelasPraktikumId = this._resolveKelasPraktikumParam(options);
@@ -908,7 +970,7 @@ class SubmissionsService {
         ts.id AS "submissionId",
         ts.attempt_no AS "attemptNo",
         ts.attempt_type AS "attemptType",
-        CASE WHEN ts.attempt_type = 'remedial' THEN 'Remedial' ELSE NULL END AS "attemptLabel",
+        COALESCE(ts.attempt_label, CASE WHEN ts.attempt_type = 'remedial' THEN 'Remedial ' || (ts.attempt_no - 1) ELSE 'Pengerjaan Normal' END) AS "attemptLabel",
         ts.status,
         ts.calculated_progress_score AS "calculatedProgressScore",
         ts.score_breakdown AS "scoreBreakdown",
@@ -930,6 +992,76 @@ class SubmissionsService {
     );
 
     return result.rows;
+  }
+
+  async getStudentSubmissionReview(submissionId, studentId) {
+    // 1. Fetch submission details
+    const subResult = await this._pool.query(
+      `SELECT id, student_id, jobsheet_id, id_kelas_praktikum, id_kelas_mhs FROM task_submissions WHERE id = $1`,
+      [submissionId]
+    );
+    if (!subResult.rows.length) {
+      throw new AuthorizationError('Submission tidak ditemukan');
+    }
+    const submission = subResult.rows[0];
+
+    // 2. Validate ownership
+    if (submission.student_id !== studentId) {
+      throw new AuthorizationError('Anda tidak memiliki akses ke submission ini.');
+    }
+
+    // 3. Validate academic context if not null-context
+    if (submission.id_kelas_praktikum !== null) {
+      const contextResult = await this._pool.query(
+        `SELECT 1
+         FROM jobsheet_classes jc
+         JOIN kelas_praktikum kp ON kp.id = jc.id_kelas_praktikum
+         JOIN kelas_semester ks ON ks.id_tahun_semester = kp.id_tahun_semester
+           AND ks.id_semester = kp.id_semester
+           AND ks.id_kelas = kp.id_kelas
+         JOIN kelas_mhs km ON km.id_kelas_semester = ks.id
+           AND km.id_mahasiswa = $1
+           AND km.status = 'active'
+         WHERE jc.jobsheet_id = $2
+           AND jc.is_active = true
+           AND kp.id = $3
+           AND km.id = $4
+         LIMIT 1`,
+        [studentId, submission.jobsheet_id, submission.id_kelas_praktikum, submission.id_kelas_mhs]
+      );
+      if (!contextResult.rows.length) {
+        throw new AuthorizationError('Akses ditolak: konteks akademik tidak valid.');
+      }
+    }
+
+    // 4. Fetch the review
+    const reviewResult = await this._pool.query(
+      `SELECT id, final_score, feedback, decision, feedback_details
+       FROM submission_reviews
+       WHERE submission_id = $1
+       ORDER BY id DESC
+       LIMIT 1`,
+      [submissionId]
+    );
+
+    if (!reviewResult.rows.length) {
+      return null;
+    }
+
+    const review = reviewResult.rows[0];
+    if (review.decision === 'PENDING') {
+      return null; // Return null if review is not published yet
+    }
+
+    return {
+      id: review.id,
+      final_score: review.final_score,
+      feedback: review.feedback,
+      decision: review.decision,
+      feedback_details: typeof review.feedback_details === 'string' 
+        ? JSON.parse(review.feedback_details) 
+        : (review.feedback_details || []),
+    };
   }
 }
 

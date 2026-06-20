@@ -77,6 +77,12 @@ const routes = (handler) => {
     asyncHandler(handler.getSubmissionHistoryHandler),
   );
 
+  router.get(
+    '/student/submissions/:submissionId/review',
+    requireRoles('MAHASISWA'),
+    asyncHandler(handler.getStudentSubmissionReviewHandler),
+  );
+
   return router;
 };
 

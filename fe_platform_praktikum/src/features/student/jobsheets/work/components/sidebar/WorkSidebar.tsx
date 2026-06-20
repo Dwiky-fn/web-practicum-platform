@@ -143,7 +143,16 @@ export default function WorkSidebar({
           />
 
           <div className="flex-1 overflow-y-auto p-4 space-y-6">
-            {scoreBreakdown && (
+            {isFinishedSubmission && !scoreBreakdown ? (
+              <section className="rounded-lg border border-amber-200 bg-amber-50/60 p-4 text-center">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                  Nilai Progress
+                </p>
+                <p className="mt-2 text-xs font-medium text-amber-800 leading-relaxed">
+                  Nilai Progress belum tersedia untuk pengerjaan lama.
+                </p>
+              </section>
+            ) : scoreBreakdown ? (
               <section className="rounded-lg border border-blue-100 bg-blue-50/60 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -184,7 +193,7 @@ export default function WorkSidebar({
                   ))}
                 </div>
               </section>
-            )}
+            ) : null}
 
             {groups.map(group => (
               <SidebarGroup

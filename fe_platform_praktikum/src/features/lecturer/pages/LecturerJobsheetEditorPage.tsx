@@ -61,8 +61,14 @@ function normalizeRubric(value: unknown) {
   return Math.min(100, Math.max(0, Number(number.toFixed(2))))
 }
 
+function toHundredths(value: unknown): number {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return 0
+  return Math.round(num * 100)
+}
+
 function isRubricTotalValid(total: number) {
-  return Math.abs(total - 100) <= 0.01
+  return Math.round(total * 100) === 10000
 }
 
 const totalRubricMessage = "Total bobot seluruh Dasar Teori, Percobaan, dan Latihan harus tepat 100%."
@@ -178,7 +184,7 @@ export default function LecturerJobsheetEditorPage() {
               id: item.id,
               title: item.title,
               content: item.content,
-              rubric: item.rubric ?? 0,
+              rubric: item.rubric,
             })),
           )
           setExperiments(
@@ -247,12 +253,15 @@ export default function LecturerJobsheetEditorPage() {
   }, [effectiveCourseId, savedJobsheetId, user])
 
   const totalRubric = useMemo(() => {
-    const theoryTotal = theoryItems.reduce((acc, item) => acc + normalizeRubric(item.rubric), 0)
-    const expTotal = experiments.reduce((acc, item) => acc + normalizeRubric(item.rubric), 0)
-    const exeTotal = exercises.reduce((acc, item) => acc + normalizeRubric(item.rubric), 0)
-    return Number((theoryTotal + expTotal + exeTotal).toFixed(2))
+    const theoryTotal = theoryItems.reduce((acc, item) => acc + toHundredths(item.rubric), 0)
+    const expTotal = experiments.reduce((acc, item) => acc + toHundredths(item.rubric), 0)
+    const exeTotal = exercises.reduce((acc, item) => acc + toHundredths(item.rubric), 0)
+    return (theoryTotal + expTotal + exeTotal) / 100
   }, [theoryItems, experiments, exercises])
   const rubricTotalValid = isRubricTotalValid(totalRubric)
+  const hasUnconfiguredTheoryRubrics = useMemo(() => {
+    return theoryItems.some((item) => item.rubric === undefined || item.rubric === null)
+  }, [theoryItems])
 
   const totalContentItems = theoryItems.length + experiments.length + exercises.length
 
@@ -870,6 +879,11 @@ export default function LecturerJobsheetEditorPage() {
                   {totalRubricMessage} Draft tetap bisa disimpan.
                 </span>
               )}
+              {hasUnconfiguredTheoryRubrics && (
+                <span className="text-[11px] text-amber-600 font-medium text-center bg-amber-50 border border-amber-200 rounded p-2 mt-1">
+                  Bobot Dasar Teori belum diatur. Lengkapi bobot seluruh item sebelum jobsheet dipublish.
+                </span>
+              )}
               {totalContentItems === 0 && (
                 <span className="text-[11px] text-amber-700 font-medium text-center">
                   Tambahkan minimal satu item konten sebelum publish.
@@ -887,6 +901,10 @@ export default function LecturerJobsheetEditorPage() {
               onClick={() => {
                 if (totalContentItems === 0) {
                   toast.error("Tambahkan minimal satu dasar teori, percobaan, atau latihan sebelum publish.")
+                  return
+                }
+                if (hasUnconfiguredTheoryRubrics) {
+                  toast.error("Bobot Dasar Teori belum diatur. Lengkapi bobot seluruh item sebelum jobsheet dipublish.")
                   return
                 }
                 if (!rubricTotalValid) {

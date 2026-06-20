@@ -42,5 +42,19 @@ module.exports = (handler) => {
     (req, res) => handler.deleteAiFeedbackHandler(req, res),
   );
 
+  router.get(
+    '/submissions/:submissionId/feedbacks',
+    requireAuth,
+    requireRoles('DOSEN'),
+    (req, res) => handler.getFeedbacksHandler(req, res),
+  );
+
+  router.put(
+    '/submissions/:submissionId/feedbacks',
+    requireAuth,
+    requireRoles('DOSEN'),
+    (req, res) => handler.putFeedbacksHandler(req, res),
+  );
+
   return router;
 };

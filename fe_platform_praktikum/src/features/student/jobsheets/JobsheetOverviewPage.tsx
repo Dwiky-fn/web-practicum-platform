@@ -196,9 +196,9 @@ function SubmissionHistoryCard({
           <div className="mt-4 space-y-6">
           {history.map((item) => {
             const submittedAt = item.submittedAt ? new Date(item.submittedAt) : null;
-            const title = item.attemptType === "remedial"
+            const title = item.attemptLabel || (item.attemptType === "remedial"
               ? "Remedial"
-              : "Pengumpulan Jobsheet";
+              : "Pengerjaan Normal");
             const score = item.finalScore ?? null;
             return (
               <div key={item.submissionId} className="grid grid-cols-[1fr_auto] items-start gap-6 px-3">

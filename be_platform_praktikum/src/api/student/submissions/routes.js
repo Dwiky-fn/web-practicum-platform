@@ -70,6 +70,13 @@ const routes = (handler) => {
     requireTargetUserOrRoles('studentId'),
     asyncHandler(handler.submitSubmissionHandler),
   );
+
+  router.get(
+    '/student/jobsheets/:jobsheetId/history',
+    requireRoles('MAHASISWA'),
+    asyncHandler(handler.getSubmissionHistoryHandler),
+  );
+
   return router;
 };
 

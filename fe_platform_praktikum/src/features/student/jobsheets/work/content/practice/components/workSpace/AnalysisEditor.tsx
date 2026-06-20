@@ -4,9 +4,10 @@ import RichTextEditor from "../../../../../../../../components/editor/RichTextEd
 interface Props {
   value: JSONContent;
   onChange: (content: JSONContent) => void;
+  readOnly?: boolean;
 }
 
-export default function AnalysisEditor({ value, onChange }: Props) {
+export default function AnalysisEditor({ value, onChange, readOnly }: Props) {
   return (
     <div>
       <h3 className="text-sm font-semibold text-gray-700 mb-2">
@@ -16,8 +17,8 @@ export default function AnalysisEditor({ value, onChange }: Props) {
       <RichTextEditor
         value={value}
         onChange={onChange}
-        editable
-        placeholder="Tulis analisis hasil percobaan kamu di sini..."
+        editable={!readOnly}
+        placeholder={readOnly ? "Tidak ada analisis." : "Tulis analisis hasil percobaan kamu di sini..."}
       />
     </div>
   );

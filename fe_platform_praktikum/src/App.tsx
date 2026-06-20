@@ -17,7 +17,6 @@ import TheoryPage from "./features/student/jobsheets/work/content/theory/TheoryP
 import ExperimentPage from "./features/student/jobsheets/work/content/practice/ExperimentPage"
 import ExercisePage from "./features/student/jobsheets/work/content/practice/ExercisePage"
 import TaskPage from "./features/student/jobsheets/work/content/task/TaskPage"
-import PreviewPage from "./features/student/jobsheets/work/content/report/preview/PreviewPage"
 import ReviewPage from "./features/student/jobsheets/work/content/report/review/ReviewPage"
 import AdminUsersPage from "./features/admin/users/AdminUsersPage"
 import AdminAcademicNativePage from "./features/admin/academic/AdminAcademicNativePage"
@@ -171,10 +170,6 @@ function AppContent() {
         <Route path="exercises/:exerciseId" element={<ExercisePage />} />
         <Route path="task" element={<TaskPage />} />
       </Route>
-      <Route
-        path="/mata-kuliah/:mataKuliahId/jobsheets/:jobsheetId/preview"
-        element={byRole({ mahasiswa: <PreviewPage /> })}
-      />
       <Route
         path="/mata-kuliah/:mataKuliahId/jobsheets/:jobsheetId/review"
         element={byRole({ mahasiswa: <ReviewPage /> })}

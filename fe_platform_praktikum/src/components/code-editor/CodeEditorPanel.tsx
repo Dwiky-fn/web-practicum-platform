@@ -29,6 +29,7 @@ interface Props {
   onCodeChange: (value: string) => void
   onFilesChange: (files: Record<string, string>, activeFile?: string) => void
   getNewFileName?: (files: Record<string, string>) => string
+  readOnly?: boolean
 }
 
 function getFileName(path: string): string {
@@ -67,6 +68,7 @@ export default function CodeEditorPanel({
   onCodeChange,
   onFilesChange,
   getNewFileName,
+  readOnly = false,
 }: Props) {
   const [tree, setTree] = useState<FileTreeNode[]>(() => buildTreeFromFiles(files))
   const [fileSignature, setFileSignature] = useState(() => getFileSignature(files))
@@ -277,6 +279,7 @@ export default function CodeEditorPanel({
       }}
       onChangeFile={onChangeFile}
       onCodeChange={(value) => {
+        if (readOnly) return
         const nextTree = updateFileContentByPath(tree, activeFile, value)
 
         setTree(nextTree)
@@ -312,6 +315,7 @@ export default function CodeEditorPanel({
           handleDeleteNode(node)
         }
       }}
+      readOnly={readOnly}
     />
   )
 }

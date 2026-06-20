@@ -36,6 +36,7 @@ interface Props {
   onPaste: (targetId?: string | null) => void
   onDropNode: (draggedNodeId: string, targetNodeId: string | null) => void
   onDeleteFile: (fileName: string) => void
+  readOnly?: boolean
 }
 
 export default function CodeEditorLayout({
@@ -69,6 +70,7 @@ export default function CodeEditorLayout({
   onPaste,
   onDropNode,
   onDeleteFile,
+  readOnly = false,
 }: Props) {
   const [explorerWidth, setExplorerWidth] = useState(256)
 
@@ -123,6 +125,7 @@ export default function CodeEditorLayout({
             onCopy={onCopy}
             onPaste={onPaste}
             onDropNode={onDropNode}
+            readOnly={readOnly}
           />
           {!isExplorerCollapsed && (
             <div
@@ -150,6 +153,7 @@ export default function CodeEditorLayout({
               value={files[activeFile] ?? ""}
               theme="vs-dark"
               onChange={(value) => {
+                if (readOnly) return
                 if (value !== undefined) {
                   onCodeChange(value)
                 }
@@ -160,6 +164,7 @@ export default function CodeEditorLayout({
                 scrollBeyondLastLine: false,
                 wordWrap: "on",
                 padding: { top: 14, bottom: 14 },
+                readOnly: readOnly,
               }}
             />
           </div>

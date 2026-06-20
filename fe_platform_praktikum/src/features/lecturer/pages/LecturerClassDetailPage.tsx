@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import StudentProfileModal from "../components/StudentProfileModal"
-import { ArrowLeft } from "lucide-react"
-import { Plus } from "lucide-react"
+import { ArrowLeft, Plus, Trash2 } from "lucide-react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import LecturerLayout from "../components/LecturerLayout"
@@ -16,6 +15,7 @@ import {
   SearchBox,
   StatCard,
   TabButton,
+  LecturerModal,
 } from "../components/LecturerUI"
 import {
   buildLecturerJobsheetSummaries,
@@ -25,9 +25,11 @@ import {
   getStudentReportCount,
   getSubmissionReviewStatus,
   isSubmittedSubmission,
+  deleteLecturerJobsheet,
   type LecturerJobsheetSummary,
   type LecturerSubmissionMatrixItem,
 } from "../service"
+import { toast } from "../../../components/toast/toastStore"
 
 type ClassTab = "summary" | "modules" | "students" | "evaluation"
 
@@ -59,6 +61,9 @@ export default function LecturerClassDetailPage() {
   const [jobsheets, setJobsheets] = useState<LecturerJobsheetSummary[]>([])
   const [matrix, setMatrix] = useState<LecturerSubmissionMatrixItem[]>([])
   const [nativeScope, setNativeScope] = useState<{ mataKuliahId?: string; kelasPraktikumId?: string }>({})
+  const [deleteTarget, setDeleteTarget] = useState<LecturerJobsheetSummary | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   useEffect(() => {
     async function loadClassData() {
@@ -104,7 +109,26 @@ export default function LecturerClassDetailPage() {
     }
 
     loadClassData()
-  }, [classId])
+  }, [classId, refreshTrigger])
+
+  async function handleDeleteJobsheet() {
+    if (!deleteTarget) return
+
+    try {
+      setDeleting(true)
+      await deleteLecturerJobsheet(courseId, deleteTarget.id, {
+        mataKuliahId: nativeScope.mataKuliahId,
+        kelasPraktikumId: nativeScope.kelasPraktikumId,
+      })
+      toast.success("Jobsheet berhasil dihapus.")
+      setDeleteTarget(null)
+      setRefreshTrigger((prev) => prev + 1)
+    } catch (deleteError) {
+      toast.error(deleteError instanceof Error ? deleteError.message : "Gagal menghapus jobsheet.")
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const filteredJobsheets = useMemo(() => {
     const normalized = keyword.trim().toLowerCase()
@@ -279,6 +303,10 @@ export default function LecturerClassDetailPage() {
                           <LecturerButton variant="secondary" onClick={() => navigate(`/mata-kuliah/${nativeScope.mataKuliahId || courseId}/jobsheets/${jobsheet.id}/edit`)}>
                             Edit
                           </LecturerButton>
+                          <LecturerButton variant="secondary" onClick={() => setDeleteTarget(jobsheet)}>
+                            <Trash2 size={16} />
+                            Hapus
+                          </LecturerButton>
                         </div>
                       </LecturerPanel>
                     ))}
@@ -420,6 +448,29 @@ export default function LecturerClassDetailPage() {
           studentId={selectedStudentProfileId}
           onClose={() => setSelectedStudentProfileId(null)}
         />
+      )}
+      {deleteTarget && (
+        <LecturerModal
+          title="Hapus Jobsheet"
+          onClose={() => setDeleteTarget(null)}
+          footer={
+            <>
+              <LecturerButton variant="secondary" onClick={() => setDeleteTarget(null)}>Batal</LecturerButton>
+              <LecturerButton disabled={deleting} onClick={handleDeleteJobsheet}>
+                {deleting ? "Menghapus..." : "Hapus"}
+              </LecturerButton>
+            </>
+          }
+        >
+          <div className="space-y-3 text-sm text-gray-700">
+            <p>
+              Jobsheet <span className="font-semibold">{deleteTarget.title}</span> akan dihapus.
+            </p>
+            <p>
+              Jobsheet hanya bisa dihapus jika belum digunakan di kelas mana pun.
+            </p>
+          </div>
+        </LecturerModal>
       )}
     </LecturerLayout>
   )

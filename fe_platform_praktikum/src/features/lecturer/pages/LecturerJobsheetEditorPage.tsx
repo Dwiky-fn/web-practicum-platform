@@ -27,6 +27,7 @@ import {
   inputClass,
 } from "../components/LecturerUI"
 import { academicCourseBasePath } from "../../../services/academicScope"
+import { datetimeLocalToDbValue, dbValueToDatetimeLocal } from "../utils/deadline"
 
 const emptyDoc: JSONContent = { type: "doc", content: [] }
 import { toast } from "../../../components/toast/toastStore"
@@ -54,20 +55,24 @@ function createLocalId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-function toDatetimeLocal(value: string | undefined) {
-  if (!value) return ""
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return ""
-  const offset = parsed.getTimezoneOffset()
-  const local = new Date(parsed.getTime() - offset * 60000)
-  return local.toISOString().slice(0, 16)
+function normalizeRubric(value: unknown) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return 0
+  return Math.min(100, Math.max(0, Number(number.toFixed(2))))
 }
+
+function isRubricTotalValid(total: number) {
+  return Math.abs(total - 100) <= 0.01
+}
+
+const totalRubricMessage = "Total bobot seluruh Dasar Teori, Percobaan, dan Latihan harus tepat 100%."
 
 function createTheoryItem(index: number): LecturerTheoryInput {
   return {
     id: createLocalId("theory"),
     title: `Subtopik ${index}`,
     content: emptyDoc,
+    rubric: 0,
   }
 }
 
@@ -120,14 +125,9 @@ export default function LecturerJobsheetEditorPage() {
   const [goalContent, setGoalContent] = useState<JSONContent>(emptyDoc)
   const [programmingLanguage, setProgrammingLanguage] = useState<"java" | "python" | "">("")
   const [editorMode, setEditorMode] = useState<"mini_ide" | "simple">("mini_ide")
-  const [theoryItems, setTheoryItems] = useState<LecturerTheoryInput[]>([createTheoryItem(1)])
+  const [theoryItems, setTheoryItems] = useState<LecturerTheoryInput[]>([])
   const [experiments, setExperiments] = useState<PracticeEditorItem[]>([])
   const [exercises, setExercises] = useState<PracticeEditorItem[]>([])
-  const [taskInstruction, setTaskInstruction] = useState<JSONContent>(emptyDoc)
-  const [taskAdditionalNote, setTaskAdditionalNote] = useState<JSONContent>(emptyDoc)
-  const [requireSelfDeclaration, setRequireSelfDeclaration] = useState(false)
-  const [conclusionRequired, setConclusionRequired] = useState(false)
-  const [conclusionMinWord, setConclusionMinWord] = useState("150")
   const [publishSettings, setPublishSettings] = useState<PublishClassSetting[]>([])
   // ── Confirm change language state ──
   const [confirmChangeLang, setConfirmChangeLang] = useState(false)
@@ -136,6 +136,7 @@ export default function LecturerJobsheetEditorPage() {
   const isCreate = !savedJobsheetId
   const activeJobsheetId = savedJobsheetId || jobsheetId || ""
   const mataKuliahId = dataset?.course.mataKuliahId || dataset?.course.id
+  const primaryKelasPraktikumId = dataset?.course.classes[0]?.kelasPraktikumId || dataset?.course.classes[0]?.id_kelas_praktikum
   const jobsheetBasePath = `${academicCourseBasePath(effectiveCourseId, { mataKuliahId: mataKuliahId || routeMataKuliahId || undefined })}/jobsheets`
 
   useEffect(() => {
@@ -173,45 +174,36 @@ export default function LecturerJobsheetEditorPage() {
           const mode = (selectedJobsheet.editorMode || "mini_ide") as "mini_ide" | "simple"
           setEditorMode(mode)
           setTheoryItems(
-            selectedJobsheet.theory.length
-              ? selectedJobsheet.theory.map((item) => ({
-                  id: item.id,
-                  title: item.title,
-                  content: item.content,
-                }))
-              : [createTheoryItem(1)],
+            selectedJobsheet.theory.map((item) => ({
+              id: item.id,
+              title: item.title,
+              content: item.content,
+              rubric: item.rubric ?? 0,
+            })),
           )
           setExperiments(
-            selectedJobsheet.experiments.length
-              ? selectedJobsheet.experiments.map((item) => ({
-                  id: item.id,
-                  title: item.title,
-                  instructionContent: item.instructionContent ?? emptyDoc,
-                  templateCode: item.defaultTemplateCode,
-                  isReported: item.isReported,
-                  rubric: item.rubric ?? 0,
-                }))
-              : [createExperimentItem(1, lang)],
+            selectedJobsheet.experiments.map((item) => ({
+              id: item.id,
+              title: item.title,
+              instructionContent: item.instructionContent ?? emptyDoc,
+              templateCode: item.defaultTemplateCode,
+              isReported: item.isReported,
+              rubric: item.rubric ?? 0,
+            })),
           )
           setExercises(
-            selectedJobsheet.exercises.length
-              ? selectedJobsheet.exercises.map((item) => ({
-                  id: item.id,
-                  title: item.title,
-                  instructionContent: item.instructionContent ?? emptyDoc,
-                  templateCode: item.defaultTemplateCode ?? "",
-                  isReported: item.isReported,
-                  rubric: item.rubric ?? 0,
-                }))
-              : [createExerciseItem(1, lang)],
+            selectedJobsheet.exercises.map((item) => ({
+              id: item.id,
+              title: item.title,
+              instructionContent: item.instructionContent ?? emptyDoc,
+              templateCode: item.defaultTemplateCode ?? "",
+              isReported: item.isReported,
+              rubric: item.rubric ?? 0,
+            })),
           )
-          setTaskInstruction(selectedJobsheet.task.instructionContent ?? emptyDoc)
-          setTaskAdditionalNote(selectedJobsheet.task.additionalNoteContent ?? emptyDoc)
-          setRequireSelfDeclaration(selectedJobsheet.task.requireSelfDeclaration)
-          setConclusionRequired(Boolean(selectedJobsheet.task.conclusionConfig?.required))
-          setConclusionMinWord(String(selectedJobsheet.task.conclusionConfig?.minWord ?? 150))
 
-          const fallbackDeadline = toDatetimeLocal(selectedJobsheet.deadline)
+
+          const fallbackDeadline = dbValueToDatetimeLocal(selectedJobsheet.deadline)
           const classSettings = (nextDataset?.course.classes ?? []).map((classItem) => {
             const classDetail = nextDataset?.classDetails.find((item) => item.id === classItem.id)
             const assignedJobsheet = classDetail?.jobsheets.find((item) => item.id === savedJobsheetId)
@@ -231,8 +223,9 @@ export default function LecturerJobsheetEditorPage() {
           const defaultLang = firstClass?.programmingLanguage || "java"
           setProgrammingLanguage(defaultLang)
           setEditorMode("mini_ide")
-          setExperiments([createExperimentItem(1, defaultLang)])
-          setExercises([createExerciseItem(1, defaultLang)])
+          setTheoryItems([])
+          setExperiments([])
+          setExercises([])
           setPublishSettings(
             (nextDataset?.course.classes ?? []).map((classItem) => ({
               classId: classItem.id,
@@ -254,10 +247,14 @@ export default function LecturerJobsheetEditorPage() {
   }, [effectiveCourseId, savedJobsheetId, user])
 
   const totalRubric = useMemo(() => {
-    const expTotal = experiments.reduce((acc, item) => acc + (item.rubric ?? 0), 0)
-    const exeTotal = exercises.reduce((acc, item) => acc + (item.rubric ?? 0), 0)
-    return expTotal + exeTotal
-  }, [experiments, exercises])
+    const theoryTotal = theoryItems.reduce((acc, item) => acc + normalizeRubric(item.rubric), 0)
+    const expTotal = experiments.reduce((acc, item) => acc + normalizeRubric(item.rubric), 0)
+    const exeTotal = exercises.reduce((acc, item) => acc + normalizeRubric(item.rubric), 0)
+    return Number((theoryTotal + expTotal + exeTotal).toFixed(2))
+  }, [theoryItems, experiments, exercises])
+  const rubricTotalValid = isRubricTotalValid(totalRubric)
+
+  const totalContentItems = theoryItems.length + experiments.length + exercises.length
 
   function buildPayload() {
     return {
@@ -271,36 +268,33 @@ export default function LecturerJobsheetEditorPage() {
         id: item.id,
         title: item.title || `Subtopik ${index + 1}`,
         content: item.content || emptyDoc,
+        rubric: normalizeRubric(item.rubric),
       })),
       experiments: experiments.map((item, index) => ({
         id: item.id,
         title: item.title || `Percobaan ${index + 1}`,
         instructionContent: item.instructionContent || emptyDoc,
         templateCode: item.templateCode,
-        rubric: Number(item.rubric) || 0,
+        rubric: normalizeRubric(item.rubric),
       })),
       exercises: exercises.map((item, index) => ({
         id: item.id,
         title: item.title || `Latihan ${index + 1}`,
         instructionContent: item.instructionContent || emptyDoc,
         templateCode: item.templateCode,
-        rubric: Number(item.rubric) || 0,
+        rubric: normalizeRubric(item.rubric),
       })),
       task: {
-        instructionContent: taskInstruction,
-        additionalNoteContent: taskAdditionalNote,
-        requireSelfDeclaration,
+        instructionContent: emptyDoc,
+        additionalNoteContent: emptyDoc,
+        requireSelfDeclaration: false,
         conclusionConfig: {
-          enabled: true,
-          required: conclusionRequired,
-          minWord: Number(conclusionMinWord) || 150,
+          enabled: false,
+          required: false,
+          minWord: 150,
         },
-        experimentItems: experiments
-          .filter((item) => item.id)
-          .map((item) => ({ id: item.id as string, isReported: item.isReported })),
-        exerciseItems: exercises
-          .filter((item) => item.id)
-          .map((item) => ({ id: item.id as string, isReported: item.isReported })),
+        experimentItems: [],
+        exerciseItems: [],
       },
     }
   }
@@ -313,11 +307,17 @@ export default function LecturerJobsheetEditorPage() {
     }
 
     if (activeJobsheetId) {
-      await updateLecturerJobsheet(effectiveCourseId, activeJobsheetId, payload, { mataKuliahId })
+      await updateLecturerJobsheet(effectiveCourseId, activeJobsheetId, payload, {
+        mataKuliahId,
+        kelasPraktikumId: primaryKelasPraktikumId,
+      })
       return activeJobsheetId
     }
 
-    const created = await createLecturerJobsheet(effectiveCourseId, payload, { mataKuliahId })
+    const created = await createLecturerJobsheet(effectiveCourseId, payload, {
+      mataKuliahId,
+      kelasPraktikumId: primaryKelasPraktikumId,
+    })
     setSavedJobsheetId(created.id)
     return created.id
   }
@@ -345,10 +345,15 @@ export default function LecturerJobsheetEditorPage() {
   async function handlePublish() {
     if (!user) return
 
-    if (totalRubric !== 100) {
-      setError(`Jumlah total bobot rubrik harus pas 100%. Saat ini: ${totalRubric}%.`)
+    if (totalContentItems === 0) {
+      toast.error("Tambahkan minimal satu dasar teori, percobaan, atau latihan sebelum publish.")
       setPublishOpen(false)
-      window.scrollTo({ top: 0, behavior: "smooth" })
+      return
+    }
+
+    if (!rubricTotalValid) {
+      toast.error(totalRubricMessage)
+      setPublishOpen(false)
       return
     }
 
@@ -360,9 +365,8 @@ export default function LecturerJobsheetEditorPage() {
       await publishLecturerJobsheet(effectiveCourseId, nextId, {
         lecturerId: user.id,
         classes: publishSettings.map((item) => ({
-          classId: item.classId,
           kelasPraktikumId: item.kelasPraktikumId,
-          deadline: item.deadline,
+          deadline: datetimeLocalToDbValue(item.deadline),
           isActive: item.isActive,
         })),
       }, { mataKuliahId })
@@ -552,12 +556,17 @@ export default function LecturerJobsheetEditorPage() {
           <div className="mb-4 border-b border-gray-200 pb-3">
             <h2 className="text-lg font-semibold">Dasar Teori</h2>
           </div>
+          {!theoryItems.length && (
+            <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-5 text-center">
+              <p className="text-sm font-medium text-gray-700">Belum ada dasar teori.</p>
+            </div>
+          )}
           <div className="space-y-4">
             {theoryItems.map((item, index) => (
               <div key={item.id ?? `theory-${index}`} className="rounded-lg border border-gray-200 p-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-gray-800">Subtopik {index + 1}</p>
-                  {theoryItems.length > 1 && (
+                <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <p className="text-sm font-semibold text-gray-800">Dasar Teori {index + 1}</p>
                     <button
                       type="button"
                       className="text-red-600 hover:text-red-800"
@@ -565,9 +574,29 @@ export default function LecturerJobsheetEditorPage() {
                     >
                       <Trash2 size={16} />
                     </button>
-                  )}
+                  </div>
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                    Bobot
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
+                      value={item.rubric ?? 0}
+                      onChange={(event) => {
+                        const val = normalizeRubric(event.target.value)
+                        setTheoryItems((current) =>
+                          current.map((entry, currentIndex) =>
+                            currentIndex === index ? { ...entry, rubric: val } : entry,
+                          ),
+                        )
+                      }}
+                    />
+                    %
+                  </label>
                 </div>
-                <FieldRow label="Judul">
+                <FieldRow label="Judul Dasar Teori">
                   <input
                     className={inputClass}
                     value={item.title}
@@ -605,7 +634,7 @@ export default function LecturerJobsheetEditorPage() {
               onClick={() => setTheoryItems((current) => [...current, createTheoryItem(current.length + 1)])}
             >
               <Plus size={16} />
-              Tambah Subtopik
+              Tambah Dasar Teori
             </LecturerButton>
           </div>
         </LecturerPanel>
@@ -614,12 +643,17 @@ export default function LecturerJobsheetEditorPage() {
           <div className="mb-4 border-b border-gray-200 pb-3">
             <h2 className="text-lg font-semibold">Percobaan Praktikum</h2>
           </div>
+          {!experiments.length && (
+            <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-5 text-center">
+              <p className="text-sm font-medium text-gray-700">Belum ada percobaan.</p>
+            </div>
+          )}
           <div className="space-y-4">
             {experiments.map((item, index) => (
               <div key={item.id ?? `experiment-${index}`} className="rounded-lg border border-blue-100 bg-blue-50 p-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h3 className="font-semibold">Percobaan {index + 1}</h3>
-                  {experiments.length > 1 && (
+                <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <h3 className="font-semibold">Percobaan {index + 1}</h3>
                     <button
                       type="button"
                       className="text-red-600 hover:text-red-800"
@@ -627,7 +661,27 @@ export default function LecturerJobsheetEditorPage() {
                     >
                       <Trash2 size={16} />
                     </button>
-                  )}
+                  </div>
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                    Bobot
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
+                      value={item.rubric ?? 0}
+                      onChange={(event) => {
+                        const val = normalizeRubric(event.target.value)
+                        setExperiments((current) =>
+                          current.map((entry, currentIndex) =>
+                            currentIndex === index ? { ...entry, rubric: val } : entry,
+                          ),
+                        )
+                      }}
+                    />
+                    %
+                  </label>
                 </div>
                 <div className="space-y-3">
                   <div className="space-y-1">
@@ -693,12 +747,17 @@ export default function LecturerJobsheetEditorPage() {
           <div className="mb-4 border-b border-gray-200 pb-3">
             <h2 className="text-lg font-semibold">Latihan Praktikum</h2>
           </div>
+          {!exercises.length && (
+            <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-5 text-center">
+              <p className="text-sm font-medium text-gray-700">Belum ada latihan.</p>
+            </div>
+          )}
           <div className="space-y-4">
             {exercises.map((item, index) => (
               <div key={item.id ?? `exercise-${index}`} className="rounded-lg border border-blue-100 bg-blue-50 p-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h3 className="font-semibold">Latihan {index + 1}</h3>
-                  {exercises.length > 1 && (
+                <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <h3 className="font-semibold">Latihan {index + 1}</h3>
                     <button
                       type="button"
                       className="text-red-600 hover:text-red-800"
@@ -706,7 +765,27 @@ export default function LecturerJobsheetEditorPage() {
                     >
                       <Trash2 size={16} />
                     </button>
-                  )}
+                  </div>
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                    Bobot
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
+                      value={item.rubric ?? 0}
+                      onChange={(event) => {
+                        const val = normalizeRubric(event.target.value)
+                        setExercises((current) =>
+                          current.map((entry, currentIndex) =>
+                            currentIndex === index ? { ...entry, rubric: val } : entry,
+                          ),
+                        )
+                      }}
+                    />
+                    %
+                  </label>
                 </div>
                 <div className="space-y-3">
                   <div className="space-y-1">
@@ -768,197 +847,32 @@ export default function LecturerJobsheetEditorPage() {
           </div>
         </LecturerPanel>
 
-        <LecturerPanel className="p-5">
-          <h2 className="mb-4 text-lg font-semibold">Tugas Praktikum</h2>
-          <div className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-lg border border-gray-200 p-4">
-                <p className="mb-3 text-sm font-semibold text-gray-800">Percobaan yang dilaporkan mahasiswa</p>
-                <div className="space-y-2 text-sm">
-                  {experiments.map((item, index) => (
-                    <label key={item.id ?? `task-exp-${index}`} className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={item.isReported}
-                        onChange={() =>
-                          setExperiments((current) =>
-                            current.map((entry, currentIndex) =>
-                              currentIndex === index
-                                ? { ...entry, isReported: !entry.isReported, rubric: entry.isReported ? 0 : entry.rubric }
-                                : entry,
-                            ),
-                          )
-                        }
-                      />
-                      <span>{item.title || `Percobaan ${index + 1}`}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="rounded-lg border border-gray-200 p-4">
-                <p className="mb-3 text-sm font-semibold text-gray-800">Latihan yang dilaporkan mahasiswa</p>
-                <div className="space-y-2 text-sm">
-                  {exercises.map((item, index) => (
-                    <label key={item.id ?? `task-exe-${index}`} className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={item.isReported}
-                        onChange={() =>
-                          setExercises((current) =>
-                            current.map((entry, currentIndex) =>
-                              currentIndex === index
-                                ? { ...entry, isReported: !entry.isReported, rubric: entry.isReported ? 0 : entry.rubric }
-                                : entry,
-                            ),
-                          )
-                        }
-                      />
-                      <span>{item.title || `Latihan ${index + 1}`}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
 
-            {/* Rubrik bobot penilaian - hanya untuk item yang dilaporkan */}
-            {(experiments.some((e) => e.isReported) || exercises.some((e) => e.isReported)) && (
-              <div className="rounded-lg border border-gray-200 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-gray-800">Bobot Penilaian per Item (%)</p>
-                  <span
-                    className={`text-xs font-bold px-2.5 py-1 rounded ${
-                      totalRubric === 100
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    Total: {totalRubric}% / 100%
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500">Input bobot hanya untuk item yang dipilih untuk dilaporkan. Total harus 100%.</p>
-                <div className="space-y-2">
-                  {experiments.map((item, realIndex) => !item.isReported ? null : (
-                    <div key={item.id} className="flex items-center gap-3">
-                      <span className="text-sm text-gray-700 flex-1 truncate">
-                        Percobaan {realIndex + 1}: {item.title || `Percobaan ${realIndex + 1}`}
-                      </span>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        className="h-8 w-24 rounded-md border border-gray-300 px-2 text-xs text-right"
-                        value={item.rubric ?? 0}
-                        onChange={(event) => {
-                          const val = Math.max(0, parseInt(event.target.value) || 0)
-                          setExperiments((current) =>
-                            current.map((entry, currentIndex) =>
-                              currentIndex === realIndex ? { ...entry, rubric: val } : entry,
-                            ),
-                          )
-                        }}
-                        placeholder="0"
-                      />
-                      <span className="text-xs text-gray-400">%</span>
-                    </div>
-                  ))}
-                  {exercises.map((item, realIndex) => !item.isReported ? null : (
-                    <div key={item.id} className="flex items-center gap-3">
-                      <span className="text-sm text-gray-700 flex-1 truncate">
-                        Latihan {realIndex + 1}: {item.title || `Latihan ${realIndex + 1}`}
-                      </span>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        className="h-8 w-24 rounded-md border border-gray-300 px-2 text-xs text-right"
-                        value={item.rubric ?? 0}
-                        onChange={(event) => {
-                          const val = Math.max(0, parseInt(event.target.value) || 0)
-                          setExercises((current) =>
-                            current.map((entry, currentIndex) =>
-                              currentIndex === realIndex ? { ...entry, rubric: val } : entry,
-                            ),
-                          )
-                        }}
-                        placeholder="0"
-                      />
-                      <span className="text-xs text-gray-400">%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">Instruksi Tugas Praktikum</p>
-              <RichTextEditor
-                value={taskInstruction}
-                onChange={setTaskInstruction}
-                role="DOSEN"
-                placeholder="Tulis instruksi tugas praktikum dengan format lengkap..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">Catatan Tambahan</p>
-              <RichTextEditor
-                value={taskAdditionalNote}
-                onChange={setTaskAdditionalNote}
-                role="DOSEN"
-                placeholder="Tulis catatan tambahan untuk mahasiswa..."
-              />
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="flex items-center gap-3 rounded-lg border border-gray-200 p-4 text-sm">
-                <input
-                  type="checkbox"
-                  checked={requireSelfDeclaration}
-                  onChange={(event) => setRequireSelfDeclaration(event.target.checked)}
-                />
-                Mahasiswa wajib menyatakan laporan dikerjakan sendiri
-              </label>
-              <div className="rounded-lg border border-gray-200 p-4">
-                <label className="flex items-center gap-3 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={conclusionRequired}
-                    onChange={(event) => setConclusionRequired(event.target.checked)}
-                  />
-                  Kesimpulan akhir wajib diisi
-                </label>
-                <FieldRow label="Minimal Kata">
-                  <input
-                    className={inputClass}
-                    value={conclusionMinWord}
-                    onChange={(event) => setConclusionMinWord(event.target.value)}
-                    placeholder="150"
-                  />
-                </FieldRow>
-              </div>
-            </div>
-          </div>
-        </LecturerPanel>
 
         </div>
 
         <LecturerPanel className="p-5 lg:sticky lg:top-5 space-y-4 shadow-md border-slate-200">
           <h2 className="text-md font-semibold text-gray-800 border-b border-gray-100 pb-2">Simpan Jobsheet</h2>
           <div className="space-y-2">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block">Total Bobot Rubrik</span>
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block">Total Bobot Penilaian</span>
             <div className="flex flex-col gap-1">
               <span
                 className={`rounded px-2.5 py-1 text-center text-sm font-bold ${
-                  totalRubric === 100
+                  rubricTotalValid
                     ? "bg-green-100 text-green-800"
                     : "bg-red-100 text-red-800"
                 }`}
               >
                 {totalRubric}% / 100%
               </span>
-              {totalRubric !== 100 && (
+              {!rubricTotalValid && (
                 <span className="text-[11px] text-red-600 font-medium text-center">
-                  Total bobot harus bernilai 100% sebelum dapat disimpan/dipublikasikan
+                  {totalRubricMessage} Draft tetap bisa disimpan.
+                </span>
+              )}
+              {totalContentItems === 0 && (
+                <span className="text-[11px] text-amber-700 font-medium text-center">
+                  Tambahkan minimal satu item konten sebelum publish.
                 </span>
               )}
             </div>
@@ -971,9 +885,12 @@ export default function LecturerJobsheetEditorPage() {
               className="w-full justify-center"
               disabled={saving || !dataset?.course.classes.length}
               onClick={() => {
-                if (totalRubric !== 100) {
-                  setError(`Jumlah total bobot rubrik harus pas 100%. Saat ini: ${totalRubric}%.`)
-                  window.scrollTo({ top: 0, behavior: "smooth" })
+                if (totalContentItems === 0) {
+                  toast.error("Tambahkan minimal satu dasar teori, percobaan, atau latihan sebelum publish.")
+                  return
+                }
+                if (!rubricTotalValid) {
+                  toast.error(totalRubricMessage)
                   return
                 }
                 setPublishOpen(true)

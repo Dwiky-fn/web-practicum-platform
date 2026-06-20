@@ -168,8 +168,7 @@ class AcademicDataHandler {
   }
 
   async deleteKelasPraktikumHandler(req, res) {
-    const force = req.query.force === 'true';
-    await this._service.deleteKelasPraktikum(req.params.id, force);
+    await this._service.deleteKelasPraktikum(req.params.id);
     return ok(res, {}, 'Kelas praktikum berhasil dihapus');
   }
 
@@ -215,9 +214,8 @@ class AcademicDataHandler {
   }
 
   async deleteKelasSemesterHandler(req, res) {
-    const force = req.query.force === 'true';
-    await this._service.deleteKelasSemester(req.params.id, force);
-    return ok(res, {}, 'Kelas semester berhasil dihapus');
+    await this._service.deleteKelasSemester(req.params.id);
+    return ok(res, {}, 'Kelas berhasil dihapus');
   }
 
   async transitionStudentsHandler(req, res) {

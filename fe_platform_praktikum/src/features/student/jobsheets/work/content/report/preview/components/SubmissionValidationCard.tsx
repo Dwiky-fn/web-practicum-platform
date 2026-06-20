@@ -11,6 +11,7 @@ interface Props {
   submitting?: boolean
   onSaveDraft?: () => void
   savingDraft?: boolean
+  readOnly?: boolean
 }
 
 function ValidationItem({
@@ -39,6 +40,7 @@ export default function SubmissionValidationCard({
   submitting = false,
   onSaveDraft,
   savingDraft = false,
+  readOnly = false,
 }: Props) {
 
   const [isDeclared, setIsDeclared] = useState(false)
@@ -136,6 +138,7 @@ export default function SubmissionValidationCard({
           <input
             type="checkbox"
             checked={isDeclared}
+            disabled={readOnly}
             onChange={(e) => setIsDeclared(e.target.checked)}
             className="mt-1"
           />
@@ -148,7 +151,11 @@ export default function SubmissionValidationCard({
 
       {/* STATUS TEXT */}
       <div>
-        {isAllValid ? (
+        {readOnly ? (
+          <p className="text-sm text-gray-500">
+            Pengerjaan normal telah dikunci.
+          </p>
+        ) : isAllValid ? (
           <p className="text-sm text-green-600 font-medium">
             Laporan siap dikirim
           </p>
@@ -163,7 +170,7 @@ export default function SubmissionValidationCard({
       <div className="flex gap-3">
         <button
           type="button"
-          disabled={savingDraft || submitting}
+          disabled={readOnly || savingDraft || submitting}
           onClick={onSaveDraft}
           className="flex-1 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition disabled:opacity-50 text-center cursor-pointer"
         >
@@ -171,11 +178,11 @@ export default function SubmissionValidationCard({
         </button>
 
         <button
-          disabled={!isAllValid || submitting || savingDraft}
+          disabled={readOnly || !isAllValid || submitting || savingDraft}
           onClick={onSubmit}
           className={`
             flex-1 py-2 rounded-lg font-medium transition
-            ${isAllValid && !submitting && !savingDraft
+            ${!readOnly && isAllValid && !submitting && !savingDraft
               ? "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
               : "bg-gray-300 text-gray-500 cursor-not-allowed"
             }

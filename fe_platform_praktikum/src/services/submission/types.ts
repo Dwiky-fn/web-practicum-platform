@@ -1,4 +1,5 @@
 import type { JSONContent } from "@tiptap/core"
+import type { ScoreBreakdown } from "../progress/types"
 
 export type SubmissionStatus =
   | "DRAFT"
@@ -33,6 +34,16 @@ export interface JobsheetSubmission {
   studentId: string
   status: SubmissionStatus
   score?: number
+  attemptNo?: number
+  attemptType?: "normal" | "remedial"
+  attemptLabel?: string
+  remedialId?: string | null
+  parentSubmissionId?: string | null
+  isAutoSubmitted?: boolean
+  autoSubmittedAt?: string | null
+  submissionSource?: "manual" | "auto_deadline" | "remedial"
+  calculatedProgressScore?: number | null
+  scoreBreakdown?: ScoreBreakdown | null
   aiEvaluationStatus?: string
   aiEvaluationError?: string
   aiEvaluationStartedAt?: string

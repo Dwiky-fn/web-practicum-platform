@@ -6,25 +6,34 @@ class LecturerReviewsService {
     this._pool = pool;
   }
 
-  async saveSubmissionReview(payload) {
+  async ensureSubmissionAccess(submissionId, lecturerId, client = this._pool) {
+    const result = await client.query(
+      `
+      SELECT ts.id, ts.id_kelas_praktikum
+      FROM task_submissions ts
+      JOIN kelas_praktikum kp ON kp.id = ts.id_kelas_praktikum
+      JOIN pengampu p ON p.id_kelas_praktikum = kp.id
+      WHERE ts.id = $1
+        AND p.id_dosen = $2
+      LIMIT 1
+      `,
+      [submissionId, lecturerId],
+    );
+
+    if (!result.rows.length) {
+      throw new Error('Anda tidak memiliki akses ke kelas praktikum ini.');
+    }
+
+    return result.rows[0];
+  }
+
+  async saveSubmissionReview(payload, lecturerId) {
     const client = await this._pool.connect();
 
     try {
       await client.query('BEGIN');
 
-      const submissionResult = await client.query(
-        `
-        SELECT id
-        FROM task_submissions
-        WHERE id = $1
-        LIMIT 1
-        `,
-        [payload.submissionId],
-      );
-
-      if (!submissionResult.rows.length) {
-        throw new Error('SUBMISSION_NOT_FOUND');
-      }
+      await this.ensureSubmissionAccess(payload.submissionId, lecturerId, client);
 
       const existing = await client.query(
         `
@@ -62,7 +71,7 @@ class LecturerReviewsService {
           `,
           [
             reviewId,
-            payload.lecturerId,
+            lecturerId,
             clampedAiScore,
             clampedFinalScore,
             JSON.stringify(aiFeedback),
@@ -82,7 +91,7 @@ class LecturerReviewsService {
           [
             reviewId,
             payload.submissionId,
-            payload.lecturerId,
+            lecturerId,
             clampedAiScore,
             clampedFinalScore,
             JSON.stringify(aiFeedback),
@@ -127,7 +136,9 @@ class LecturerReviewsService {
     }
   }
 
-  async deleteAiFeedbackForSubmission(submissionId) {
+  async deleteAiFeedbackForSubmission(submissionId, lecturerId) {
+    await this.ensureSubmissionAccess(submissionId, lecturerId);
+
     const result = await this._pool.query(
       `
       UPDATE submission_reviews

@@ -5,11 +5,11 @@ import type { Jobsheet } from "../../../../../services/jobsheet/types"
 import type { Course } from "../../../../../services/course/types" 
 import type { JobsheetSubmission } from "../../../../../services/submission/types"
 import { getJobsheetById } from "../../../../../services/jobsheet/service"
-import { getOrCreateSubmissionByJobsheetId } from "../../../../../services/submission/service" 
+import { getOrCreateSubmissionByJobsheetId, getSubmissionByJobsheetId } from "../../../../../services/submission/service" 
 import { getCourseById } from "../../../../../services/course/service"
 import { updateSubmission } from "../../../../../services/submission/service"
 import { getStudentProgress, upsertStudentProgress, updateStudentProgressApi } from "../../../../../services/progress/service"
-import type { StudentProgressItem } from "../../../../../services/progress/types"
+import type { ScoreBreakdown, StudentProgressItem } from "../../../../../services/progress/types"
 import { useCurrentUser } from "../../../../../services/user/useCurrentUser"
 import { buildWorkNavigation } from "../utils/buildNavigation"
 import { toast } from "../../../../../components/toast/toastStore"
@@ -49,6 +49,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
   const [submission, setSubmission] = useState<JobsheetSubmission | null>(null)
   const [savedProgress, setSavedProgress] = useState(0)
   const [completedItems, setCompletedItems] = useState<StudentProgressItem[]>([])
+  const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdown | null>(null)
   const [lastSavedPage, setLastSavedPage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -59,10 +60,22 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
   const classId = searchParams.get("classId") || undefined
   const mataKuliahId = routeMataKuliahId || searchParams.get("mataKuliahId") || undefined
   const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined
+  const submissionIdParam = searchParams.get("submissionId") || undefined
+  const attemptNoParam = searchParams.get("attemptNo") ? Number(searchParams.get("attemptNo")) : undefined
   const academicScope = useMemo(
-    () => ({ classId, mataKuliahId, kelasPraktikumId }),
-    [classId, mataKuliahId, kelasPraktikumId],
+    () => ({ classId, mataKuliahId, kelasPraktikumId, submissionId: submissionIdParam, attemptNo: attemptNoParam }),
+    [classId, mataKuliahId, kelasPraktikumId, submissionIdParam, attemptNoParam],
   )
+
+  const access = jobsheet?.access || { accessMode: "editable_normal", canEdit: true, canSubmit: true }
+  const accessMode = access.accessMode
+  const isBrowsingHistory = !!submissionIdParam || !!attemptNoParam
+  const readOnly = !access.canEdit ||
+                   accessMode === "locked_deadline" ||
+                   accessMode === "readonly_submitted" ||
+                   accessMode === "readonly_reviewed" ||
+                   isBrowsingHistory
+  const canSaveProgress = access.canSaveProgress ?? access.canEdit
 
   const jobsheetIdRef = useRef(jobsheetId)
   const isMountedRef = useRef(true)
@@ -70,6 +83,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
   const markProgressItemCompleted = useCallback((
     item: Pick<StudentProgressItem, "type" | "id">,
   ) => {
+    if (!canSaveProgress || readOnly) return
     setCompletedItems((prev) => {
       if (prev.some((completed) => completed.type === item.type && completed.id === item.id)) {
         return prev
@@ -93,7 +107,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
         },
       ]
     })
-  }, [kelasPraktikumId, user])
+  }, [canSaveProgress, kelasPraktikumId, readOnly, user])
 
   useEffect(() => {
     jobsheetIdRef.current = jobsheetId
@@ -110,7 +124,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
     activityType: string,
     opts?: { experimentId?: string | null; instructionId?: string | null; metadata?: Record<string, unknown> }
   ) => {
-    if (!jobsheetId || !user) return
+    if (!jobsheetId || !user || !canSaveProgress || readOnly) return
 
     let experimentId = opts?.experimentId
     let instructionId = opts?.instructionId
@@ -141,31 +155,12 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
     } catch (err) {
       // Gagal melacak aktivitas (silent fallback)
     }
-  }, [academicScope, jobsheetId, user, jobsheet, courseId, location.pathname, location.search, kelasPraktikumId])
-
-  // Track workspace opened and closed
-  useEffect(() => {
-    if (!jobsheetId || !user || loading || error) return
-
-    updateStudentProgressApi(jobsheetId, {
-      studentId: user.id,
-      activityType: "workspace_opened",
-      kelasPraktikumId,
-    }).catch(console.error)
-
-    return () => {
-      updateStudentProgressApi(jobsheetId, {
-        studentId: user.id,
-        activityType: "workspace_closed",
-        kelasPraktikumId,
-      }).catch(console.error)
-    }
-  }, [jobsheetId, user, loading, error, kelasPraktikumId])
+  }, [academicScope, jobsheetId, user, jobsheet, courseId, location.pathname, location.search, kelasPraktikumId, canSaveProgress, readOnly])
 
   // Track tab transitions
   const lastPathRef = useRef("")
   useEffect(() => {
-    if (!courseId || !jobsheetId || !jobsheet || !user || loading) return
+    if (!courseId || !jobsheetId || !jobsheet || !user || loading || readOnly) return
     if (location.pathname === lastPathRef.current) return
     lastPathRef.current = location.pathname
 
@@ -193,7 +188,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
         kelasPraktikumId,
       }).catch(console.error)
     }
-  }, [academicScope, courseId, jobsheetId, jobsheet, user, location.pathname, location.search, loading, kelasPraktikumId])
+  }, [academicScope, courseId, jobsheetId, jobsheet, user, location.pathname, location.search, loading, kelasPraktikumId, readOnly])
 
   // LOAD DATA
   useEffect(() => {
@@ -206,6 +201,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
       setLoading(true)
       setSavedProgress(0)
       setCompletedItems([])
+      setScoreBreakdown(null)
       setLastSavedPage(null)
       setError("")
 
@@ -220,12 +216,20 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
         setCourse(courseData)
 
         // 3. Submission
-        const submissionData = await getOrCreateSubmissionByJobsheetId(
-          courseId!,
-          jobsheetId,
-          user.id,
-          academicScope,
-        )
+        const isLockedByDeadline = jobsheetData.access?.accessMode === "locked_deadline"
+        const submissionData = isLockedByDeadline && !submissionIdParam && !attemptNoParam
+          ? await getSubmissionByJobsheetId(
+              courseId!,
+              jobsheetId,
+              user.id,
+              academicScope,
+            )
+          : await getOrCreateSubmissionByJobsheetId(
+              courseId!,
+              jobsheetId,
+              user.id,
+              academicScope,
+            )
         if (!isMountedRef.current) return
         setSubmission(submissionData)
 
@@ -233,6 +237,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
         if (!isMountedRef.current) return
         setSavedProgress(Math.max(0, Math.round(progressData?.progress ?? 0)))
         setCompletedItems(progressData?.completed_items ?? [])
+        setScoreBreakdown(progressData?.score_breakdown ?? submissionData?.scoreBreakdown ?? null)
         setLastSavedPage(progressData?.last_page ?? "")
 
       } catch (err) {
@@ -254,6 +259,9 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
     if (!courseId || !jobsheetIdRef.current || !user) {
       throw new Error("Data sesi belum siap untuk menyimpan.")
     }
+    if (readOnly || !canSaveProgress) {
+      throw new Error(access.message || "Pengerjaan tidak dapat disimpan.")
+    }
 
     await updateSubmission(
       courseId,
@@ -263,7 +271,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
       undefined,
       academicScope,
     )
-  }, [academicScope, courseId, user])
+  }, [academicScope, access.message, canSaveProgress, courseId, readOnly, user])
 
   // UPDATE STATE
   const updateExperiment = useCallback(async (experimentId: string, steps: StepData[]) => {
@@ -349,7 +357,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
   }, [academicScope, courseId, jobsheet, lastSavedPage, location.pathname, location.search, navigate])
 
   useEffect(() => {
-    if (!courseId || !jobsheetId || !jobsheet || !user) return
+    if (!courseId || !jobsheetId || !jobsheet || !user || readOnly || !canSaveProgress) return
     if (!submission || lastSavedPage === null) return
 
     const navItems = buildWorkNavigation(courseId, jobsheet, location.search, academicScope)
@@ -391,12 +399,14 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
     user,
     classId,
     kelasPraktikumId,
+    canSaveProgress,
+    readOnly,
     location.search,
     academicScope,
   ])
 
   useEffect(() => {
-    if (!courseId || !jobsheet) return
+    if (!courseId || !jobsheet || readOnly) return
     if (!submission || lastSavedPage === null) return
     if (isFinishedSubmission(submission) || savedProgress >= 100) return
 
@@ -414,10 +424,10 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
     if (firstIncompleteIndex >= 0 && currentIndex > firstIncompleteIndex) {
       navigate(navItems[firstIncompleteIndex].path, { replace: true })
     }
-  }, [academicScope, courseId, jobsheet, completedItems, location.pathname, location.search, navigate, savedProgress, submission, lastSavedPage])
+  }, [academicScope, courseId, jobsheet, completedItems, location.pathname, location.search, navigate, readOnly, savedProgress, submission, lastSavedPage])
 
   const completeCurrentProgressItem = useCallback(() => {
-    if (!courseId || !jobsheet || !submission) return
+    if (!courseId || !jobsheet || !submission || readOnly) return
 
     const currentItem = buildWorkNavigation(courseId, jobsheet, location.search, academicScope).find((item) =>
       location.pathname.startsWith(item.path.split("?")[0])
@@ -450,7 +460,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
       type: currentItem.type,
       id: currentItem.id,
     })
-  }, [academicScope, courseId, jobsheet, location.pathname, location.search, markProgressItemCompleted, submission])
+  }, [academicScope, courseId, jobsheet, location.pathname, location.search, markProgressItemCompleted, readOnly, submission])
 
   return {
     jobsheet,
@@ -458,6 +468,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
     submission,
     savedProgress,
     completedItems,
+    scoreBreakdown,
     completeCurrentProgressItem,
     loading,
     error,
@@ -465,5 +476,6 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
     updateExercise,
     saveSubmission, // 🔥 expose ke UI
     trackActivity,
+    isBrowsingHistory: !!submissionIdParam || !!attemptNoParam,
   }
 }

@@ -40,9 +40,10 @@ export function getCourseAcademicScope(course: Course): AcademicScope {
 
 export function academicScopeQuery(scope: AcademicScope) {
   const params = new URLSearchParams()
-  if (scope.classId) params.set("classId", scope.classId)
+  // classId is a compatibility alias for kelasPraktikumId.
+  const kelasPraktikumId = scope.kelasPraktikumId ?? scope.classId
   if (scope.mataKuliahId) params.set("mataKuliahId", scope.mataKuliahId)
-  if (scope.kelasPraktikumId) params.set("kelasPraktikumId", scope.kelasPraktikumId)
+  if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
   const query = params.toString()
   return query ? `?${query}` : ""
 }

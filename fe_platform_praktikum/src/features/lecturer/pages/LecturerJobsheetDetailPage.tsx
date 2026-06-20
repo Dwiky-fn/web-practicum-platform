@@ -35,19 +35,25 @@ import {
   getSubmissionReviewStatus,
   getLecturerClassProgress,
   getLecturerStudentDetailProgress,
+  createLecturerRemedial,
+  getLecturerRemedials,
+  getLecturerRemedialStudents,
+  cancelLecturerRemedial,
   type LecturerSubmissionMatrixItem,
   type LecturerClassProgressResponse,
   type LecturerStudentDetailProgressResponse,
+  type LecturerRemedialSession,
+  type LecturerRemedialStudent,
 } from "../service"
 import { academicCourseBasePath } from "../../../services/academicScope"
 
-type DetailTab = "detail" | "monitoring" | "students" | "settings"
+type DetailTab = "detail" | "monitoring" | "students" | "remedial"
 
 const tabs: Array<{ id: DetailTab; label: string }> = [
   { id: "detail", label: "Konten Jobsheet" },
   { id: "monitoring", label: "Monitoring Mahasiswa" },
   { id: "students", label: "Evaluasi & Nilai" },
-  { id: "settings", label: "Pengaturan" },
+  { id: "remedial", label: "Sesi Remedial" },
 ]
 
 export default function LecturerJobsheetDetailPage() {
@@ -68,6 +74,143 @@ export default function LecturerJobsheetDetailPage() {
   const [error, setError] = useState("")
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null)
   const [matrix, setMatrix] = useState<LecturerSubmissionMatrixItem[]>([])
+
+  // Remedial states
+  const [remedials, setRemedials] = useState<LecturerRemedialSession[]>([])
+  const [loadingRemedials, setLoadingRemedials] = useState(false)
+  const [isRemedialModalOpen, setIsRemedialModalOpen] = useState(false)
+  const [selectedRemedialId, setSelectedRemedialId] = useState<string | null>(null)
+  const [remedialStudents, setRemedialStudents] = useState<LecturerRemedialStudent[]>([])
+  const [loadingRemedialStudents, setLoadingRemedialStudents] = useState(false)
+
+  // Sesi Remedial Modal Form states
+  const [remStartAt, setRemStartAt] = useState("")
+  const [remEndAt, setRemEndAt] = useState("")
+  const [remSelectedStudentIds, setRemSelectedStudentIds] = useState<string[]>([])
+  const [savingRemedial, setSavingRemedial] = useState(false)
+
+  async function handleCreateRemedialSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!jobsheetId || !classId) return
+    if (!remStartAt || !remEndAt) {
+      toast.error("Waktu mulai dan berakhir wajib diisi.")
+      return
+    }
+    if (new Date(remStartAt) >= new Date(remEndAt)) {
+      toast.error("Waktu berakhir harus setelah waktu mulai.")
+      return
+    }
+    if (remSelectedStudentIds.length === 0) {
+      toast.error("Pilih minimal satu mahasiswa.")
+      return
+    }
+
+    const defaultTitle = jobsheet?.title ? `Remedial ${jobsheet.title}` : "Remedial"
+
+    setSavingRemedial(true)
+    try {
+      await createLecturerRemedial(jobsheetId, {
+        kelasPraktikumId: kelasPraktikumId || classId,
+        title: defaultTitle,
+        description: "",
+        startAt: new Date(remStartAt).toISOString(),
+        endAt: new Date(remEndAt).toISOString(),
+        studentIds: remSelectedStudentIds,
+      })
+      toast.success("Sesi remedial berhasil dibuat.")
+      setIsRemedialModalOpen(false)
+      setRemStartAt("")
+      setRemEndAt("")
+      setRemSelectedStudentIds([])
+      fetchRemedials()
+      if (jobsheet) {
+        const classDetail = await getLecturerClassDetail(classId)
+        const submissionMatrix = await getLecturerSubmissionMatrix(
+          classDetail.courseId,
+          classDetail.jobsheets.filter((item) => item.id === jobsheetId),
+          classDetail.students,
+          {
+            mataKuliahId: classDetail.mataKuliahId || classDetail.id_mata_kuliah || mataKuliahId,
+            kelasPraktikumId: classDetail.kelasPraktikumId || classDetail.id_kelas_praktikum || kelasPraktikumId,
+          },
+        )
+        setMatrix(submissionMatrix)
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal membuat sesi remedial.")
+    } finally {
+      setSavingRemedial(false)
+    }
+  }
+
+  async function handleCancelRemedial(remedialId: string) {
+    if (!window.confirm("Apakah Anda yakin ingin membatalkan sesi remedial ini? Semua pengerjaan remedial siswa pada sesi ini akan dihapus secara permanen.")) {
+      return
+    }
+    try {
+      await cancelLecturerRemedial(remedialId)
+      toast.success("Sesi remedial berhasil dibatalkan.")
+      if (selectedRemedialId === remedialId) {
+        setSelectedRemedialId(null)
+      }
+      fetchRemedials()
+      if (jobsheet && classId) {
+        const classDetail = await getLecturerClassDetail(classId)
+        const submissionMatrix = await getLecturerSubmissionMatrix(
+          classDetail.courseId,
+          classDetail.jobsheets.filter((item) => item.id === jobsheetId),
+          classDetail.students,
+          {
+            mataKuliahId: classDetail.mataKuliahId || classDetail.id_mata_kuliah || mataKuliahId,
+            kelasPraktikumId: classDetail.kelasPraktikumId || classDetail.id_kelas_praktikum || kelasPraktikumId,
+          },
+        )
+        setMatrix(submissionMatrix)
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal membatalkan sesi remedial.")
+    }
+  }
+
+  // Load remedials sessions
+  const fetchRemedials = useMemo(() => async () => {
+    if (!jobsheetId) return
+    setLoadingRemedials(true)
+    try {
+      const list = await getLecturerRemedials(jobsheetId)
+      setRemedials(list)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal memuat sesi remedial.")
+    } finally {
+      setLoadingRemedials(false)
+    }
+  }, [jobsheetId])
+
+  useEffect(() => {
+    if (activeTab === "remedial") {
+      fetchRemedials()
+    }
+  }, [activeTab, fetchRemedials])
+
+  // Load students of a remedial session
+  useEffect(() => {
+    async function loadRemedialStudents() {
+      if (!selectedRemedialId) {
+        setRemedialStudents([])
+        return
+      }
+      setLoadingRemedialStudents(true)
+      try {
+        const list = await getLecturerRemedialStudents(selectedRemedialId)
+        setRemedialStudents(list)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Gagal memuat daftar mahasiswa remedial.")
+      } finally {
+        setLoadingRemedialStudents(false)
+      }
+    }
+    loadRemedialStudents()
+  }, [selectedRemedialId])
 
   // Progress monitoring states
   const [monitoringData, setMonitoringData] = useState<LecturerClassProgressResponse | null>(null)
@@ -186,6 +329,11 @@ export default function LecturerJobsheetDetailPage() {
     const diffHours = Math.floor(diffMins / 60)
     if (diffHours < 24) return `${diffHours} jam lalu`
     return new Date(timestamp).toLocaleDateString("id-ID", { day: "numeric", month: "short" })
+  }
+
+  function formatScore(value?: number | null) {
+    if (value === undefined || value === null || Number.isNaN(Number(value))) return "-"
+    return Number(value).toFixed(2).replace(/\.?0+$/, "")
   }
 
   function renderStatusBadge(status: "not_started" | "in_progress" | "stalled" | "completed") {
@@ -545,7 +693,7 @@ export default function LecturerJobsheetDetailPage() {
                 {!sortedAndFilteredProgressStudents.length ? (
                   <LecturerEmptyState title="Tidak ada mahasiswa yang cocok dengan filter saat ini." />
                 ) : (
-                  <LecturerTable headers={["Nama Mahasiswa", "NIM", "Status", "Posisi Terakhir", "Kemajuan", "Aktivitas Terakhir", "Aksi"]}>
+                  <LecturerTable headers={["Nama Mahasiswa", "NIM", "Status", "Posisi Terakhir", "Kemajuan", "Nilai Progress", "Aktivitas Terakhir", "Aksi"]}>
                     {sortedAndFilteredProgressStudents.map((student) => (
                       <tr key={student.student_id}>
                         <td className="px-4 py-3">
@@ -565,7 +713,21 @@ export default function LecturerJobsheetDetailPage() {
                           </button>
                         </td>
                         <td className="px-4 py-3 font-mono text-sm text-gray-600">{student.nim}</td>
-                        <td className="px-4 py-3">{renderStatusBadge(student.status)}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col gap-1 items-start">
+                            {renderStatusBadge(student.status)}
+                            {(student as any).attempt_type === "remedial" && (
+                              <span className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100 rounded px-1.5 py-0.5">
+                                Remedial {(student as any).attempt_no - 1}
+                              </span>
+                            )}
+                            {student.is_auto_submitted && (
+                              <span className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100 rounded px-1.5 py-0.5">
+                                Dikumpulkan Otomatis
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-sm text-gray-700 max-w-[180px] truncate" title={student.current_position_title}>
                           {student.current_position_title}
                         </td>
@@ -582,6 +744,12 @@ export default function LecturerJobsheetDetailPage() {
                             </div>
                             <span className="text-xs font-bold text-gray-600">{Math.round(student.progress_percentage)}%</span>
                           </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="font-semibold text-gray-800">
+                            {formatScore(student.progress_score)}
+                          </span>
+                          <span className="ml-1 text-xs text-gray-500">/ 100</span>
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-600" title={student.last_activity_at ? new Date(student.last_activity_at).toLocaleString("id-ID") : "-"}>
                           {formatRelativeTime(student.last_activity_at)}
@@ -608,6 +776,7 @@ export default function LecturerJobsheetDetailPage() {
                   <NativeSelect value={status} onChange={setStatus} label="Status">
                     <option value="all">Semua Status</option>
                     <option value="Terkumpul">Terkumpul</option>
+                    <option value="Otomatis">Otomatis</option>
                     <option value="Dinilai">Dinilai</option>
                     <option value="Revisi">Revisi</option>
                     <option value="Belum">Belum</option>
@@ -618,7 +787,7 @@ export default function LecturerJobsheetDetailPage() {
                 {!filteredStudents.length ? (
                   <LecturerEmptyState title="Belum ada data submission mahasiswa untuk jobsheet ini." />
                 ) : (
-                  <LecturerTable headers={["NIM", "Nama", "Status", "Nilai AI", "Nilai Akhir", "Aksi"]}>
+                  <LecturerTable headers={["NIM", "Nama", "Status", "Nilai AI", "Nilai Progress", "Nilai Akhir", "Aksi"]}>
                     {filteredStudents.map((item) => (
                       <tr key={item.student.id}>
                         <td className="px-4 py-3 font-mono">{item.student.nim}</td>
@@ -631,8 +800,25 @@ export default function LecturerJobsheetDetailPage() {
                             {item.student.fullname}
                           </button>
                         </td>
-                        <td className="px-4 py-3">{getSubmissionReviewStatus(item.submission)}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col gap-0.5 items-start">
+                            <span>{getSubmissionReviewStatus(item.submission)}</span>
+                            {item.submission?.attemptLabel && (
+                              <span className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100 rounded px-1.5 py-0.5 mt-1">
+                                {item.submission.attemptLabel}
+                              </span>
+                            )}
+                            {item.submission?.isAutoSubmitted && (
+                              <span className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100 rounded px-1.5 py-0.5 mt-1">
+                                Dikumpulkan otomatis setelah deadline
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-center">{item.submission?.score ?? "-"}</td>
+                        <td className="px-4 py-3 text-center">
+                          {formatScore(item.submission?.calculatedProgressScore ?? item.submission?.scoreBreakdown?.progressScore)}
+                        </td>
                         <td className="px-4 py-3 text-center">{item.submission?.review?.finalScore ?? "-"}</td>
                         <td className="px-4 py-3 text-center">
                           <button
@@ -642,6 +828,8 @@ export default function LecturerJobsheetDetailPage() {
                               const params = new URLSearchParams({ courseId, classId, jobsheetId: jobsheet.id })
                               if (mataKuliahId) params.set("mataKuliahId", mataKuliahId)
                               if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
+                              if (item.submission?.id) params.set("submissionId", item.submission.id)
+                              if (item.submission?.attemptNo) params.set("attemptNo", String(item.submission.attemptNo))
                               navigate(`/reviews/${item.student.id}?${params.toString()}`)
                             }}
                           >
@@ -655,32 +843,131 @@ export default function LecturerJobsheetDetailPage() {
               </div>
             )}
 
-            {activeTab === "settings" && (
+            {activeTab === "remedial" && (
               <div className="space-y-6">
-                <LecturerPanel className="p-5">
-                  <h2 className="mb-3 text-lg font-semibold">Status Jobsheet</h2>
-                  <p className="text-sm text-gray-700">Status saat ini: {jobsheet.status}</p>
-                  <div className="mt-4">
-                    <LecturerButton onClick={() => navigate(jobsheetBasePath)}>
-                      Buka Pengaturan Publikasi
-                    </LecturerButton>
+                <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+                  <div>
+                    <h3 className="font-semibold text-gray-800 text-lg">Sesi Remedial</h3>
+                    <p className="text-xs text-gray-500 mt-1">Daftar sesi remedial yang dibuat untuk kelas praktikum ini.</p>
                   </div>
-                </LecturerPanel>
+                  <LecturerButton onClick={() => setIsRemedialModalOpen(true)}>
+                    Buat Sesi Remedial
+                  </LecturerButton>
+                </div>
 
-                <LecturerPanel className="p-5">
-                   <h2 className="mb-4 text-lg font-semibold">Konfigurasi Penilaian</h2>
-                   <p className="text-sm text-gray-600">
-                     Kesimpulan akhir: {jobsheet.task.conclusionConfig?.required ? "Wajib" : "Opsional"}
-                   </p>
-                   <p className="text-sm text-gray-600">
-                     Minimal kata: {jobsheet.task.conclusionConfig?.minWord ?? 150}
-                   </p>
-                   <p className="text-sm text-gray-600">
-                     Pernyataan mandiri: {jobsheet.task.requireSelfDeclaration ? "Aktif" : "Tidak aktif"}
-                   </p>
-                 </LecturerPanel>
-               </div>
-             )}
+                {loadingRemedials ? (
+                  <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                    <Loader2 className="animate-spin text-blue-600" size={32} />
+                    <span className="text-sm font-semibold text-gray-600">Memuat sesi remedial...</span>
+                  </div>
+                ) : remedials.length === 0 ? (
+                  <LecturerEmptyState title="Belum ada sesi remedial untuk jobsheet ini." />
+                ) : (
+                  <div className="grid gap-6 md:grid-cols-[1fr_320px] items-start">
+                    <div className="space-y-4">
+                      <LecturerTable headers={["Mulai", "Selesai", "Status", "Aksi"]}>
+                        {remedials.map((rem) => {
+                          const isSelected = selectedRemedialId === rem.id
+                          return (
+                            <tr key={rem.id} className={isSelected ? "bg-blue-50/40" : ""}>
+                              <td className="px-4 py-3 text-xs text-gray-600">
+                                {new Date(rem.startAt).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                              </td>
+                              <td className="px-4 py-3 text-xs text-gray-600">
+                                {new Date(rem.endAt).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                  rem.status === "open" ? "bg-green-100 text-green-800" :
+                                  rem.status === "closed" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"
+                                }`}>
+                                  {rem.status === "open" ? "Aktif" : rem.status === "closed" ? "Tutup" : "Draft"}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedRemedialId(rem.id)}
+                                    className={`text-xs font-bold px-3 py-1 rounded-md transition duration-150 ${
+                                      isSelected
+                                        ? "bg-blue-600 text-white"
+                                        : "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                                    }`}
+                                  >
+                                    Detail Peserta
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCancelRemedial(rem.id)}
+                                    className="text-xs font-bold px-3 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 transition duration-150"
+                                  >
+                                    Batalkan
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </LecturerTable>
+                    </div>
+
+                    <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                      <h4 className="font-semibold text-gray-800 border-b border-gray-100 pb-3 mb-4">
+                        Daftar Peserta Remedial
+                      </h4>
+                      {!selectedRemedialId ? (
+                        <p className="text-xs text-gray-500 text-center py-6">Pilih sesi remedial untuk melihat daftar peserta.</p>
+                      ) : loadingRemedialStudents ? (
+                        <div className="flex justify-center py-6">
+                          <Loader2 className="animate-spin text-blue-600" size={24} />
+                        </div>
+                      ) : remedialStudents.length === 0 ? (
+                        <p className="text-xs text-gray-500 text-center py-6">Belum ada peserta terdaftar.</p>
+                      ) : (
+                        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                          {remedialStudents.map((std) => (
+                            <div key={std.id} className="p-3 rounded-lg border border-gray-100 bg-slate-50 flex flex-col gap-1.5">
+                              <div className="flex justify-between items-start">
+                                <span className="font-semibold text-gray-800 text-xs truncate max-w-[150px]">{std.fullname}</span>
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                                  std.status === "reviewed" ? "bg-green-100 text-green-800" :
+                                  std.status === "submitted" ? "bg-amber-100 text-amber-800" :
+                                  std.status === "in_progress" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800"
+                                }`}>
+                                  {std.status === "reviewed" ? "Dinilai" :
+                                   std.status === "submitted" ? "Terkumpul" :
+                                   std.status === "in_progress" ? "Progress" : "Daftar"}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-gray-500 font-mono">NIM: {std.nim || "-"}</div>
+                              {std.submission_id && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const params = new URLSearchParams({ courseId, classId, jobsheetId })
+                                    if (mataKuliahId) params.set("mataKuliahId", mataKuliahId)
+                                    if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
+                                    if (std.submission_id) params.set("submissionId", std.submission_id)
+                                    if (std.attempt_no) params.set("attemptNo", String(std.attempt_no))
+                                    navigate(`/reviews/${std.student_id}?${params.toString()}`)
+                                  }}
+                                  className="mt-1 text-center font-bold text-[10px] text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 py-1 rounded transition duration-150"
+                                >
+                                  Review (Attempt {std.attempt_no})
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Settings panel has been removed */}
            </LecturerPanel>
          </>
        )}
@@ -719,7 +1006,7 @@ export default function LecturerJobsheetDetailPage() {
               ) : studentDetail ? (
                 <>
                   {/* Summary Block */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-blue-50/50 border border-blue-100 p-4 rounded-xl">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-blue-50/50 border border-blue-100 p-4 rounded-xl">
                     <div className="text-center md:text-left">
                       <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</span>
                       <div className="mt-1">
@@ -730,6 +1017,12 @@ export default function LecturerJobsheetDetailPage() {
                       <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Kemajuan</span>
                       <span className="block mt-1 font-bold text-gray-800 text-lg">
                         {Math.round(studentDetail.progress.progress_percentage)}%
+                      </span>
+                    </div>
+                    <div className="text-center md:text-left">
+                      <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Nilai Progress</span>
+                      <span className="block mt-1 font-bold text-gray-800 text-lg">
+                        {formatScore(studentDetail.progressScore?.progressScore)} / 100
                       </span>
                     </div>
                     <div className="text-center md:text-left">
@@ -822,6 +1115,106 @@ export default function LecturerJobsheetDetailPage() {
           studentId={selectedStudentProfileId}
           onClose={() => setSelectedStudentProfileId(null)}
         />
+      )}
+
+      {/* CREATE REMEDIAL MODAL */}
+      {isRemedialModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <form
+            onSubmit={handleCreateRemedialSubmit}
+            className="bg-white rounded-xl shadow-2xl max-w-xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-gray-100"
+          >
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+              <h3 className="font-bold text-gray-905 text-base">Buat Sesi Remedial: {jobsheet?.title}</h3>
+              <button
+                type="button"
+                onClick={() => setIsRemedialModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-1.5 hover:bg-gray-100 rounded-lg transition duration-150"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-700">Waktu Mulai</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={remStartAt}
+                    onChange={(e) => setRemStartAt(e.target.value)}
+                    className="w-full bg-white border border-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-800"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-700">Waktu Berakhir</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={remEndAt}
+                    onChange={(e) => setRemEndAt(e.target.value)}
+                    className="w-full bg-white border border-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-800"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-gray-700 block">Pilih Mahasiswa</label>
+                <div className="border border-gray-200 rounded-lg p-3 max-h-[180px] overflow-y-auto space-y-2">
+                  {matrix.map((item) => {
+                    const student = item.student
+                    const isChecked = remSelectedStudentIds.includes(student.id)
+                    const score = item.submission?.review?.finalScore ?? item.submission?.score
+                    return (
+                      <label key={student.id} className="flex items-center justify-between text-sm text-gray-700 hover:bg-slate-50 p-1 rounded cursor-pointer select-none">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setRemSelectedStudentIds((prev) => [...prev, student.id])
+                              } else {
+                                setRemSelectedStudentIds((prev) => prev.filter((id) => id !== student.id))
+                              }
+                            }}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span>{student.fullname} <span className="text-xs text-gray-400">({student.nim})</span></span>
+                        </div>
+                        <span className={`text-xs px-2 py-0.5 rounded font-bold ${
+                          score === undefined ? "bg-gray-100 text-gray-600" :
+                          score >= 75 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                        }`}>
+                          Nilai: {score ?? "-"}
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+              <button
+                type="button"
+                onClick={() => setIsRemedialModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-100 transition duration-150"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={savingRemedial}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition duration-150 flex items-center gap-2"
+              >
+                {savingRemedial && <Loader2 size={16} className="animate-spin" />}
+                Buat Sesi
+              </button>
+            </div>
+          </form>
+        </div>
       )}
      </LecturerLayout>
    )

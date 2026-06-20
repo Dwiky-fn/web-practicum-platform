@@ -427,10 +427,12 @@ class AiEvaluationQueue {
          JOIN jobsheets j
            ON j.id = $2
           AND j.id_mata_kuliah = kp.id_mata_kuliah
+         JOIN kelas_semester ks
+           ON ks.id_tahun_semester = kp.id_tahun_semester
+          AND ks.id_semester = kp.id_semester
+          AND ks.id_kelas = kp.id_kelas
          JOIN kelas_mhs km
-           ON km.id_tahun_semester = kp.id_tahun_semester
-          AND km.id_semester = kp.id_semester
-          AND km.id_kelas = kp.id_kelas
+           ON km.id_kelas_semester = ks.id
           AND km.id_mahasiswa = $1
          LEFT JOIN pengampu p
            ON p.id_kelas_praktikum = kp.id

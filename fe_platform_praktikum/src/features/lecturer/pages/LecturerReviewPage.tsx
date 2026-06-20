@@ -48,6 +48,17 @@ function hasAiFeedbackPayload(aiFeedback: any) {
   )
 }
 
+function formatScore(value?: number | null) {
+  if (value === undefined || value === null || Number.isNaN(Number(value))) return "-"
+  return Number(value).toFixed(2).replace(/\.?0+$/, "")
+}
+
+function scoreItemTypeLabel(type: "theory" | "experiment" | "exercise") {
+  if (type === "theory") return "Dasar Teori"
+  if (type === "experiment") return "Percobaan"
+  return "Latihan"
+}
+
 function removeAiDerivedFeedbacks(submissionId: string) {
   const all = getStoredFeedbacks()
   saveStoredFeedbacks(
@@ -136,7 +147,9 @@ export default function LecturerReviewPage() {
   const classId = searchParams.get("classId") ?? ""
   const mataKuliahId = searchParams.get("mataKuliahId") || undefined
   const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined
-  const nativeScope = { mataKuliahId, kelasPraktikumId }
+  const submissionIdParam = searchParams.get("submissionId") || undefined
+  const attemptNoParam = searchParams.get("attemptNo") ? Number(searchParams.get("attemptNo")) : undefined
+  const nativeScope = { mataKuliahId, kelasPraktikumId, submissionId: submissionIdParam, attemptNo: attemptNoParam }
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -497,6 +510,8 @@ export default function LecturerReviewPage() {
   const isDraft = submission?.status === "DRAFT"
   const isReviewed = submission?.status === "ACCEPTED"
   const isReadOnly = isDraft || (isReviewed && !isEditingReview)
+  const progressScore = submission?.calculatedProgressScore ?? submission?.scoreBreakdown?.progressScore ?? null
+  const scoreBreakdownItems = submission?.scoreBreakdown?.items ?? []
 
   return (
     <LecturerLayout>
@@ -614,7 +629,78 @@ export default function LecturerReviewPage() {
                   <dd className="text-gray-900">{getSubmissionReviewStatus(submission)}</dd>
                   <dt className="text-gray-600 font-medium font-sans">Diperbarui</dt>
                   <dd className="text-gray-900">{new Date(submission.updatedAt).toLocaleString("id-ID")}</dd>
+                  {submission && (submission as any).attemptLabel && (
+                    <>
+                      <dt className="text-gray-600 font-medium">Attempt / Pengerjaan</dt>
+                      <dd className="text-gray-900">
+                        <span className="font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded text-xs">
+                          {(submission as any).attemptLabel}
+                        </span>
+                      </dd>
+                    </>
+                  )}
+                  {submission?.isAutoSubmitted && (
+                    <>
+                      <dt className="text-gray-600 font-medium">Sumber Submission</dt>
+                      <dd className="text-gray-900">
+                        <span className="font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded text-xs">
+                          Dikumpulkan otomatis setelah deadline
+                        </span>
+                      </dd>
+                    </>
+                  )}
                 </dl>
+              </LecturerPanel>
+
+              <LecturerPanel className="p-5">
+                <div className="mb-4 flex items-start justify-between gap-4 border-b border-gray-100 pb-3">
+                  <div>
+                    <h2 className="text-lg font-semibold">Nilai Progress Pengerjaan</h2>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Nilai sistem berdasarkan bobot Dasar Teori, Percobaan, dan Latihan.
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-gray-900">
+                      {formatScore(progressScore)}
+                      <span className="text-sm font-semibold text-gray-500"> / 100</span>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Nilai final dosen: {formatScore(submission.review?.finalScore)}
+                    </div>
+                  </div>
+                </div>
+
+                {!scoreBreakdownItems.length ? (
+                  <p className="text-sm text-gray-500">Rincian nilai progress belum tersedia.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {scoreBreakdownItems.map((item) => (
+                      <div key={`${item.type}-${item.itemId}`} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                        <div className="flex items-start justify-between gap-3 text-sm">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-gray-800 truncate" title={item.title}>
+                              {item.title}
+                            </p>
+                            <p className="mt-0.5 text-xs text-gray-500">
+                              {scoreItemTypeLabel(item.type)}
+                              {item.totalSteps ? ` - ${item.completedSteps ?? 0}/${item.totalSteps} langkah` : ""}
+                            </p>
+                          </div>
+                          <span className="shrink-0 font-semibold text-blue-700">
+                            {formatScore(item.earnedScore)} / {formatScore(item.weight)}
+                          </span>
+                        </div>
+                        <div className="mt-2 h-1.5 rounded-full bg-white">
+                          <div
+                            className="h-1.5 rounded-full bg-blue-500"
+                            style={{ width: `${Math.min(Math.max(item.completionRatio * 100, 0), 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </LecturerPanel>
 
               {/* AI Review Assistant Panel */}

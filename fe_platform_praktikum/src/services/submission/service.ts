@@ -5,6 +5,8 @@ import type { JobsheetSubmission } from "./types"
 export type SubmissionScope = {
   mataKuliahId?: string
   kelasPraktikumId?: string
+  submissionId?: string
+  attemptNo?: number
 }
 
 const buildSubmissionPath = (courseId: string, jobsheetId: string, scope?: SubmissionScope) => {
@@ -18,6 +20,8 @@ const buildSubmissionPath = (courseId: string, jobsheetId: string, scope?: Submi
 const buildStudentQuery = (studentId: string, scope?: SubmissionScope) => {
   const params = new URLSearchParams({ studentId })
   if (scope?.kelasPraktikumId) params.set("kelasPraktikumId", scope.kelasPraktikumId)
+  if (scope?.submissionId) params.set("submissionId", scope.submissionId)
+  if (scope?.attemptNo) params.set("attemptNo", String(scope.attemptNo))
   return params.toString()
 }
 
@@ -94,4 +98,22 @@ export const submitSubmission = async (
     method: "PATCH",
     body: JSON.stringify({ studentId, kelasPraktikumId: scope?.kelasPraktikumId }),
   })
+}
+
+export const getSubmissionHistory = async (
+  jobsheetId: string,
+  kelasPraktikumId?: string
+): Promise<Array<{
+  submissionId: string
+  attemptNo: number
+  attemptType: "normal" | "remedial"
+  attemptLabel?: string | null
+  status: string
+  finalScore: number | null
+  submittedAt: string
+  reviewedAt: string | null
+}>> => {
+  const query = kelasPraktikumId ? `?kelasPraktikumId=${kelasPraktikumId}` : ""
+  const res = await apiFetch(`/student/jobsheets/${jobsheetId}/history${query}`)
+  return res.data.items
 }

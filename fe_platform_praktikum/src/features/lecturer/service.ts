@@ -10,6 +10,7 @@ import { getJobsheetById } from "../../services/jobsheet/service"
 import type { Jobsheet } from "../../services/jobsheet/types"
 import { getSubmissionByJobsheetId } from "../../services/submission/service"
 import type { JobsheetSubmission } from "../../services/submission/types"
+import type { ScoreBreakdown } from "../../services/progress/types"
 
 export type LecturerClassSummary = AcademicClass & {
   studentCount: number
@@ -101,10 +102,11 @@ export type LecturerTheoryInput = {
   id?: string
   title: string
   content: JSONContent
+  rubric?: number
 }
 
 export type LecturerJobsheetPayload = {
-  lecturerId: string
+  lecturerId?: string
   title: string
   description: string
   goal: string
@@ -130,11 +132,12 @@ export type LecturerJobsheetPayload = {
 }
 
 export type LecturerJobsheetPublishPayload = {
-  lecturerId: string
+  lecturerId?: string
   classes: Array<{
-    classId: string
+    // classId is a compatibility alias for kelasPraktikumId.
+    classId?: string
     kelasPraktikumId?: string
-    deadline: string
+    deadline: string | null
     isActive: boolean
   }>
 }
@@ -149,6 +152,7 @@ function buildCourseCode(courseName: string) {
 }
 
 function getClassMataKuliahId(classItem: Pick<AcademicClass, "courseId" | "mataKuliahId" | "id_mata_kuliah">) {
+  // courseId is a compatibility alias for mataKuliahId.
   return classItem.mataKuliahId || classItem.id_mata_kuliah || classItem.courseId
 }
 
@@ -156,7 +160,8 @@ function getClassKelasPraktikumId(classItem: Pick<AcademicClass, "kelasPraktikum
   return classItem.kelasPraktikumId || classItem.id_kelas_praktikum
 }
 
-function buildLecturerJobsheetPath(courseId: string, scope?: { mataKuliahId?: string }) {
+function buildLecturerJobsheetPath(courseId: string, scope?: { mataKuliahId?: string; kelasPraktikumId?: string }) {
+  if (scope?.kelasPraktikumId) return `/lecturer/kelas-praktikum/${scope.kelasPraktikumId}/jobsheets`
   if (scope?.mataKuliahId) return `/lecturer/mata-kuliah/${scope.mataKuliahId}/jobsheets`
   return `/lecturer/mata-kuliah/${courseId}/jobsheets`
 }
@@ -171,6 +176,7 @@ function toLecturerJobsheetStatus(status: ClassJobsheet["status"]): LecturerJobs
 
 export function getSubmissionReviewStatus(submission: JobsheetSubmission | null) {
   if (!submission || submission.status === "DRAFT") return "Belum"
+  if (submission.submissionSource === "auto_deadline" || submission.isAutoSubmitted) return "Otomatis"
   if (submission.status === "REVISION") return "Revisi"
   if (submission.status === "ACCEPTED") return "Dinilai"
   if (submission.status === "OVERDUE") return "Terlambat"
@@ -258,7 +264,7 @@ export async function getLecturerSubmission(
   courseId: string,
   jobsheetId: string,
   studentId: string,
-  scope?: { mataKuliahId?: string; kelasPraktikumId?: string },
+  scope?: { mataKuliahId?: string; kelasPraktikumId?: string; submissionId?: string; attemptNo?: number },
 ): Promise<JobsheetSubmission | null> {
   return getSubmissionByJobsheetId(courseId, jobsheetId, studentId, scope)
 }
@@ -420,7 +426,7 @@ export async function getLecturerCourseDataset(
 export async function createLecturerJobsheet(
   courseId: string,
   payload: LecturerJobsheetPayload,
-  scope?: { mataKuliahId?: string },
+  scope?: { mataKuliahId?: string; kelasPraktikumId?: string },
 ) {
   const response = await apiFetch(buildLecturerJobsheetPath(courseId, scope), {
     method: "POST",
@@ -434,7 +440,7 @@ export async function updateLecturerJobsheet(
   courseId: string,
   jobsheetId: string,
   payload: LecturerJobsheetPayload,
-  scope?: { mataKuliahId?: string },
+  scope?: { mataKuliahId?: string; kelasPraktikumId?: string },
 ) {
   const response = await apiFetch(`${buildLecturerJobsheetPath(courseId, scope)}/${jobsheetId}`, {
     method: "PUT",
@@ -456,6 +462,18 @@ export async function publishLecturerJobsheet(
   })
 
   return response.data.jobsheet as { id: string; status: string }
+}
+
+export async function deleteLecturerJobsheet(
+  courseId: string,
+  jobsheetId: string,
+  scope?: { mataKuliahId?: string; kelasPraktikumId?: string },
+) {
+  const response = await apiFetch(`${buildLecturerJobsheetPath(courseId, scope)}/${jobsheetId}`, {
+    method: "DELETE",
+  })
+
+  return response.data.jobsheet as { id: string }
 }
 
 export async function saveLecturerSubmissionReview(
@@ -543,6 +561,14 @@ export interface LecturerClassProgressStudent {
   completed_at?: string | null
   status: "not_started" | "in_progress" | "stalled" | "completed"
   current_position_title: string
+  progress_score?: number
+  score_breakdown?: ScoreBreakdown | null
+  submission_id?: string | null
+  submission_status?: string | null
+  submission_source?: "manual" | "auto_deadline" | "remedial" | null
+  is_auto_submitted?: boolean
+  auto_submitted_at?: string | null
+  submitted_at?: string | null
 }
 
 export interface LecturerClassProgressResponse {
@@ -575,6 +601,7 @@ export interface LecturerStudentDetailProgressResponse {
     completed_at?: string | null
     status: "not_started" | "in_progress" | "stalled" | "completed"
   }
+  progressScore?: ScoreBreakdown
   logs: LecturerStudentActivityLog[]
 }
 
@@ -583,8 +610,8 @@ export async function getLecturerClassProgress(
   classId: string,
   kelasPraktikumId?: string,
 ): Promise<LecturerClassProgressResponse> {
-  const params = new URLSearchParams({ classId })
-  if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
+  // `classId` is an old route-level name; in the native flow it is the kelasPraktikumId.
+  const params = new URLSearchParams({ kelasPraktikumId: kelasPraktikumId || classId })
   const response = await apiFetch(
     `/lecturer/jobsheets/${jobsheetId}/progress?${params.toString()}`,
   )
@@ -597,10 +624,95 @@ export async function getLecturerStudentDetailProgress(
   classId: string,
   kelasPraktikumId?: string,
 ): Promise<LecturerStudentDetailProgressResponse> {
-  const params = new URLSearchParams({ classId })
-  if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
+  // `classId` is an old route-level name; in the native flow it is the kelasPraktikumId.
+  const params = new URLSearchParams({ kelasPraktikumId: kelasPraktikumId || classId })
   const response = await apiFetch(
     `/lecturer/jobsheets/${jobsheetId}/progress/${studentId}?${params.toString()}`,
   )
+  return response.data
+}
+
+export interface LecturerRemedialSession {
+  id: string
+  jobsheet_id: string
+  id_kelas_praktikum: string
+  title: string
+  description?: string
+  start_at: string
+  end_at: string
+  startAt: string
+  endAt: string
+  status: "draft" | "open" | "closed"
+  created_by: string
+  created_at: string
+  updated_at: string
+  createdAt?: string
+  updatedAt?: string
+  nama_kelas?: string
+}
+
+export interface LecturerRemedialStudent {
+  id: string
+  remedial_id: string
+  student_id: string
+  fullname: string
+  nim?: string
+  status: "assigned" | "in_progress" | "submitted" | "reviewed"
+  assigned_at: string
+  attempt_no?: number
+  submission_id?: string
+  final_score?: number | null
+}
+
+export async function createLecturerRemedial(
+  jobsheetId: string,
+  payload: {
+    kelasPraktikumId: string
+    title: string
+    description?: string
+    startAt: string
+    endAt: string
+    studentIds: string[]
+  }
+) {
+  const response = await apiFetch(`/lecturer/jobsheets/${jobsheetId}/remedials`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+  return response.data as { remedialId: string }
+}
+
+export async function getLecturerRemedials(
+  jobsheetId: string
+): Promise<LecturerRemedialSession[]> {
+  const response = await apiFetch(`/lecturer/jobsheets/${jobsheetId}/remedials`)
+  return response.data.remedials
+}
+
+export async function cancelLecturerRemedial(
+  remedialId: string
+): Promise<void> {
+  await apiFetch(`/lecturer/remedials/${remedialId}`, {
+    method: "DELETE",
+  })
+}
+
+export async function getLecturerRemedialStudents(
+  remedialId: string
+): Promise<LecturerRemedialStudent[]> {
+  const response = await apiFetch(`/lecturer/remedials/${remedialId}/students`)
+  return response.data.students
+}
+
+export async function addStudentsToLecturerRemedial(
+  remedialId: string,
+  studentIds: string[]
+) {
+  const response = await apiFetch(`/lecturer/remedials/${remedialId}/students`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ studentIds }),
+  })
   return response.data
 }

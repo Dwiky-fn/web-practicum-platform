@@ -26,6 +26,7 @@ interface Props {
   onDelete: (node: FileTreeNode) => void
   onContextMenu: (event: React.MouseEvent, node: FileTreeNode) => void
   onDropNode: (draggedNodeId: string, targetNodeId: string) => void
+  readOnly?: boolean
 }
 
 export default function FileTreeItem({
@@ -43,6 +44,7 @@ export default function FileTreeItem({
   onDelete,
   onContextMenu,
   onDropNode,
+  readOnly = false,
 }: Props) {
   const [draftName, setDraftName] = useState(node.name)
   const [isDropTarget, setIsDropTarget] = useState(false)
@@ -71,20 +73,26 @@ export default function FileTreeItem({
   return (
     <div>
       <div
-        draggable
+        draggable={!readOnly}
         onDragStart={(event) => {
+          if (readOnly) return
           event.dataTransfer.setData("application/x-file-tree-node", node.id)
           event.dataTransfer.effectAllowed = "move"
         }}
         onDragOver={(event) => {
+          if (readOnly) return
           if (!isFolder) return
 
           event.preventDefault()
           event.dataTransfer.dropEffect = "move"
           setIsDropTarget(true)
         }}
-        onDragLeave={() => setIsDropTarget(false)}
+        onDragLeave={() => {
+          if (readOnly) return
+          setIsDropTarget(false)
+        }}
         onDrop={(event) => {
+          if (readOnly) return
           if (!isFolder) return
 
           event.preventDefault()
@@ -115,7 +123,10 @@ export default function FileTreeItem({
 
           onOpenFile(node)
         }}
-        onContextMenu={(event) => onContextMenu(event, node)}
+        onContextMenu={(event) => {
+          if (readOnly) return
+          onContextMenu(event, node)
+        }}
       >
         <button
           type="button"
@@ -167,32 +178,34 @@ export default function FileTreeItem({
           </span>
         )}
 
-        <div className="ml-auto hidden shrink-0 items-center gap-0.5 group-hover:flex">
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              onRequestRename(node)
-            }}
-            className="flex h-5 w-5 items-center justify-center rounded text-[#cccccc] hover:bg-[#3c3c3c] hover:text-white"
-            aria-label={`Rename ${node.name}`}
-            title="Rename"
-          >
-            <Pencil size={13} />
-          </button>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              onDelete(node)
-            }}
-            className="flex h-5 w-5 items-center justify-center rounded text-[#cccccc] hover:bg-[#3c3c3c] hover:text-white"
-            aria-label={`Delete ${node.name}`}
-            title="Delete"
-          >
-            <Trash2 size={13} />
-          </button>
-        </div>
+        {!readOnly && (
+          <div className="ml-auto hidden shrink-0 items-center gap-0.5 group-hover:flex">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onRequestRename(node)
+              }}
+              className="flex h-5 w-5 items-center justify-center rounded text-[#cccccc] hover:bg-[#3c3c3c] hover:text-white"
+              aria-label={`Rename ${node.name}`}
+              title="Rename"
+            >
+              <Pencil size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onDelete(node)
+              }}
+              className="flex h-5 w-5 items-center justify-center rounded text-[#cccccc] hover:bg-[#3c3c3c] hover:text-white"
+              aria-label={`Delete ${node.name}`}
+              title="Delete"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        )}
       </div>
 
       {isFolder && isExpanded && hasChildren && (
@@ -214,6 +227,7 @@ export default function FileTreeItem({
               onDelete={onDelete}
               onContextMenu={onContextMenu}
               onDropNode={onDropNode}
+              readOnly={readOnly}
             />
           ))}
         </div>

@@ -37,6 +37,16 @@ type RawSubmission = {
   created_at?: string
   updated_at: string
   submitted_at?: string | null
+  attempt_no?: number
+  attempt_type?: string
+  attempt_label?: string
+  remedial_id?: string | null
+  parent_submission_id?: string | null
+  is_auto_submitted?: boolean
+  auto_submitted_at?: string | null
+  submission_source?: "manual" | "auto_deadline" | "remedial"
+  calculated_progress_score?: number | string | null
+  score_breakdown?: JobsheetSubmission["scoreBreakdown"]
   report?: RawReport
   report_html?: string | null
   ai_evaluation_status?: string
@@ -91,6 +101,16 @@ export function mapSubmission(data: RawSubmission): JobsheetSubmission {
     studentId: data.student_id,
     status: mapStatus(data.status, data.review?.decision),
     score: data.score ?? data.review?.ai_score ?? undefined,
+    attemptNo: data.attempt_no,
+    attemptType: data.attempt_type as "normal" | "remedial" | undefined,
+    attemptLabel: data.attempt_type === "remedial" ? (data.attempt_label || "Remedial") : undefined,
+    remedialId: data.remedial_id,
+    parentSubmissionId: data.parent_submission_id,
+    isAutoSubmitted: Boolean(data.is_auto_submitted),
+    autoSubmittedAt: data.auto_submitted_at ?? undefined,
+    submissionSource: data.submission_source ?? "manual",
+    calculatedProgressScore: data.calculated_progress_score != null ? Number(data.calculated_progress_score) : null,
+    scoreBreakdown: data.score_breakdown ?? null,
     report,
     createdAt: data.created_at,
     updatedAt: timestamp,

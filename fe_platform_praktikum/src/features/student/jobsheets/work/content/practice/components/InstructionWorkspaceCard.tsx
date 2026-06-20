@@ -25,6 +25,7 @@ interface Props {
   onRun?: () => void
   onSave?: () => void
   editorMode?: string
+  readOnly?: boolean
 }
 
 type BottomPanelTab = "terminal" | "analysis"
@@ -76,6 +77,7 @@ export default function InstructionWorkspaceCard({
   onRun,
   onSave,
   editorMode = "mini_ide",
+  readOnly = false,
 }: Props) {
   const defaultFileName = getDefaultFileName(language)
   const totalSteps = Math.max(instructions.length, initialSteps?.length || 0, 1)
@@ -437,6 +439,7 @@ export default function InstructionWorkspaceCard({
     editorPath: `instruction-${activeIndex}/${activeFile}`,
     onChangeFile: setActiveFile,
     onCodeChange: (value: string) => {
+      if (readOnly) return
       setIsDirty(true)
       setCodeMap(prev => ({
         ...prev,
@@ -450,7 +453,8 @@ export default function InstructionWorkspaceCard({
     getNewFileName: (files: Record<string, string>) => (
       `File${Object.keys(files).length + 1}.${getFileExtension(language)}`
     ),
-  }), [activeFile, activeIndex, codeMap, handleFilesChange, language])
+    readOnly,
+  }), [activeFile, activeIndex, codeMap, handleFilesChange, language, readOnly])
 
   return (
     <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -541,24 +545,28 @@ export default function InstructionWorkspaceCard({
                     {saveError || saveStatus}
                   </span>
                 )}
-                <ToolbarButton onClick={handleRun} disabled={Object.values(runningMap).some(Boolean)} primary>
-                  <Play size={16} fill="currentColor" aria-hidden="true" />
-                  Run
-                </ToolbarButton>
-                {runningMap[activeIndex] && (
-                  <ToolbarButton onClick={() => executionClientRef.current?.stop()} danger>
-                    <Square size={16} fill="currentColor" aria-hidden="true" />
-                    Stop
-                  </ToolbarButton>
+                {!readOnly && (
+                  <>
+                    <ToolbarButton onClick={handleRun} disabled={Object.values(runningMap).some(Boolean)} primary>
+                      <Play size={16} fill="currentColor" aria-hidden="true" />
+                      Run
+                    </ToolbarButton>
+                    {runningMap[activeIndex] && (
+                      <ToolbarButton onClick={() => executionClientRef.current?.stop()} danger>
+                        <Square size={16} fill="currentColor" aria-hidden="true" />
+                        Stop
+                      </ToolbarButton>
+                    )}
+                    <ToolbarButton onClick={() => saveCurrentSteps()} disabled={isSaving}>
+                      <Save size={16} aria-hidden="true" />
+                      {isSaving ? "Saving" : "Save"}
+                    </ToolbarButton>
+                    <ToolbarButton onClick={handleReset} disabled={!!runningMap[activeIndex]}>
+                      <RotateCcw size={16} aria-hidden="true" />
+                      Reset
+                    </ToolbarButton>
+                  </>
                 )}
-                <ToolbarButton onClick={() => saveCurrentSteps()} disabled={isSaving}>
-                  <Save size={16} aria-hidden="true" />
-                  {isSaving ? "Saving" : "Save"}
-                </ToolbarButton>
-                <ToolbarButton onClick={handleReset} disabled={!!runningMap[activeIndex]}>
-                  <RotateCcw size={16} aria-hidden="true" />
-                  Reset
-                </ToolbarButton>
                 <ToolbarButton onClick={() => setIsWorkspaceExpanded(false)}>
                   <ChevronUp size={16} aria-hidden="true" />
                   Collapse
@@ -583,30 +591,32 @@ export default function InstructionWorkspaceCard({
                         ))}
                       </select>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={handleSimpleAddFile}
-                        className="rounded bg-[#2d2d2d] border border-[#3c3c3c] hover:bg-[#3c3c3c] hover:text-white text-gray-300 px-2 py-0.5 text-[11px] font-semibold"
-                      >
-                        + Tambah File
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSimpleRenameFile}
-                        className="rounded bg-[#2d2d2d] border border-[#3c3c3c] hover:bg-[#3c3c3c] hover:text-white text-gray-300 px-2 py-0.5 text-[11px] font-semibold"
-                      >
-                        Rename
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSimpleDeleteFile}
-                        disabled={Object.keys(codeMap[activeIndex] || {}).length <= 1}
-                        className="rounded bg-[#2d2d2d] border border-[#3c3c3c] hover:bg-[#3c3c3c] hover:text-white text-gray-300 px-2 py-0.5 text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Hapus
-                      </button>
-                    </div>
+                    {!readOnly && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleSimpleAddFile}
+                          className="rounded bg-[#2d2d2d] border border-[#3c3c3c] hover:bg-[#3c3c3c] hover:text-white text-gray-300 px-2 py-0.5 text-[11px] font-semibold"
+                        >
+                          + Tambah File
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSimpleRenameFile}
+                          className="rounded bg-[#2d2d2d] border border-[#3c3c3c] hover:bg-[#3c3c3c] hover:text-white text-gray-300 px-2 py-0.5 text-[11px] font-semibold"
+                        >
+                          Rename
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSimpleDeleteFile}
+                          disabled={Object.keys(codeMap[activeIndex] || {}).length <= 1}
+                          className="rounded bg-[#2d2d2d] border border-[#3c3c3c] hover:bg-[#3c3c3c] hover:text-white text-gray-300 px-2 py-0.5 text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Hapus
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Simple Editor */}
@@ -618,6 +628,7 @@ export default function InstructionWorkspaceCard({
                       value={(codeMap[activeIndex] || {})[activeFile] ?? ""}
                       theme="vs-dark"
                       onChange={(val) => {
+                        if (readOnly) return
                         setIsDirty(true)
                         setCodeMap(prev => ({
                           ...prev,
@@ -633,6 +644,7 @@ export default function InstructionWorkspaceCard({
                         scrollBeyondLastLine: false,
                         wordWrap: "on",
                         padding: { top: 8, bottom: 8 },
+                        readOnly: readOnly,
                       }}
                     />
                   </div>
@@ -701,12 +713,14 @@ export default function InstructionWorkspaceCard({
                         <AnalysisEditor
                           value={analysisMap[activeIndex] || { type: "doc", content: [] }}
                           onChange={(value) => {
+                            if (readOnly) return
                             setIsDirty(true)
                             setAnalysisMap(prev => ({
                               ...prev,
                               [activeIndex]: value,
                             }))
                           }}
+                          readOnly={readOnly}
                         />
                       </div>
                     )}

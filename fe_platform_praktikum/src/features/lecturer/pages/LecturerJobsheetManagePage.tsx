@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { ArrowLeft, Plus } from "lucide-react"
+import { ArrowLeft, Plus, Trash2 } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
@@ -14,6 +14,7 @@ import {
   SearchBox,
 } from "../components/LecturerUI"
 import {
+  deleteLecturerJobsheet,
   getLecturerCourseDataset,
   publishLecturerJobsheet,
   type LecturerCourseDataset,
@@ -21,6 +22,7 @@ import {
 } from "../service"
 import { toast } from "../../../components/toast/toastStore"
 import { academicCourseBasePath } from "../../../services/academicScope"
+import { datetimeLocalToDbValue, dbValueToDatetimeLocal, formatDeadlineLocal } from "../utils/deadline"
 
 type PublishClassSetting = {
   classId: string
@@ -28,15 +30,6 @@ type PublishClassSetting = {
   className: string
   isActive: boolean
   deadline: string
-}
-
-function toDatetimeLocal(value: string | undefined) {
-  if (!value) return ""
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return ""
-  const offset = parsed.getTimezoneOffset()
-  const local = new Date(parsed.getTime() - offset * 60000)
-  return local.toISOString().slice(0, 16)
 }
 
 function renderUsedIn(jobsheet: LecturerJobsheetSummary) {
@@ -70,7 +63,7 @@ function renderDeadline(jobsheet: LecturerJobsheetSummary) {
   const allSame = settingsWithDeadline.every((s) => s.deadline === firstDeadline) && settingsWithDeadline.length === activeSettings.length
 
   if (allSame) {
-    return <p className="text-sm text-gray-700">Deadline: {firstDeadline}</p>
+    return <p className="text-sm text-gray-700">Deadline: {formatDeadlineLocal(firstDeadline)}</p>
   }
 
   const sortedSettings = [...activeSettings].sort((a, b) =>
@@ -82,7 +75,7 @@ function renderDeadline(jobsheet: LecturerJobsheetSummary) {
       <span>Deadline:</span>
       <ul className="ml-4 mt-1 list-disc space-y-0.5">
         {sortedSettings.map((s) => {
-          const deadlineText = s.deadline && s.deadline !== "-" ? s.deadline : "Belum diatur"
+          const deadlineText = formatDeadlineLocal(s.deadline)
           return (
             <li key={s.classId}>
               Kelas Praktikum {s.className}: {deadlineText}
@@ -107,6 +100,8 @@ export default function LecturerJobsheetManagePage() {
   const [dataset, setDataset] = useState<LecturerCourseDataset | null>(null)
   const [publishTarget, setPublishTarget] = useState<LecturerJobsheetSummary | null>(null)
   const [publishSettings, setPublishSettings] = useState<PublishClassSetting[]>([])
+  const [deleteTarget, setDeleteTarget] = useState<LecturerJobsheetSummary | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const loadDataset = useCallback(async () => {
     if (!user || user.role !== "DOSEN" || !effectiveCourseId) return
@@ -153,7 +148,7 @@ export default function LecturerJobsheetManagePage() {
           kelasPraktikumId: item.kelasPraktikumId || item.id_kelas_praktikum,
           className: item.name,
           isActive: existing ? existing.isActive : false,
-          deadline: existing?.deadline ? toDatetimeLocal(existing.deadline) : "",
+          deadline: dbValueToDatetimeLocal(existing?.deadline),
         }
       }),
     )
@@ -169,9 +164,8 @@ export default function LecturerJobsheetManagePage() {
       await publishLecturerJobsheet(effectiveCourseId, publishTarget.id, {
         lecturerId: user.id,
         classes: publishSettings.map((item) => ({
-          classId: item.classId,
           kelasPraktikumId: item.kelasPraktikumId,
-          deadline: item.deadline,
+          deadline: datetimeLocalToDbValue(item.deadline),
           isActive: item.isActive,
         })),
       }, { mataKuliahId: dataset?.course.mataKuliahId || dataset?.course.id })
@@ -183,6 +177,24 @@ export default function LecturerJobsheetManagePage() {
       toast.error(publishError instanceof Error ? publishError.message : "Gagal menyimpan pengaturan jobsheet.")
     } finally {
       setSavingPublish(false)
+    }
+  }
+
+  async function handleDeleteJobsheet() {
+    if (!deleteTarget) return
+
+    try {
+      setDeleting(true)
+      await deleteLecturerJobsheet(effectiveCourseId, deleteTarget.id, {
+        mataKuliahId: dataset?.course.mataKuliahId || dataset?.course.id,
+      })
+      toast.success("Jobsheet berhasil dihapus.")
+      setDeleteTarget(null)
+      await loadDataset()
+    } catch (deleteError) {
+      toast.error(deleteError instanceof Error ? deleteError.message : "Gagal menghapus jobsheet.")
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -265,6 +277,10 @@ export default function LecturerJobsheetManagePage() {
                     <LecturerButton variant="secondary" onClick={() => setPublishTarget(jobsheet)}>
                       Pengaturan
                     </LecturerButton>
+                    <LecturerButton variant="secondary" onClick={() => setDeleteTarget(jobsheet)}>
+                      <Trash2 size={16} />
+                      Hapus
+                    </LecturerButton>
                   </div>
                 </LecturerPanel>
               ))}
@@ -330,6 +346,29 @@ export default function LecturerJobsheetManagePage() {
                 ))}
               </div>
             </div>
+          </div>
+        </LecturerModal>
+      )}
+      {deleteTarget && (
+        <LecturerModal
+          title="Hapus Jobsheet"
+          onClose={() => setDeleteTarget(null)}
+          footer={
+            <>
+              <LecturerButton variant="secondary" onClick={() => setDeleteTarget(null)}>Batal</LecturerButton>
+              <LecturerButton disabled={deleting} onClick={handleDeleteJobsheet}>
+                {deleting ? "Menghapus..." : "Hapus"}
+              </LecturerButton>
+            </>
+          }
+        >
+          <div className="space-y-3 text-sm text-gray-700">
+            <p>
+              Jobsheet <span className="font-semibold">{deleteTarget.title}</span> akan dihapus.
+            </p>
+            <p>
+              Jobsheet hanya bisa dihapus jika belum digunakan di kelas mana pun.
+            </p>
           </div>
         </LecturerModal>
       )}

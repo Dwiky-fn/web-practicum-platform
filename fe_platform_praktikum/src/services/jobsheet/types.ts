@@ -14,6 +14,7 @@ export interface TheoryItem {
   order: number;
   title: string;
   content: JSONContent;
+  rubric?: number;
 }
 
 // ================= EXPERIMENT =================
@@ -88,6 +89,7 @@ export type RawTheory = {
   title: string;
   order: number;
   content: JSONContent;
+  rubric?: number;
 };
 
 export type RawJobsheet = {
@@ -117,6 +119,7 @@ export type RawJobsheet = {
   experiments?: RawExperiment[];
   exercises?: RawExercise[];
   theory?: RawTheory[];
+  access?: Jobsheet["access"];
 };
 
 // ================= FINAL FE MODEL =================
@@ -142,4 +145,16 @@ export interface Jobsheet {
   exercises: Exercise[];
 
   task: TaskConfig;
+  access?: {
+    accessMode: "editable_normal" | "locked_deadline" | "readonly_submitted" | "readonly_reviewed" | "editable_remedial";
+    canEdit: boolean;
+    canSaveProgress?: boolean;
+    canSubmit: boolean;
+    message?: string;
+    attemptType?: "normal" | "remedial";
+    attemptNo?: number;
+    attemptLabel?: string;
+    remedialId?: string;
+    remedialEndAt?: string;
+  };
 }

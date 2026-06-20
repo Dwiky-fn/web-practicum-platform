@@ -93,6 +93,8 @@ class ClassesHandler {
 
   async deleteClassHandler(req, res) {
     try {
+      // Compatibility endpoint.
+      // Deletion is delegated to native academic delete guard.
       await this._service.deleteClass(req.params.id);
       return ok(res, {}, 'Kelas berhasil dihapus');
     } catch (error) {

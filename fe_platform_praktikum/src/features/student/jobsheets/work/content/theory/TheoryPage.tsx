@@ -24,6 +24,9 @@ export default function TheoryPage() {
       <h1 className="text-3xl font-semibold text-gray-800">
         {theory.title}
       </h1>
+      <p className="text-sm font-semibold text-blue-700">
+        Bobot: {theory.rubric ?? 0}%
+      </p>
 
       <RichTextViewer
         content={theory.content}

@@ -72,6 +72,9 @@ class SubmissionsHandler {
         ...req.body,
         courseId: req.body.courseId || req.params.courseId,
         mataKuliahId: req.body.mataKuliahId || req.params.mataKuliahId,
+        // classId is a compatibility alias for kelasPraktikumId.
+        classId: req.body.classId || req.query.classId,
+        kelasPraktikumId: req.body.kelasPraktikumId || req.body.id_kelas_praktikum || req.query.kelasPraktikumId || req.query.id_kelas_praktikum,
       };
 
       const submission = await this._service.createSubmission(payload);
@@ -95,6 +98,8 @@ class SubmissionsHandler {
       {
         classId: req.query.classId || req.body?.classId,
         kelasPraktikumId: req.query.kelasPraktikumId || req.query.id_kelas_praktikum || req.body?.kelasPraktikumId || req.body?.id_kelas_praktikum,
+        submissionId: req.query.submissionId,
+        attemptNo: req.query.attemptNo ? Number(req.query.attemptNo) : undefined,
       },
     );
 
@@ -117,6 +122,8 @@ class SubmissionsHandler {
         mataKuliahId: mataKuliahId || courseId,
         classId: req.query.classId || req.body?.classId,
         kelasPraktikumId: req.query.kelasPraktikumId || req.query.id_kelas_praktikum || req.body?.kelasPraktikumId || req.body?.id_kelas_praktikum,
+        submissionId: req.query.submissionId,
+        attemptNo: req.query.attemptNo ? Number(req.query.attemptNo) : undefined,
       },
     );
 
@@ -197,6 +204,23 @@ class SubmissionsHandler {
     const filtered = this._filterSubmissionForStudent(submission, req.user?.role);
 
     return res.json({ status: 'success', data: { submission: filtered } });
+  }
+
+  async getSubmissionHistoryHandler(req, res) {
+    const { jobsheetId } = req.params;
+    const studentId = req.user.id;
+    const kelasPraktikumId = req.query.kelasPraktikumId || req.query.id_kelas_praktikum;
+
+    const items = await this._service.getSubmissionHistory(
+      studentId,
+      jobsheetId,
+      kelasPraktikumId,
+    );
+
+    return res.json({
+      status: 'success',
+      data: { items },
+    });
   }
 }
 

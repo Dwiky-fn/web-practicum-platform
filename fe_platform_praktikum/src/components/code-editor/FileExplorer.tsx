@@ -29,6 +29,7 @@ interface Props {
   onCopy: (node: FileTreeNode) => void
   onPaste: (targetId?: string | null) => void
   onDropNode: (draggedNodeId: string, targetNodeId: string | null) => void
+  readOnly?: boolean
 }
 
 export default function FileExplorer({
@@ -55,6 +56,7 @@ export default function FileExplorer({
   onCopy,
   onPaste,
   onDropNode,
+  readOnly = false,
 }: Props) {
   if (isCollapsed) {
     return (
@@ -81,24 +83,28 @@ export default function FileExplorer({
           EXPLORER
         </span>
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => onAddFile(selectedNodeId)}
-            className="flex h-7 w-7 items-center justify-center rounded text-[#cccccc] hover:bg-[#3c3c3c] hover:text-white"
-            aria-label="New file"
-            title="New file"
-          >
-            <FilePlus2 size={15} />
-          </button>
-          <button
-            type="button"
-            onClick={() => onAddFolder(selectedNodeId)}
-            className="flex h-7 w-7 items-center justify-center rounded text-[#cccccc] hover:bg-[#3c3c3c] hover:text-white"
-            aria-label="New folder"
-            title="New folder"
-          >
-            <FolderPlus size={15} />
-          </button>
+          {!readOnly && (
+            <>
+              <button
+                type="button"
+                onClick={() => onAddFile(selectedNodeId)}
+                className="flex h-7 w-7 items-center justify-center rounded text-[#cccccc] hover:bg-[#3c3c3c] hover:text-white"
+                aria-label="New file"
+                title="New file"
+              >
+                <FilePlus2 size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onAddFolder(selectedNodeId)}
+                className="flex h-7 w-7 items-center justify-center rounded text-[#cccccc] hover:bg-[#3c3c3c] hover:text-white"
+                aria-label="New folder"
+                title="New folder"
+              >
+                <FolderPlus size={15} />
+              </button>
+            </>
+          )}
           <button
             type="button"
             onClick={onToggleCollapse}
@@ -114,12 +120,17 @@ export default function FileExplorer({
       <div
         className="flex-1 overflow-auto py-2"
         onClick={() => onSelectNode(null)}
-        onContextMenu={(event) => onContextMenu(event, null)}
+        onContextMenu={(event) => {
+          if (readOnly) return
+          onContextMenu(event, null)
+        }}
         onDragOver={(event) => {
+          if (readOnly) return
           event.preventDefault()
           event.dataTransfer.dropEffect = "move"
         }}
         onDrop={(event) => {
+          if (readOnly) return
           event.preventDefault()
           const draggedNodeId = event.dataTransfer.getData("application/x-file-tree-node")
 

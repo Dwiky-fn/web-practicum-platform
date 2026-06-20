@@ -17,11 +17,15 @@ class StudentProgressHandler {
         throw new InvariantError('studentId wajib diisi');
       }
 
+      const resolvedKelasPraktikumId = kelasPraktikumId || id_kelas_praktikum || classId;
+      if (!resolvedKelasPraktikumId) {
+        throw new InvariantError('Konteks kelas praktikum tidak valid.');
+      }
+
       const progress = await this._service.getProgress(
         studentId,
         jobsheetId,
-        classId,
-        kelasPraktikumId || id_kelas_praktikum,
+        resolvedKelasPraktikumId,
       );
 
       return res.json({
@@ -42,11 +46,15 @@ class StudentProgressHandler {
         throw new InvariantError('studentId wajib diisi');
       }
 
+      const resolvedKelasPraktikumId = kelasPraktikumId || id_kelas_praktikum || classId;
+      if (!resolvedKelasPraktikumId) {
+        throw new InvariantError('Konteks kelas praktikum tidak valid.');
+      }
+
       const result = await this._service.upsertProgress({
         studentId,
         jobsheetId,
-        classId,
-        kelasPraktikumId: kelasPraktikumId || id_kelas_praktikum,
+        kelasPraktikumId: resolvedKelasPraktikumId,
         progress,
         lastPage,
         status,
@@ -65,7 +73,7 @@ class StudentProgressHandler {
   async updateJobsheetProgressHandler(req, res, next) {
     try {
       const { jobsheetId } = req.params;
-      const { studentId, classId, kelasPraktikumId, id_kelas_praktikum, experimentId, instructionId, activityType, metadata } = req.body;
+      const { studentId, classId, kelasPraktikumId, id_kelas_praktikum, moduleId, experimentId, instructionId, activityType, metadata } = req.body;
 
       if (!studentId) {
         throw new InvariantError('studentId wajib diisi');
@@ -75,11 +83,16 @@ class StudentProgressHandler {
         throw new InvariantError('activityType wajib diisi');
       }
 
+      const resolvedKelasPraktikumId = kelasPraktikumId || id_kelas_praktikum || classId;
+      if (!resolvedKelasPraktikumId) {
+        throw new InvariantError('Konteks kelas praktikum tidak valid.');
+      }
+
       const result = await this._jobsheetProgressService.updateProgress({
         studentId,
         jobsheetId,
-        classId,
-        kelasPraktikumId: kelasPraktikumId || id_kelas_praktikum,
+        kelasPraktikumId: resolvedKelasPraktikumId,
+        moduleId,
         experimentId,
         instructionId,
         activityType,

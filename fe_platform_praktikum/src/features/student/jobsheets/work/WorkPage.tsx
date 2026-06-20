@@ -30,13 +30,28 @@ export default function WorkPage() {
     submission,
     savedProgress,
     completedItems,
+    scoreBreakdown,
     completeCurrentProgressItem,
     loading,
     error,
     updateExperiment,
     updateExercise,
     trackActivity,
+    isBrowsingHistory,
   } = useWorkPage(effectiveCourseId, jobsheetId, routeMataKuliahId)
+
+  const access = jobsheet?.access || { accessMode: "editable_normal", canEdit: true, canSubmit: true }
+  const accessMode = access.accessMode
+  const readOnly = !access.canEdit || accessMode === "locked_deadline" || accessMode === "readonly_submitted" || accessMode === "readonly_reviewed" || isBrowsingHistory
+  const formattedEndAt = access.remedialEndAt
+    ? new Date(access.remedialEndAt).toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : ""
 
   const handleWorkScroll = useCallback(() => {
     const scrollContainer = scrollContainerRef.current
@@ -89,7 +104,7 @@ export default function WorkPage() {
       </div>
     )
   }
-  if (!effectiveCourseId || !jobsheet || !submission) return <NotFoundPage />
+  if (!effectiveCourseId || !jobsheet || (!submission && accessMode !== "locked_deadline")) return <NotFoundPage />
 
   return (
     <div className="h-dvh flex flex-col bg-gray-50">
@@ -109,21 +124,83 @@ export default function WorkPage() {
           className="flex-1 overflow-y-auto px-6 py-8 lg:px-10"
         >
           <div className="mx-auto max-w-6xl">
-            <Outlet
-              context={{
-                course,
-                jobsheet,
-                submission,
-                programmingLanguage: jobsheet.programmingLanguage || course?.programmingLanguage || "java",
-                updateExperiment,
-                updateExercise,
-                trackActivity,
-              }}
-            />
+            {accessMode === 'locked_deadline' && !submission ? (
+              <div className="flex flex-col items-center justify-center py-24 px-4">
+                <div className="relative p-8 max-w-md w-full bg-white/80 backdrop-blur-md rounded-2xl border border-red-100 shadow-xl text-center overflow-hidden">
+                  <div className="absolute -right-10 -top-10 w-40 h-40 bg-red-500/5 rounded-full blur-3xl pointer-events-none" />
+                  <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-orange-500/5 rounded-full blur-3xl pointer-events-none" />
+                  
+                  <div className="relative mx-auto flex items-center justify-center w-16 h-16 rounded-full bg-red-50 text-red-500 mb-6 border border-red-100">
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Deadline Berakhir</h3>
+                  <p className="text-gray-500 text-sm mb-6">Deadline pengerjaan telah berakhir. Jobsheet tidak dapat dikerjakan lagi.</p>
+                  <div className="text-xs text-gray-400 border-t border-gray-100 pt-4">
+                    Hubungi dosen pengampu jika Anda memerlukan sesi remedial.
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                {accessMode === 'locked_deadline' && (
+                  <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <h3 className="font-semibold text-red-800">Deadline Berakhir</h3>
+                    <p className="mt-1">
+                      Pengerjaan normal telah dikunci. Anda masih dapat melihat riwayat pengerjaan dan hasil review.
+                    </p>
+                  </div>
+                )}
+
+                {accessMode === 'editable_remedial' && !isBrowsingHistory && (
+                  <div className="mb-6 relative overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-4 shadow-md flex items-start gap-3">
+                    <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm mt-0.5 flex shrink-0">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-sm">Remedial Aktif</h4>
+                      <p className="text-xs text-blue-100 mt-1">
+                        Remedial aktif sampai <span className="font-semibold">{formattedEndAt}</span>. Kerjakan ulang jobsheet sesuai instruksi dosen.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <Outlet
+                  context={{
+                    course,
+                    jobsheet,
+                    submission,
+                    programmingLanguage: jobsheet.programmingLanguage || course?.programmingLanguage || "java",
+                    updateExperiment,
+                    updateExercise,
+                    trackActivity,
+                    readOnly,
+                  }}
+                />
+              </>
+            )}
           </div>
         </main>
 
-        <WorkSidebar
+        {submission && (
+          <WorkSidebar
+            courseId={effectiveCourseId}
+            jobsheet={jobsheet}
+            submission={submission}
+            savedProgress={savedProgress}
+            completedItems={completedItems}
+            scoreBreakdown={scoreBreakdown}
+            scope={scope}
+          />
+        )}
+      </div>
+
+      {submission && (
+        <WorkFooterNav
           courseId={effectiveCourseId}
           jobsheet={jobsheet}
           submission={submission}
@@ -131,16 +208,7 @@ export default function WorkPage() {
           completedItems={completedItems}
           scope={scope}
         />
-      </div>
-
-      <WorkFooterNav
-        courseId={effectiveCourseId}
-        jobsheet={jobsheet}
-        submission={submission}
-        savedProgress={savedProgress}
-        completedItems={completedItems}
-        scope={scope}
-      />
+      )}
     </div>
   )
 }

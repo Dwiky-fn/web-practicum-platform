@@ -186,8 +186,8 @@ export const academicDataApi = {
     const path = id ? `/admin/kelas-mahasiswa/${id}` : "/admin/kelas-mahasiswa"
     return unwrap<KelasMahasiswa>(await apiFetch(path, { method, body: JSON.stringify(payload) }), "kelas_mahasiswa")
   },
-  async deleteKelasMahasiswa(id: string, force?: boolean) {
-    await apiFetch(`/admin/kelas-mahasiswa/${id}${force ? "?force=true" : ""}`, { method: "DELETE" })
+  async deleteKelasMahasiswa(id: string) {
+    await apiFetch(`/admin/kelas-mahasiswa/${id}`, { method: "DELETE" })
   },
 
   async getKelasPraktikum(filters: Record<string, string> = {}) {
@@ -207,8 +207,8 @@ export const academicDataApi = {
     const path = id ? `/admin/kelas-praktikum/${id}` : "/admin/kelas-praktikum"
     return unwrap<KelasPraktikum>(await apiFetch(path, { method, body: JSON.stringify(payload) }), "kelas_praktikum")
   },
-  async deleteKelasPraktikum(id: string, force?: boolean) {
-    await apiFetch(`/admin/kelas-praktikum/${id}${force ? "?force=true" : ""}`, { method: "DELETE" })
+  async deleteKelasPraktikum(id: string) {
+    await apiFetch(`/admin/kelas-praktikum/${id}`, { method: "DELETE" })
   },
 
   async getPengampu(filters: Record<string, string> = {}) {
@@ -231,8 +231,8 @@ export const academicDataApi = {
     const path = id ? `/admin/kelas-semester/${id}` : "/admin/kelas-semester"
     return unwrap<KelasSemester>(await apiFetch(path, { method, body: JSON.stringify(payload) }), "kelas_semester")
   },
-  async deleteKelasSemester(id: string, force?: boolean) {
-    await apiFetch(`/admin/kelas-semester/${id}${force ? "?force=true" : ""}`, { method: "DELETE" })
+  async deleteKelasSemester(id: string) {
+    await apiFetch(`/admin/kelas-semester/${id}`, { method: "DELETE" })
   },
   async transitionStudents(payload: {
     targetTahunSemesterId: string

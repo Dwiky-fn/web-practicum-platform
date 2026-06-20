@@ -10,7 +10,7 @@ class LecturerReviewsHandler {
 
   async putSubmissionReviewHandler(req, res) {
     try {
-      const review = await this._service.saveSubmissionReview(req.body);
+      const review = await this._service.saveSubmissionReview(req.body, req.user.id);
       return ok(res, { review }, 'Review submission berhasil disimpan');
     } catch (error) {
       return handleAdminError(error, res);
@@ -21,6 +21,7 @@ class LecturerReviewsHandler {
     try {
       const { submissionId } = req.params;
 
+      await this._service.ensureSubmissionAccess(submissionId, req.user.id);
       const AiEvaluationQueue = require('../../../services/execution/AiEvaluationQueue');
       const result = await AiEvaluationQueue.addJob(submissionId, { force: true });
       if (!result.enqueued) {
@@ -36,6 +37,7 @@ class LecturerReviewsHandler {
     try {
       const { submissionId } = req.params;
 
+      await this._service.ensureSubmissionAccess(submissionId, req.user.id);
       const AiEvaluationQueue = require('../../../services/execution/AiEvaluationQueue');
       const result = await AiEvaluationQueue.addJob(submissionId, { force: true });
       if (!result.enqueued) {
@@ -50,7 +52,7 @@ class LecturerReviewsHandler {
   async deleteAiFeedbackHandler(req, res) {
     try {
       const { submissionId } = req.params;
-      const result = await this._service.deleteAiFeedbackForSubmission(submissionId);
+      const result = await this._service.deleteAiFeedbackForSubmission(submissionId, req.user.id);
 
       return ok(
         res,

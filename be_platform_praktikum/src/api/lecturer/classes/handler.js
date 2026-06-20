@@ -25,8 +25,9 @@ class LecturerClassesHandler {
     try {
       const classItem = await this._service.getClassDetail(req.params.id);
 
-      if (classItem.lecturerId !== req.user.id) {
-        throw new AuthorizationError('Dosen hanya dapat mengakses kelas yang diampu');
+      const canAccess = await this._service.canAccessKelasPraktikum(req.params.id, req.user.id);
+      if (!canAccess) {
+        throw new AuthorizationError('Anda tidak memiliki akses ke kelas praktikum ini.');
       }
 
       return ok(res, { class: classItem });

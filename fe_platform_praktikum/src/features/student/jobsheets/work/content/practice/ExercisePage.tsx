@@ -14,12 +14,13 @@ type StepData = {
 
 export default function ExercisePage() {
   const { exerciseId } = useParams()
-  const { jobsheet, programmingLanguage, updateExercise, submission, trackActivity } = useOutletContext<{
+  const { jobsheet, programmingLanguage, updateExercise, submission, trackActivity, readOnly } = useOutletContext<{
     jobsheet: Jobsheet
     programmingLanguage: string
     updateExercise: (exerciseId: string, data: StepData) => Promise<void>
     submission: JobsheetSubmission
     trackActivity?: (activityType: string, opts?: { experimentId?: string | null; instructionId?: string | null; metadata?: Record<string, any> }) => Promise<void>
+    readOnly?: boolean
   }>()
 
   const exercise = jobsheet.exercises.find(exe => exe.id === exerciseId)
@@ -61,6 +62,7 @@ export default function ExercisePage() {
         onRun={() => trackActivity?.("run_code", { instructionId: exerciseId })}
         onSave={() => trackActivity?.("save_code", { instructionId: exerciseId })}
         editorMode={jobsheet.editorMode || "mini_ide"}
+        readOnly={readOnly}
       />
     </div>
   )

@@ -23,6 +23,7 @@ import {
   type LecturerJobsheetSummary,
   type LecturerSubmissionMatrixItem,
 } from "../service"
+import { formatDeadlineLocal } from "../utils/deadline"
 
 export default function LecturerDashboardPage() {
   const navigate = useNavigate()
@@ -350,7 +351,7 @@ export default function LecturerDashboardPage() {
                     .map((item) => (
                       <div key={item.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3">
                         <span className="truncate">{item.title || `Jobsheet ${item.number}`}</span>
-                        <span>{item.deadline}</span>
+                        <span>{formatDeadlineLocal(item.deadline)}</span>
                         <span>{item.submitted}/{item.total}</span>
                       </div>
                     ))

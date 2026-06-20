@@ -76,6 +76,7 @@ export const mapJobsheet = (data: RawJobsheet): Jobsheet => {
     goal: data.goal || "",
     deadline: data.deadline || "",
     task,
+    access: data.access,
 
     experiments: (data.experiments || []).map((exp, index) => ({
       id: exp.id,
@@ -102,6 +103,7 @@ export const mapJobsheet = (data: RawJobsheet): Jobsheet => {
       title: t.title,
       order: t.order ?? index + 1,
       content: t.content || emptyDoc,
+      rubric: t.rubric ?? 0,
     })),
   }
 }

@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { getDeadlineState } from "../../../../shared/utils/deadline";
-import { academicJobsheetSubPath, academicJobsheetWorkPath, type AcademicScope } from "../../../../services/academicScope";
+import { academicJobsheetWorkPath, type AcademicScope } from "../../../../services/academicScope";
 import type { Jobsheet } from "../../../../services/jobsheet/types";
 import type { JobsheetSubmission, SubmissionStatus } from "../../../../services/submission/types";
 
@@ -29,21 +29,15 @@ export default function SidebarCard({
   const deadlineState = getDeadlineState(jobsheet.deadline, now);
   const isOverdue = deadlineState.isOverdue;
   const status = submission?.status;
+  const access = jobsheet.access || { accessMode: "editable_normal" };
+  const accessMode = access.accessMode;
+  const isLockedByDeadline = accessMode === "locked_deadline";
   const displayScore = submission?.review?.finalScore ?? submission?.score;
   const scope: AcademicScope = { classId, mataKuliahId, kelasPraktikumId };
 
   function goTo() {
-    if (status === "REVIEWING" || status === "ACCEPTED") {
-      navigate(academicJobsheetSubPath(courseId, jobsheetId, "review", scope))
-      return
-    }
-
-    if (status === "SUBMITTED") {
-      navigate(academicJobsheetSubPath(courseId, jobsheetId, "preview", scope))
-      return
-    }
-
-    navigate(academicJobsheetWorkPath(courseId, jobsheetId, scope))
+    if (isLockedByDeadline) return;
+    navigate(academicJobsheetWorkPath(courseId, jobsheetId, scope));
   }
 
   function getStatusStyle(status?: SubmissionStatus) {
@@ -64,23 +58,12 @@ export default function SidebarCard({
     }
   }
 
-  function getActionLabel(status?: SubmissionStatus) {
-    if (!status) return "Mulai Kerjakan";
-
-    switch (status) {
-      case "DRAFT":
-        return "Lanjutkan Pengerjaan";
-      case "REVISION":
-        return "Lanjutkan Revisi";
-      case "SUBMITTED":
-        return "Lihat Submission";
-      case "ACCEPTED":
-        return "Lihat Review";
-      case "REVIEWING":
-        return "Lihat Review";
-      default:
-        return "Mulai Kerjakan";
-    }
+  function getActionLabel() {
+    if (accessMode === "editable_remedial") return "Kerjakan Remedial";
+    if (isLockedByDeadline) return "Deadline Berakhir";
+    if (accessMode === "readonly_submitted" || accessMode === "readonly_reviewed") return "Lihat Pengerjaan";
+    if (status === "DRAFT") return "Lanjutkan Pengerjaan";
+    return "Mulai Mengerjakan";
   }
 
   function getStatusLabel(status?: SubmissionStatus) {
@@ -183,30 +166,7 @@ export default function SidebarCard({
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <p className="text-sm font-medium text-gray-700">Percobaan untuk laporan</p>
-          <div className="mt-2 space-y-1">
-            {jobsheet.experiments.map((item) => (
-              <label key={item.id} className="flex items-center gap-2 text-sm text-gray-600">
-                <input type="checkbox" checked={item.isReported} readOnly />
-                <span>{item.title} ({item.rubric ?? 0}%)</span>
-              </label>
-            ))}
-          </div>
-        </div>
-        <div>
-          <p className="text-sm font-medium text-gray-700">Latihan untuk laporan</p>
-          <div className="mt-2 space-y-1">
-            {jobsheet.exercises.map((item) => (
-              <label key={item.id} className="flex items-center gap-2 text-sm text-gray-600">
-                <input type="checkbox" checked={item.isReported} readOnly />
-                <span>{item.title} ({item.rubric ?? 0}%)</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      </div>
+
 
       {latestReviewComment && status === "REVISION" && (
         <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3">
@@ -221,15 +181,16 @@ export default function SidebarCard({
 
       {/* ACTION */}
       <button
-        disabled={isOverdue && (!status || status === "DRAFT")}
+        type="button"
         onClick={goTo}
+        disabled={isLockedByDeadline}
         className={`w-full py-2 rounded-lg transition ${
-          isOverdue && (!status || status === "DRAFT")
-            ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+          isLockedByDeadline
+            ? "cursor-not-allowed bg-gray-200 text-gray-500"
             : "bg-blue-600 text-white hover:bg-blue-700"
         }`}
       >
-        {getActionLabel(status)}
+        {getActionLabel()}
       </button>
       </div>
     </div>

@@ -10,13 +10,15 @@ export type JobsheetScope = {
 
 const buildQuery = (scope?: JobsheetScope) => {
   const params = new URLSearchParams()
-  if (scope?.classId) params.set("classId", scope.classId)
-  if (scope?.kelasPraktikumId) params.set("kelasPraktikumId", scope.kelasPraktikumId)
+  // classId is a compatibility alias for kelasPraktikumId.
+  const kelasPraktikumId = scope?.kelasPraktikumId ?? scope?.classId
+  if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
   return params.toString() ? `?${params.toString()}` : ""
 }
 
 const resolveScope = (classIdOrScope?: string | JobsheetScope): JobsheetScope => {
   if (!classIdOrScope) return {}
+  // String argument is the old classId shape and represents kelasPraktikumId.
   if (typeof classIdOrScope === "string") return { classId: classIdOrScope }
   return classIdOrScope
 }

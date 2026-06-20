@@ -53,6 +53,10 @@ export default function PreviewPage() {
 
   const handleSaveDraft = async () => {
     if (!effectiveCourseId || !jobsheetId || !submission || !user) return
+    if (!jobsheet?.access?.canSaveProgress || jobsheet.access.accessMode === "locked_deadline") {
+      toast.error(jobsheet?.access?.message || "Pengerjaan normal telah dikunci.")
+      return
+    }
     try {
       setSavingDraft(true)
       setError("")
@@ -66,6 +70,7 @@ export default function PreviewPage() {
   }
 
   const handleConclusionChange = useCallback((data: { content: JSONContent; wordCount: number }) => {
+    if (!jobsheet?.access?.canSaveProgress || jobsheet.access.accessMode === "locked_deadline") return
     setSubmission(prev => {
       if (!prev) return prev
       return {
@@ -83,10 +88,14 @@ export default function PreviewPage() {
         }
       }
     })
-  }, [])
+  }, [jobsheet?.access?.accessMode, jobsheet?.access?.canSaveProgress])
 
   const handleSubmit = async () => {
     if (!effectiveCourseId || !jobsheetId || !submission || !user) return
+    if (!jobsheet?.access?.canSubmit || jobsheet.access.accessMode === "locked_deadline") {
+      setError(jobsheet?.access?.message || "Pengerjaan normal telah dikunci.")
+      return
+    }
     try {
       setSubmitting(true)
       setError("")
@@ -105,6 +114,10 @@ export default function PreviewPage() {
       setSubmitting(false)
     }
   }
+  const readOnly = !jobsheet?.access?.canEdit ||
+    jobsheet?.access?.accessMode === "locked_deadline" ||
+    jobsheet?.access?.accessMode === "readonly_submitted" ||
+    jobsheet?.access?.accessMode === "readonly_reviewed"
 
   useEffect(() => {
     async function loadData() {
@@ -213,8 +226,9 @@ export default function PreviewPage() {
               />
 
                <ConclusionEditor
-                jobsheet={jobsheet}
+               jobsheet={jobsheet}
                 submission={submission}
+                readOnly={readOnly}
                 onChange={handleConclusionChange}
               />
 
@@ -231,6 +245,7 @@ export default function PreviewPage() {
                   submitting={submitting} 
                   onSaveDraft={handleSaveDraft}
                   savingDraft={savingDraft}
+                  readOnly={readOnly}
                 />
               </div>
 

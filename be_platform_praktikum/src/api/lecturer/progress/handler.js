@@ -11,15 +11,17 @@ class LecturerProgressHandler {
     try {
       const { jobsheetId } = req.params;
       const { classId, kelasPraktikumId, id_kelas_praktikum } = req.query;
+      // Query param lama `classId` dipertahankan sebagai alias; nilainya adalah kelasPraktikumId native.
+      const resolvedKelasPraktikumId = kelasPraktikumId || id_kelas_praktikum || classId;
 
-      if (!classId && !kelasPraktikumId && !id_kelas_praktikum) {
-        throw new InvariantError('classId atau kelasPraktikumId wajib disertakan sebagai query parameter');
+      if (!resolvedKelasPraktikumId) {
+        throw new InvariantError('kelasPraktikumId wajib disertakan sebagai query parameter');
       }
 
       const result = await this._service.getClassProgress(
         jobsheetId,
-        classId,
-        kelasPraktikumId || id_kelas_praktikum,
+        resolvedKelasPraktikumId,
+        req.user.id,
       );
 
       return res.json({
@@ -35,12 +37,17 @@ class LecturerProgressHandler {
     try {
       const { jobsheetId, studentId } = req.params;
       const { classId, kelasPraktikumId, id_kelas_praktikum } = req.query;
+      // Query param lama `classId` dipertahankan sebagai alias; nilainya adalah kelasPraktikumId native.
+      const resolvedKelasPraktikumId = kelasPraktikumId || id_kelas_praktikum || classId;
+      if (!resolvedKelasPraktikumId) {
+        throw new InvariantError('kelasPraktikumId wajib disertakan sebagai query parameter');
+      }
 
       const result = await this._service.getStudentDetailProgress(
         jobsheetId,
         studentId,
-        classId,
-        kelasPraktikumId || id_kelas_praktikum,
+        resolvedKelasPraktikumId,
+        req.user.id,
       );
 
       return res.json({

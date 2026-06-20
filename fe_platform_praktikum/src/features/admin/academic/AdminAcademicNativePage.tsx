@@ -973,14 +973,14 @@ export default function AdminAcademicNativePage() {
       else if (tab === "mata-kuliah") await academicDataApi.deleteMataKuliah(id, true)
       else if (tab === "kelas-mahasiswa") {
         if (isKelasMahasiswaDetail) {
-          await academicDataApi.deleteKelasMahasiswa(id, true)
+          await academicDataApi.deleteKelasMahasiswa(id)
           toast.success("Mahasiswa berhasil dihapus dari kelas.")
         } else {
-          await academicDataApi.deleteKelasSemester(id, true)
+          await academicDataApi.deleteKelasSemester(id)
           toast.success("Kelas berhasil dihapus.")
         }
       } else if (tab === "kelas-praktikum") {
-        await academicDataApi.deleteKelasPraktikum(id, true)
+        await academicDataApi.deleteKelasPraktikum(id)
         toast.success("Kelas praktikum berhasil dihapus.")
       }
       if (tab !== "kelas-mahasiswa" && tab !== "kelas-praktikum") {

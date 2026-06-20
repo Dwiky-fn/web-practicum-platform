@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
-import { getSubmissionByJobsheetId } from "../../../services/submission/service";
+import { ArrowLeft, ClipboardList } from "lucide-react";
+import { getSubmissionByJobsheetId, getSubmissionHistory } from "../../../services/submission/service";
 import type { Jobsheet } from "../../../services/jobsheet/types";
 import type { JobsheetSubmission } from "../../../services/submission/types";
 import Navbar from "../../../components/navbar/Navbar";
@@ -30,6 +30,16 @@ export default function JobsheetOverviewPage() {
 
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null);
   const [submission, setSubmission] = useState<JobsheetSubmission | null>(null)
+  const [history, setHistory] = useState<Array<{
+    submissionId: string;
+    attemptNo: number;
+    attemptType: "normal" | "remedial";
+    attemptLabel?: string | null;
+    status: string;
+    finalScore: number | null;
+    submittedAt: string;
+    reviewedAt: string | null;
+  }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -49,13 +59,15 @@ export default function JobsheetOverviewPage() {
       try {
         setError("");
         setLoading(true);
-        const [raw, sub] = await Promise.all([
+        const [raw, sub, historyData] = await Promise.all([
           getJobsheetById(cId, jId, scope),
           getSubmissionByJobsheetId(cId, jId, studentId, scope),
+          getSubmissionHistory(jId, kelasPraktikumId),
         ]);
 
         setJobsheet(raw);
         setSubmission(sub);
+        setHistory(historyData);
       } catch (error) {
         setError(
           error instanceof Error
@@ -134,11 +146,92 @@ export default function JobsheetOverviewPage() {
                   mataKuliahId={mataKuliahId}
                   kelasPraktikumId={kelasPraktikumId}
                 />
+                <SubmissionHistoryCard history={history} />
               </>
             )}
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function SubmissionHistoryCard({
+  history,
+}: {
+  history: Array<{
+    submissionId: string;
+    attemptNo: number;
+    attemptType: "normal" | "remedial";
+    attemptLabel?: string | null;
+    status: string;
+    finalScore: number | null;
+    submittedAt: string;
+    reviewedAt: string | null;
+  }>;
+}) {
+  const statusLabel = (status: string) => {
+    if (status === "ACCEPTED" || status === "REVIEWED") return "Sudah dinilai";
+    if (status === "SUBMITTED" || status === "REVIEWING") return "Menunggu review";
+    if (status === "REVISION") return "Perlu revisi";
+    return "Draf";
+  };
+
+  return (
+    <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+      <div className="flex items-center gap-3">
+        <ClipboardList size={20} className="text-blue-600" />
+        <h2 className="text-lg font-semibold text-gray-800">Riwayat Pengerjaan</h2>
+      </div>
+
+      {history.length === 0 ? (
+        <p className="mt-6 text-sm text-gray-500">Belum ada riwayat pengerjaan.</p>
+      ) : (
+        <div className="mt-8">
+          <div className="grid grid-cols-[1fr_auto] gap-6 px-3 text-base font-semibold text-gray-800">
+            <span>Pengerjaan</span>
+            <span>Nilai</span>
+          </div>
+
+          <div className="mt-4 space-y-6">
+          {history.map((item) => {
+            const submittedAt = item.submittedAt ? new Date(item.submittedAt) : null;
+            const title = item.attemptType === "remedial"
+              ? "Remedial"
+              : "Pengumpulan Jobsheet";
+            const score = item.finalScore ?? null;
+            return (
+              <div key={item.submissionId} className="grid grid-cols-[1fr_auto] items-start gap-6 px-3">
+                <div className="min-w-0">
+                  <p className="text-base font-medium text-gray-800">{title}</p>
+                  <p className="mt-2 text-sm text-gray-500">
+                    {submittedAt
+                      ? submittedAt.toLocaleDateString("id-ID", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })
+                      : "Belum dikumpulkan"}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400">{statusLabel(item.status)}</p>
+                </div>
+                <div className="pt-8 text-right">
+                  <p className={`text-lg font-semibold ${
+                    score == null
+                      ? "text-gray-400"
+                      : score >= 80
+                      ? "text-green-600"
+                      : "text-amber-500"
+                  }`}>
+                    {score == null ? "-" : `${score}%`}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

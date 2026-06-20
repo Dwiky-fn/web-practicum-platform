@@ -11,6 +11,7 @@ const admin = require('./api/admin');
 const lecturer = require('./api/lecturer');
 const departments = require('./api/departments');
 const errorHandler = require('./middlewares/errorHandler');
+const DeadlineScheduler = require('./services/deadline/DeadlineScheduler');
 const {
   requireAuth,
   requireRoles,
@@ -27,6 +28,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use('/admin', requireAuth);
 app.use('/lecturer', requireAuth);
 app.use('/students', requireAuth, requireRoles('MAHASISWA', 'ADMIN'));
+app.use('/student', requireAuth, requireRoles('MAHASISWA'));
 app.use('/student-progress', requireAuth, requireRoles('MAHASISWA'));
 app.use('/courses', requireAuth, requireRoles('MAHASISWA', 'DOSEN', 'ADMIN'));
 app.use('/users', requireAuth);
@@ -59,4 +61,5 @@ const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  DeadlineScheduler.start();
 });

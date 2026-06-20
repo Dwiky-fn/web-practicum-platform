@@ -1,12 +1,20 @@
 const pool = require('..');
 const { createId } = require('../admin/utils');
+const { AuthorizationError, NotFoundError, ClientError } = require('../../../exceptions');
 
 const emptyDoc = { type: 'doc', content: [] };
 
-function toIsoOrNull(value) {
+function normalizeLocalDeadline(value) {
   if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+
+  const normalized = String(value).trim().replace('T', ' ');
+  const withSeconds = normalized.length === 16 ? `${normalized}:00` : normalized;
+
+  if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/.test(withSeconds)) {
+    throw new Error('Format deadline tidak valid');
+  }
+
+  return withSeconds;
 }
 
 function extractTextContent(node) {
@@ -14,6 +22,18 @@ function extractTextContent(node) {
   if (typeof node === 'string') return node;
   if (Array.isArray(node)) return node.map(extractTextContent).join('');
   return [node.text || '', ...(node.content || []).map(extractTextContent)].join('');
+}
+
+function normalizeRubric(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Number(number.toFixed(2));
+}
+
+function isValidRubric(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0 || number > 100) return false;
+  return Math.abs(number * 100 - Math.round(number * 100)) < 0.0001;
 }
 
 class LecturerJobsheetsService {
@@ -27,7 +47,82 @@ class LecturerJobsheetsService {
       order: index + 1,
       title: item.title || `Subtopik ${index + 1}`,
       content: item.content || emptyDoc,
+      rubric: normalizeRubric(item.rubric),
     }));
+  }
+
+  async _getAssessmentItems(client, jobsheetId, content = {}) {
+    const theoryItems = Array.isArray(content.theory) ? content.theory : [];
+    const experiments = await client.query(
+      'SELECT id, title, rubric FROM experiments WHERE jobsheet_id = $1 ORDER BY id ASC',
+      [jobsheetId],
+    );
+    const exercises = await client.query(
+      'SELECT id, title, rubric FROM exercises WHERE jobsheet_id = $1 ORDER BY id ASC',
+      [jobsheetId],
+    );
+
+    return [
+      ...theoryItems.map((item, index) => ({
+        id: item.id || `theory-${index}`,
+        type: 'theory',
+        title: item.title || `Subtopik ${index + 1}`,
+        weight: normalizeRubric(item.rubric),
+      })),
+      ...experiments.rows.map((item, index) => ({
+        id: item.id,
+        type: 'experiment',
+        title: item.title || `Percobaan ${index + 1}`,
+        weight: normalizeRubric(item.rubric),
+      })),
+      ...exercises.rows.map((item, index) => ({
+        id: item.id,
+        type: 'exercise',
+        title: item.title || `Latihan ${index + 1}`,
+        weight: normalizeRubric(item.rubric),
+      })),
+    ];
+  }
+
+  async _assertPublishableJobsheet(client, jobsheet) {
+    const items = await this._getAssessmentItems(client, jobsheet.id, jobsheet.content || {});
+
+    if (!items.length) {
+      throw new Error('Tambahkan minimal satu dasar teori, percobaan, atau latihan sebelum publish.');
+    }
+
+    if (items.some((item) => !isValidRubric(item.weight))) {
+      throw new Error('Semua bobot harus berada pada rentang 0 sampai 100 dan maksimal 2 angka desimal.');
+    }
+
+    const totalWeight = items.reduce((total, item) => total + item.weight, 0);
+    if (Math.abs(totalWeight - 100) > 0.01) {
+      throw new Error('Total bobot seluruh Dasar Teori, Percobaan, dan Latihan harus tepat 100%.');
+    }
+  }
+
+  async _deleteJobsheetDraft(client, jobsheetId) {
+    const used = await client.query(
+      "SELECT COUNT(*)::int AS total FROM jobsheet_classes WHERE jobsheet_id = $1 AND status = 'PUBLISHED'",
+      [jobsheetId],
+    );
+
+    if (used.rows[0].total > 0) {
+      throw new ClientError('Jobsheet tidak dapat dihapus karena sudah digunakan di kelas.', 409);
+    }
+
+    await client.query('DELETE FROM experiments WHERE jobsheet_id = $1', [jobsheetId]);
+    await client.query('DELETE FROM exercises WHERE jobsheet_id = $1', [jobsheetId]);
+    const deleted = await client.query(
+      'DELETE FROM jobsheets WHERE id = $1 RETURNING id',
+      [jobsheetId],
+    );
+
+    if (!deleted.rows.length) {
+      throw new NotFoundError('Jobsheet tidak ditemukan.');
+    }
+
+    return deleted.rows[0];
   }
 
   _normalizeReportableItems(items = [], availableIds = []) {
@@ -78,7 +173,7 @@ class LecturerJobsheetsService {
       title: item.title || 'Percobaan',
       instructionContent: item.instructionContent || emptyDoc,
       templateCode: item.templateCode || '',
-      rubric: Number(item.rubric) || 0,
+      rubric: normalizeRubric(item.rubric),
     }));
   }
 
@@ -88,35 +183,44 @@ class LecturerJobsheetsService {
       title: item.title || 'Latihan',
       instructionContent: item.instructionContent || emptyDoc,
       templateCode: item.templateCode || '',
-      rubric: Number(item.rubric) || 0,
+      rubric: normalizeRubric(item.rubric),
     }));
   }
 
-  async _ensureCourseOwnedByLecturer(courseId, lecturerId, client = this._pool) {
+  async _ensureKelasPraktikumOwnedByLecturer(kelasPraktikumId, lecturerId, client = this._pool) {
     const result = await client.query(
       `
-      SELECT 1
-      FROM classes
-      WHERE course_id = $1 AND lecturer_id = $2
+      SELECT
+        kp.id,
+        kp.id_mata_kuliah,
+        kp.id_tahun_semester,
+        kp.id_semester,
+        kp.id_kelas
+      FROM kelas_praktikum kp
+      JOIN pengampu p ON p.id_kelas_praktikum = kp.id
+      WHERE kp.id = $1
+        AND p.id_dosen = $2
       LIMIT 1
       `,
-      [courseId, lecturerId],
+      [kelasPraktikumId, lecturerId],
     );
 
     if (!result.rows.length) {
-      throw new Error('COURSE_ACCESS_DENIED');
+      throw new Error('Anda tidak memiliki akses ke kelas praktikum ini.');
     }
+
+    return result.rows[0];
   }
 
-  async _ensureJobsheetExists(courseId, jobsheetId, client = this._pool) {
+  async _ensureJobsheetExistsByMataKuliah(mataKuliahId, jobsheetId, client = this._pool) {
     const result = await client.query(
       `
       SELECT *
       FROM jobsheets
-      WHERE id = $1 AND course_id = $2
+      WHERE id = $1 AND id_mata_kuliah = $2
       LIMIT 1
       `,
-      [jobsheetId, courseId],
+      [jobsheetId, mataKuliahId],
     );
 
     if (!result.rows.length) {
@@ -124,12 +228,6 @@ class LecturerJobsheetsService {
     }
 
     return result.rows[0];
-  }
-
-  async _getLinkedMataKuliahId(courseId, client = this._pool) {
-    if (!courseId) return null;
-    if (courseId.startsWith('mkb_') || courseId.startsWith('mkb-')) return courseId;
-    return `mkb_${courseId}`;
   }
 
   async _ensureMataKuliahOwnedByLecturer(mataKuliahId, lecturerId, client = this._pool) {
@@ -157,57 +255,7 @@ class LecturerJobsheetsService {
     return result.rows[0];
   }
 
-  async _ensureJobsheetExistsByMataKuliah(mataKuliahId, jobsheetId, client = this._pool) {
-    const result = await client.query(
-      `
-      SELECT *
-      FROM jobsheets
-      WHERE id = $1 AND id_mata_kuliah = $2
-      LIMIT 1
-      `,
-      [jobsheetId, mataKuliahId],
-    );
-
-    if (!result.rows.length) {
-      throw new Error('JOBSHEET_NOT_FOUND');
-    }
-
-    return result.rows[0];
-  }
-
   async _upsertJobsheetClassCopy(client, payload) {
-    const updateResult = await client.query(
-      `
-      UPDATE jobsheet_classes
-      SET
-        id_kelas_praktikum = $3,
-        is_active = $4,
-        deadline = $5,
-        title = $6,
-        description = $7,
-        goal = $8,
-        content = $9,
-        status = $10
-      WHERE jobsheet_id = $1
-        AND $2::varchar IS NOT NULL
-        AND id_kelas_praktikum = $3
-      `,
-      [
-        payload.jobsheetId,
-        payload.id,
-        payload.kelasPraktikumId,
-        payload.isActive,
-        payload.deadline,
-        payload.title,
-        payload.description || '',
-        payload.goal || '',
-        JSON.stringify(payload.content || {}),
-        payload.status,
-      ],
-    );
-
-    if (updateResult.rowCount) return;
-
     await client.query(
       `
       INSERT INTO jobsheet_classes (
@@ -215,6 +263,16 @@ class LecturerJobsheetsService {
         title, description, goal, content, status
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      ON CONFLICT (jobsheet_id, id_kelas_praktikum)
+      WHERE id_kelas_praktikum IS NOT NULL
+      DO UPDATE SET
+        is_active = EXCLUDED.is_active,
+        deadline = EXCLUDED.deadline,
+        title = EXCLUDED.title,
+        description = EXCLUDED.description,
+        goal = EXCLUDED.goal,
+        content = EXCLUDED.content,
+        status = EXCLUDED.status
       `,
       [
         payload.id,
@@ -288,12 +346,13 @@ class LecturerJobsheetsService {
     );
   }
 
-  async createJobsheet(courseId, lecturerId, payload) {
+  async createJobsheetByKelasPraktikum(kelasPraktikumId, lecturerId, payload) {
     const client = await this._pool.connect();
 
     try {
       await client.query('BEGIN');
-      await this._ensureCourseOwnedByLecturer(courseId, lecturerId, client);
+      const kelasPraktikum = await this._ensureKelasPraktikumOwnedByLecturer(kelasPraktikumId, lecturerId, client);
+      const mataKuliahId = kelasPraktikum.id_mata_kuliah;
 
       const jobsheetId = payload.id || createId('job');
       const experiments = this._normalizeExperiments(payload.experiments);
@@ -312,16 +371,14 @@ class LecturerJobsheetsService {
 
       const programmingLanguage = payload.programmingLanguage || payload.programming_language || 'java';
       const editorMode = payload.editorMode || payload.editor_mode || 'mini_ide';
-      const mataKuliahId = await this._getLinkedMataKuliahId(courseId, client);
 
       await client.query(
         `
-        INSERT INTO jobsheets (id, course_id, id_mata_kuliah, title, description, goal, content, status, programming_language, editor_mode)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        INSERT INTO jobsheets (id, id_mata_kuliah, title, description, goal, content, status, programming_language, editor_mode)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `,
         [
           jobsheetId,
-          courseId,
           mataKuliahId,
           title,
           description,
@@ -346,13 +403,14 @@ class LecturerJobsheetsService {
     }
   }
 
-  async updateJobsheet(courseId, jobsheetId, lecturerId, payload) {
+  async updateJobsheetByKelasPraktikum(kelasPraktikumId, jobsheetId, lecturerId, payload) {
     const client = await this._pool.connect();
 
     try {
       await client.query('BEGIN');
-      await this._ensureCourseOwnedByLecturer(courseId, lecturerId, client);
-      const existing = await this._ensureJobsheetExists(courseId, jobsheetId, client);
+      const kelasPraktikum = await this._ensureKelasPraktikumOwnedByLecturer(kelasPraktikumId, lecturerId, client);
+      const mataKuliahId = kelasPraktikum.id_mata_kuliah;
+      const existing = await this._ensureJobsheetExistsByMataKuliah(mataKuliahId, jobsheetId, client);
 
       const experiments = this._normalizeExperiments(payload.experiments);
       const exercises = this._normalizeExercises(payload.exercises);
@@ -370,7 +428,6 @@ class LecturerJobsheetsService {
 
       const programmingLanguage = payload.programmingLanguage || payload.programming_language || existing.programming_language || 'java';
       const editorMode = payload.editorMode || payload.editor_mode || existing.editor_mode || 'mini_ide';
-      const mataKuliahId = await this._getLinkedMataKuliahId(courseId, client);
 
       await client.query(
         `
@@ -381,20 +438,18 @@ class LecturerJobsheetsService {
           goal = $5,
           content = $6,
           programming_language = $7,
-          editor_mode = $8,
-          id_mata_kuliah = COALESCE(id_mata_kuliah, $9)
-        WHERE id = $1 AND course_id = $2
+          editor_mode = $8
+        WHERE id = $1 AND id_mata_kuliah = $2
         `,
         [
           jobsheetId,
-          courseId,
+          mataKuliahId,
           title,
           description,
           goal,
           JSON.stringify(content),
           programmingLanguage,
           editorMode,
-          mataKuliahId,
         ],
       );
 
@@ -417,6 +472,14 @@ class LecturerJobsheetsService {
     } finally {
       client.release();
     }
+  }
+
+  async createJobsheet(courseId, lecturerId, payload) {
+    return this.createJobsheetByMataKuliah(courseId, lecturerId, payload);
+  }
+
+  async updateJobsheet(courseId, jobsheetId, lecturerId, payload) {
+    return this.updateJobsheetByMataKuliah(courseId, jobsheetId, lecturerId, payload);
   }
 
   async createJobsheetByMataKuliah(mataKuliahId, lecturerId, payload) {
@@ -541,9 +604,11 @@ class LecturerJobsheetsService {
       await client.query('BEGIN');
       await this._ensureMataKuliahOwnedByLecturer(mataKuliahId, lecturerId, client);
       const jobsheet = await this._ensureJobsheetExistsByMataKuliah(mataKuliahId, jobsheetId, client);
+      await this._assertPublishableJobsheet(client, jobsheet);
       const classes = Array.isArray(payload.classes) ? payload.classes : [];
       const requestedIds = classes
-        .map((item) => item.kelasPraktikumId || item.id_kelas_praktikum)
+        // classId is a compatibility alias for kelasPraktikumId.
+        .map((item) => item.kelasPraktikumId || item.id_kelas_praktikum || item.classId)
         .filter(Boolean);
 
       const owned = await client.query(
@@ -559,7 +624,8 @@ class LecturerJobsheetsService {
       const ownedMap = new Map(owned.rows.map((item) => [item.id, item]));
 
       for (const item of classes) {
-        const kelasPraktikumId = item.kelasPraktikumId || item.id_kelas_praktikum;
+        // classId is a compatibility alias for kelasPraktikumId.
+        const kelasPraktikumId = item.kelasPraktikumId || item.id_kelas_praktikum || item.classId;
         const kelasPraktikum = ownedMap.get(kelasPraktikumId);
         if (!kelasPraktikum) throw new Error('CLASS_ACCESS_DENIED');
 
@@ -571,7 +637,7 @@ class LecturerJobsheetsService {
           jobsheetId,
           kelasPraktikumId,
           isActive,
-          deadline: toIsoOrNull(item.deadline),
+          deadline: normalizeLocalDeadline(item.deadline),
           title: jobsheet.title,
           description: jobsheet.description || '',
           goal: jobsheet.goal || '',
@@ -610,107 +676,150 @@ class LecturerJobsheetsService {
     }
   }
 
-  async publishJobsheet(courseId, jobsheetId, lecturerId, payload) {
+  async publishJobsheetByKelasPraktikum(kelasPraktikumId, jobsheetId, lecturerId, payload) {
     const client = await this._pool.connect();
 
     try {
       await client.query('BEGIN');
-      await this._ensureCourseOwnedByLecturer(courseId, lecturerId, client);
-      const jobsheet = await this._ensureJobsheetExists(courseId, jobsheetId, client);
-      const classes = Array.isArray(payload.classes) ? payload.classes : [];
+      const kelasPraktikum = await this._ensureKelasPraktikumOwnedByLecturer(kelasPraktikumId, lecturerId, client);
+      const jobsheet = await this._ensureJobsheetExistsByMataKuliah(kelasPraktikum.id_mata_kuliah, jobsheetId, client);
+      await this._assertPublishableJobsheet(client, jobsheet);
+      const isActive = payload.isActive !== false;
+      const status = isActive ? 'PUBLISHED' : 'UNPUBLISHED';
 
-      const ownedClasses = await client.query(
-        `
-        SELECT cl.id, cl.name, kp.id AS id_kelas_praktikum
-        FROM classes cl
-        LEFT JOIN kelas_praktikum kp ON kp.legacy_class_id = cl.id
-        WHERE cl.course_id = $1 AND cl.lecturer_id = $2
-        `,
-        [courseId, lecturerId],
-      );
+      await this._upsertJobsheetClassCopy(client, {
+        id: createId('jkc'),
+        jobsheetId,
+        kelasPraktikumId,
+        isActive,
+        deadline: normalizeLocalDeadline(payload.deadline),
+        title: jobsheet.title,
+        description: jobsheet.description || '',
+        goal: jobsheet.goal || '',
+        content: jobsheet.content || {},
+        status,
+      });
 
-      const ownedMap = new Map(ownedClasses.rows.map((item) => [item.id, item]));
-      const ownedKelasPraktikumMap = new Map(
-        ownedClasses.rows
-          .filter((item) => item.id_kelas_praktikum)
-          .map((item) => [item.id_kelas_praktikum, item]),
-      );
-      const resolvedClassIds = [];
-
-      for (const item of classes) {
-        const requestedKelasPraktikumId = item.kelasPraktikumId || item.id_kelas_praktikum;
-        let classId = item.classId || item.class_id;
-
-        if (requestedKelasPraktikumId) {
-          const classFromKelasPraktikum = ownedKelasPraktikumMap.get(requestedKelasPraktikumId);
-          if (!classFromKelasPraktikum) {
-            throw new Error('CLASS_ACCESS_DENIED');
-          }
-          if (classId && classId !== classFromKelasPraktikum.id) {
-            throw new Error('CLASS_ACCESS_DENIED');
-          }
-          classId = classFromKelasPraktikum.id;
-        }
-
-        if (!ownedMap.has(classId)) {
-          throw new Error('CLASS_ACCESS_DENIED');
-        }
-        resolvedClassIds.push(classId);
-
-        const isActive = item.isActive !== false;
-        const status = isActive ? 'PUBLISHED' : 'UNPUBLISHED';
-        const kelasPraktikumId = requestedKelasPraktikumId || ownedMap.get(classId)?.id_kelas_praktikum || null;
-
-        await this._upsertJobsheetClassCopy(client, {
-          id: createId('jkc'),
-          jobsheetId,
-          classId,
-          kelasPraktikumId,
-          isActive,
-          deadline: toIsoOrNull(item.deadline),
-          title: jobsheet.title,
-          description: jobsheet.description || '',
-          goal: jobsheet.goal || '',
-          content: jobsheet.content || {},
-          status,
-        });
-      }
-
-      if (ownedClasses.rows.length) {
-        const classIdsToDisable = ownedClasses.rows
-          .map((item) => item.id)
-          .filter((id) => !resolvedClassIds.includes(id));
-
-        if (classIdsToDisable.length) {
-          await client.query(
-            `
-            UPDATE jobsheet_classes
-            SET is_active = false, status = 'UNPUBLISHED'
-            WHERE jobsheet_id = $1 AND class_id = ANY($2)
-            `,
-            [jobsheetId, classIdsToDisable],
-          );
-        }
-      }
-
-      const activeCount = classes.filter((item) => item.isActive !== false).length;
       await client.query(
         `
         UPDATE jobsheets
         SET status = $2
         WHERE id = $1
         `,
-        [jobsheetId, activeCount > 0 ? 'PUBLISHED' : 'UNPUBLISHED'],
+        [jobsheetId, status],
       );
 
       await client.query('COMMIT');
-      return { id: jobsheetId, status: activeCount > 0 ? 'PUBLISHED' : 'UNPUBLISHED' };
+      return { id: jobsheetId, status };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();
     }
+  }
+
+  async publishJobsheet(courseId, jobsheetId, lecturerId, payload) {
+    return this.publishJobsheetByMataKuliah(courseId, jobsheetId, lecturerId, payload);
+  }
+
+  async deleteJobsheetByMataKuliah(mataKuliahId, jobsheetId, lecturerId) {
+    const client = await this._pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      
+      // 1. Cek jobsheet ada
+      const jobsheetRes = await client.query(
+        'SELECT * FROM jobsheets WHERE id = $1',
+        [jobsheetId],
+      );
+      if (!jobsheetRes.rows.length) {
+        throw new NotFoundError('Jobsheet tidak ditemukan.');
+      }
+      const jobsheet = jobsheetRes.rows[0];
+
+      // Verifikasi jobsheet terhubung ke mata kuliah ini
+      if (jobsheet.id_mata_kuliah !== mataKuliahId) {
+        throw new NotFoundError('Jobsheet tidak ditemukan.');
+      }
+
+      // 2. Cek dosen memiliki akses terhadap jobsheet
+      const accessRes = await client.query(
+        `
+        SELECT 1
+        FROM pengampu p
+        JOIN kelas_praktikum kp ON p.id_kelas_praktikum = kp.id
+        WHERE p.id_dosen = $1 AND kp.id_mata_kuliah = $2
+        LIMIT 1
+        `,
+        [lecturerId, jobsheet.id_mata_kuliah],
+      );
+      if (!accessRes.rows.length) {
+        throw new AuthorizationError('Anda tidak memiliki akses ke jobsheet ini.');
+      }
+
+      const deleted = await this._deleteJobsheetDraft(client, jobsheetId);
+      await client.query('COMMIT');
+      return deleted;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async deleteJobsheetByKelasPraktikum(kelasPraktikumId, jobsheetId, lecturerId) {
+    const client = await this._pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // 1. Cek jobsheet ada
+      const jobsheetRes = await client.query(
+        'SELECT * FROM jobsheets WHERE id = $1',
+        [jobsheetId],
+      );
+      if (!jobsheetRes.rows.length) {
+        throw new NotFoundError('Jobsheet tidak ditemukan.');
+      }
+      const jobsheet = jobsheetRes.rows[0];
+
+      // 2. Cek dosen memiliki akses ke kelas praktikum
+      const classRes = await client.query(
+        `
+        SELECT kp.id_mata_kuliah
+        FROM kelas_praktikum kp
+        JOIN pengampu p ON p.id_kelas_praktikum = kp.id
+        WHERE kp.id = $1 AND p.id_dosen = $2
+        LIMIT 1
+        `,
+        [kelasPraktikumId, lecturerId],
+      );
+      if (!classRes.rows.length) {
+        throw new AuthorizationError('Anda tidak memiliki akses ke jobsheet ini.');
+      }
+      const classMataKuliahId = classRes.rows[0].id_mata_kuliah;
+
+      // Verifikasi jobsheet terhubung ke mata kuliah kelas praktikum ini
+      if (jobsheet.id_mata_kuliah !== classMataKuliahId) {
+        throw new NotFoundError('Jobsheet tidak ditemukan.');
+      }
+
+      const deleted = await this._deleteJobsheetDraft(client, jobsheetId);
+      await client.query('COMMIT');
+      return deleted;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async deleteJobsheet(courseId, jobsheetId, lecturerId) {
+    return this.deleteJobsheetByMataKuliah(courseId, jobsheetId, lecturerId);
   }
 }
 

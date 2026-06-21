@@ -53,9 +53,9 @@ export const apiFetch = async (endpoint: string, options?: RequestInit) => {
         window.dispatchEvent(new Event("auth:logout"))
       }
 
-      const err = new Error(data?.message || "API Error")
+      const err = new Error(data?.message || "API Error") as Error & { code?: string }
       if (data?.code) {
-        ;(err as any).code = data.code
+        err.code = data.code
       }
       throw err
     }

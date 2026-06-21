@@ -46,7 +46,22 @@ export default function LecturerClassDetailPage() {
   const [searchParams] = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [activeTab, setActiveTab] = useState<ClassTab>((searchParams.get("tab") as ClassTab) || "summary")
+  const [activeTab, setActiveTab] = useState<ClassTab>(() => {
+    const queryTab = searchParams.get("tab") as ClassTab
+    if (queryTab && ["summary", "modules", "students", "evaluation"].includes(queryTab)) return queryTab
+    const savedTab = sessionStorage.getItem(`activeTab_class_${classId}`) as ClassTab
+    if (savedTab && ["summary", "modules", "students", "evaluation"].includes(savedTab)) {
+      return savedTab
+    }
+    return "summary"
+  })
+
+  useEffect(() => {
+    if (classId) {
+      sessionStorage.setItem(`activeTab_class_${classId}`, activeTab)
+    }
+  }, [activeTab, classId])
+
   const [selectedStudentProfileId, setSelectedStudentProfileId] = useState<string | null>(null)
   const [keyword, setKeyword] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -200,7 +215,13 @@ export default function LecturerClassDetailPage() {
     <LecturerLayout>
       <button
         type="button"
-        onClick={() => navigate(-1)}
+        onClick={() => {
+          if (window.history.length > 1) {
+            navigate(-1)
+          } else {
+            navigate("/mata-kuliah")
+          }
+        }}
         className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
       >
         <ArrowLeft size={18} />

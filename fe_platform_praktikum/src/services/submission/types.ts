@@ -41,6 +41,7 @@ export interface JobsheetSubmission {
   parentSubmissionId?: string | null
   isAutoSubmitted?: boolean
   autoSubmittedAt?: string | null
+  submittedAt?: string | null
   submissionSource?: "manual" | "auto_deadline" | "remedial"
   calculatedProgressScore?: number | null
   scoreBreakdown?: ScoreBreakdown | null

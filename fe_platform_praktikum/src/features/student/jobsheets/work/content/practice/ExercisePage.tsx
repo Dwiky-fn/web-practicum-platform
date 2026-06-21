@@ -61,7 +61,6 @@ export default function ExercisePage() {
         onChange={(steps) => updateExercise(exerciseId, steps[0])}
         onRun={() => trackActivity?.("run_code", { instructionId: exerciseId })}
         onSave={() => trackActivity?.("save_code", { instructionId: exerciseId })}
-        editorMode={jobsheet.editorMode || "mini_ide"}
         readOnly={readOnly}
       />
     </div>

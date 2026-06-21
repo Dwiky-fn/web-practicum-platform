@@ -9,7 +9,7 @@ import { getOrCreateSubmissionByJobsheetId, getSubmissionByJobsheetId } from "..
 import { getCourseById } from "../../../../../services/course/service"
 import { updateSubmission } from "../../../../../services/submission/service"
 import { getStudentProgress, upsertStudentProgress, updateStudentProgressApi } from "../../../../../services/progress/service"
-import type { ScoreBreakdown, StudentProgressItem } from "../../../../../services/progress/types"
+import type { StudentProgressItem } from "../../../../../services/progress/types"
 import { useCurrentUser } from "../../../../../services/user/useCurrentUser"
 import { buildWorkNavigation } from "../utils/buildNavigation"
 import { toast } from "../../../../../components/toast/toastStore"
@@ -49,7 +49,6 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
   const [submission, setSubmission] = useState<JobsheetSubmission | null>(null)
   const [savedProgress, setSavedProgress] = useState(0)
   const [completedItems, setCompletedItems] = useState<StudentProgressItem[]>([])
-  const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdown | null>(null)
   const [lastSavedPage, setLastSavedPage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -201,7 +200,6 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
       setLoading(true)
       setSavedProgress(0)
       setCompletedItems([])
-      setScoreBreakdown(null)
       setLastSavedPage(null)
       setError("")
 
@@ -237,7 +235,6 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
         if (!isMountedRef.current) return
         setSavedProgress(Math.max(0, Math.round(progressData?.progress ?? 0)))
         setCompletedItems(progressData?.completed_items ?? [])
-        setScoreBreakdown(progressData?.score_breakdown ?? submissionData?.scoreBreakdown ?? null)
         setLastSavedPage(progressData?.last_page ?? "")
 
       } catch (err) {
@@ -468,7 +465,6 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
     submission,
     savedProgress,
     completedItems,
-    scoreBreakdown,
     completeCurrentProgressItem,
     loading,
     error,

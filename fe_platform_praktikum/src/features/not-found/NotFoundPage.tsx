@@ -114,7 +114,13 @@ export default function NotFoundPage() {
       {/* Buttons */}
       <div className="flex items-center justify-center gap-3">
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            if (window.history.length > 1) {
+              navigate(-1)
+            } else {
+              navigate(roleConfig.targetPath)
+            }
+          }}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 transition text-sm font-medium cursor-pointer"
         >
           <ArrowLeft size={16} />

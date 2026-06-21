@@ -130,7 +130,6 @@ export default function LecturerJobsheetEditorPage() {
   const [description, setDescription] = useState("")
   const [goalContent, setGoalContent] = useState<JSONContent>(emptyDoc)
   const [programmingLanguage, setProgrammingLanguage] = useState<"java" | "python" | "">("")
-  const [editorMode, setEditorMode] = useState<"mini_ide" | "simple">("mini_ide")
   const [theoryItems, setTheoryItems] = useState<LecturerTheoryInput[]>([])
   const [experiments, setExperiments] = useState<PracticeEditorItem[]>([])
   const [exercises, setExercises] = useState<PracticeEditorItem[]>([])
@@ -177,8 +176,6 @@ export default function LecturerJobsheetEditorPage() {
           )
           const lang = (selectedJobsheet.programmingLanguage || "java") as "java" | "python"
           setProgrammingLanguage(lang)
-          const mode = (selectedJobsheet.editorMode || "mini_ide") as "mini_ide" | "simple"
-          setEditorMode(mode)
           setTheoryItems(
             selectedJobsheet.theory.map((item) => ({
               id: item.id,
@@ -228,7 +225,6 @@ export default function LecturerJobsheetEditorPage() {
           const firstClass = nextDataset?.course.classes?.[0]
           const defaultLang = firstClass?.programmingLanguage || "java"
           setProgrammingLanguage(defaultLang)
-          setEditorMode("mini_ide")
           setTheoryItems([])
           setExperiments([])
           setExercises([])
@@ -272,7 +268,7 @@ export default function LecturerJobsheetEditorPage() {
       description,
       goal: extractTextContent(goalContent).trim(),
       programmingLanguage: programmingLanguage || "java",
-      editorMode: editorMode || "mini_ide",
+      editorMode: "mini_ide",
       theory: theoryItems.map((item, index) => ({
         id: item.id,
         title: item.title || `Subtopik ${index + 1}`,
@@ -478,7 +474,13 @@ export default function LecturerJobsheetEditorPage() {
 
       <button
         type="button"
-        onClick={() => navigate(-1)}
+        onClick={() => {
+          if (activeJobsheetId) {
+            navigate(`/jobsheets/${activeJobsheetId}?courseId=${effectiveCourseId}`)
+          } else {
+            navigate(jobsheetBasePath)
+          }
+        }}
         className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
       >
         <ArrowLeft size={18} />
@@ -532,21 +534,6 @@ export default function LecturerJobsheetEditorPage() {
                 <option value="java">Java</option>
                 <option value="python">Python</option>
               </select>
-            </FieldRow>
-            <FieldRow label="Mode Editor Kode">
-              <select
-                className={inputClass}
-                value={editorMode}
-                onChange={(event) => setEditorMode(event.target.value as "mini_ide" | "simple")}
-              >
-                <option value="mini_ide">Mini IDE</option>
-                <option value="simple">Simple Code Editor</option>
-              </select>
-              <p className="mt-1 text-xs text-gray-500">
-                {editorMode === "mini_ide"
-                  ? "Mini IDE cocok untuk workspace multi-file dengan explorer."
-                  : "Simple Code Editor cocok untuk template sederhana tanpa explorer."}
-              </p>
             </FieldRow>
           </div>
         </LecturerPanel>
@@ -725,7 +712,6 @@ export default function LecturerJobsheetEditorPage() {
                     />
                   </div>
                   <LecturerTemplateWorkspace
-                    editorMode={editorMode}
                     language={programmingLanguage as "java" | "python" || "java"}
                     value={item.templateCode}
                     onChange={(val) =>
@@ -829,7 +815,6 @@ export default function LecturerJobsheetEditorPage() {
                     />
                   </div>
                   <LecturerTemplateWorkspace
-                    editorMode={editorMode}
                     language={programmingLanguage as "java" | "python" || "java"}
                     value={item.templateCode}
                     onChange={(val) =>

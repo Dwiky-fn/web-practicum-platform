@@ -13,6 +13,8 @@ interface WorkFooterNavProps {
   savedProgress: number
   completedItems: StudentProgressItem[]
   scope?: AcademicScope
+  basePath?: string
+  backTo?: string
 }
 
 export default function WorkFooterNav({
@@ -22,13 +24,16 @@ export default function WorkFooterNav({
   savedProgress,
   completedItems,
   scope,
+  basePath,
+  backTo,
 }: WorkFooterNavProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const query = location.search
 
-  const navItems = buildWorkNavigation(courseId, jobsheet, query, scope)
+  const navItems = buildWorkNavigation(courseId, jobsheet, query, scope, basePath)
   const jobsheetDetailPath = academicJobsheetPath(courseId, jobsheet.id, scope)
+  const returnPath = backTo ?? jobsheetDetailPath
 
   const currentIndex = navItems.findIndex(
     (item) => location.pathname.startsWith(item.path.split("?")[0])
@@ -105,13 +110,13 @@ export default function WorkFooterNav({
         {!nextItem && hasUploadedSubmission && isLastItem && (
           <button
             onClick={() =>
-              navigate(jobsheetDetailPath)
+              navigate(returnPath)
             }
             className="flex items-center gap-2 rounded px-2 py-1.5 text-right text-sm text-gray-600 transition hover:bg-gray-100 hover:text-black"
           >
             <Home size={18} />
             <div className="font-semibold text-gray-700 truncate">
-              Kembali ke Detail Jobsheet
+              Kembali ke Monitoring
             </div>
           </button>
         )}
@@ -152,7 +157,7 @@ export default function WorkFooterNav({
         ) : hasUploadedSubmission && isLastItem ? (
           <button
             onClick={() =>
-              navigate(jobsheetDetailPath)
+              navigate(returnPath)
             }
             className="text-xs bg-blue-600 text-white px-3 py-1 rounded-lg"
           >

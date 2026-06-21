@@ -3,7 +3,7 @@ const { requireAuth, requireRoles } = require('../../../middlewares/auth');
 
 module.exports = (handler) => {
   const router = express.Router();
-  router.use(requireAuth, requireRoles('DOSEN'));
+  router.use('/lecturer', requireAuth, requireRoles('DOSEN'));
 
   // Compatibility routes only.
   // courseId in these routes represents mataKuliahId; do not query the legacy courses table.

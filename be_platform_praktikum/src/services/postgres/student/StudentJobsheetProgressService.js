@@ -739,11 +739,27 @@ class StudentJobsheetProgressService {
       };
     });
 
+    const uniqueLogs = [];
+    for (const log of logs) {
+      if (uniqueLogs.length === 0) {
+        uniqueLogs.push(log);
+      } else {
+        const last = uniqueLogs[uniqueLogs.length - 1];
+        const isDuplicate = last.activity_type === log.activity_type
+          && last.experiment_id === log.experiment_id
+          && last.instruction_id === log.instruction_id
+          && Math.abs(new Date(last.created_at).getTime() - new Date(log.created_at).getTime()) < 3000;
+        if (!isDuplicate) {
+          uniqueLogs.push(log);
+        }
+      }
+    }
+
     return {
       student: studentInfo,
       progress: progressInfo,
       progressScore,
-      logs,
+      logs: uniqueLogs,
     };
   }
 }

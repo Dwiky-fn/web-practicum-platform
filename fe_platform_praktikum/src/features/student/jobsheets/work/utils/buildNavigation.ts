@@ -14,8 +14,9 @@ export function buildWorkNavigation(
   jobsheet: Jobsheet,
   query = "",
   scope?: AcademicScope,
+  basePathOverride?: string,
 ): WorkNavItem[] {
-  const base = `${academicCourseBasePath(courseId, scope)}/jobsheets/${jobsheet.id}/works`
+  const base = basePathOverride ?? `${academicCourseBasePath(courseId, scope)}/jobsheets/${jobsheet.id}/works`
   const items: WorkNavItem[] = []
 
   // Teori

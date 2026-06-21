@@ -51,7 +51,20 @@ export default function AdminClassDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [classDetail, setClassDetail] = useState<AdminClassDetail | null>(null)
   const [lecturers, setLecturers] = useState<AdminLecturer[]>([])
-  const [activeTab, setActiveTab] = useState<DetailTab>("students")
+  const [activeTab, setActiveTab] = useState<DetailTab>(() => {
+    const savedTab = sessionStorage.getItem(`activeTab_admin_class_${id}`) as DetailTab
+    if (savedTab && ["students", "jobsheets", "settings"].includes(savedTab)) {
+      return savedTab
+    }
+    return "students"
+  })
+
+  useEffect(() => {
+    if (id) {
+      sessionStorage.setItem(`activeTab_admin_class_${id}`, activeTab)
+    }
+  }, [activeTab, id])
+
   const [assignOpen, setAssignOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [studentSemester, setStudentSemester] = useState("all")
@@ -355,7 +368,13 @@ export default function AdminClassDetailPage() {
     <AdminLayout>
       <button
         type="button"
-        onClick={() => navigate(-1)}
+        onClick={() => {
+          if (window.history.length > 1) {
+            navigate(-1)
+          } else {
+            navigate("/admin/academic/kelas-praktikum")
+          }
+        }}
         className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
       >
         <ArrowLeft size={18} />

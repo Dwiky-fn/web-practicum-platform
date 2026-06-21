@@ -1,11 +1,9 @@
-import Editor from "@monaco-editor/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Play, RotateCcw, Square, Terminal, AlertTriangle } from "lucide-react"
 import { ExecutionClient } from "../../../services/execution/executionClient"
 import CodeEditorPanel from "../../../components/code-editor/CodeEditorPanel"
 
 interface Props {
-  editorMode: "mini_ide" | "simple"
   language: "java" | "python"
   value: string
   onChange: (value: string) => void
@@ -52,7 +50,6 @@ function normalizeStdin(value: string): string {
 }
 
 export default function LecturerTemplateWorkspace({
-  editorMode,
   language,
   value,
   onChange,
@@ -205,61 +202,6 @@ export default function LecturerTemplateWorkspace({
     setConfirmReset(true)
   }
 
-  const handleSimpleAddFile = () => {
-    const filename = window.prompt("Masukkan nama file baru:")
-    if (!filename) return
-    const trimmed = filename.trim()
-    if (!trimmed) return
-
-    // Validate extension based on language
-    const ext = language === "python" ? ".py" : ".java"
-    if (!trimmed.endsWith(ext)) {
-      alert(`Bahasa ${language === "python" ? "Python" : "Java"} hanya mendukung file berekstensi ${ext}`)
-      return
-    }
-
-    if (filesRecord[trimmed] !== undefined) {
-      alert("File dengan nama tersebut sudah ada!")
-      return
-    }
-
-    const nextFiles = { ...filesRecord, [trimmed]: "" }
-    onChange(JSON.stringify(nextFiles))
-    setActiveFile(trimmed)
-  }
-
-  const handleSimpleRenameFile = () => {
-    const newName = window.prompt(`Rename file ${activeFile} menjadi:`, activeFile)
-    if (!newName) return
-    const trimmed = newName.trim()
-    if (!trimmed || trimmed === activeFile) return
-
-    // Validate extension based on language
-    const ext = language === "python" ? ".py" : ".java"
-    if (!trimmed.endsWith(ext)) {
-      alert(`Bahasa ${language === "python" ? "Python" : "Java"} hanya mendukung file berekstensi ${ext}`)
-      return
-    }
-
-    if (filesRecord[trimmed] !== undefined) {
-      alert("File dengan nama tersebut sudah ada!")
-      return
-    }
-
-    const nextFiles = { ...filesRecord }
-    const code = nextFiles[activeFile]
-    delete nextFiles[activeFile]
-    nextFiles[trimmed] = code
-
-    onChange(JSON.stringify(nextFiles))
-    setActiveFile(trimmed)
-  }
-
-  const handleSimpleDeleteFile = () => {
-    if (Object.keys(filesRecord).length <= 1) return
-    setConfirmDeleteFile(true)
-  }
-
   // ── Shared mini confirm modal ──
   function MiniConfirmModal({
     open,
@@ -352,108 +294,42 @@ export default function LecturerTemplateWorkspace({
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] h-[340px] min-h-[300px]">
         {/* Editor Area */}
         <div className="border-r border-gray-200 h-full overflow-hidden relative">
-          {editorMode === "mini_ide" ? (
-            <div className="h-full min-h-0">
-              <CodeEditorPanel
-                key={`${editorVersion}`}
-                language={language}
-                files={filesRecord}
-                activeFile={activeFile}
-                editorPath={`${label}/${activeFile}`}
-                onChangeFile={setActiveFile}
-                onCodeChange={(newVal) => {
-                  const nextFiles = { ...filesRecord, [activeFile]: newVal }
-                  onChange(JSON.stringify(nextFiles))
-                }}
-                onFilesChange={(nextFiles, nextActiveFile) => {
-                  const ext = language === "python" ? ".py" : ".java"
-                  const invalidFile = Object.keys(nextFiles).find((filename) => !filename.endsWith(ext))
-                  if (invalidFile) {
-                    alert(`Bahasa ${language === "python" ? "Python" : "Java"} hanya mendukung file berekstensi ${ext}`)
-                    setEditorVersion(v => v + 1)
-                    return
-                  }
+          <div className="h-full min-h-0">
+            <CodeEditorPanel
+              key={`${editorVersion}`}
+              language={language}
+              files={filesRecord}
+              activeFile={activeFile}
+              editorPath={`${label}/${activeFile}`}
+              onChangeFile={setActiveFile}
+              onCodeChange={(newVal) => {
+                const nextFiles = { ...filesRecord, [activeFile]: newVal }
+                onChange(JSON.stringify(nextFiles))
+              }}
+              onFilesChange={(nextFiles, nextActiveFile) => {
+                const ext = language === "python" ? ".py" : ".java"
+                const invalidFile = Object.keys(nextFiles).find((filename) => !filename.endsWith(ext))
+                if (invalidFile) {
+                  alert(`Bahasa ${language === "python" ? "Python" : "Java"} hanya mendukung file berekstensi ${ext}`)
+                  setEditorVersion(v => v + 1)
+                  return
+                }
 
-                  onChange(JSON.stringify(nextFiles))
-                  if (nextActiveFile) {
-                    setActiveFile(nextActiveFile)
-                  }
-                }}
-                getNewFileName={(files) => {
-                  const ext = language === "python" ? "py" : "java"
-                  let i = 1
-                  while (files[`File${i}.${ext}`] !== undefined) {
-                    i++
-                  }
-                  return `File${i}.${ext}`
-                }}
-              />
-            </div>
-          ) : (
-            <div className="flex flex-col h-full bg-[#1e1e1e] overflow-hidden">
-              {/* File bar */}
-              <div className="flex shrink-0 items-center justify-between border-b border-[#2d2d2d] bg-[#252526] px-3 py-1.5 gap-2 select-none">
-                <div className="flex items-center gap-1.5 text-xs text-gray-400 font-semibold">
-                  <span>File:</span>
-                  <select
-                    value={activeFile}
-                    onChange={(e) => setActiveFile(e.target.value)}
-                    className="bg-[#2d2d2d] text-white text-xs rounded border border-[#3c3c3c] px-2 py-0.5 outline-none font-mono"
-                  >
-                    {Object.keys(filesRecord).map((filename) => (
-                      <option key={filename} value={filename}>{filename}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={handleSimpleAddFile}
-                    className="rounded bg-[#2d2d2d] border border-[#3c3c3c] hover:bg-[#3c3c3c] hover:text-white text-gray-300 px-2 py-0.5 text-[11px] font-semibold"
-                  >
-                    + Tambah File
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSimpleRenameFile}
-                    className="rounded bg-[#2d2d2d] border border-[#3c3c3c] hover:bg-[#3c3c3c] hover:text-white text-gray-300 px-2 py-0.5 text-[11px] font-semibold"
-                  >
-                    Rename
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSimpleDeleteFile}
-                    disabled={Object.keys(filesRecord).length <= 1}
-                    className="rounded bg-[#2d2d2d] border border-[#3c3c3c] hover:bg-[#3c3c3c] hover:text-white text-gray-300 px-2 py-0.5 text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Hapus
-                  </button>
-                </div>
-              </div>
-
-              {/* Simple Editor */}
-              <div className="flex-1 min-h-0 relative">
-                <Editor
-                  height="100%"
-                  language={language}
-                  path={`${label}-${language}-${activeFile}`}
-                  value={filesRecord[activeFile] ?? ""}
-                  theme="vs-dark"
-                  onChange={(val) => {
-                    const nextFiles = { ...filesRecord, [activeFile]: val || "" }
-                    onChange(JSON.stringify(nextFiles))
-                  }}
-                  options={{
-                    fontSize: 13,
-                    minimap: { enabled: false },
-                    scrollBeyondLastLine: false,
-                    wordWrap: "on",
-                    padding: { top: 8, bottom: 8 },
-                  }}
-                />
-              </div>
-            </div>
-          )}
+                onChange(JSON.stringify(nextFiles))
+                if (nextActiveFile) {
+                  setActiveFile(nextActiveFile)
+                }
+              }}
+              getNewFileName={(files) => {
+                const ext = language === "python" ? "py" : "java"
+                let i = 1
+                while (files[`File${i}.${ext}`] !== undefined) {
+                  i++
+                }
+                return `File${i}.${ext}`
+              }}
+            />
+          </div>
         </div>
 
         {/* Console / Terminal Output */}

@@ -11,12 +11,13 @@ interface WorkHeaderProps {
   course?: Course | null
   jobsheet?: Jobsheet | null
   scope?: AcademicScope
+  basePath?: string
 }
 
-export default function WorkHeader({ title, backTo, course, jobsheet, scope }: WorkHeaderProps) {
+export default function WorkHeader({ title, backTo, course, jobsheet, scope, basePath }: WorkHeaderProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const navItems = course && jobsheet ? buildWorkNavigation(course.id, jobsheet, location.search, scope) : []
+  const navItems = course && jobsheet ? buildWorkNavigation(course.id, jobsheet, location.search, scope, basePath) : []
   const activeItem = navItems.find((item) => location.pathname.startsWith(item.path))
   const activeTitle = activeItem?.label || title
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 const emptyDoc = { type: "doc" as const, content: [] }
 import { ArrowLeft, Eye, Edit } from "lucide-react"
@@ -147,6 +147,22 @@ export default function LecturerReviewPage() {
   const submissionIdParam = searchParams.get("submissionId") || undefined
   const attemptNoParam = searchParams.get("attemptNo") ? Number(searchParams.get("attemptNo")) : undefined
   const nativeScope = { mataKuliahId, kelasPraktikumId, submissionId: submissionIdParam, attemptNo: attemptNoParam }
+
+  const handleBack = useCallback(() => {
+    const fromVal = searchParams.get("from")
+    if (fromVal === "monitor" && kelasPraktikumId && jobsheetId && studentId) {
+      navigate(`/lecturer/kelas-praktikum/${kelasPraktikumId}/jobsheets/${jobsheetId}/students/${studentId}/monitor?courseId=${courseId}&classId=${classId}`)
+    } else if (jobsheetId && classId && courseId) {
+      const savedTab = sessionStorage.getItem(`activeTab_jobsheet_${jobsheetId}`) || "monitoring"
+      navigate(`/jobsheets/${jobsheetId}?tab=${savedTab}&classId=${classId}&courseId=${courseId}`)
+    } else {
+      if (window.history.length > 1) {
+        navigate(-1)
+      } else {
+        navigate("/mata-kuliah")
+      }
+    }
+  }, [searchParams, kelasPraktikumId, jobsheetId, studentId, courseId, classId, navigate])
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -542,7 +558,7 @@ export default function LecturerReviewPage() {
 
       <button
         type="button"
-        onClick={() => navigate(-1)}
+        onClick={handleBack}
         className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
       >
         <ArrowLeft size={18} />
@@ -1000,7 +1016,7 @@ export default function LecturerReviewPage() {
               <LecturerButton
                 onClick={() => {
                   setSuccessDecision(null)
-                  navigate(-1)
+                  handleBack()
                 }}
               >
                 Kembali ke Daftar

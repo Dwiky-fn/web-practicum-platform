@@ -66,7 +66,22 @@ export default function LecturerJobsheetDetailPage() {
   const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined
   const nativeScope = useMemo(() => ({ mataKuliahId, kelasPraktikumId }), [kelasPraktikumId, mataKuliahId])
   const jobsheetBasePath = `${academicCourseBasePath(courseId, nativeScope)}/jobsheets`
-  const [activeTab, setActiveTab] = useState<DetailTab>("detail")
+  const [activeTab, setActiveTab] = useState<DetailTab>(() => {
+    const queryTab = searchParams.get("tab") as DetailTab
+    if (queryTab && ["detail", "monitoring", "students", "remedial"].includes(queryTab)) return queryTab
+    const savedTab = sessionStorage.getItem(`activeTab_jobsheet_${jobsheetId}`) as DetailTab
+    if (savedTab && ["detail", "monitoring", "students", "remedial"].includes(savedTab)) {
+      return savedTab
+    }
+    return "detail"
+  })
+
+  useEffect(() => {
+    if (jobsheetId) {
+      sessionStorage.setItem(`activeTab_jobsheet_${jobsheetId}`, activeTab)
+    }
+  }, [activeTab, jobsheetId])
+
   const [selectedStudentProfileId, setSelectedStudentProfileId] = useState<string | null>(null)
   const [keyword, setKeyword] = useState("")
   const [status, setStatus] = useState("all")
@@ -313,6 +328,23 @@ export default function LecturerJobsheetDetailPage() {
     return students
   }, [monitoringData, monitoringKeyword, monitoringStatusFilter, monitoringSortBy])
 
+  function openStudentMonitor(studentId: string, attempt?: { attemptType?: string | null; remedialId?: string | null }) {
+    const effectiveKelasPraktikumId = kelasPraktikumId || classId
+    if (!effectiveKelasPraktikumId || !jobsheetId) {
+      toast.error("Konteks kelas praktikum belum lengkap.")
+      return
+    }
+    const params = new URLSearchParams()
+    if (courseId) params.set("courseId", courseId)
+    if (classId) params.set("classId", classId)
+    if (mataKuliahId) params.set("mataKuliahId", mataKuliahId)
+    params.set("kelasPraktikumId", effectiveKelasPraktikumId)
+    params.set("attemptType", attempt?.attemptType === "remedial" ? "remedial" : "normal")
+    if (attempt?.remedialId) params.set("remedialId", attempt.remedialId)
+
+    navigate(`/lecturer/kelas-praktikum/${effectiveKelasPraktikumId}/jobsheets/${jobsheetId}/students/${studentId}/monitor?${params.toString()}`)
+  }
+
   function formatTime(timestamp?: string | null) {
     if (!timestamp) return "-"
     const date = new Date(timestamp)
@@ -425,7 +457,17 @@ export default function LecturerJobsheetDetailPage() {
     <LecturerLayout>
       <button
         type="button"
-        onClick={() => navigate(-1)}
+        onClick={() => {
+          if (courseId && classId) {
+            navigate(`/kelas-praktikum/${courseId}/${classId}`)
+          } else {
+            if (window.history.length > 1) {
+              navigate(-1)
+            } else {
+              navigate("/mata-kuliah")
+            }
+          }
+        }}
         className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
       >
         <ArrowLeft size={18} />
@@ -755,13 +797,25 @@ export default function LecturerJobsheetDetailPage() {
                           {formatRelativeTime(student.last_activity_at)}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <button
-                            type="button"
-                            className="font-semibold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-lg text-xs transition duration-150"
-                            onClick={() => setSelectedStudentId(student.student_id)}
-                          >
-                            Detail Log
-                          </button>
+                          <div className="flex flex-wrap justify-center gap-2">
+                            <button
+                              type="button"
+                              className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold text-white transition duration-150 hover:bg-blue-700"
+                              onClick={() => openStudentMonitor(student.student_id, {
+                                attemptType: (student as any).attempt_type,
+                                remedialId: (student as any).remedial_id,
+                              })}
+                            >
+                              Monitor
+                            </button>
+                            <button
+                              type="button"
+                              className="font-semibold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-lg text-xs transition duration-150"
+                              onClick={() => setSelectedStudentId(student.student_id)}
+                            >
+                              Detail Log
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

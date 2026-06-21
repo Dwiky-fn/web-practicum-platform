@@ -59,12 +59,19 @@ export default function SidebarItem({
       {renderIndicator()}
 
       {!collapsed && (
-        <span className={
-          status === "active" || status === "active-completed"
-            ? "text-gray-800 font-medium text-left"
-            : "text-left"
-        }>
-          {item.title}
+        <span className="min-w-0 text-left">
+          <span className={
+            status === "active" || status === "active-completed" || item.meta?.isLastPosition
+              ? "block text-gray-800 font-medium"
+              : "block"
+          }>
+            {item.title}
+          </span>
+          {item.meta?.isLastPosition && (
+            <span className="mt-1 block rounded-md bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700 whitespace-pre-line">
+              {item.meta.positionLabel || "Posisi Terakhir"}
+            </span>
+          )}
         </span>
       )}
     </button>

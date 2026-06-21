@@ -63,7 +63,6 @@ export default function ExperimentPage() {
         onChange={(steps) => updateExperiment(experimentId, steps)}
         onRun={() => trackActivity?.("run_code", { experimentId })}
         onSave={() => trackActivity?.("save_code", { experimentId })}
-        editorMode={jobsheet.editorMode || "mini_ide"}
         readOnly={readOnly}
       />
     </div>

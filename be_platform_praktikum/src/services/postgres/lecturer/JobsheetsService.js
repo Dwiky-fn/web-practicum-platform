@@ -370,7 +370,7 @@ class LecturerJobsheetsService {
       const goal = payload.goal || extractTextContent(payload.goalContent);
 
       const programmingLanguage = payload.programmingLanguage || payload.programming_language || 'java';
-      const editorMode = payload.editorMode || payload.editor_mode || 'mini_ide';
+      const editorMode = 'mini_ide';
 
       await client.query(
         `
@@ -427,7 +427,7 @@ class LecturerJobsheetsService {
       const goal = payload.goal || extractTextContent(payload.goalContent);
 
       const programmingLanguage = payload.programmingLanguage || payload.programming_language || existing.programming_language || 'java';
-      const editorMode = payload.editorMode || payload.editor_mode || existing.editor_mode || 'mini_ide';
+      const editorMode = 'mini_ide';
 
       await client.query(
         `
@@ -504,7 +504,7 @@ class LecturerJobsheetsService {
       const description = payload.description || '';
       const goal = payload.goal || extractTextContent(payload.goalContent);
       const programmingLanguage = payload.programmingLanguage || payload.programming_language || 'java';
-      const editorMode = payload.editorMode || payload.editor_mode || 'mini_ide';
+      const editorMode = 'mini_ide';
 
       await client.query(
         `
@@ -558,7 +558,7 @@ class LecturerJobsheetsService {
       const description = payload.description || '';
       const goal = payload.goal || extractTextContent(payload.goalContent);
       const programmingLanguage = payload.programmingLanguage || payload.programming_language || existing.programming_language || 'java';
-      const editorMode = payload.editorMode || payload.editor_mode || existing.editor_mode || 'mini_ide';
+      const editorMode = 'mini_ide';
 
       await client.query(
         `

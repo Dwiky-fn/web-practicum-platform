@@ -30,7 +30,6 @@ export default function WorkPage() {
     submission,
     savedProgress,
     completedItems,
-    scoreBreakdown,
     completeCurrentProgressItem,
     loading,
     error,
@@ -193,7 +192,6 @@ export default function WorkPage() {
             submission={submission}
             savedProgress={savedProgress}
             completedItems={completedItems}
-            scoreBreakdown={scoreBreakdown}
             scope={scope}
           />
         )}

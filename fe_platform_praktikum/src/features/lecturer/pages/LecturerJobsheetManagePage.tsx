@@ -206,7 +206,13 @@ export default function LecturerJobsheetManagePage() {
     <LecturerLayout>
       <button
         type="button"
-        onClick={() => navigate(-1)}
+        onClick={() => {
+          if (window.history.length > 1) {
+            navigate(-1)
+          } else {
+            navigate("/mata-kuliah")
+          }
+        }}
         className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
       >
         <ArrowLeft size={18} />

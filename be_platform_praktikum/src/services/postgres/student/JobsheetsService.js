@@ -22,8 +22,8 @@ class JobsheetsService {
 
     return {
       ...row,
-      editorMode: row.editor_mode || 'mini_ide',
-      editor_mode: row.editor_mode || 'mini_ide',
+      editorMode: 'mini_ide',
+      editor_mode: 'mini_ide',
       summary: content.summary || emptyDoc,
       theory: content.theory || [],
       task: content.task || {

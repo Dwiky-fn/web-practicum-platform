@@ -4,7 +4,6 @@ import { ChevronDown, ChevronUp, Play, RotateCcw, Save, Square, AlertTriangle } 
 import CodeEditorPanel from "../../../../../../../components/code-editor/CodeEditorPanel"
 import AnalysisEditor from "./workSpace/AnalysisEditor"
 import { ExecutionClient } from "../../../../../../../services/execution/executionClient"
-import Editor from "@monaco-editor/react"
 
 interface Props {
   title: string
@@ -24,7 +23,6 @@ interface Props {
   }[]
   onRun?: () => void
   onSave?: () => void
-  editorMode?: string
   readOnly?: boolean
 }
 
@@ -76,7 +74,6 @@ export default function InstructionWorkspaceCard({
   initialSteps,
   onRun,
   onSave,
-  editorMode = "mini_ide",
   readOnly = false,
 }: Props) {
   const defaultFileName = getDefaultFileName(language)
@@ -355,63 +352,6 @@ export default function InstructionWorkspaceCard({
     if (nextActiveFile) setActiveFile(nextActiveFile)
   }, [activeIndex])
 
-  const handleSimpleAddFile = () => {
-    const filename = window.prompt("Masukkan nama file baru:")
-    if (!filename) return
-    const trimmed = filename.trim()
-    if (!trimmed) return
-
-    const ext = language === "python" ? ".py" : ".java"
-    if (!trimmed.endsWith(ext)) {
-      alert(`Bahasa ${language === "python" ? "Python" : "Java"} hanya mendukung file berekstensi ${ext}`)
-      return
-    }
-
-    const currentFiles = codeMap[activeIndex] || {}
-    if (currentFiles[trimmed] !== undefined) {
-      alert("File dengan nama tersebut sudah ada!")
-      return
-    }
-
-    const nextFiles = { ...currentFiles, [trimmed]: "" }
-    handleFilesChange(nextFiles, trimmed)
-  }
-
-  const handleSimpleRenameFile = () => {
-    const newName = window.prompt(`Rename file ${activeFile} menjadi:`, activeFile)
-    if (!newName) return
-    const trimmed = newName.trim()
-    if (!trimmed || trimmed === activeFile) return
-
-    const ext = language === "python" ? ".py" : ".java"
-    if (!trimmed.endsWith(ext)) {
-      alert(`Bahasa ${language === "python" ? "Python" : "Java"} hanya mendukung file berekstensi ${ext}`)
-      return
-    }
-
-    const currentFiles = codeMap[activeIndex] || {}
-    if (currentFiles[trimmed] !== undefined) {
-      alert("File dengan nama tersebut sudah ada!")
-      return
-    }
-
-    const nextFiles = { ...currentFiles }
-    const code = nextFiles[activeFile]
-    delete nextFiles[activeFile]
-    nextFiles[trimmed] = code
-
-    handleFilesChange(nextFiles, trimmed)
-  }
-
-  const handleSimpleDeleteFile = () => {
-    const currentFiles = codeMap[activeIndex] || {}
-    if (Object.keys(currentFiles).length <= 1) {
-      alert("Minimal harus ada satu file pada template kode.")
-      return
-    }
-    setConfirmDeleteFile(true)
-  }
-
   const handleBottomPanelResize = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault()
     const containerHeight = codingBodyRef.current?.clientHeight || 720
@@ -545,28 +485,37 @@ export default function InstructionWorkspaceCard({
                     {saveError || saveStatus}
                   </span>
                 )}
-                {!readOnly && (
-                  <>
-                    <ToolbarButton onClick={handleRun} disabled={Object.values(runningMap).some(Boolean)} primary>
-                      <Play size={16} fill="currentColor" aria-hidden="true" />
-                      Run
-                    </ToolbarButton>
-                    {runningMap[activeIndex] && (
-                      <ToolbarButton onClick={() => executionClientRef.current?.stop()} danger>
-                        <Square size={16} fill="currentColor" aria-hidden="true" />
-                        Stop
-                      </ToolbarButton>
-                    )}
-                    <ToolbarButton onClick={() => saveCurrentSteps()} disabled={isSaving}>
-                      <Save size={16} aria-hidden="true" />
-                      {isSaving ? "Saving" : "Save"}
-                    </ToolbarButton>
-                    <ToolbarButton onClick={handleReset} disabled={!!runningMap[activeIndex]}>
-                      <RotateCcw size={16} aria-hidden="true" />
-                      Reset
-                    </ToolbarButton>
-                  </>
+                <ToolbarButton
+                  onClick={handleRun}
+                  disabled={readOnly || Object.values(runningMap).some(Boolean)}
+                  title={readOnly ? "Tidak tersedia pada mode monitoring dosen." : undefined}
+                  primary
+                >
+                  <Play size={16} fill="currentColor" aria-hidden="true" />
+                  Run
+                </ToolbarButton>
+                {runningMap[activeIndex] && !readOnly && (
+                  <ToolbarButton onClick={() => executionClientRef.current?.stop()} danger>
+                    <Square size={16} fill="currentColor" aria-hidden="true" />
+                    Stop
+                  </ToolbarButton>
                 )}
+                <ToolbarButton
+                  onClick={() => saveCurrentSteps()}
+                  disabled={readOnly || isSaving}
+                  title={readOnly ? "Tidak tersedia pada mode monitoring dosen." : undefined}
+                >
+                  <Save size={16} aria-hidden="true" />
+                  {isSaving ? "Saving" : "Save"}
+                </ToolbarButton>
+                <ToolbarButton
+                  onClick={handleReset}
+                  disabled={readOnly || !!runningMap[activeIndex]}
+                  title={readOnly ? "Tidak tersedia pada mode monitoring dosen." : undefined}
+                >
+                  <RotateCcw size={16} aria-hidden="true" />
+                  Reset
+                </ToolbarButton>
                 <ToolbarButton onClick={() => setIsWorkspaceExpanded(false)}>
                   <ChevronUp size={16} aria-hidden="true" />
                   Collapse
@@ -575,85 +524,9 @@ export default function InstructionWorkspaceCard({
             </div>
 
             <div ref={codingBodyRef} className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              {editorMode === "simple" ? (
-                <div className="flex flex-col h-full bg-[#1e1e1e] overflow-hidden">
-                  {/* File bar */}
-                  <div className="flex shrink-0 items-center justify-between border-b border-[#2d2d2d] bg-[#252526] px-3 py-1.5 gap-2 select-none">
-                    <div className="flex items-center gap-1.5 text-xs text-gray-400 font-semibold">
-                      <span>File:</span>
-                      <select
-                        value={activeFile}
-                        onChange={(e) => setActiveFile(e.target.value)}
-                        className="bg-[#2d2d2d] text-white text-xs rounded border border-[#3c3c3c] px-2 py-0.5 outline-none font-mono"
-                      >
-                        {Object.keys(codeMap[activeIndex] || {}).map((filename) => (
-                          <option key={filename} value={filename}>{filename}</option>
-                        ))}
-                      </select>
-                    </div>
-                    {!readOnly && (
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={handleSimpleAddFile}
-                          className="rounded bg-[#2d2d2d] border border-[#3c3c3c] hover:bg-[#3c3c3c] hover:text-white text-gray-300 px-2 py-0.5 text-[11px] font-semibold"
-                        >
-                          + Tambah File
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleSimpleRenameFile}
-                          className="rounded bg-[#2d2d2d] border border-[#3c3c3c] hover:bg-[#3c3c3c] hover:text-white text-gray-300 px-2 py-0.5 text-[11px] font-semibold"
-                        >
-                          Rename
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleSimpleDeleteFile}
-                          disabled={Object.keys(codeMap[activeIndex] || {}).length <= 1}
-                          className="rounded bg-[#2d2d2d] border border-[#3c3c3c] hover:bg-[#3c3c3c] hover:text-white text-gray-300 px-2 py-0.5 text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Hapus
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Simple Editor */}
-                  <div className="flex-1 min-h-0 relative">
-                    <Editor
-                      height="100%"
-                      language={language}
-                      path={`student-${label}-${language}-${activeIndex}-${activeFile}`}
-                      value={(codeMap[activeIndex] || {})[activeFile] ?? ""}
-                      theme="vs-dark"
-                      onChange={(val) => {
-                        if (readOnly) return
-                        setIsDirty(true)
-                        setCodeMap(prev => ({
-                          ...prev,
-                          [activeIndex]: {
-                            ...(prev[activeIndex] || {}),
-                            [activeFile]: val || "",
-                          },
-                        }))
-                      }}
-                      options={{
-                        fontSize: 13,
-                        minimap: { enabled: false },
-                        scrollBeyondLastLine: false,
-                        wordWrap: "on",
-                        padding: { top: 8, bottom: 8 },
-                        readOnly: readOnly,
-                      }}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="min-h-0 flex-1">
-                  <CodeEditorPanel key={`${activeIndex}-${editorVersionMap[activeIndex] || 0}`} {...codeEditorProps} />
-                </div>
-              )}
+              <div className="min-h-0 flex-1">
+                <CodeEditorPanel key={`${activeIndex}-${editorVersionMap[activeIndex] || 0}`} {...codeEditorProps} />
+              </div>
               <div
                 className="min-h-9 max-h-[45%] shrink-0 overflow-hidden border-t border-[#2b2b2b] bg-[#1e1e1e]"
                 style={{ height: isBottomPanelExpanded ? `${bottomPanelHeight}px` : "40px" }}
@@ -817,12 +690,14 @@ function ToolbarButton({
   disabled,
   onClick,
   primary,
+  title,
 }: {
   children: React.ReactNode
   danger?: boolean
   disabled?: boolean
   onClick: () => void
   primary?: boolean
+  title?: string
 }) {
   const color = danger
     ? "bg-red-600 text-white hover:bg-red-700"
@@ -835,6 +710,7 @@ function ToolbarButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={title}
       className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:bg-[#3c3c3c] disabled:text-[#858585] ${color}`}
     >
       {children}

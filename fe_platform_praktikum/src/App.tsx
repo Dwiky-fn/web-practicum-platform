@@ -1,4 +1,4 @@
-import { Navigate, Routes, Route, useLocation } from "react-router-dom"
+import { Navigate, Routes, Route, useLocation, useParams } from "react-router-dom"
 import { CurrentUserProvider } from "./services/user/CurrentUserProvider"
 import { useCurrentUser } from "./services/user/useCurrentUser"
 import LoginPage from "./features/auth/LoginPage"
@@ -29,8 +29,26 @@ import LecturerJobsheetManagePage from "./features/lecturer/pages/LecturerJobshe
 import LecturerJobsheetEditorPage from "./features/lecturer/pages/LecturerJobsheetEditorPage"
 import LecturerJobsheetDetailPage from "./features/lecturer/pages/LecturerJobsheetDetailPage"
 import LecturerMonitoringPage from "./features/lecturer/pages/LecturerMonitoringPage"
+import LecturerStudentWorkpagePage from "./features/lecturer/pages/LecturerStudentWorkpagePage"
 import LecturerReviewPage from "./features/lecturer/pages/LecturerReviewPage"
 import ToastContainer from "./components/toast/ToastContainer"
+
+function LegacyClassMonitoringRedirect() {
+  const { kelasPraktikumId = "", jobsheetId = "" } = useParams()
+  const location = useLocation()
+  const params = new URLSearchParams(location.search)
+  params.set("kelasPraktikumId", params.get("kelasPraktikumId") || kelasPraktikumId)
+  params.set("classId", params.get("classId") || kelasPraktikumId)
+  params.set("tab", "monitoring")
+
+  return <Navigate to={`/jobsheets/${jobsheetId}?${params.toString()}`} replace />
+}
+
+function StudentWorkpageRedirect() {
+  const { kelasPraktikumId = "", jobsheetId = "", studentId = "" } = useParams()
+  const location = useLocation()
+  return <Navigate to={`/lecturer/kelas-praktikum/${kelasPraktikumId}/jobsheets/${jobsheetId}/students/${studentId}/monitor${location.search}`} replace />
+}
 
 
 function AppContent() {
@@ -154,6 +172,23 @@ function AppContent() {
         element={byRole({ dosen: <LecturerMonitoringPage /> })}
       />
       <Route
+        path="/lecturer/kelas-praktikum/:kelasPraktikumId/jobsheets/:jobsheetId/monitoring"
+        element={byRole({ dosen: <LegacyClassMonitoringRedirect /> })}
+      />
+      <Route
+        path="/lecturer/kelas-praktikum/:kelasPraktikumId/jobsheets/:jobsheetId/students/:studentId/monitor"
+        element={byRole({ dosen: <LecturerStudentWorkpagePage /> })}
+      >
+        <Route path="theory/:theoryId" element={<TheoryPage />} />
+        <Route path="experiments/:experimentId" element={<ExperimentPage />} />
+        <Route path="exercises/:exerciseId" element={<ExercisePage />} />
+        <Route path="task" element={<TaskPage />} />
+      </Route>
+      <Route
+        path="/lecturer/kelas-praktikum/:kelasPraktikumId/jobsheets/:jobsheetId/students/:studentId/workpage"
+        element={byRole({ dosen: <StudentWorkpageRedirect /> })}
+      />
+      <Route
         path="/reviews/:studentId"
         element={byRole({ dosen: <LecturerReviewPage /> })}
       />
@@ -179,7 +214,7 @@ function AppContent() {
     </Routes>
   )
 
-  if (user?.role === "DOSEN") {
+  if (user?.role === "DOSEN" && !location.pathname.includes("/monitor") && !location.pathname.includes("/workpage")) {
     return <LecturerLayout>{routes}</LecturerLayout>
   }
 

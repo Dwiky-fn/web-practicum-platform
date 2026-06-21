@@ -10,6 +10,10 @@ export interface SidebarNode {
   path?: string
   children?: SidebarNode[]
   status?: "completed" | "active" | "pending"
+  meta?: {
+    isLastPosition?: boolean
+    positionLabel?: string
+  }
 }
 
 export function buildSidebarTree(
@@ -18,9 +22,10 @@ export function buildSidebarTree(
   submission: JobsheetSubmission,
   query = "",
   scope?: AcademicScope,
+  basePathOverride?: string,
 ): SidebarNode[] {
 
-  const base = `${academicCourseBasePath(courseId, scope)}/jobsheets/${jobsheet.id}/works`
+  const base = basePathOverride ?? `${academicCourseBasePath(courseId, scope)}/jobsheets/${jobsheet.id}/works`
 
   return [
     {

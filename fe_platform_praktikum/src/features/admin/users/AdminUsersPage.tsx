@@ -325,8 +325,8 @@ export default function AdminUsersPage() {
       try {
         const data = await getAdminDepartments()
         setDepartments(data)
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Gagal memuat data jurusan.")
+      } catch {
+        toast.error("Gagal memuat data jurusan dan program studi.")
       }
     }
     fetchDepartments()

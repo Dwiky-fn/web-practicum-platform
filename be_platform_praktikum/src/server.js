@@ -32,7 +32,7 @@ app.use('/student', requireAuth, requireRoles('MAHASISWA'));
 app.use('/student-progress', requireAuth, requireRoles('MAHASISWA'));
 app.use('/courses', requireAuth, requireRoles('MAHASISWA', 'DOSEN', 'ADMIN'));
 app.use('/users', requireAuth);
-app.use('/departments', requireAuth);
+app.use('/departments', requireAuth, requireRoles('ADMIN', 'DOSEN'));
 app.use('/tahun-semester', requireAuth);
 app.use('/kurikulum', requireAuth);
 app.use('/semester', requireAuth);

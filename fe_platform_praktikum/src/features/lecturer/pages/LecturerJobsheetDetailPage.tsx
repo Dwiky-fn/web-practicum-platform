@@ -460,6 +460,8 @@ export default function LecturerJobsheetDetailPage() {
         onClick={() => {
           if (courseId && classId) {
             navigate(`/kelas-praktikum/${courseId}/${classId}`)
+          } else if (courseId) {
+            navigate(`/mata-kuliah/${courseId}/jobsheets`)
           } else {
             if (window.history.length > 1) {
               navigate(-1)
@@ -614,7 +616,10 @@ export default function LecturerJobsheetDetailPage() {
                   </div>
                 </LecturerPanel>
 
-                <LecturerButton onClick={() => navigate(`${jobsheetBasePath}/${jobsheet.id}/edit`)}>
+                <LecturerButton onClick={() => {
+                  const query = searchParams.toString() ? `?${searchParams.toString()}` : ""
+                  navigate(`${jobsheetBasePath}/${jobsheet.id}/edit${query}`)
+                }}>
                   Edit Jobsheet
                 </LecturerButton>
               </div>

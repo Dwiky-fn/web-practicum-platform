@@ -321,7 +321,15 @@ export default function LecturerClassDetailPage() {
                           >
                             Lihat Detail
                           </LecturerButton>
-                          <LecturerButton variant="secondary" onClick={() => navigate(`/mata-kuliah/${nativeScope.mataKuliahId || courseId}/jobsheets/${jobsheet.id}/edit`)}>
+                          <LecturerButton
+                            variant="secondary"
+                            onClick={() => {
+                              const params = new URLSearchParams({ courseId, classId })
+                              if (nativeScope.mataKuliahId) params.set("mataKuliahId", nativeScope.mataKuliahId)
+                              if (nativeScope.kelasPraktikumId) params.set("kelasPraktikumId", nativeScope.kelasPraktikumId)
+                              navigate(`/mata-kuliah/${nativeScope.mataKuliahId || courseId}/jobsheets/${jobsheet.id}/edit?${params.toString()}`)
+                            }}
+                          >
                             Edit
                           </LecturerButton>
                           <LecturerButton variant="secondary" onClick={() => setDeleteTarget(jobsheet)}>

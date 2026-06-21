@@ -1,7 +1,7 @@
 import type { JSONContent } from "@tiptap/react"
 import { ArrowLeft, Plus, Trash2, AlertTriangle } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import RichTextEditor from "../../../components/editor/RichTextEditor"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
@@ -114,6 +114,7 @@ function createExerciseItem(index: number, language: "java" | "python" = "java")
 
 export default function LecturerJobsheetEditorPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user } = useCurrentUser()
   const { courseId = "", mataKuliahId: routeMataKuliahId = "", jobsheetId } = useParams()
   const effectiveCourseId = routeMataKuliahId || courseId
@@ -338,7 +339,8 @@ export default function LecturerJobsheetEditorPage() {
       toast.success("Draft jobsheet berhasil disimpan.")
 
       if (isCreate && nextId) {
-        navigate(`${jobsheetBasePath}/${nextId}/edit`, { replace: true })
+        const query = searchParams.toString() ? `?${searchParams.toString()}` : ""
+        navigate(`${jobsheetBasePath}/${nextId}/edit${query}`, { replace: true })
       }
     } catch (saveError) {
       toast.error(saveError instanceof Error ? saveError.message : "Gagal menyimpan draft jobsheet.")
@@ -378,7 +380,8 @@ export default function LecturerJobsheetEditorPage() {
 
       setPublishOpen(false)
       toast.success("Jobsheet berhasil dipublikasikan.")
-      navigate(jobsheetBasePath)
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : ""
+      navigate(`${jobsheetBasePath}${query}`)
     } catch (publishError) {
       toast.error(publishError instanceof Error ? publishError.message : "Gagal mempublikasikan jobsheet.")
     } finally {
@@ -475,10 +478,11 @@ export default function LecturerJobsheetEditorPage() {
       <button
         type="button"
         onClick={() => {
+          const query = searchParams.toString() ? `?${searchParams.toString()}` : ""
           if (activeJobsheetId) {
-            navigate(`/jobsheets/${activeJobsheetId}?courseId=${effectiveCourseId}`)
+            navigate(`/jobsheets/${activeJobsheetId}${query}`)
           } else {
-            navigate(jobsheetBasePath)
+            navigate(`${jobsheetBasePath}${query}`)
           }
         }}
         className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"

@@ -264,7 +264,7 @@ export async function getLecturerSubmission(
   courseId: string,
   jobsheetId: string,
   studentId: string,
-  scope?: { mataKuliahId?: string; kelasPraktikumId?: string; submissionId?: string; attemptNo?: number },
+  scope?: { mataKuliahId?: string; kelasPraktikumId?: string; submissionId?: string; attemptNo?: number; attemptType?: "normal" | "remedial"; remedialId?: string | null },
 ): Promise<JobsheetSubmission | null> {
   return getSubmissionByJobsheetId(courseId, jobsheetId, studentId, scope)
 }

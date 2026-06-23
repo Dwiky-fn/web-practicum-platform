@@ -1,11 +1,13 @@
 const autoBind = require('auto-bind');
 const { created, ok, handleAdminError } = require('../../admin/utils');
 const LecturerJobsheetsValidator = require('../../../validator/lecturer/jobsheets');
+const { createId } = require('../../../services/postgres/admin/utils');
 
 class LecturerJobsheetsHandler {
-  constructor(service, remedialsService) {
+  constructor(service, remedialsService, cloudinaryService) {
     this._service = service;
     this._remedialsService = remedialsService;
+    this._cloudinaryService = cloudinaryService;
     autoBind(this);
   }
 
@@ -256,6 +258,66 @@ class LecturerJobsheetsHandler {
       const students = await this._remedialsService.getRemedialStudents(remedialId, req.user.id);
 
       return ok(res, { students }, 'Daftar mahasiswa remedial berhasil diambil');
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
+
+  async postJobsheetImageHandler(req, res) {
+    try {
+      const { jobsheetId } = req.params;
+
+      // Validate access
+      await this._service.checkJobsheetAccess(jobsheetId, req.user.id);
+
+      // Convert multer buffer to base64 data URI
+      const imageBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+
+      // Upload to Cloudinary
+      const { url, publicId, width, height } = await this._cloudinaryService.uploadImageDetailed(
+        imageBase64,
+        'platform-praktikum/jobsheets'
+      );
+
+      // Save to database
+      const id = createId('img');
+      await this._service.saveJobsheetImage({
+        id,
+        jobsheetId,
+        uploadedBy: req.user.id,
+        publicId,
+        url,
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+        width,
+        height,
+      });
+
+      return res.status(201).json({
+        status: 'success',
+        message: 'Gambar berhasil diunggah.',
+        data: {
+          image: {
+            id,
+            url,
+            alt: '',
+            width,
+            height,
+          },
+        },
+      });
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
+
+  async deleteJobsheetImageHandler(req, res) {
+    try {
+      const { jobsheetId, imageId } = req.params;
+
+      await this._service.deleteJobsheetImage(imageId, jobsheetId, req.user.id);
+
+      return ok(res, null, 'Gambar berhasil dihapus.');
     } catch (error) {
       return handleAdminError(error, res);
     }

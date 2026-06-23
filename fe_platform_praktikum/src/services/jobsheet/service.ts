@@ -47,3 +47,25 @@ export const getJobsheetById = async (
   const res = await apiFetch(`${basePath}/${jobsheetId}/full${buildQuery(scope)}`)
   return mapJobsheet(res.data.jobsheet)
 }
+
+export const uploadJobsheetImage = async (
+  jobsheetId: string,
+  file: File,
+): Promise<{ id: string; url: string; alt: string; width: number; height: number }> => {
+  const formData = new FormData()
+  formData.append("image", file)
+  const res = await apiFetch(`/lecturer/jobsheets/${jobsheetId}/images`, {
+    method: "POST",
+    body: formData,
+  })
+  return res.data.image
+}
+
+export const deleteJobsheetImage = async (
+  jobsheetId: string,
+  imageId: string,
+): Promise<void> => {
+  await apiFetch(`/lecturer/jobsheets/${jobsheetId}/images/${imageId}`, {
+    method: "DELETE",
+  })
+}

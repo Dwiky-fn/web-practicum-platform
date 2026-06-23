@@ -1,5 +1,6 @@
 const express = require('express');
 const { requireAuth, requireRoles } = require('../../../middlewares/auth');
+const uploadImageMiddleware = require('../../../middlewares/upload');
 
 module.exports = (handler) => {
   const router = express.Router();
@@ -35,6 +36,10 @@ module.exports = (handler) => {
   router.delete('/lecturer/remedials/:remedialId', handler.deleteRemedialHandler);
   router.post('/lecturer/remedials/:remedialId/students', handler.postRemedialStudentsHandler);
   router.get('/lecturer/remedials/:remedialId/students', handler.getRemedialStudentsHandler);
+
+  // Image upload & delete routes
+  router.post('/lecturer/jobsheets/:jobsheetId/images', uploadImageMiddleware, handler.postJobsheetImageHandler);
+  router.delete('/lecturer/jobsheets/:jobsheetId/images/:imageId', handler.deleteJobsheetImageHandler);
 
   return router;
 };

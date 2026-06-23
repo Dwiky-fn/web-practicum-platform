@@ -100,6 +100,8 @@ class SubmissionsHandler {
         kelasPraktikumId: req.query.kelasPraktikumId || req.query.id_kelas_praktikum || req.body?.kelasPraktikumId || req.body?.id_kelas_praktikum,
         submissionId: req.query.submissionId,
         attemptNo: req.query.attemptNo ? Number(req.query.attemptNo) : undefined,
+        attemptType: req.query.attemptType,
+        remedialId: req.query.remedialId,
         reqUser: req.user,
       },
     );
@@ -125,6 +127,8 @@ class SubmissionsHandler {
         kelasPraktikumId: req.query.kelasPraktikumId || req.query.id_kelas_praktikum || req.body?.kelasPraktikumId || req.body?.id_kelas_praktikum,
         submissionId: req.query.submissionId,
         attemptNo: req.query.attemptNo ? Number(req.query.attemptNo) : undefined,
+        attemptType: req.query.attemptType,
+        remedialId: req.query.remedialId,
         reqUser: req.user,
       },
     );

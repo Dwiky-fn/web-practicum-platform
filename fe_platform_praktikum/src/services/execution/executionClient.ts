@@ -9,6 +9,8 @@ export interface RunExecutionPayload {
   files?: { path: string; content: string }[]
   mainClass?: string
   entryFile?: string
+  executionId?: string
+  context?: Extract<ExecutionClientMessage, { type: "run" }>["context"]
 }
 
 export function getExecutionWsUrl() {

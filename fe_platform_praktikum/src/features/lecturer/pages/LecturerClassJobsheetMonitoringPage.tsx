@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw, Search, Users } from "lucide-react"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
+import { useBackNavigation } from "../../../shared/utils/backNavigation"
 import { toast } from "../../../components/toast/toastStore"
 import {
   getClassJobsheetMonitoring,
@@ -255,6 +256,7 @@ function ModuleStudents({
 export default function LecturerClassJobsheetMonitoringPage() {
   const { kelasPraktikumId = "", jobsheetId = "" } = useParams()
   const navigate = useNavigate()
+  const { goBackToParent } = useBackNavigation()
   const [data, setData] = useState<MonitoringResponse | null>(null)
   const [selected, setSelected] = useState<MonitoringLocation | null>(null)
   const [detail, setDetail] = useState<LocationDetailResponse | null>(null)
@@ -344,15 +346,11 @@ export default function LecturerClassJobsheetMonitoringPage() {
             <button
               type="button"
               onClick={() => {
-                if (jobsheetId) {
-                  navigate(`/jobsheets/${jobsheetId}`)
-                } else {
-                  if (window.history.length > 1) {
-                    navigate(-1)
-                  } else {
-                    navigate("/mata-kuliah")
-                  }
-                }
+                goBackToParent({
+                  parentPath: jobsheetId ? `/jobsheets/${jobsheetId}` : "/mata-kuliah",
+                  fallbackPath: "/mata-kuliah",
+                  preserveQueryParams: ["courseId", "classId", "mataKuliahId", "kelasPraktikumId"],
+                })
               }}
               className="mb-2 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
             >

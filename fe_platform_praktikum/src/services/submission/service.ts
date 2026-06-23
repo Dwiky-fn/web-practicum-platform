@@ -7,6 +7,8 @@ export type SubmissionScope = {
   kelasPraktikumId?: string
   submissionId?: string
   attemptNo?: number
+  attemptType?: "normal" | "remedial"
+  remedialId?: string | null
 }
 
 const buildSubmissionPath = (courseId: string, jobsheetId: string, scope?: SubmissionScope) => {
@@ -22,6 +24,8 @@ const buildStudentQuery = (studentId: string, scope?: SubmissionScope) => {
   if (scope?.kelasPraktikumId) params.set("kelasPraktikumId", scope.kelasPraktikumId)
   if (scope?.submissionId) params.set("submissionId", scope.submissionId)
   if (scope?.attemptNo) params.set("attemptNo", String(scope.attemptNo))
+  if (scope?.attemptType) params.set("attemptType", scope.attemptType)
+  if (scope?.remedialId) params.set("remedialId", scope.remedialId)
   return params.toString()
 }
 

@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom"
+import { useLocation, useParams } from "react-router-dom"
 import { useOutletContext } from "react-router-dom"
 import type { Jobsheet } from "../../../../../../services/jobsheet/types"
 import type { JSONContent } from "@tiptap/core"
@@ -16,6 +16,8 @@ type StepData = {
 
 export default function ExperimentPage() {
   const { experimentId } = useParams()
+  const location = useLocation()
+  const searchParams = new URLSearchParams(location.search)
   const { jobsheet, programmingLanguage, updateExperiment, submission, trackActivity, readOnly } = useOutletContext<{
     jobsheet: Jobsheet
     programmingLanguage: string
@@ -35,6 +37,7 @@ export default function ExperimentPage() {
   
   const componentKey = experiment.id
   const workspaceInstructions = splitInstructionContent(experiment.instructionContent)
+  const kelasPraktikumId = jobsheet.kelasPraktikumId || searchParams.get("kelasPraktikumId") || ""
 
   return (
     <div className="space-y-4">
@@ -61,9 +64,17 @@ export default function ExperimentPage() {
         language={programmingLanguage}
         initialSteps={initialSteps}
         onChange={(steps) => updateExperiment(experimentId, steps)}
-        onRun={() => trackActivity?.("run_code", { experimentId })}
         onSave={() => trackActivity?.("save_code", { experimentId })}
         readOnly={readOnly}
+        runContext={kelasPraktikumId ? {
+          jobsheetId: jobsheet.id,
+          kelasPraktikumId,
+          attemptType: jobsheet.access?.attemptType ?? "normal",
+          remedialId: jobsheet.access?.remedialId ?? null,
+          moduleType: "experiment",
+          experimentId,
+          instructionIds: workspaceInstructions.map((_, index) => `${experiment.id}:step:${index + 1}`),
+        } : undefined}
       />
     </div>
   )

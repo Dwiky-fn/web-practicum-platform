@@ -6,6 +6,18 @@ export type ExecutionClientMessage =
       files?: { path: string; content: string }[]
       mainClass?: string
       entryFile?: string
+      executionId?: string
+      context?: {
+        jobsheetId: string
+        kelasPraktikumId: string
+        attemptType?: "normal" | "remedial"
+        remedialId?: string | null
+        moduleType: "experiment" | "exercise"
+        experimentId?: string | null
+        exerciseId?: string | null
+        instructionId?: string | null
+        entryFile?: string | null
+      }
     }
   | { type: "stdin"; data: string }
   | { type: "input"; value: string }

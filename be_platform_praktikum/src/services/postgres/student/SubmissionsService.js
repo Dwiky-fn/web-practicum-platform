@@ -357,6 +357,22 @@ class SubmissionsService {
       );
       const submission = this._mapSubmissionRow(result.rows[0]) || null;
       if (submission && reqUser) {
+        if (studentId && submission.student_id !== studentId) {
+          throw new AuthorizationError('Anda tidak memiliki akses ke pengerjaan mahasiswa ini.');
+        }
+        if (jobsheetId && submission.jobsheet_id !== jobsheetId) {
+          throw new AuthorizationError('Anda tidak memiliki akses ke pengerjaan mahasiswa ini.');
+        }
+        const requestedKelasPraktikumId = this._resolveKelasPraktikumParam(options);
+        if (requestedKelasPraktikumId && submission.id_kelas_praktikum !== requestedKelasPraktikumId) {
+          throw new AuthorizationError('Anda tidak memiliki akses ke pengerjaan mahasiswa ini.');
+        }
+        if (options.attemptType === 'normal' && submission.remedial_id) {
+          throw new AuthorizationError('Submission tidak sesuai dengan attempt yang dipilih.');
+        }
+        if (options.attemptType === 'remedial' && options.remedialId && submission.remedial_id !== options.remedialId) {
+          throw new AuthorizationError('Submission tidak sesuai dengan remedial yang dipilih.');
+        }
         if (reqUser.role === 'DOSEN') {
           if (submission.id_kelas_praktikum !== null) {
             const pengampuRes = await this._pool.query(
@@ -429,6 +445,35 @@ class SubmissionsService {
     const scope = academicContext
       ? this._buildSubmissionScopeClause(academicContext, 3)
       : { clause: '', values: [] };
+
+    if (options.remedialId) {
+      const result = await this._pool.query(
+        `
+        ${this._buildSubmissionSelect()}
+        WHERE ts.student_id = $1 AND ts.jobsheet_id = $2 AND ts.remedial_id = $3
+        ${scope.clause}
+        LIMIT 1
+        `,
+        [studentId, jobsheetId, options.remedialId, ...scope.values]
+      );
+      const submission = this._mapSubmissionRow(result.rows[0]) || null;
+      return await this._enrichSubmission(submission);
+    }
+
+    if (options.attemptType === 'normal') {
+      const result = await this._pool.query(
+        `
+        ${this._buildSubmissionSelect()}
+        WHERE ts.student_id = $1 AND ts.jobsheet_id = $2 AND ts.remedial_id IS NULL
+        ${scope.clause}
+        ORDER BY ts.submitted_at DESC NULLS LAST, ts.id DESC
+        LIMIT 1
+        `,
+        [studentId, jobsheetId, ...scope.values]
+      );
+      const submission = this._mapSubmissionRow(result.rows[0]) || null;
+      return await this._enrichSubmission(submission);
+    }
 
     if (options.attemptNo) {
       const result = await this._pool.query(

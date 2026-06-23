@@ -19,7 +19,7 @@ export default function SidebarGroup({
   const location = useLocation()
 
   const hasActiveChild = group.children?.some(child =>
-    location.pathname.startsWith(child.path ?? "")
+    location.pathname.startsWith((child.path ?? "").split("?")[0])
   )
 
   const [manuallyOpen, setManuallyOpen] = useState(false)

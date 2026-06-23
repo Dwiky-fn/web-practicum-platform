@@ -91,6 +91,57 @@ class CloudinaryService {
 
     return data.secure_url;
   }
+
+  async uploadImageDetailed(image, folder) {
+    const { cloudName, apiKey, apiSecret } = this._getConfig();
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      throw new Error('CLOUDINARY_NOT_CONFIGURED');
+    }
+
+    if (!image || typeof image !== 'string') {
+      throw new Error('INVALID_IMAGE');
+    }
+
+    if (!/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(image)) {
+      throw new Error('INVALID_IMAGE');
+    }
+
+    const formData = new FormData();
+    const timestamp = Math.round(Date.now() / 1000);
+    const signature = this._createSignature({ folder, timestamp }, apiSecret);
+
+    formData.append('file', image);
+    formData.append('api_key', apiKey);
+    formData.append('timestamp', String(timestamp));
+    formData.append('folder', folder);
+    formData.append('signature', signature);
+
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+      {
+        method: 'POST',
+        body: formData,
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error('CLOUDINARY_UPLOAD_FAILED');
+    }
+
+    const data = await response.json();
+
+    if (!data.secure_url) {
+      throw new Error('CLOUDINARY_URL_NOT_FOUND');
+    }
+
+    return {
+      url: data.secure_url,
+      publicId: data.public_id,
+      width: data.width,
+      height: data.height,
+    };
+  }
 }
 
 module.exports = CloudinaryService;

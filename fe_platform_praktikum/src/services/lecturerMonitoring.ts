@@ -117,6 +117,9 @@ export type WorkpageResponse = {
     label: string | null
     submittedAt: string | null
     isAutoSubmitted: boolean
+    attemptNo?: number | null
+    attemptType?: "normal" | "remedial"
+    remedialId?: string | null
     finalScore: number | null
     progressScore: { progressScore?: number; items?: unknown[]; calculatedAt?: string | null } | null
     report: {

@@ -821,6 +821,66 @@ class LecturerJobsheetsService {
   async deleteJobsheet(courseId, jobsheetId, lecturerId) {
     return this.deleteJobsheetByMataKuliah(courseId, jobsheetId, lecturerId);
   }
+
+  async checkJobsheetAccess(jobsheetId, lecturerId, client = this._pool) {
+    const jobsheetRes = await client.query(
+      'SELECT id, id_mata_kuliah FROM jobsheets WHERE id = $1',
+      [jobsheetId],
+    );
+
+    if (!jobsheetRes.rows.length) {
+      throw new NotFoundError('Jobsheet tidak ditemukan.');
+    }
+
+    const jobsheet = jobsheetRes.rows[0];
+
+    const accessRes = await client.query(
+      `
+      SELECT 1
+      FROM pengampu p
+      JOIN kelas_praktikum kp ON p.id_kelas_praktikum = kp.id
+      WHERE p.id_dosen = $1 AND kp.id_mata_kuliah = $2
+      LIMIT 1
+      `,
+      [lecturerId, jobsheet.id_mata_kuliah],
+    );
+
+    if (!accessRes.rows.length) {
+      throw new AuthorizationError('Anda tidak memiliki akses ke jobsheet ini.');
+    }
+
+    return jobsheet;
+  }
+
+  async saveJobsheetImage({ id, jobsheetId, uploadedBy, publicId, url, mimeType, fileSize, width, height }) {
+    await this._pool.query(
+      `
+      INSERT INTO jobsheet_editor_images (
+        id, jobsheet_id, uploaded_by, public_id, url, mime_type, file_size, width, height
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `,
+      [id, jobsheetId, uploadedBy, publicId, url, mimeType, fileSize, width, height],
+    );
+  }
+
+  async deleteJobsheetImage(imageId, jobsheetId, lecturerId) {
+    await this.checkJobsheetAccess(jobsheetId, lecturerId);
+
+    const imageRes = await this._pool.query(
+      'SELECT * FROM jobsheet_editor_images WHERE id = $1 AND jobsheet_id = $2 AND deleted_at IS NULL',
+      [imageId, jobsheetId],
+    );
+
+    if (!imageRes.rows.length) {
+      throw new NotFoundError('Gambar tidak ditemukan.');
+    }
+
+    await this._pool.query(
+      'UPDATE jobsheet_editor_images SET deleted_at = NOW() WHERE id = $1',
+      [imageId],
+    );
+  }
 }
 
 module.exports = LecturerJobsheetsService;

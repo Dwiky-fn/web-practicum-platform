@@ -224,6 +224,22 @@
   width: 100%;
 }
 
+.jobsheet-rich-content,
+.rich-editor-content .ProseMirror,
+.prose.max-w-none {
+  max-width: 960px !important;
+  width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* Make images responsive, no overflow, maintain aspect ratio */
+.jobsheet-rich-image-wrapper img {
+  max-width: 100% !important;
+  height: auto !important;
+  object-fit: contain !important;
+}
+
 /* Blockquote */
 .rich-editor-content blockquote,
 .tiptap-editor-content blockquote,

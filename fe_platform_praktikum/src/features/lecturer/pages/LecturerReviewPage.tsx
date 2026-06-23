@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useBackNavigation } from "../../../shared/utils/backNavigation";
 const emptyDoc = { type: "doc" as const, content: [] }
 import { ArrowLeft, Eye, Edit } from "lucide-react"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
@@ -8,7 +9,7 @@ import type { Jobsheet } from "../../../services/jobsheet/types"
 import type { JobsheetSubmission } from "../../../services/submission/types"
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
 import LecturerLayout from "../components/LecturerLayout"
-import { LecturerButton, LecturerEmptyState, LecturerModal, LecturerPanel, PageHeader } from "../components/LecturerUI"
+import { LecturerButton, LecturerModal, LecturerPanel, PageHeader } from "../components/LecturerUI"
 import {
   getLecturerClassDetail,
   getLecturerJobsheetById,
@@ -136,6 +137,7 @@ function parseAiFeedbackToFeedbacks(submissionId: string, aiFeedback: any): Revi
 
 export default function LecturerReviewPage() {
   const navigate = useNavigate()
+  const { handleBack: goBack } = useBackNavigation()
   const { user } = useCurrentUser()
   const { studentId = "" } = useParams()
   const [searchParams] = useSearchParams()
@@ -146,23 +148,46 @@ export default function LecturerReviewPage() {
   const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined
   const submissionIdParam = searchParams.get("submissionId") || undefined
   const attemptNoParam = searchParams.get("attemptNo") ? Number(searchParams.get("attemptNo")) : undefined
-  const nativeScope = { mataKuliahId, kelasPraktikumId, submissionId: submissionIdParam, attemptNo: attemptNoParam }
+  const attemptTypeRaw = searchParams.get("attemptType")
+  const attemptTypeParam: "normal" | "remedial" | undefined =
+    attemptTypeRaw === "remedial" ? "remedial" : attemptTypeRaw === "normal" ? "normal" : undefined
+  const remedialIdParam = searchParams.get("remedialId") || undefined
+  const nativeScope = {
+    mataKuliahId,
+    kelasPraktikumId,
+    submissionId: submissionIdParam,
+    attemptNo: attemptNoParam,
+    attemptType: attemptTypeParam,
+    remedialId: remedialIdParam,
+  }
 
   const handleBack = useCallback(() => {
     const fromVal = searchParams.get("from")
     if (fromVal === "monitor" && kelasPraktikumId && jobsheetId && studentId) {
-      navigate(`/lecturer/kelas-praktikum/${kelasPraktikumId}/jobsheets/${jobsheetId}/students/${studentId}/monitor?courseId=${courseId}&classId=${classId}`)
+      const params = new URLSearchParams()
+      if (courseId) params.set("courseId", courseId)
+      if (classId) params.set("classId", classId)
+      if (mataKuliahId) params.set("mataKuliahId", mataKuliahId)
+      params.set("kelasPraktikumId", kelasPraktikumId)
+      if (attemptTypeParam) params.set("attemptType", attemptTypeParam)
+      if (remedialIdParam) params.set("remedialId", remedialIdParam)
+      navigate(`/lecturer/kelas-praktikum/${kelasPraktikumId}/jobsheets/${jobsheetId}/students/${studentId}/monitor?${params.toString()}`)
+    } else if (fromVal === "monitoring" && jobsheetId && classId && courseId) {
+      const params = new URLSearchParams({ tab: "monitoring", classId, courseId })
+      if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
+      if (mataKuliahId) params.set("mataKuliahId", mataKuliahId)
+      navigate(`/jobsheets/${jobsheetId}?${params.toString()}`)
     } else if (jobsheetId && classId && courseId) {
       const savedTab = sessionStorage.getItem(`activeTab_jobsheet_${jobsheetId}`) || "monitoring"
       navigate(`/jobsheets/${jobsheetId}?tab=${savedTab}&classId=${classId}&courseId=${courseId}`)
     } else {
-      if (window.history.length > 1) {
-        navigate(-1)
-      } else {
-        navigate("/mata-kuliah")
-      }
+        if (window.history.length > 1) {
+          goBack({ parentPath: "/mata-kuliah", fallbackPath: "/mata-kuliah" });
+        } else {
+          navigate("/mata-kuliah");
+        }
     }
-  }, [searchParams, kelasPraktikumId, jobsheetId, studentId, courseId, classId, navigate])
+  }, [searchParams, kelasPraktikumId, jobsheetId, studentId, courseId, classId, mataKuliahId, attemptTypeParam, remedialIdParam, navigate, goBack])
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -188,7 +213,7 @@ export default function LecturerReviewPage() {
     async function loadData() {
       if (!studentId || !courseId || !jobsheetId) {
         setLoading(false)
-        setError("Context review belum lengkap.")
+        setError("Data review tidak valid. Silakan kembali ke Monitoring Mahasiswa dan pilih mahasiswa kembali.")
         return
       }
 
@@ -250,7 +275,7 @@ export default function LecturerReviewPage() {
     }
 
     loadData()
-  }, [classId, courseId, jobsheetId, kelasPraktikumId, mataKuliahId, studentId])
+  }, [classId, courseId, jobsheetId, kelasPraktikumId, mataKuliahId, studentId, submissionIdParam, attemptNoParam, attemptTypeParam, remedialIdParam])
 
   async function handleTriggerAiReview() {
     if (!submission) return
@@ -566,7 +591,7 @@ export default function LecturerReviewPage() {
       </button>
 
       <PageHeader
-        title="Review Laporan Praktikum"
+        title="Review Pengerjaan Mahasiswa"
         subtitle={jobsheet ? `${jobsheet.title} - ${getSubmissionReviewStatus(submission)}` : undefined}
       />
 
@@ -577,7 +602,15 @@ export default function LecturerReviewPage() {
       )}
 
       {!jobsheet || !submission ? (
-        <LecturerEmptyState title="Submission mahasiswa belum tersedia untuk direview." />
+        <LecturerPanel className="p-8 text-center">
+          <h2 className="text-lg font-semibold text-gray-900">Pengerjaan belum dapat direview</h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Mahasiswa belum mengumpulkan pengerjaan ini dan belum memiliki submission otomatis.
+          </p>
+          <LecturerButton className="mt-5" variant="secondary" onClick={handleBack}>
+            Kembali ke Monitor Mahasiswa
+          </LecturerButton>
+        </LecturerPanel>
       ) : (
         <>
           {/* Warning Banner if submission is reviewed */}
@@ -598,11 +631,11 @@ export default function LecturerReviewPage() {
                 <div>
                   {isEditingReview ? (
                     <>
-                      <span className="font-bold">Mode Edit Penilaian Aktif:</span> Anda sedang mengubah penilaian dan feedback untuk laporan ini. Klik <span className="font-semibold">Simpan & Publish Penilaian</span> di panel sebelah kanan (tab Jobsheet) setelah selesai.
+                      <span className="font-bold">Mode Edit Penilaian Aktif:</span> Anda sedang mengubah penilaian dan feedback untuk pengerjaan ini. Klik <span className="font-semibold">Simpan & Publish Penilaian</span> di panel sebelah kanan (tab Jobsheet) setelah selesai.
                     </>
                   ) : (
                     <>
-                      <span className="font-bold">Laporan Sudah Dinilai:</span> Hasil review saat ini terkunci (read-only). Klik tombol di sebelah kanan jika ingin memperbarui penilaian.
+                      <span className="font-bold">Pengerjaan Sudah Dinilai:</span> Hasil review saat ini terkunci (read-only). Klik tombol di sebelah kanan jika ingin memperbarui penilaian.
                     </>
                   )}
                 </div>
@@ -626,7 +659,7 @@ export default function LecturerReviewPage() {
             <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 flex items-center gap-3 shadow-sm font-sans">
               <div className="text-xl shrink-0">⚠️</div>
               <div>
-                <span className="font-bold">Laporan Belum Dikumpulkan:</span> Mahasiswa belum menyelesaikan jobsheet ini (status submission masih DRAFT). Anda hanya dapat memantau pengerjaan laporan dan belum bisa melakukan review atau memberikan penilaian.
+                <span className="font-bold">Pengerjaan Belum Dikumpulkan:</span> Mahasiswa belum menyelesaikan jobsheet ini (status submission masih DRAFT). Anda hanya dapat memantau riwayat pengerjaan dan belum bisa melakukan review atau memberikan penilaian.
               </div>
             </div>
           )}
@@ -765,7 +798,7 @@ export default function LecturerReviewPage() {
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                               </svg>
-                              Sedang Menganalisis Laporan...
+                              Sedang Menganalisis Pengerjaan...
                             </span>
                           </div>
                           <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
@@ -864,7 +897,7 @@ export default function LecturerReviewPage() {
 
               {/* Collapsible Experiments review list */}
               <div className="space-y-4">
-                <h2 className="text-lg font-bold text-gray-800">Percobaan Laporan</h2>
+                  <h2 className="text-lg font-bold text-gray-800">Percobaan Pengerjaan</h2>
                 {!experimentReports.length ? (
                   <p className="text-sm text-gray-500 bg-white border border-gray-200 rounded-xl p-5 text-center italic">
                     Tidak ada percobaan pada jobsheet ini.
@@ -896,7 +929,7 @@ export default function LecturerReviewPage() {
 
               {/* Latihan Section */}
               <div className="space-y-4">
-                <h2 className="text-lg font-bold text-gray-800">Latihan Laporan</h2>
+                <h2 className="text-lg font-bold text-gray-800">Latihan Pengerjaan</h2>
                 {!exerciseReports.length ? (
                   <p className="text-sm text-gray-500 bg-white border border-gray-200 rounded-xl p-5 text-center italic">
                     Tidak ada latihan pada jobsheet ini.
@@ -967,7 +1000,7 @@ export default function LecturerReviewPage() {
                     DRAFT (Belum Selesai)
                   </div>
                   <p className="text-xs text-gray-500 leading-relaxed">
-                    Mahasiswa masih pengerjaan jobsheet ini. Anda hanya dapat memantau progres pengerjaan laporan secara real-time. Fitur penilaian, input nilai, dan feedback akan terbuka secara otomatis setelah laporan berhasil dikumpulkan oleh mahasiswa.
+                    Mahasiswa masih mengerjakan jobsheet ini. Anda hanya dapat memantau progres pengerjaan. Fitur penilaian, input nilai, dan feedback akan terbuka secara otomatis setelah pengerjaan dikumpulkan oleh mahasiswa.
                   </p>
                 </div>
               ) : (

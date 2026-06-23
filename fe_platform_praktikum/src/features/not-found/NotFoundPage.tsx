@@ -2,12 +2,14 @@ import { useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { ArrowLeft, Home } from "lucide-react"
 import { useCurrentUser } from "../../services/user/useCurrentUser"
+import { useBackNavigation } from "../../shared/utils/backNavigation"
 import Navbar from "../../components/navbar/Navbar"
 import AdminLayout from "../admin/components/AdminLayout"
 
 export default function NotFoundPage() {
   const { user } = useCurrentUser()
   const navigate = useNavigate()
+  const { goBackToParent } = useBackNavigation()
 
   const roleConfig = useMemo(() => {
     if (!user) {
@@ -118,7 +120,10 @@ export default function NotFoundPage() {
             if (window.history.length > 1) {
               navigate(-1)
             } else {
-              navigate(roleConfig.targetPath)
+              goBackToParent({
+                parentPath: roleConfig.targetPath,
+                fallbackPath: "/dashboard",
+              })
             }
           }}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 transition text-sm font-medium cursor-pointer"

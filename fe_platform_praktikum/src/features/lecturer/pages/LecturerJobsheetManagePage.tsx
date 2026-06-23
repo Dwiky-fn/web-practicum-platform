@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { ArrowLeft, Plus, Trash2 } from "lucide-react"
-import { useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
+import { useBackNavigation } from "../../../shared/utils/backNavigation"
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
 import LecturerLayout from "../components/LecturerLayout"
 import {
@@ -89,6 +90,9 @@ function renderDeadline(jobsheet: LecturerJobsheetSummary) {
 
 export default function LecturerJobsheetManagePage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const classId = searchParams.get("classId")
+  const { goBackToParent } = useBackNavigation()
   const { user } = useCurrentUser()
   const { courseId = "", mataKuliahId: routeMataKuliahId = "" } = useParams()
   const effectiveCourseId = routeMataKuliahId || courseId
@@ -207,11 +211,13 @@ export default function LecturerJobsheetManagePage() {
       <button
         type="button"
         onClick={() => {
-          if (window.history.length > 1) {
-            navigate(-1)
-          } else {
-            navigate("/mata-kuliah")
-          }
+          goBackToParent({
+            parentPath: classId 
+              ? `/kelas-praktikum/${effectiveCourseId}/${classId}` 
+              : "/mata-kuliah",
+            fallbackPath: "/mata-kuliah",
+            preserveQueryParams: ["courseId", "classId", "mataKuliahId", "kelasPraktikumId"],
+          })
         }}
         className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
       >

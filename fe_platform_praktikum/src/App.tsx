@@ -176,14 +176,9 @@ function AppContent() {
         element={byRole({ dosen: <LegacyClassMonitoringRedirect /> })}
       />
       <Route
-        path="/lecturer/kelas-praktikum/:kelasPraktikumId/jobsheets/:jobsheetId/students/:studentId/monitor"
+        path="/lecturer/kelas-praktikum/:kelasPraktikumId/jobsheets/:jobsheetId/students/:studentId/monitor/*"
         element={byRole({ dosen: <LecturerStudentWorkpagePage /> })}
-      >
-        <Route path="theory/:theoryId" element={<TheoryPage />} />
-        <Route path="experiments/:experimentId" element={<ExperimentPage />} />
-        <Route path="exercises/:exerciseId" element={<ExercisePage />} />
-        <Route path="task" element={<TaskPage />} />
-      </Route>
+      />
       <Route
         path="/lecturer/kelas-praktikum/:kelasPraktikumId/jobsheets/:jobsheetId/students/:studentId/workpage"
         element={byRole({ dosen: <StudentWorkpageRedirect /> })}

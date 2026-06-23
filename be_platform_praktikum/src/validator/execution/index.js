@@ -7,6 +7,18 @@ const fileSchema = Joi.object({
   content: Joi.string().allow('').required(),
 }).or('path', 'name');
 
+const runContextSchema = Joi.object({
+  jobsheetId: Joi.string().required(),
+  kelasPraktikumId: Joi.string().required(),
+  attemptType: Joi.string().valid('normal', 'remedial').default('normal'),
+  remedialId: Joi.string().allow('', null),
+  moduleType: Joi.string().valid('experiment', 'exercise').required(),
+  experimentId: Joi.string().allow('', null),
+  exerciseId: Joi.string().allow('', null),
+  instructionId: Joi.string().allow('', null),
+  entryFile: Joi.string().allow('', null),
+}).unknown(false);
+
 const runMessageSchema = Joi.object({
   type: Joi.string().valid('run').required(),
   language: Joi.string().valid('java', 'python').required(),
@@ -14,6 +26,8 @@ const runMessageSchema = Joi.object({
   files: Joi.array().items(fileSchema).min(1).required(),
   mainClass: Joi.string().allow('', null),
   entryFile: Joi.string().allow('', null),
+  executionId: Joi.string().allow('', null),
+  context: runContextSchema.optional(),
 });
 
 const inputMessageSchema = Joi.object({

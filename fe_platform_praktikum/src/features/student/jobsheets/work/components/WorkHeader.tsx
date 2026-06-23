@@ -18,7 +18,7 @@ export default function WorkHeader({ title, backTo, course, jobsheet, scope, bas
   const navigate = useNavigate()
   const location = useLocation()
   const navItems = course && jobsheet ? buildWorkNavigation(course.id, jobsheet, location.search, scope, basePath) : []
-  const activeItem = navItems.find((item) => location.pathname.startsWith(item.path))
+  const activeItem = navItems.find((item) => location.pathname.startsWith(item.path.split("?")[0]))
   const activeTitle = activeItem?.label || title
 
   return (

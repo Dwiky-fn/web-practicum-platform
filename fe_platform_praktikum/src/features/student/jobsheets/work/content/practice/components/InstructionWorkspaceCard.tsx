@@ -24,6 +24,21 @@ interface Props {
   onRun?: () => void
   onSave?: () => void
   readOnly?: boolean
+  runContext?: {
+    jobsheetId: string
+    kelasPraktikumId: string
+    attemptType?: "normal" | "remedial"
+    remedialId?: string | null
+    moduleType: "experiment" | "exercise"
+    experimentId?: string | null
+    exerciseId?: string | null
+    instructionIds?: Array<string | null>
+  }
+  runStats?: {
+    totalRunCount?: number | null
+    instructionRunCounts?: Record<number, number | null>
+    hasRunEventData?: boolean
+  }
 }
 
 type BottomPanelTab = "terminal" | "analysis"
@@ -75,6 +90,8 @@ export default function InstructionWorkspaceCard({
   onRun,
   onSave,
   readOnly = false,
+  runContext,
+  runStats,
 }: Props) {
   const defaultFileName = getDefaultFileName(language)
   const totalSteps = Math.max(instructions.length, initialSteps?.length || 0, 1)
@@ -224,6 +241,8 @@ export default function InstructionWorkspaceCard({
     const entryFile = currentFiles[activeFile] !== undefined
       ? activeFile
       : Object.keys(currentFiles)[0] || defaultFileName
+    const executionId = crypto.randomUUID()
+    const instructionId = runContext?.instructionIds?.[runIndex] ?? null
 
     setBottomPanelTab("terminal")
     setIsBottomPanelExpanded(true)
@@ -300,8 +319,20 @@ export default function InstructionWorkspaceCard({
       files: toRunnerFiles(currentFiles),
       entryFile,
       mainClass: language === "java" ? getMainClass(entryFile) : undefined,
+      executionId,
+      context: runContext ? {
+        jobsheetId: runContext.jobsheetId,
+        kelasPraktikumId: runContext.kelasPraktikumId,
+        attemptType: runContext.attemptType ?? "normal",
+        remedialId: runContext.remedialId ?? null,
+        moduleType: runContext.moduleType,
+        experimentId: runContext.experimentId ?? null,
+        exerciseId: runContext.exerciseId ?? null,
+        instructionId,
+        entryFile,
+      } : undefined,
     })
-  }, [activeFile, activeIndex, appendOutput, codeMap, defaultFileName, language, runningMap, saveCurrentSteps])
+  }, [activeFile, activeIndex, appendOutput, codeMap, defaultFileName, language, onRun, runContext, runningMap, saveCurrentSteps])
 
   const handleSendInput = useCallback(() => {
     const value = normalizeStdin(currentInputMap[activeIndex] ?? "")
@@ -466,7 +497,12 @@ export default function InstructionWorkspaceCard({
               <div className="flex min-w-0 items-center gap-2 overflow-x-auto">
                 <div className="mr-2 shrink-0">
                   <p className="text-sm font-semibold text-white">Workspace Praktikum</p>
-                  <p className="text-xs text-[#858585]">{language}</p>
+                  <p className="text-xs text-[#858585]">
+                    {language}
+                    {runStats?.hasRunEventData && runStats.instructionRunCounts ? (
+                      <> · Eksekusi Instruksi Ini: {runStats.instructionRunCounts[activeIndex] ?? 0} kali</>
+                    ) : null}
+                  </p>
                 </div>
                 {Array.from({ length: totalSteps }, (_, index) => (
                   <InstructionTabButton
@@ -475,6 +511,11 @@ export default function InstructionWorkspaceCard({
                     onClick={() => handleInstructionChange(index)}
                   >
                     Instruksi {index + 1}
+                    {runStats?.hasRunEventData && runStats.instructionRunCounts ? (
+                      <span className="ml-1 rounded bg-[#4b4b52] px-1.5 py-0.5 text-[11px] text-white">
+                        {runStats.instructionRunCounts[index] ?? 0}x
+                      </span>
+                    ) : null}
                   </InstructionTabButton>
                 ))}
               </div>

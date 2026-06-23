@@ -2,6 +2,7 @@ import { ArrowLeft, BookOpen, CheckSquare, Code2, FileText, Target } from "lucid
 import type { JSONContent } from "@tiptap/react"
 import { useEffect, useState } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { useBackNavigation } from "../../../shared/utils/backNavigation"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
 import { getJobsheetById } from "../../../services/jobsheet/service"
 import type { Exercise, Experiment, Jobsheet } from "../../../services/jobsheet/types"
@@ -121,6 +122,7 @@ function ReportChecklist({
 
 export default function AdminJobsheetPreviewPage() {
   const navigate = useNavigate()
+  const { handleBack } = useBackNavigation()
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
   const courseId = searchParams.get("courseId")
@@ -147,9 +149,9 @@ export default function AdminJobsheetPreviewPage() {
         type="button"
         onClick={() => {
           if (window.history.length > 1) {
-            navigate(-1)
+            handleBack({ parentPath: "/admin/academic/kelas-praktikum", fallbackPath: "/admin/academic/kelas-praktikum" });
           } else {
-            navigate("/admin/academic/mata-kuliah")
+            navigate("/admin/academic/mata-kuliah");
           }
         }}
         className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"

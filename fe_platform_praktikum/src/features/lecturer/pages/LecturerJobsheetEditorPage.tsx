@@ -29,8 +29,10 @@ import {
 import { academicCourseBasePath } from "../../../services/academicScope"
 import { datetimeLocalToDbValue, dbValueToDatetimeLocal } from "../utils/deadline"
 
-const emptyDoc: JSONContent = { type: "doc", content: [] }
 import { toast } from "../../../components/toast/toastStore"
+import { uploadJobsheetImage } from "../../../services/jobsheet/service"
+
+const emptyDoc: JSONContent = { type: "doc", content: [] }
 
 type PracticeEditorItem = LecturerPracticeInput & {
   isReported: boolean
@@ -349,6 +351,22 @@ export default function LecturerJobsheetEditorPage() {
     }
   }
 
+  const handleUploadImage = async (file: File) => {
+    const jobsheetId = await ensureSaved(true);
+    if (!jobsheetId) {
+      throw new Error("Gagal menginisialisasi draft jobsheet untuk upload gambar.");
+    }
+    
+    const uploaded = await uploadJobsheetImage(jobsheetId, file);
+    
+    if (isCreate) {
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      navigate(`${jobsheetBasePath}/${jobsheetId}/edit${query}`, { replace: true });
+    }
+    
+    return uploaded;
+  };
+
   async function handlePublish() {
     if (!user) return
 
@@ -548,6 +566,7 @@ export default function LecturerJobsheetEditorPage() {
             value={goalContent}
             onChange={setGoalContent}
             role="DOSEN"
+            onUploadImage={handleUploadImage}
             placeholder="Tulis tujuan praktikum dengan format lengkap..."
           />
         </LecturerPanel>
@@ -622,6 +641,7 @@ export default function LecturerJobsheetEditorPage() {
                       )
                     }
                     role="DOSEN"
+                    onUploadImage={handleUploadImage}
                     placeholder="Tulis materi teori, tabel, code block, kutipan, dan format lainnya..."
                   />
                 </div>
@@ -711,6 +731,7 @@ export default function LecturerJobsheetEditorPage() {
                         )
                       }
                       role="DOSEN"
+                      onUploadImage={handleUploadImage}
                       toolbarPosition="top"
                       placeholder="Tulis instruksi percobaan dengan format lengkap..."
                     />
@@ -814,6 +835,7 @@ export default function LecturerJobsheetEditorPage() {
                         )
                       }
                       role="DOSEN"
+                      onUploadImage={handleUploadImage}
                       toolbarPosition="top"
                       placeholder="Tulis instruksi latihan dengan format lengkap..."
                     />

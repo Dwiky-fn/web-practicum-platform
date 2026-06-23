@@ -1,8 +1,10 @@
 const ExecutionValidator = require('../../validator/execution');
 
 class ExecutionGatewayService {
-  constructor(runnerClient) {
+  constructor(runnerClient, { user = null, activityLogger = null } = {}) {
     this._runnerClient = runnerClient;
+    this._user = user;
+    this._activityLogger = activityLogger;
   }
 
   handleClientMessage(rawMessage, sendToClient) {
@@ -55,7 +57,15 @@ class ExecutionGatewayService {
       }
     }
 
-    const hasCode = typeof message.code === 'string' && message.code.trim() !== '';
+    if (this._activityLogger && this._user?.id && message.executionId) {
+      this._activityLogger.logRun({
+        userId: this._user.id,
+        context: message.context,
+        executionId: message.executionId,
+      }).catch((error) => {
+        console.error('[execution] gagal mencatat CODE_RUN', error);
+      });
+    }
 
     this._runnerClient.run({
       language: message.language,

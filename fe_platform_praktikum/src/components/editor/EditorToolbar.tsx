@@ -31,13 +31,15 @@ import {
   Eraser,
   ChevronDown,
   Merge,
-  Split
+  Split,
+  Image as ImageIcon
 } from "lucide-react"
 
 interface Props {
   editor: Editor
   role: EditorRole
   layout?: "vertical" | "horizontal"
+  onImageClick?: (e: React.MouseEvent) => void
 }
 
 type ToolbarButtonProps = {
@@ -99,7 +101,7 @@ function ToolbarDivider({ layout = "horizontal" }: { layout?: "vertical" | "hori
   )
 }
 
-export default function EditorToolbar({ editor, role, layout = "horizontal" }: Props) {
+export default function EditorToolbar({ editor, role, layout = "horizontal", onImageClick }: Props) {
   const state = useEditorState({
     editor,
     selector: (ctx) => ({
@@ -423,6 +425,13 @@ export default function EditorToolbar({ editor, role, layout = "horizontal" }: P
             label="Horizontal Rule (HR)"
             onClick={() => editor.chain().focus().setHorizontalRule().run()}
           />
+          {onImageClick && (
+            <ToolbarButton
+              icon={<ImageIcon size={16} />}
+              label="Sisipkan Gambar"
+              onClick={onImageClick}
+            />
+          )}
         </>
       )}
 

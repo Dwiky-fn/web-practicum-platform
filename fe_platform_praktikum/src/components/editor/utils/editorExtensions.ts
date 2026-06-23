@@ -11,6 +11,7 @@ import TextAlign from "@tiptap/extension-text-align"
 import Typography from "@tiptap/extension-typography"
 import StarterKit from "@tiptap/starter-kit"
 import { CodeBlockWithLineNumber } from "../CodeBlockWithLineNumber"
+import { CustomImage } from "./CustomImage"
 
 export type EditorRole = "DOSEN" | "MAHASISWA"
 export type EditorMode = "editor" | "viewer-theory" | "viewer-default"
@@ -34,6 +35,7 @@ export function getEditorExtensions(
     TextAlign.configure({
       types: ["heading", "paragraph"],
     }),
+    CustomImage,
   ]
 
   const table = [

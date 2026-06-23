@@ -29,7 +29,6 @@ export default function RichTextViewer({
 
   useEffect(() => {
     if (!editor) return;
-    // queueMicrotask menghindari flushSync conflict dengan React rendering
     queueMicrotask(() => {
       if (editor.isDestroyed) return;
       editor.commands.setContent(content);
@@ -39,7 +38,7 @@ export default function RichTextViewer({
   if (!editor) return null;
 
   return (
-    <div className="prose prose-gray max-w-none 
+    <div className="prose prose-gray max-w-none jobsheet-rich-content
       prose-headings:font-semibold
       prose-table:border
       prose-table:border-gray-300

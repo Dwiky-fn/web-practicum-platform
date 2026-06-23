@@ -14,6 +14,7 @@ import {
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import StudentProfileModal from "../components/StudentProfileModal"
 import { toast } from "../../../components/toast/toastStore"
+import { useBackNavigation } from "../../../shared/utils/backNavigation"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import type { Jobsheet } from "../../../services/jobsheet/types"
@@ -58,6 +59,7 @@ const tabs: Array<{ id: DetailTab; label: string }> = [
 
 export default function LecturerJobsheetDetailPage() {
   const navigate = useNavigate()
+  const { goBackToParent } = useBackNavigation()
   const { jobsheetId = "" } = useParams()
   const [searchParams] = useSearchParams()
   const courseId = searchParams.get("courseId") ?? ""
@@ -458,17 +460,15 @@ export default function LecturerJobsheetDetailPage() {
       <button
         type="button"
         onClick={() => {
-          if (courseId && classId) {
-            navigate(`/kelas-praktikum/${courseId}/${classId}`)
-          } else if (courseId) {
-            navigate(`/mata-kuliah/${courseId}/jobsheets`)
-          } else {
-            if (window.history.length > 1) {
-              navigate(-1)
-            } else {
-              navigate("/mata-kuliah")
-            }
-          }
+          goBackToParent({
+            parentPath: courseId && classId 
+              ? `/kelas-praktikum/${courseId}/${classId}` 
+              : courseId 
+                ? `/mata-kuliah/${courseId}/jobsheets` 
+                : "/mata-kuliah",
+            fallbackPath: "/mata-kuliah",
+            preserveQueryParams: ["courseId", "classId", "mataKuliahId", "kelasPraktikumId"],
+          })
         }}
         className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
       >
@@ -889,6 +889,9 @@ export default function LecturerJobsheetDetailPage() {
                               if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
                               if (item.submission?.id) params.set("submissionId", item.submission.id)
                               if (item.submission?.attemptNo) params.set("attemptNo", String(item.submission.attemptNo))
+                              if (item.submission?.attemptType) params.set("attemptType", item.submission.attemptType)
+                              if (item.submission?.remedialId) params.set("remedialId", item.submission.remedialId)
+                              params.set("from", "monitoring")
                               navigate(`/reviews/${item.student.id}?${params.toString()}`)
                             }}
                           >
@@ -1009,6 +1012,9 @@ export default function LecturerJobsheetDetailPage() {
                                     if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
                                     if (std.submission_id) params.set("submissionId", std.submission_id)
                                     if (std.attempt_no) params.set("attemptNo", String(std.attempt_no))
+                                    params.set("attemptType", "remedial")
+                                    if (selectedRemedialId) params.set("remedialId", selectedRemedialId)
+                                    params.set("from", "monitoring")
                                     navigate(`/reviews/${std.student_id}?${params.toString()}`)
                                   }}
                                   className="mt-1 text-center font-bold text-[10px] text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 py-1 rounded transition duration-150"

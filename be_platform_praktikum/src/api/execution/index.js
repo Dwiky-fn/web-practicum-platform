@@ -1,6 +1,7 @@
 const WebSocket = require('ws');
 const InteractiveRunnerClient = require('../../services/execution/InteractiveRunnerClient');
 const ExecutionGatewayService = require('../../services/execution/ExecutionGatewayService');
+const CodeRunActivityLogger = require('../../services/execution/CodeRunActivityLogger');
 const { authenticateToken } = require('../../middlewares/auth');
 
 const EXECUTION_PATH = '/execution';
@@ -33,7 +34,10 @@ const execution = (server) => {
   });
 
   wss.on('connection', (ws) => {
-    const gateway = new ExecutionGatewayService(new InteractiveRunnerClient());
+    const gateway = new ExecutionGatewayService(new InteractiveRunnerClient(), {
+      user: request.user,
+      activityLogger: new CodeRunActivityLogger(),
+    });
 
     const sendToClient = (payload) => {
       if (ws.readyState === WebSocket.OPEN) {

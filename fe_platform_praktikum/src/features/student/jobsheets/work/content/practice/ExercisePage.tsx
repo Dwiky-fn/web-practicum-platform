@@ -1,4 +1,4 @@
-import { useParams, useOutletContext } from "react-router-dom"
+import { useLocation, useParams, useOutletContext } from "react-router-dom"
 import type { Jobsheet } from "../../../../../../services/jobsheet/types"
 import type { JSONContent } from "@tiptap/core"
 import type { JobsheetSubmission } from "../../../../../../services/submission/types"
@@ -14,6 +14,8 @@ type StepData = {
 
 export default function ExercisePage() {
   const { exerciseId } = useParams()
+  const location = useLocation()
+  const searchParams = new URLSearchParams(location.search)
   const { jobsheet, programmingLanguage, updateExercise, submission, trackActivity, readOnly } = useOutletContext<{
     jobsheet: Jobsheet
     programmingLanguage: string
@@ -33,6 +35,7 @@ export default function ExercisePage() {
   if (!exercise || !exerciseId) {
     return <NotFoundPage />
   }
+  const kelasPraktikumId = jobsheet.kelasPraktikumId || searchParams.get("kelasPraktikumId") || ""
 
   return (
     <div className="space-y-4">
@@ -59,9 +62,16 @@ export default function ExercisePage() {
         language={programmingLanguage}
         initialSteps={initialStep ? [initialStep] : undefined}
         onChange={(steps) => updateExercise(exerciseId, steps[0])}
-        onRun={() => trackActivity?.("run_code", { instructionId: exerciseId })}
         onSave={() => trackActivity?.("save_code", { instructionId: exerciseId })}
         readOnly={readOnly}
+        runContext={kelasPraktikumId ? {
+          jobsheetId: jobsheet.id,
+          kelasPraktikumId,
+          attemptType: jobsheet.access?.attemptType ?? "normal",
+          remedialId: jobsheet.access?.remedialId ?? null,
+          moduleType: "exercise",
+          exerciseId,
+        } : undefined}
       />
     </div>
   )

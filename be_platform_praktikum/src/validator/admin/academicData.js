@@ -78,6 +78,7 @@ const updateKelasMahasiswaPayloadSchema = Joi.object({
 const kelasPraktikumPayloadSchema = Joi.object({
   id: Joi.string().allow('', null),
   id_tahun_semester: idSchema,
+  id_kurikulum: Joi.string().trim().allow('', null),
   id_mata_kuliah: idSchema,
   id_semester: Joi.string().trim().allow('', null),
   id_kelas: idSchema,
@@ -86,6 +87,7 @@ const kelasPraktikumPayloadSchema = Joi.object({
 
 const updateKelasPraktikumPayloadSchema = Joi.object({
   id_tahun_semester: Joi.string().trim(),
+  id_kurikulum: Joi.string().trim(),
   id_mata_kuliah: Joi.string().trim(),
   id_semester: Joi.string().trim(),
   id_kelas: Joi.string().trim(),
@@ -109,6 +111,7 @@ const kelasMahasiswaQuerySchema = Joi.object({
   id_tahun_semester: Joi.string().allow('', null),
   id_semester: Joi.string().allow('', null),
   id_kelas: Joi.string().allow('', null),
+  id_kelas_semester: Joi.string().allow('', null),
   keyword: Joi.string().allow('', null),
 });
 
@@ -132,9 +135,11 @@ const studentTransitionPayloadSchema = Joi.object({
   transitions: Joi.array().items(
     Joi.object({
       studentId: idSchema,
-      action: Joi.string().valid('promote', 'retain', 'cuti', 'drop').required(),
-      targetSemesterId: Joi.string().allow('', null),
-      targetKelasId: Joi.string().allow('', null),
+      action: Joi.string().valid('promote').required(),
+      targetSemesterId: idSchema,
+      targetKelasId: idSchema,
+      transferException: Joi.boolean().default(false),
+      transferReason: Joi.string().trim().allow('', null),
     })
   ).min(1).required(),
 });

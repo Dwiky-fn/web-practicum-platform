@@ -303,9 +303,12 @@ export default function AdminAcademicNativePage() {
     studentId: string
     nim: string
     fullname: string
-    action: "promote" | "retain" | "cuti" | "drop"
+    currentSemester: number
+    action: "promote"
     targetSemesterId: string
     targetKelasId: string
+    transferException: boolean
+    transferReason: string
   }>>([])
   const [submittingPromotion, setSubmittingPromotion] = useState(false)
 
@@ -391,6 +394,7 @@ export default function AdminAcademicNativePage() {
 
   const activeTahunSemester = tahunSemester.find((item) => item.status === "active") ?? null
   const activeKurikulum = kurikulum.find((item) => item.status === "active") ?? null
+  const activeKurikulumList = kurikulum.filter((item) => item.status === "active")
   const activeTabMeta = pageCopy[activeTab]
   const detailTahunSemester = tahunSemester.find((item) => item.id === tahunSemesterId) ?? null
   const selectedOperationalTahunSemester =
@@ -524,17 +528,21 @@ export default function AdminAcademicNativePage() {
 
     const currentSemObj = semester.find((s) => s.id === paramSemesterId)
     const currentSemNum = currentSemObj?.semester ?? 1
-    const nextSemNum = currentSemNum + 1
-    const nextSemObj = semester.find((s) => s.semester === nextSemNum)
-    const nextSemId = nextSemObj?.id || paramSemesterId
+    const nextSemObj = semester.find((s) => s.semester === currentSemNum + 1)
+    const nextSemId = nextSemObj?.id || ""
 
-    const initialTransitions = classStudents.map((item) => ({
+    const initialTransitions = classStudents
+      .filter((item) => String(item.student_status ?? item.status ?? "").toLowerCase() === "aktif" || String(item.student_status ?? "").toLowerCase() === "active")
+      .map((item) => ({
       studentId: item.id_mahasiswa,
       nim: item.nim ?? "",
       fullname: item.fullname ?? "",
+      currentSemester: Number(item.student_semester ?? item.semester ?? currentSemNum),
       action: "promote" as const,
       targetSemesterId: nextSemId,
       targetKelasId: paramKelasId ?? "",
+      transferException: false,
+      transferReason: "",
     }))
 
     setPromotionTransitions(initialTransitions)
@@ -547,20 +555,19 @@ export default function AdminAcademicNativePage() {
     )
   }
 
-  const setAllTransitions = (action: "promote" | "retain" | "cuti") => {
-    const currentSemObj = semester.find((s) => s.id === paramSemesterId)
-    const currentSemNum = currentSemObj?.semester ?? 1
-    const nextSemNum = currentSemNum + 1
-    const nextSemObj = semester.find((s) => s.semester === nextSemNum)
-    const nextSemId = nextSemObj?.id || paramSemesterId
-
+  const setAllTransitions = () => {
     setPromotionTransitions((prev) =>
-      prev.map((t) => ({
-        ...t,
-        action,
-        targetSemesterId: action === "promote" ? nextSemId : paramSemesterId ?? "",
+      prev.map((t) => {
+        const nextSemObj = semester.find((s) => s.semester === t.currentSemester + 1)
+        return {
+          ...t,
+          action: "promote",
+          targetSemesterId: nextSemObj?.id ?? "",
         targetKelasId: paramKelasId ?? "",
-      }))
+          transferException: false,
+          transferReason: "",
+        }
+      })
     )
   }
 
@@ -569,6 +576,22 @@ export default function AdminAcademicNativePage() {
       toast.error("Silakan pilih Tahun Semester Target")
       return
     }
+    if (!promotionTransitions.length) {
+      toast.error("Tidak ada mahasiswa aktif yang dapat diproses.")
+      return
+    }
+    const invalid = promotionTransitions.find((item) => {
+      const targetSemester = semester.find((s) => s.id === item.targetSemesterId)?.semester
+      return !item.targetKelasId
+        || !targetSemester
+        || (targetSemester !== item.currentSemester + 1 && (!item.transferException || !item.transferReason.trim()))
+    })
+    if (invalid) {
+      toast.error("Target semester harus berurutan. Jika mahasiswa pindahan melewati urutan, centang Pindahan dan isi alasannya.")
+      return
+    }
+    const confirmed = window.confirm(`Proses kenaikan semester untuk ${promotionTransitions.length} mahasiswa aktif? Jika satu data gagal, seluruh proses akan dibatalkan.`)
+    if (!confirmed) return
 
     setSubmittingPromotion(true)
     try {
@@ -576,9 +599,11 @@ export default function AdminAcademicNativePage() {
         targetTahunSemesterId: promotionTargetTahunSemesterId,
         transitions: promotionTransitions.map((t) => ({
           studentId: t.studentId,
-          action: t.action,
-          targetSemesterId: (t.action === "promote" || t.action === "retain") ? t.targetSemesterId : undefined,
-          targetKelasId: (t.action === "promote" || t.action === "retain") ? t.targetKelasId : undefined,
+          action: "promote" as const,
+          targetSemesterId: t.targetSemesterId,
+          targetKelasId: t.targetKelasId,
+          transferException: t.transferException,
+          transferReason: t.transferReason,
         })),
       }
 
@@ -594,13 +619,20 @@ export default function AdminAcademicNativePage() {
   }
 
   const mataKuliahPrioritized = useMemo(() => {
-    return [...mataKuliah].sort((left, right) => {
+    const selectedKurikulumId = form.id_kurikulum || activeKurikulum?.id || ""
+    const pool = selectedKurikulumId
+      ? mataKuliah.filter((item) => item.id_kurikulum === selectedKurikulumId)
+      : []
+    const parityFiltered = currentSemesterType
+      ? pool.filter((item) => currentSemesterType === "Ganjil" ? Number(item.semester) % 2 !== 0 : Number(item.semester) % 2 === 0)
+      : pool
+    return [...parityFiltered].sort((left, right) => {
       const leftActive = activeKurikulum && left.id_kurikulum === activeKurikulum.id ? 0 : 1
       const rightActive = activeKurikulum && right.id_kurikulum === activeKurikulum.id ? 0 : 1
       if (leftActive !== rightActive) return leftActive - rightActive
       return left.nama_mk.localeCompare(right.nama_mk, "id-ID")
     })
-  }, [activeKurikulum, mataKuliah])
+  }, [activeKurikulum, currentSemesterType, form.id_kurikulum, mataKuliah])
 
   const selectedMataKuliah = mataKuliah.find((item) => item.id === form.id_mata_kuliah) ?? null
   const selectedSemester = semester.find((item) => item.id === (selectedMataKuliah?.id_semester || form.id_semester)) ?? null
@@ -671,7 +703,18 @@ export default function AdminAcademicNativePage() {
     const normalized = searchMahasiswa.trim().toLowerCase()
     let pool = students
     if (isKelasMahasiswaDetail) {
-      pool = students.filter((s) => !existingStudentIds.has(s.id))
+      const targetSemester = semester.find((item) => item.id === paramSemesterId)?.semester
+      const registeredInSamePeriod = new Set(
+        scopedKelasMahasiswa
+          .filter((item) => item.id_tahun_semester === tahunSemesterId)
+          .map((item) => item.id_mahasiswa),
+      )
+      pool = students.filter((s) =>
+        !existingStudentIds.has(s.id)
+        && !registeredInSamePeriod.has(s.id)
+        && s.status === "Aktif"
+        && Number(s.semester) === Number(targetSemester)
+      )
     }
     if (!normalized) return pool
     return pool.filter((student) =>
@@ -728,6 +771,7 @@ export default function AdminAcademicNativePage() {
     const existingPengampu = kelasPraktikumItem ? pengampu.find((entry) => entry.id_kelas_praktikum === kelasPraktikumItem.id && entry.peran === "utama") ?? pengampu.find((entry) => entry.id_kelas_praktikum === kelasPraktikumItem.id) : null
     return {
       id_tahun_semester: kelasPraktikumItem?.id_tahun_semester ?? selectedOperationalTahunSemester?.id ?? activeTahunSemester?.id ?? "",
+      id_kurikulum: kelasPraktikumItem?.id_kurikulum ?? activeKurikulum?.id ?? "",
       id_mata_kuliah: kelasPraktikumItem?.id_mata_kuliah ?? "",
       id_semester: kelasPraktikumItem?.id_semester ?? "",
       id_kelas: kelasPraktikumItem?.id_kelas ?? "",
@@ -739,7 +783,7 @@ export default function AdminAcademicNativePage() {
 
   const getPrerequisiteWarning = (tab: NativeTab) => {
     if (tab === "mata-kuliah") {
-      if (!activeKurikulum) return "Aktifkan kurikulum terlebih dahulu sebelum menambahkan mata kuliah."
+      if (!activeKurikulumList.length) return "Aktifkan minimal satu kurikulum terlebih dahulu sebelum menambahkan mata kuliah."
       if (!semester.length) return "Tambahkan master semester terlebih dahulu sebelum menambahkan mata kuliah."
     }
     if (tab === "kelas-mahasiswa") {
@@ -750,6 +794,7 @@ export default function AdminAcademicNativePage() {
     }
     if (tab === "kelas-praktikum") {
       if (!tahunSemester.length) return "Tambahkan tahun semester terlebih dahulu sebelum membuat kelas praktikum."
+      if (!activeKurikulumList.length) return "Aktifkan minimal satu kurikulum terlebih dahulu sebelum membuat kelas praktikum."
       if (!mataKuliah.length) return "Tambahkan mata kuliah terlebih dahulu sebelum membuat kelas praktikum."
       if (!kelas.length) return "Tambahkan master kelas/rombel terlebih dahulu."
       if (!lecturers.length) return "Tambahkan dosen terlebih dahulu."
@@ -784,6 +829,10 @@ export default function AdminAcademicNativePage() {
       if (modal?.tab === "kelas-praktikum" && key === "id_mata_kuliah") {
         const mk = mataKuliah.find((item) => item.id === value)
         next.id_semester = mk?.id_semester ?? ""
+      }
+      if (modal?.tab === "kelas-praktikum" && key === "id_kurikulum") {
+        next.id_mata_kuliah = ""
+        next.id_semester = ""
       }
       if (modal?.tab === "kelas" && key === "kelas") {
         next.kelas = value.toUpperCase()
@@ -916,6 +965,7 @@ export default function AdminAcademicNativePage() {
         const mk = mataKuliah.find((item) => item.id === form.id_mata_kuliah)
         const kelasPraktikumPayload = {
           id_tahun_semester: selectedOperationalTahunSemester?.id ?? form.id_tahun_semester,
+          id_kurikulum: form.id_kurikulum,
           id_mata_kuliah: form.id_mata_kuliah,
           id_semester: mk?.id_semester ?? form.id_semester,
           id_kelas: form.id_kelas,
@@ -1153,6 +1203,64 @@ export default function AdminAcademicNativePage() {
   const addDisabled = Boolean(currentWarning)
   const showOperationalFilter = activeTab === "kelas-mahasiswa" || activeTab === "kelas-praktikum"
 
+  function renderKelasPraktikumFields() {
+    const hasKurikulum = Boolean(form.id_kurikulum)
+    return (
+      <>
+        {!isTahunSemesterDetail && (
+          <FieldRow label="Tahun Semester">
+            <AdminSelect value={form.id_tahun_semester ?? ""} onChange={(v) => setField("id_tahun_semester", v)} required>
+              <option value="">Pilih tahun semester</option>
+              {tahunSemester.map((i) => option(i.id, `${i.tahun_semester}${formatActiveSuffix(i.status)}`))}
+            </AdminSelect>
+          </FieldRow>
+        )}
+        <FieldRow label="Kurikulum">
+          <AdminSelect value={form.id_kurikulum ?? ""} onChange={(v) => setField("id_kurikulum", v)} required>
+            <option value="">Pilih kurikulum aktif</option>
+            {activeKurikulumList.map((i) => option(i.id, `${i.nama_kurikulum} (${i.tahun_kurikulum})`))}
+          </AdminSelect>
+        </FieldRow>
+        <FieldRow label="Mata Kuliah">
+          <AdminSelect
+            value={form.id_mata_kuliah ?? ""}
+            onChange={(v) => setField("id_mata_kuliah", v)}
+            required
+            disabled={!hasKurikulum || !mataKuliahPrioritized.length}
+          >
+            <option value="">
+              {!hasKurikulum
+                ? "Pilih kurikulum terlebih dahulu"
+                : mataKuliahPrioritized.length
+                  ? "Pilih mata kuliah"
+                  : "Tidak ada mata kuliah sesuai kurikulum dan semester"}
+            </option>
+            {mataKuliahPrioritized.map((i) => option(i.id, `${i.kode_mk} - ${i.nama_mk} (Semester ${i.semester})`))}
+          </AdminSelect>
+        </FieldRow>
+        {hasKurikulum && !mataKuliahPrioritized.length && warningBox("Tidak ada mata kuliah yang sesuai dengan kurikulum dan jenis semester tahun akademik ini.")}
+        <FieldRow label="Semester Otomatis">
+          <input className={`${inputClass} bg-gray-100 text-gray-700`} value={selectedSemester ? `Semester ${selectedSemester.semester}` : ""} readOnly disabled />
+        </FieldRow>
+        <FieldRow label="Kelas">
+          <AdminSelect value={form.id_kelas ?? ""} onChange={(v) => setField("id_kelas", v)} required>
+            <option value="">Pilih kelas</option>
+            {kelas.map((i) => option(i.id, i.kelas))}
+          </AdminSelect>
+        </FieldRow>
+        <FieldRow label="Dosen Pengampu">
+          <AdminSelect value={form.id_dosen ?? ""} onChange={(v) => setField("id_dosen", v)} required>
+            <option value="">Pilih dosen</option>
+            {lecturers.map((i) => option(i.id, `${i.nip ?? "-"} - ${i.fullname}`))}
+          </AdminSelect>
+        </FieldRow>
+        <FieldRow label="Nama Kelas Otomatis">
+          <input className={`${inputClass} bg-gray-100 text-gray-700`} value={generatedKelasPraktikumName} readOnly disabled />
+        </FieldRow>
+      </>
+    )
+  }
+
   function renderTahunSemesterFields() {
     const preview = form.tahun_awal && form.tahun_akhir && form.semester_type
       ? buildTahunSemester(form)
@@ -1308,7 +1416,7 @@ export default function AdminAcademicNativePage() {
                   )}
                 </>
               )}
-              {formTab === "kelas-praktikum" && <>{!isTahunSemesterDetail && <FieldRow label="Tahun Semester"><AdminSelect value={form.id_tahun_semester ?? ""} onChange={(v) => setField("id_tahun_semester", v)} required><option value="">Pilih tahun semester</option>{tahunSemester.map((i) => option(i.id, `${i.tahun_semester}${formatActiveSuffix(i.status)}`))}</AdminSelect></FieldRow>}<FieldRow label="Mata Kuliah"><AdminSelect value={form.id_mata_kuliah ?? ""} onChange={(v) => setField("id_mata_kuliah", v)} required><option value="">Pilih mata kuliah</option>{mataKuliahPrioritized.map((i) => option(i.id, `${i.kode_mk} - ${i.nama_mk}${activeKurikulum?.id === i.id_kurikulum ? " - Kurikulum Aktif" : ""}`))}</AdminSelect></FieldRow><FieldRow label="Semester Otomatis"><input className={`${inputClass} bg-gray-100 text-gray-700`} value={selectedSemester ? `Semester ${selectedSemester.semester}` : ""} readOnly disabled /></FieldRow><FieldRow label="Kelas"><AdminSelect value={form.id_kelas ?? ""} onChange={(v) => setField("id_kelas", v)} required><option value="">Pilih kelas</option>{kelas.map((i) => option(i.id, i.kelas))}</AdminSelect></FieldRow><FieldRow label="Dosen Pengampu"><AdminSelect value={form.id_dosen ?? ""} onChange={(v) => setField("id_dosen", v)} required><option value="">Pilih dosen</option>{lecturers.map((i) => option(i.id, `${i.nip ?? "-"} - ${i.fullname}`))}</AdminSelect></FieldRow><FieldRow label="Nama Kelas Otomatis"><input className={`${inputClass} bg-gray-100 text-gray-700`} value={generatedKelasPraktikumName} readOnly disabled /></FieldRow></>}
+              {formTab === "kelas-praktikum" && renderKelasPraktikumFields()}
             </form>
           </AdminModal>
         )}
@@ -1439,8 +1547,8 @@ export default function AdminAcademicNativePage() {
               </div>
               <div className="flex flex-col gap-3 md:flex-row md:items-center">
                 <AdminSearchInput value={detailKelasMahasiswaSearch} onChange={setDetailKelasMahasiswaSearch} placeholder="Cari NIM atau nama" />
-                <AdminButton variant="secondary" onClick={openPromotionWizard} disabled={classStudents.length === 0}>
-                  Kelola Perpindahan Semester
+                <AdminButton variant="secondary" onClick={openPromotionWizard} disabled={classStudents.filter((item) => String(item.student_status ?? item.status ?? "").toLowerCase() === "aktif").length === 0}>
+                  Kenaikan Semester
                 </AdminButton>
                 <AdminButton onClick={() => openModal("kelas-mahasiswa")} disabled={Boolean(getPrerequisiteWarning("kelas-mahasiswa"))}>
                   <Plus size={16} />
@@ -1475,8 +1583,8 @@ export default function AdminAcademicNativePage() {
                 <AdminButton variant="secondary" onClick={() => setIsPromotionWizardOpen(false)}>
                   Batal
                 </AdminButton>
-                <AdminButton onClick={handlePromotionSubmit} disabled={submittingPromotion || !promotionTargetTahunSemesterId}>
-                  {submittingPromotion ? "Memproses..." : "Proses"}
+                <AdminButton onClick={handlePromotionSubmit} disabled={submittingPromotion || !promotionTargetTahunSemesterId || promotionTransitions.length === 0}>
+                  {submittingPromotion ? "Memproses..." : "Proses Kenaikan"}
                 </AdminButton>
               </>
             }
@@ -1499,27 +1607,18 @@ export default function AdminAcademicNativePage() {
                 </select>
               </FieldRow>
 
+              <div className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                <p className="font-semibold">Ringkasan kenaikan semester</p>
+                <p>{promotionTransitions.length} mahasiswa aktif akan diproses dari Semester {semName} Kelas {klsName}. Mahasiswa cuti atau tidak aktif tidak ditampilkan sebagai kandidat.</p>
+              </div>
+
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setAllTransitions("promote")}
+                  onClick={setAllTransitions}
                   className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold rounded-md border border-blue-200 transition"
                 >
-                  Set Semua Naik
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAllTransitions("retain")}
-                  className="px-3 py-1.5 bg-gray-50 text-gray-700 hover:bg-gray-100 text-xs font-semibold rounded-md border border-gray-200 transition"
-                >
-                  Set Semua Tetap
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAllTransitions("cuti")}
-                  className="px-3 py-1.5 bg-yellow-50 text-yellow-700 hover:bg-yellow-100 text-xs font-semibold rounded-md border border-yellow-200 transition"
-                >
-                  Set Semua Cuti
+                  Set Semua Berurutan
                 </button>
               </div>
 
@@ -1528,9 +1627,10 @@ export default function AdminAcademicNativePage() {
                   <thead>
                     <tr className="bg-gray-100 sticky top-0 z-10 border-b border-gray-200">
                       <th className="p-2.5 font-semibold text-gray-700">Mahasiswa</th>
-                      <th className="p-2.5 font-semibold text-gray-700">Aksi</th>
+                      <th className="p-2.5 font-semibold text-gray-700">Asal</th>
                       <th className="p-2.5 font-semibold text-gray-700">Target Semester</th>
                       <th className="p-2.5 font-semibold text-gray-700">Target Kelas</th>
+                      <th className="p-2.5 font-semibold text-gray-700">Pindahan</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
@@ -1541,23 +1641,10 @@ export default function AdminAcademicNativePage() {
                           <div className="text-gray-500 font-semibold mt-0.5">{t.fullname}</div>
                         </td>
                         <td className="p-2.5">
-                          <select
-                            className="px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                            value={t.action}
-                            onChange={(e) => {
-                              const act = e.target.value as "promote" | "retain" | "cuti" | "drop";
-                              updateStudentTransition(t.studentId, { action: act });
-                            }}
-                          >
-                            <option value="promote">Naik Semester</option>
-                            <option value="retain">Tetap</option>
-                            <option value="cuti">Cuti</option>
-                            <option value="drop">Tidak Lanjut</option>
-                          </select>
+                          Semester {t.currentSemester}
                         </td>
                         <td className="p-2.5">
                           <select
-                            disabled={t.action === "cuti" || t.action === "drop"}
                             className="px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-gray-50 disabled:text-gray-400"
                             value={t.targetSemesterId}
                             onChange={(e) => updateStudentTransition(t.studentId, { targetSemesterId: e.target.value })}
@@ -1571,7 +1658,6 @@ export default function AdminAcademicNativePage() {
                         </td>
                         <td className="p-2.5">
                           <select
-                            disabled={t.action === "cuti" || t.action === "drop"}
                             className="px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-gray-50 disabled:text-gray-400"
                             value={t.targetKelasId}
                             onChange={(e) => updateStudentTransition(t.studentId, { targetKelasId: e.target.value })}
@@ -1582,6 +1668,24 @@ export default function AdminAcademicNativePage() {
                               </option>
                             ))}
                           </select>
+                        </td>
+                        <td className="p-2.5">
+                          <label className="mb-1 flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={t.transferException}
+                              onChange={(e) => updateStudentTransition(t.studentId, { transferException: e.target.checked })}
+                            />
+                            <span>Ya</span>
+                          </label>
+                          {t.transferException && (
+                            <input
+                              className="w-44 rounded border border-gray-300 px-2 py-1 text-xs"
+                              value={t.transferReason}
+                              onChange={(e) => updateStudentTransition(t.studentId, { transferReason: e.target.value })}
+                              placeholder="Alasan pindahan"
+                            />
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1884,7 +1988,7 @@ export default function AdminAcademicNativePage() {
                 )}
               </>
             )}
-            {formTab === "kelas-praktikum" && <>{!isTahunSemesterDetail && <FieldRow label="Tahun Semester"><AdminSelect value={form.id_tahun_semester ?? ""} onChange={(v) => setField("id_tahun_semester", v)} required><option value="">Pilih tahun semester</option>{tahunSemester.map((i) => option(i.id, `${i.tahun_semester}${formatActiveSuffix(i.status)}`))}</AdminSelect></FieldRow>}<FieldRow label="Mata Kuliah"><AdminSelect value={form.id_mata_kuliah ?? ""} onChange={(v) => setField("id_mata_kuliah", v)} required><option value="">Pilih mata kuliah</option>{mataKuliahPrioritized.map((i) => option(i.id, `${i.kode_mk} - ${i.nama_mk}${activeKurikulum?.id === i.id_kurikulum ? " - Kurikulum Aktif" : ""}`))}</AdminSelect></FieldRow><FieldRow label="Semester Otomatis"><input className={`${inputClass} bg-gray-100 text-gray-700`} value={selectedSemester ? `Semester ${selectedSemester.semester}` : ""} readOnly disabled /></FieldRow><FieldRow label="Kelas"><AdminSelect value={form.id_kelas ?? ""} onChange={(v) => setField("id_kelas", v)} required><option value="">Pilih kelas</option>{kelas.map((i) => option(i.id, i.kelas))}</AdminSelect></FieldRow><FieldRow label="Dosen Pengampu"><AdminSelect value={form.id_dosen ?? ""} onChange={(v) => setField("id_dosen", v)} required><option value="">Pilih dosen</option>{lecturers.map((i) => option(i.id, `${i.nip ?? "-"} - ${i.fullname}`))}</AdminSelect></FieldRow><FieldRow label="Nama Kelas Otomatis"><input className={`${inputClass} bg-gray-100 text-gray-700`} value={generatedKelasPraktikumName} readOnly disabled /></FieldRow></>}
+            {formTab === "kelas-praktikum" && renderKelasPraktikumFields()}
           </form>
         </AdminModal>
       )}

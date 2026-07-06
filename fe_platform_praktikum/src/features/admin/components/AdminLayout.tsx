@@ -1,4 +1,4 @@
-import { BookOpen, GraduationCap, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Users } from "lucide-react"
+import { BookOpen, ChevronDown, ChevronRight, GraduationCap, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Users } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useEffect, useState } from "react"
 import Navbar from "../../../components/navbar/Navbar"
@@ -20,6 +20,13 @@ export default function AdminLayout({ children }: Props) {
   const [collapsed, setCollapsed] = useState(() => (
     localStorage.getItem("adminSidebarCollapsed") === "true"
   ))
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("adminExpandedMenus") || "{}")
+    } catch {
+      return {}
+    }
+  })
 
   const isUsers = location.pathname.startsWith("/users")
   const isAcademic = location.pathname.startsWith("/admin/academic") || location.pathname === "/academic" || location.pathname.startsWith("/mata-kuliah") || location.pathname === "/courses"
@@ -27,6 +34,14 @@ export default function AdminLayout({ children }: Props) {
   useEffect(() => {
     localStorage.setItem("adminSidebarCollapsed", String(collapsed))
   }, [collapsed])
+
+  useEffect(() => {
+    localStorage.setItem("adminExpandedMenus", JSON.stringify(expandedMenus))
+  }, [expandedMenus])
+
+  const toggleMenu = (key: string) => {
+    setExpandedMenus((current) => ({ ...current, [key]: !current[key] }))
+  }
 
   const sidebar = (
     <aside
@@ -62,22 +77,31 @@ export default function AdminLayout({ children }: Props) {
           <LayoutDashboard size={18} />
           {!collapsed && <span>Dashboard Admin</span>}
         </NavLink>
-        <NavLink
-          to="/admin/academic/tahun-semester"
-          className={() => linkClass({ isActive: isAcademic, collapsed })}
-          title="Data Akademik"
-        >
-          <BookOpen size={18} />
-          {!collapsed && <span>Data Akademik</span>}
-        </NavLink>
-        {isAcademic && !collapsed && (
+        <div className={linkClass({ isActive: isAcademic, collapsed })} title="Data Akademik">
+          <NavLink to="/admin/academic/kurikulum" className={`flex min-w-0 flex-1 items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
+            <BookOpen size={18} />
+            {!collapsed && <span>Data Akademik</span>}
+          </NavLink>
+          {!collapsed && (
+            <button
+              type="button"
+              className="ml-auto rounded p-1 text-gray-500 hover:bg-blue-100 hover:text-blue-700"
+              onClick={() => toggleMenu("academic")}
+              aria-label={expandedMenus.academic ? "Tutup submenu Data Akademik" : "Buka submenu Data Akademik"}
+              title={expandedMenus.academic ? "Tutup submenu" : "Buka submenu"}
+            >
+              {expandedMenus.academic ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            </button>
+          )}
+        </div>
+        {expandedMenus.academic && !collapsed && (
           <div className="ml-4 mt-2 space-y-1 border-l border-gray-200 pl-3">
             {[
-              ["/admin/academic/tahun-semester", "Tahun Semester"],
               ["/admin/academic/kurikulum", "Kurikulum"],
               ["/admin/academic/semester", "Semester"],
-              ["/admin/academic/kelas", "Kelas"],
               ["/admin/academic/mata-kuliah", "Mata Kuliah"],
+              ["/admin/academic/kelas", "Kelas"],
+              ["/admin/academic/tahun-semester", "Tahun Semester"],
             ].map(([to, label]) => (
               <NavLink
                 key={to}
@@ -89,16 +113,25 @@ export default function AdminLayout({ children }: Props) {
             ))}
           </div>
         )}
-        <NavLink
-          to="/users/students"
-          className={() => linkClass({ isActive: isUsers, collapsed })}
-          title="Data Pengguna"
-        >
-          <Users size={18} />
-          {!collapsed && <span>Data Pengguna</span>}
-        </NavLink>
+        <div className={linkClass({ isActive: isUsers, collapsed })} title="Data Pengguna">
+          <NavLink to="/users/students" className={`flex min-w-0 flex-1 items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
+            <Users size={18} />
+            {!collapsed && <span>Data Pengguna</span>}
+          </NavLink>
+          {!collapsed && (
+            <button
+              type="button"
+              className="ml-auto rounded p-1 text-gray-500 hover:bg-blue-100 hover:text-blue-700"
+              onClick={() => toggleMenu("users")}
+              aria-label={expandedMenus.users ? "Tutup submenu Data Pengguna" : "Buka submenu Data Pengguna"}
+              title={expandedMenus.users ? "Tutup submenu" : "Buka submenu"}
+            >
+              {expandedMenus.users ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            </button>
+          )}
+        </div>
 
-        {isUsers && !collapsed && (
+        {expandedMenus.users && !collapsed && (
           <div className="ml-4 mt-2 space-y-1 border-l border-gray-200 pl-3">
             <NavLink
               to="/users/students"

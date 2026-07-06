@@ -50,6 +50,8 @@ export type KelasMahasiswa = {
   status: AcademicStatus
   tahun_semester?: string
   semester?: number
+  student_semester?: number
+  student_status?: string
   kelas?: string
   nim?: string
   fullname?: string
@@ -72,6 +74,7 @@ export type KelasPraktikum = {
   id: string
   id_tahun_semester: string
   id_mata_kuliah: string
+  id_kurikulum?: string
   id_semester: string
   id_kelas: string
   nama_kelas: string
@@ -166,7 +169,7 @@ export const academicDataApi = {
     await apiFetch(`/admin/kelas/${id}${force ? "?force=true" : ""}`, { method: "DELETE" })
   },
 
-  async getMataKuliah(filters: { id_kurikulum?: string } = {}) {
+  async getMataKuliah(filters: { id_kurikulum?: string; id_semester?: string; semester_parity?: string } = {}) {
     return unwrap<MataKuliah[]>(await apiFetch(`/admin/mata-kuliah${queryString(filters)}`), "mata_kuliah")
   },
   async saveMataKuliah(payload: Partial<MataKuliah>, id?: string) {
@@ -238,9 +241,11 @@ export const academicDataApi = {
     targetTahunSemesterId: string
     transitions: Array<{
       studentId: string
-      action: "promote" | "retain" | "cuti" | "drop"
-      targetSemesterId?: string
-      targetKelasId?: string
+      action: "promote"
+      targetSemesterId: string
+      targetKelasId: string
+      transferException?: boolean
+      transferReason?: string
     }>
   }) {
     await apiFetch("/admin/kelas-semester/transition", {

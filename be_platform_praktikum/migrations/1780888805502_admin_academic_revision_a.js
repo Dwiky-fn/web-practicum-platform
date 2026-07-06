@@ -32,5 +32,4 @@ exports.up = (pgm) => {
 exports.down = (pgm) => {
   pgm.dropTable('student_class_history', { ifExists: true, cascade: true });
   pgm.dropColumns('student_profiles', ['is_transfer_student', 'transfer_origin_semester', 'transfer_reason'], { ifExists: true });
-  pgm.sql("CREATE UNIQUE INDEX IF NOT EXISTS unique_active_kurikulum ON kurikulum (status) WHERE status = 'active'");
 };

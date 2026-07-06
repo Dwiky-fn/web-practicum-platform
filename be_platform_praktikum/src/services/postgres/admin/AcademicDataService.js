@@ -82,6 +82,29 @@ class AcademicDataService {
     if (result.rows.length) throw new Error('TAHUN_SEMESTER_DUPLICATE');
   }
 
+  async _ensureUniqueKurikulum(client, payload, ignoredId = null) {
+    const tahunKurikulum = String(payload.tahun_kurikulum || '').trim().toLowerCase();
+    const namaKurikulum = String(payload.nama_kurikulum || '').trim().toLowerCase();
+    if (!tahunKurikulum || !namaKurikulum) return;
+
+    const params = [tahunKurikulum, namaKurikulum];
+    let ignoredClause = '';
+    if (ignoredId) {
+      params.push(ignoredId);
+      ignoredClause = ` AND id <> $${params.length}`;
+    }
+    const result = await client.query(
+      `SELECT id
+       FROM kurikulum
+       WHERE LOWER(tahun_kurikulum) = $1
+         AND LOWER(nama_kurikulum) = $2
+         ${ignoredClause}
+       LIMIT 1`,
+      params,
+    );
+    if (result.rows.length) throw new Error('KURIKULUM_DUPLICATE');
+  }
+
   async getTahunSemester() {
     const result = await this._pool.query(`
       SELECT id, tahun_semester, status, created_at, updated_at
@@ -239,6 +262,7 @@ class AcademicDataService {
     const client = await this._pool.connect();
     try {
       await client.query('BEGIN');
+      await this._ensureUniqueKurikulum(client, payload);
       await client.query(
         `INSERT INTO kurikulum (id, tahun_kurikulum, nama_kurikulum, status)
          VALUES ($1, $2, $3, $4)`,
@@ -261,6 +285,16 @@ class AcademicDataService {
     try {
       await client.query('BEGIN');
       await this._ensureExists(client, 'kurikulum', id, 'KURIKULUM_NOT_FOUND');
+      if (payload.tahun_kurikulum || payload.nama_kurikulum) {
+        const current = await client.query(
+          'SELECT tahun_kurikulum, nama_kurikulum FROM kurikulum WHERE id = $1 LIMIT 1',
+          [id],
+        );
+        await this._ensureUniqueKurikulum(client, {
+          tahun_kurikulum: payload.tahun_kurikulum || current.rows[0].tahun_kurikulum,
+          nama_kurikulum: payload.nama_kurikulum || current.rows[0].nama_kurikulum,
+        }, id);
+      }
       await client.query(
         `UPDATE kurikulum
          SET tahun_kurikulum = COALESCE($2, tahun_kurikulum),

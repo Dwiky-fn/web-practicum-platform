@@ -1002,6 +1002,7 @@ export default function AdminAcademicNativePage() {
     try {
       if (tab === "tahun") await academicDataApi.activateTahunSemester(id)
       if (tab === "kurikulum") await academicDataApi.activateKurikulum(id)
+      toast.success(tab === "kurikulum" ? "Kurikulum berhasil diaktifkan." : "Tahun semester berhasil diaktifkan.")
       await loadData()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal mengaktifkan data.")

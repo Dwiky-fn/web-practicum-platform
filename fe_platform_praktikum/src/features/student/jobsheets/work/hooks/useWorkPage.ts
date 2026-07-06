@@ -61,9 +61,19 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
   const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined
   const submissionIdParam = searchParams.get("submissionId") || undefined
   const attemptNoParam = searchParams.get("attemptNo") ? Number(searchParams.get("attemptNo")) : undefined
+  const attemptTypeParam = (searchParams.get("attemptType") as "normal" | "remedial" | null) || undefined
+  const remedialIdParam = searchParams.get("remedialId") || undefined
   const academicScope = useMemo(
-    () => ({ classId, mataKuliahId, kelasPraktikumId, submissionId: submissionIdParam, attemptNo: attemptNoParam }),
-    [classId, mataKuliahId, kelasPraktikumId, submissionIdParam, attemptNoParam],
+    () => ({
+      classId,
+      mataKuliahId,
+      kelasPraktikumId,
+      submissionId: submissionIdParam,
+      attemptNo: attemptNoParam,
+      attemptType: attemptTypeParam,
+      remedialId: remedialIdParam,
+    }),
+    [classId, mataKuliahId, kelasPraktikumId, submissionIdParam, attemptNoParam, attemptTypeParam, remedialIdParam],
   )
 
   const access = jobsheet?.access || { accessMode: "editable_normal", canEdit: true, canSubmit: true }
@@ -96,6 +106,8 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
         instructionId: item.type !== "experiment" ? item.id : null,
         activityType,
         kelasPraktikumId,
+        attemptType: academicScope.attemptType,
+        remedialId: academicScope.remedialId,
       }).catch(console.error)
 
       return [
@@ -106,7 +118,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
         },
       ]
     })
-  }, [canSaveProgress, kelasPraktikumId, readOnly, user])
+  }, [canSaveProgress, kelasPraktikumId, readOnly, user, academicScope.attemptType, academicScope.remedialId])
 
   useEffect(() => {
     jobsheetIdRef.current = jobsheetId
@@ -150,6 +162,8 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
         activityType,
         kelasPraktikumId,
         metadata: opts?.metadata || {},
+        attemptType: academicScope.attemptType,
+        remedialId: academicScope.remedialId,
       })
     } catch (err) {
       // Gagal melacak aktivitas (silent fallback)
@@ -177,6 +191,8 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
         instructionId: null,
         activityType: "open_experiment",
         kelasPraktikumId,
+        attemptType: academicScope.attemptType,
+        remedialId: academicScope.remedialId,
       }).catch(console.error)
     } else {
       updateStudentProgressApi(jobsheetId, {
@@ -185,6 +201,8 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
         instructionId: currentItem.id,
         activityType: "open_instruction",
         kelasPraktikumId,
+        attemptType: academicScope.attemptType,
+        remedialId: academicScope.remedialId,
       }).catch(console.error)
     }
   }, [academicScope, courseId, jobsheetId, jobsheet, user, location.pathname, location.search, loading, kelasPraktikumId, readOnly])
@@ -231,7 +249,13 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
         if (!isMountedRef.current) return
         setSubmission(submissionData)
 
-        const progressData = await getStudentProgress(jobsheetId, user.id, kelasPraktikumId)
+        const progressData = await getStudentProgress(
+          jobsheetId,
+          user.id,
+          kelasPraktikumId,
+          academicScope.attemptType,
+          academicScope.remedialId,
+        )
         if (!isMountedRef.current) return
         setSavedProgress(Math.max(0, Math.round(progressData?.progress ?? 0)))
         setCompletedItems(progressData?.completed_items ?? [])
@@ -381,6 +405,8 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
       completedItems,
       classId,
       kelasPraktikumId,
+      attemptType: academicScope.attemptType,
+      remedialId: academicScope.remedialId,
     }).catch((err) => {
       toast.error(err instanceof Error ? err.message : "Gagal menyimpan progres.")
     })

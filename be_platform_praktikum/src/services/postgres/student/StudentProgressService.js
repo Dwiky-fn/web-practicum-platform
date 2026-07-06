@@ -44,30 +44,57 @@ class StudentProgressService {
     return nativeResult.rows[0];
   }
 
-  async getProgress(studentId, jobsheetId, kelasPraktikumId) {
+  async getProgress(studentId, jobsheetId, kelasPraktikumId, attemptType = null, remedialId = null) {
     if (!kelasPraktikumId) return null;
 
-    // Check active remedial
-    const remedialQuery = await this._pool.query(
-      `SELECT jr.id
-       FROM jobsheet_remedials jr
-       JOIN jobsheet_remedial_students jrs ON jrs.remedial_id = jr.id
-       WHERE jr.jobsheet_id = $1 
-         AND jr.id_kelas_praktikum = $2 
-         AND jrs.student_id = $3
-         AND jr.status = 'open'
-         AND (NOW() AT TIME ZONE 'Asia/Jakarta') BETWEEN jr.start_at AND jr.end_at
-       LIMIT 1`,
-      [jobsheetId, kelasPraktikumId, studentId]
-    );
+    let targetRemedialId = remedialId;
+    let targetAttemptType = attemptType;
+
+    // Check if we need to auto-detect the active remedial
+    if (!targetRemedialId && !targetAttemptType) {
+      const remedialQuery = await this._pool.query(
+        `SELECT jr.id
+         FROM jobsheet_remedials jr
+         JOIN jobsheet_remedial_students jrs ON jrs.remedial_id = jr.id
+         WHERE jr.jobsheet_id = $1 
+           AND jr.id_kelas_praktikum = $2 
+           AND jrs.student_id = $3
+           AND jr.status = 'open'
+           AND (NOW() AT TIME ZONE 'Asia/Jakarta') BETWEEN jr.start_at AND jr.end_at
+         LIMIT 1`,
+        [jobsheetId, kelasPraktikumId, studentId]
+      );
+      if (remedialQuery.rows.length) {
+        targetRemedialId = remedialQuery.rows[0].id;
+        targetAttemptType = 'remedial';
+      } else {
+        targetAttemptType = 'normal';
+      }
+    } else if (targetAttemptType === 'remedial' && !targetRemedialId) {
+      const remedialQuery = await this._pool.query(
+        `SELECT jr.id
+         FROM jobsheet_remedials jr
+         JOIN jobsheet_remedial_students jrs ON jrs.remedial_id = jr.id
+         WHERE jr.jobsheet_id = $1 
+           AND jr.id_kelas_praktikum = $2 
+           AND jrs.student_id = $3
+           AND jr.status = 'open'
+           AND (NOW() AT TIME ZONE 'Asia/Jakarta') BETWEEN jr.start_at AND jr.end_at
+         LIMIT 1`,
+        [jobsheetId, kelasPraktikumId, studentId]
+      );
+      if (remedialQuery.rows.length) {
+        targetRemedialId = remedialQuery.rows[0].id;
+      }
+    }
 
     let queryStr = '';
     let params = [studentId, jobsheetId, kelasPraktikumId];
-    if (remedialQuery.rows.length) {
+    if (targetAttemptType === 'remedial' && targetRemedialId) {
       queryStr = `SELECT * FROM student_progress
                   WHERE student_id = $1 AND jobsheet_id = $2 AND id_kelas_praktikum = $3 AND remedial_id = $4
                   LIMIT 1`;
-      params.push(remedialQuery.rows[0].id);
+      params.push(targetRemedialId);
     } else {
       queryStr = `SELECT * FROM student_progress
                   WHERE student_id = $1 AND jobsheet_id = $2 AND id_kelas_praktikum = $3 AND remedial_id IS NULL
@@ -76,7 +103,6 @@ class StudentProgressService {
 
     const result = await this._pool.query(queryStr, params);
     const academicContext = await this._resolveAcademicContext(studentId, jobsheetId, kelasPraktikumId);
-    const activeRemedialId = remedialQuery.rows[0]?.id || null;
     const progress = result.rows[0] || {
       id: null,
       student_id: studentId,
@@ -87,9 +113,9 @@ class StudentProgressService {
       progress: 0,
       last_page: null,
       completed_items: [],
-      attempt_no: activeRemedialId ? 2 : 1,
-      attempt_type: activeRemedialId ? 'remedial' : 'normal',
-      remedial_id: activeRemedialId,
+      attempt_no: targetAttemptType === 'remedial' ? 2 : 1,
+      attempt_type: targetAttemptType || 'normal',
+      remedial_id: targetRemedialId || null,
     };
 
     const scoreBreakdown = await JobsheetProgressScoringService.calculate({
@@ -97,9 +123,9 @@ class StudentProgressService {
       jobsheetId,
       kelasPraktikumId: academicContext.id_kelas_praktikum,
       idKelasMhs: academicContext.id_kelas_mhs,
-      attemptType: activeRemedialId ? 'remedial' : 'normal',
-      attemptNo: progress.attempt_no || (activeRemedialId ? 2 : 1),
-      remedialId: activeRemedialId,
+      attemptType: targetAttemptType || 'normal',
+      attemptNo: progress.attempt_no || (targetAttemptType === 'remedial' ? 2 : 1),
+      remedialId: targetRemedialId || null,
     });
 
     return {
@@ -117,15 +143,19 @@ class StudentProgressService {
     lastPage,
     status,
     completedItems,
+    attemptType = null,
+    remedialId = null,
   }) {
     const access = await DeadlineAccessService.assertCanSaveProgress({
       studentId,
       jobsheetId,
       kelasPraktikumId,
+      attemptType,
+      remedialId,
     });
     let activeRemedialId = access.remedialId;
     let attemptNo = access.attemptNo || 1;
-    let attemptType = access.attemptType || 'normal';
+    let attemptTypeResolved = access.attemptType || 'normal';
 
     if (activeRemedialId) {
       const checkProgress = await this._pool.query(
@@ -171,7 +201,7 @@ class StudentProgressService {
         lastPage,
         JSON.stringify(safeCompletedItems),
         attemptNo,
-        attemptType,
+        attemptTypeResolved,
         activeRemedialId,
       ],
     );

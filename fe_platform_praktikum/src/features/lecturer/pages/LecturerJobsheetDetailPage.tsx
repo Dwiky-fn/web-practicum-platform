@@ -3,6 +3,9 @@ import {
   ArrowLeft,
   Activity,
   BookOpen,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Loader2,
   PlayCircle,
@@ -15,6 +18,18 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import StudentProfileModal from "../components/StudentProfileModal"
 import { toast } from "../../../components/toast/toastStore"
 import { useBackNavigation } from "../../../shared/utils/backNavigation"
+import {
+  formatAcademicDateTime,
+  formatAcademicTableDateTime,
+  formatAcademicDate,
+  formatAcademicTime,
+  combineAcademicDateAndTime,
+  compareAcademicDateTime,
+  formatAcademicDateInput,
+  isValidAcademicDateInput,
+  isValidAcademicTimeInput,
+} from "../../../shared/utils/formatAcademicDateTime"
+import { formatNumber, formatScore as centralFormatScore } from "../../../shared/utils/formatScore"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import type { Jobsheet } from "../../../services/jobsheet/types"
@@ -22,7 +37,9 @@ import LecturerLayout from "../components/LecturerLayout"
 import {
   LecturerButton,
   LecturerEmptyState,
+  LecturerModal,
   LecturerPanel,
+  LecturerSelect,
   LecturerTable,
   NativeSelect,
   PageHeader,
@@ -31,9 +48,10 @@ import {
 } from "../components/LecturerUI"
 import {
   getLecturerClassDetail,
+  getLecturerEvaluationSubmissions,
   getLecturerJobsheetById,
   getLecturerSubmissionMatrix,
-  getSubmissionReviewStatus,
+  formatAttemptLabel,
   getLecturerClassProgress,
   getLecturerStudentDetailProgress,
   createLecturerRemedial,
@@ -41,6 +59,7 @@ import {
   getLecturerRemedialStudents,
   cancelLecturerRemedial,
   type LecturerSubmissionMatrixItem,
+  type LecturerEvaluationItem,
   type LecturerClassProgressResponse,
   type LecturerStudentDetailProgressResponse,
   type LecturerRemedialSession,
@@ -56,6 +75,202 @@ const tabs: Array<{ id: DetailTab; label: string }> = [
   { id: "students", label: "Evaluasi & Nilai" },
   { id: "remedial", label: "Sesi Remedial" },
 ]
+
+const ID_MONTHS = [
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
+]
+
+const ID_WEEKDAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"]
+const HOURS_24 = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"))
+const MINUTES_60 = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"))
+
+function academicDateKey(year: number, monthIndex: number, day: number) {
+  return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+}
+
+function parseAcademicDateInputParts(value: string) {
+  if (!isValidAcademicDateInput(value)) return null
+  const [day, month, year] = value.split("/").map(Number)
+  return { day, monthIndex: month - 1, year }
+}
+
+function getMonthDays(year: number, monthIndex: number) {
+  const totalDays = new Date(year, monthIndex + 1, 0).getDate()
+  const firstDay = new Date(year, monthIndex, 1).getDay()
+  const leadingEmptyCells = (firstDay + 6) % 7
+  return [
+    ...Array.from({ length: leadingEmptyCells }, () => null),
+    ...Array.from({ length: totalDays }, (_, index) => index + 1),
+  ]
+}
+
+function AcademicDatePicker({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+}) {
+  const selected = parseAcademicDateInputParts(value)
+  const today = new Date()
+  const [open, setOpen] = useState(false)
+  const [visibleMonth, setVisibleMonth] = useState(() => selected?.monthIndex ?? today.getMonth())
+  const [visibleYear, setVisibleYear] = useState(() => selected?.year ?? today.getFullYear())
+  const days = getMonthDays(visibleYear, visibleMonth)
+
+  useEffect(() => {
+    if (!selected) return
+    setVisibleMonth(selected.monthIndex)
+    setVisibleYear(selected.year)
+  }, [selected?.monthIndex, selected?.year])
+
+  return (
+    <div className="relative space-y-2">
+      <label className="block text-xs font-bold text-gray-700">{label}</label>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="flex h-10 w-full items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-left text-sm font-semibold text-gray-800 outline-none transition hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+      >
+        <CalendarDays size={16} className="shrink-0 text-blue-600" />
+        <span>{value || "Pilih tanggal"}</span>
+      </button>
+      {open && (
+        <div className="absolute left-0 z-30 mt-1 w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-gray-200 bg-white p-3 shadow-xl">
+          <div className="mb-3 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => {
+                if (visibleMonth === 0) {
+                  setVisibleMonth(11)
+                  setVisibleYear((year) => year - 1)
+                } else {
+                  setVisibleMonth((month) => month - 1)
+                }
+              }}
+              className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+              aria-label="Bulan sebelumnya"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <div className="text-sm font-bold text-gray-900">
+              {ID_MONTHS[visibleMonth]} {visibleYear}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (visibleMonth === 11) {
+                  setVisibleMonth(0)
+                  setVisibleYear((year) => year + 1)
+                } else {
+                  setVisibleMonth((month) => month + 1)
+                }
+              }}
+              className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+              aria-label="Bulan berikutnya"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-gray-500">
+            {ID_WEEKDAYS.map((dayName) => (
+              <span key={dayName} className="py-1">{dayName}</span>
+            ))}
+          </div>
+          <div className="mt-1 grid grid-cols-7 gap-1">
+            {days.map((day, index) => {
+              if (!day) return <span key={`empty-${index}`} className="h-8" />
+              const key = academicDateKey(visibleYear, visibleMonth, day)
+              const isSelected = value === formatAcademicDateInput(key)
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    onChange(formatAcademicDateInput(key))
+                    setOpen(false)
+                  }}
+                  className={`h-8 rounded-md text-sm font-semibold transition ${
+                    isSelected
+                      ? "bg-blue-700 text-white"
+                      : "text-gray-700 hover:bg-blue-50 hover:text-blue-700"
+                  }`}
+                >
+                  {day}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TimeSelect24Hour({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+}) {
+  const [hour = "", minute = ""] = value.split(":")
+  const update = (nextHour: string, nextMinute: string) => {
+    if (!nextHour || !nextMinute) {
+      onChange("")
+      return
+    }
+    onChange(`${nextHour}:${nextMinute}`)
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-xs font-bold text-gray-700">{label}</label>
+      <div className="flex items-center gap-2">
+        <LecturerSelect
+          label={`${label} jam`}
+          value={hour}
+          onChange={(nextHour) => update(nextHour, minute || "00")}
+          className="h-10 w-full rounded-lg font-semibold"
+        >
+          <option value="">Jam</option>
+          {HOURS_24.map((item) => (
+            <option key={item} value={item}>{item}</option>
+          ))}
+        </LecturerSelect>
+        <span className="text-sm font-bold text-gray-500">:</span>
+        <LecturerSelect
+          label={`${label} menit`}
+          value={minute}
+          onChange={(nextMinute) => update(hour || "00", nextMinute)}
+          className="h-10 w-full rounded-lg font-semibold"
+        >
+          <option value="">Menit</option>
+          {MINUTES_60.map((item) => (
+            <option key={item} value={item}>{item}</option>
+          ))}
+        </LecturerSelect>
+      </div>
+    </div>
+  )
+}
 
 export default function LecturerJobsheetDetailPage() {
   const navigate = useNavigate()
@@ -91,6 +306,9 @@ export default function LecturerJobsheetDetailPage() {
   const [error, setError] = useState("")
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null)
   const [matrix, setMatrix] = useState<LecturerSubmissionMatrixItem[]>([])
+  const [evaluationItems, setEvaluationItems] = useState<LecturerEvaluationItem[]>([])
+  const [loadingEvaluationItems, setLoadingEvaluationItems] = useState(false)
+  const [attemptFilter, setAttemptFilter] = useState<"all" | "normal" | "remedial">("all")
 
   // Remedial states
   const [remedials, setRemedials] = useState<LecturerRemedialSession[]>([])
@@ -101,24 +319,63 @@ export default function LecturerJobsheetDetailPage() {
   const [loadingRemedialStudents, setLoadingRemedialStudents] = useState(false)
 
   // Sesi Remedial Modal Form states
-  const [remStartAt, setRemStartAt] = useState("")
-  const [remEndAt, setRemEndAt] = useState("")
+  const [remStartDate, setRemStartDate] = useState("")
+  const [remStartTime, setRemStartTime] = useState("")
+  const [remEndDate, setRemEndDate] = useState("")
+  const [remEndTime, setRemEndTime] = useState("")
   const [remSelectedStudentIds, setRemSelectedStudentIds] = useState<string[]>([])
   const [savingRemedial, setSavingRemedial] = useState(false)
+  const [cancelRemedialTarget, setCancelRemedialTarget] = useState<LecturerRemedialSession | null>(null)
+  const [cancellingRemedial, setCancellingRemedial] = useState(false)
+
+  async function fetchEvaluationItems() {
+    const effectiveKelasPraktikumId = kelasPraktikumId || classId
+    if (!jobsheetId || !effectiveKelasPraktikumId) {
+      setEvaluationItems([])
+      return
+    }
+
+    setLoadingEvaluationItems(true)
+    try {
+      const items = await getLecturerEvaluationSubmissions(jobsheetId, effectiveKelasPraktikumId)
+      setEvaluationItems(items)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal memuat evaluasi dan nilai.")
+    } finally {
+      setLoadingEvaluationItems(false)
+    }
+  }
 
   async function handleCreateRemedialSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!jobsheetId || !classId) return
-    if (!remStartAt || !remEndAt) {
-      toast.error("Waktu mulai dan berakhir wajib diisi.")
+    
+    if (!remStartDate || !isValidAcademicDateInput(remStartDate)) {
+      toast.error("Pilih tanggal mulai terlebih dahulu.")
       return
     }
-    if (new Date(remStartAt) >= new Date(remEndAt)) {
-      toast.error("Waktu berakhir harus setelah waktu mulai.")
+    if (!remStartTime || !isValidAcademicTimeInput(remStartTime)) {
+      toast.error("Pilih jam mulai terlebih dahulu.")
+      return
+    }
+    if (!remEndDate || !isValidAcademicDateInput(remEndDate)) {
+      toast.error("Pilih tanggal selesai terlebih dahulu.")
+      return
+    }
+    if (!remEndTime || !isValidAcademicTimeInput(remEndTime)) {
+      toast.error("Pilih jam selesai terlebih dahulu.")
       return
     }
     if (remSelectedStudentIds.length === 0) {
-      toast.error("Pilih minimal satu mahasiswa.")
+      toast.error("Pilih minimal satu mahasiswa untuk remedial.")
+      return
+    }
+
+    const startDateTimeStr = combineAcademicDateAndTime(remStartDate, remStartTime)
+    const endDateTimeStr = combineAcademicDateAndTime(remEndDate, remEndTime)
+
+    if (compareAcademicDateTime(endDateTimeStr, startDateTimeStr) <= 0) {
+      toast.error("Waktu berakhir harus setelah waktu mulai.")
       return
     }
 
@@ -130,14 +387,16 @@ export default function LecturerJobsheetDetailPage() {
         kelasPraktikumId: kelasPraktikumId || classId,
         title: defaultTitle,
         description: "",
-        startAt: new Date(remStartAt).toISOString(),
-        endAt: new Date(remEndAt).toISOString(),
+        startAt: startDateTimeStr,
+        endAt: endDateTimeStr,
         studentIds: remSelectedStudentIds,
       })
       toast.success("Sesi remedial berhasil dibuat.")
       setIsRemedialModalOpen(false)
-      setRemStartAt("")
-      setRemEndAt("")
+      setRemStartDate("")
+      setRemStartTime("")
+      setRemEndDate("")
+      setRemEndTime("")
       setRemSelectedStudentIds([])
       fetchRemedials()
       if (jobsheet) {
@@ -152,6 +411,7 @@ export default function LecturerJobsheetDetailPage() {
           },
         )
         setMatrix(submissionMatrix)
+        fetchEvaluationItems()
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal membuat sesi remedial.")
@@ -160,13 +420,14 @@ export default function LecturerJobsheetDetailPage() {
     }
   }
 
-  async function handleCancelRemedial(remedialId: string) {
-    if (!window.confirm("Apakah Anda yakin ingin membatalkan sesi remedial ini? Semua pengerjaan remedial siswa pada sesi ini akan dihapus secara permanen.")) {
-      return
-    }
+  async function handleConfirmCancelRemedial() {
+    if (!cancelRemedialTarget) return
+    const remedialId = cancelRemedialTarget.id
+    setCancellingRemedial(true)
     try {
       await cancelLecturerRemedial(remedialId)
       toast.success("Sesi remedial berhasil dibatalkan.")
+      setCancelRemedialTarget(null)
       if (selectedRemedialId === remedialId) {
         setSelectedRemedialId(null)
       }
@@ -183,9 +444,12 @@ export default function LecturerJobsheetDetailPage() {
           },
         )
         setMatrix(submissionMatrix)
+        fetchEvaluationItems()
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal membatalkan sesi remedial.")
+    } finally {
+      setCancellingRemedial(false)
     }
   }
 
@@ -347,12 +611,6 @@ export default function LecturerJobsheetDetailPage() {
     navigate(`/lecturer/kelas-praktikum/${effectiveKelasPraktikumId}/jobsheets/${jobsheetId}/students/${studentId}/monitor?${params.toString()}`)
   }
 
-  function formatTime(timestamp?: string | null) {
-    if (!timestamp) return "-"
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
-  }
-
   function formatRelativeTime(timestamp?: string | null) {
     if (!timestamp) return "-"
     const diffMs = new Date().getTime() - new Date(timestamp).getTime()
@@ -362,19 +620,15 @@ export default function LecturerJobsheetDetailPage() {
     if (diffMins < 60) return `${diffMins} menit lalu`
     const diffHours = Math.floor(diffMins / 60)
     if (diffHours < 24) return `${diffHours} jam lalu`
-    return new Date(timestamp).toLocaleDateString("id-ID", { day: "numeric", month: "short" })
+    return formatAcademicDate(timestamp)
   }
 
-  function formatScore(value?: number | null) {
-    if (value === undefined || value === null || Number.isNaN(Number(value))) return "-"
-    return Number(value).toFixed(2).replace(/\.?0+$/, "")
-  }
-
-  function renderStatusBadge(status: "not_started" | "in_progress" | "stalled" | "completed") {
+  function renderStatusBadge(status: "not_started" | "in_progress" | "stalled" | "completed" | "overdue") {
     const styles = {
       not_started: "bg-gray-100 text-gray-700 border-gray-200",
       in_progress: "bg-blue-50 text-blue-700 border-blue-100",
       stalled: "bg-amber-50 text-amber-700 border-amber-100 animate-pulse",
+      overdue: "bg-amber-50 text-amber-700 border-amber-100",
       completed: "bg-emerald-50 text-emerald-700 border-emerald-100",
     }
     
@@ -382,6 +636,7 @@ export default function LecturerJobsheetDetailPage() {
       not_started: "Belum Mulai",
       in_progress: "Mengerjakan",
       stalled: "Terhambat",
+      overdue: "Terlambat",
       completed: "Selesai",
     }
     
@@ -390,7 +645,7 @@ export default function LecturerJobsheetDetailPage() {
         <span className={`h-1.5 w-1.5 rounded-full ${
           status === "not_started" ? "bg-gray-500" :
           status === "in_progress" ? "bg-blue-500" :
-          status === "stalled" ? "bg-amber-500" : "bg-emerald-500"
+          (status === "stalled" || status === "overdue") ? "bg-amber-500" : "bg-emerald-500"
         }`} />
         {labels[status]}
       </span>
@@ -424,8 +679,10 @@ export default function LecturerJobsheetDetailPage() {
             },
           )
           setMatrix(submissionMatrix)
+          fetchEvaluationItems()
         } else {
           setMatrix([])
+          setEvaluationItems([])
         }
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Gagal memuat detail jobsheet.")
@@ -437,19 +694,36 @@ export default function LecturerJobsheetDetailPage() {
     loadData()
   }, [classId, courseId, jobsheetId, kelasPraktikumId, mataKuliahId, nativeScope])
 
-  const filteredStudents = useMemo(() => {
+  function getEvaluationStatus(submission: LecturerEvaluationItem["submission"]) {
+    if (!submission) return "Belum"
+    if (submission.aiEvaluationStatus === "queued" || submission.aiEvaluationStatus === "processing") {
+      return "AI sedang mengevaluasi"
+    }
+    if (submission.status === "DRAFT") return "Draft"
+    if (submission.review?.decision === "PENDING" && submission.aiEvaluationStatus === "completed") {
+      return "Menunggu Review Dosen"
+    }
+    if (submission.status === "ACCEPTED" || submission.status === "REVISION" || submission.review?.decision === "ACCEPTED" || submission.review?.decision === "REVISION") {
+      return "Sudah dinilai"
+    }
+    if (submission.status === "OVERDUE") return "Terlambat"
+    return "Menunggu Review"
+  }
+
+  const filteredEvaluationItems = useMemo(() => {
     const normalized = keyword.trim().toLowerCase()
 
-    return matrix.filter((item) => {
+    return evaluationItems.filter((item) => {
       const matchKeyword =
         !normalized ||
         [item.student.fullname, item.student.nim].some((value) => value.toLowerCase().includes(normalized))
-      const reviewStatus = getSubmissionReviewStatus(item.submission)
+      const reviewStatus = getEvaluationStatus(item.submission)
       const matchStatus = status === "all" || reviewStatus === status
+      const matchAttempt = attemptFilter === "all" || item.submission?.attemptType === attemptFilter
 
-      return matchKeyword && matchStatus
+      return matchKeyword && matchStatus && matchAttempt
     })
-  }, [keyword, matrix, status])
+  }, [attemptFilter, evaluationItems, keyword, status])
 
   if (loading) {
     return <TopProgressBar />
@@ -794,11 +1068,11 @@ export default function LecturerJobsheetDetailPage() {
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className="font-semibold text-gray-800">
-                            {formatScore(student.progress_score)}
+                            {formatNumber(student.progress_score)}
                           </span>
                           <span className="ml-1 text-xs text-gray-500">/ 100</span>
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-600" title={student.last_activity_at ? new Date(student.last_activity_at).toLocaleString("id-ID") : "-"}>
+                        <td className="px-4 py-3 text-xs text-gray-600" title={student.last_activity_at ? formatAcademicDateTime(student.last_activity_at) : "-"}>
                           {formatRelativeTime(student.last_activity_at)}
                         </td>
                         <td className="px-4 py-3 text-center">
@@ -834,21 +1108,33 @@ export default function LecturerJobsheetDetailPage() {
                 <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
                   <NativeSelect value={status} onChange={setStatus} label="Status">
                     <option value="all">Semua Status</option>
-                    <option value="Terkumpul">Terkumpul</option>
-                    <option value="Otomatis">Otomatis</option>
-                    <option value="Dinilai">Dinilai</option>
-                    <option value="Revisi">Revisi</option>
+                    <option value="Draft">Draft</option>
+                    <option value="Menunggu Review">Menunggu Review</option>
+                    <option value="AI sedang mengevaluasi">AI sedang mengevaluasi</option>
+                    <option value="Menunggu Review Dosen">Menunggu Review Dosen</option>
+                    <option value="Sudah dinilai">Sudah dinilai</option>
+                    <option value="Terlambat">Terlambat</option>
                     <option value="Belum">Belum</option>
+                  </NativeSelect>
+                  <NativeSelect value={attemptFilter} onChange={(value) => setAttemptFilter(value as typeof attemptFilter)} label="Attempt">
+                    <option value="all">Semua Attempt</option>
+                    <option value="normal">Pengerjaan Normal</option>
+                    <option value="remedial">Remedial</option>
                   </NativeSelect>
                   <SearchBox value={keyword} onChange={setKeyword} placeholder="Cari Mahasiswa" />
                 </div>
 
-                {!filteredStudents.length ? (
+                {loadingEvaluationItems ? (
+                  <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                    <Loader2 className="animate-spin text-blue-600" size={32} />
+                    <span className="text-sm font-semibold text-gray-600">Memuat evaluasi dan nilai...</span>
+                  </div>
+                ) : !filteredEvaluationItems.length ? (
                   <LecturerEmptyState title="Belum ada data submission mahasiswa untuk jobsheet ini." />
                 ) : (
-                  <LecturerTable headers={["NIM", "Nama", "Status", "Nilai AI", "Nilai Progress", "Nilai Akhir", "Aksi"]}>
-                    {filteredStudents.map((item) => (
-                      <tr key={item.student.id}>
+                  <LecturerTable headers={["NIM", "Mahasiswa", "Attempt", "Status", "Nilai AI", "Nilai Progress", "Nilai Akhir", "Aksi"]}>
+                    {filteredEvaluationItems.map((item) => (
+                      <tr key={`${item.student.id}-${item.submission?.id ?? "empty"}`}>
                         <td className="px-4 py-3 font-mono">{item.student.nim}</td>
                         <td className="px-4 py-3">
                           <button
@@ -860,30 +1146,36 @@ export default function LecturerJobsheetDetailPage() {
                           </button>
                         </td>
                         <td className="px-4 py-3">
+                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                            item.submission?.attemptType === "remedial"
+                              ? "bg-amber-50 text-amber-700 border border-amber-100"
+                              : "bg-blue-50 text-blue-700 border border-blue-100"
+                          }`}>
+                            {formatAttemptLabel(item.submission)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
                           <div className="flex flex-col gap-0.5 items-start">
-                            <span>{getSubmissionReviewStatus(item.submission)}</span>
-                            {item.submission?.attemptLabel && (
-                              <span className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100 rounded px-1.5 py-0.5 mt-1">
-                                {item.submission.attemptLabel}
-                              </span>
-                            )}
+                            <span>{getEvaluationStatus(item.submission)}</span>
                             {item.submission?.isAutoSubmitted && (
                               <span className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100 rounded px-1.5 py-0.5 mt-1">
-                                Dikumpulkan otomatis setelah deadline
+                                Dikumpulkan Otomatis
                               </span>
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-center">{item.submission?.score ?? "-"}</td>
-                        <td className="px-4 py-3 text-center">
-                          {formatScore(item.submission?.calculatedProgressScore ?? item.submission?.scoreBreakdown?.progressScore)}
+                        <td className="px-4 py-3 text-center">{centralFormatScore(item.submission?.score)}</td>
+                        <td className="px-4 py-3 text-center font-semibold">
+                          {centralFormatScore(item.submission?.calculatedProgressScore ?? item.submission?.scoreBreakdown?.progressScore)}
                         </td>
-                        <td className="px-4 py-3 text-center">{item.submission?.review?.finalScore ?? "-"}</td>
+                        <td className="px-4 py-3 text-center">{centralFormatScore(item.submission?.review?.finalScore)}</td>
                         <td className="px-4 py-3 text-center">
                           <button
                             type="button"
-                            className="font-semibold text-blue-700 hover:text-blue-900"
+                            disabled={!item.submission}
+                            className="font-semibold text-blue-700 hover:text-blue-900 disabled:text-gray-400 disabled:cursor-not-allowed"
                             onClick={() => {
+                              if (!item.submission) return
                               const params = new URLSearchParams({ courseId, classId, jobsheetId: jobsheet.id })
                               if (mataKuliahId) params.set("mataKuliahId", mataKuliahId)
                               if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
@@ -891,7 +1183,7 @@ export default function LecturerJobsheetDetailPage() {
                               if (item.submission?.attemptNo) params.set("attemptNo", String(item.submission.attemptNo))
                               if (item.submission?.attemptType) params.set("attemptType", item.submission.attemptType)
                               if (item.submission?.remedialId) params.set("remedialId", item.submission.remedialId)
-                              params.set("from", "monitoring")
+                              params.set("from", "evaluation")
                               navigate(`/reviews/${item.student.id}?${params.toString()}`)
                             }}
                           >
@@ -933,17 +1225,18 @@ export default function LecturerJobsheetDetailPage() {
                           return (
                             <tr key={rem.id} className={isSelected ? "bg-blue-50/40" : ""}>
                               <td className="px-4 py-3 text-xs text-gray-600">
-                                {new Date(rem.startAt).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                                {formatAcademicTableDateTime(rem.startAt)}
                               </td>
                               <td className="px-4 py-3 text-xs text-gray-600">
-                                {new Date(rem.endAt).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                                {formatAcademicTableDateTime(rem.endAt)}
                               </td>
                               <td className="px-4 py-3">
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                                   rem.status === "open" ? "bg-green-100 text-green-800" :
-                                  rem.status === "closed" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"
+                                  rem.status === "closed" ? "bg-amber-100 text-amber-800" :
+                                  rem.status === "cancelled" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"
                                 }`}>
-                                  {rem.status === "open" ? "Aktif" : rem.status === "closed" ? "Tutup" : "Draft"}
+                                  {rem.status === "open" ? "Aktif" : rem.status === "closed" ? "Tutup" : rem.status === "cancelled" ? "Dibatalkan" : "Draft"}
                                 </span>
                               </td>
                               <td className="px-4 py-3">
@@ -959,13 +1252,15 @@ export default function LecturerJobsheetDetailPage() {
                                   >
                                     Detail Peserta
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleCancelRemedial(rem.id)}
-                                    className="text-xs font-bold px-3 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 transition duration-150"
-                                  >
-                                    Batalkan
-                                  </button>
+                                  {rem.status !== "cancelled" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setCancelRemedialTarget(rem)}
+                                      className="text-xs font-bold px-3 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 transition duration-150"
+                                    >
+                                      Batalkan
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -1087,7 +1382,7 @@ export default function LecturerJobsheetDetailPage() {
                     <div className="text-center md:text-left">
                       <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Nilai Progress</span>
                       <span className="block mt-1 font-bold text-gray-800 text-lg">
-                        {formatScore(studentDetail.progressScore?.progressScore)} / 100
+                        {formatNumber(studentDetail.progressScore?.progressScore)} / 100
                       </span>
                     </div>
                     <div className="text-center md:text-left">
@@ -1099,7 +1394,7 @@ export default function LecturerJobsheetDetailPage() {
                     <div className="text-center md:text-left">
                       <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Mulai Mengerjakan</span>
                       <span className="block mt-1 font-semibold text-gray-700 text-sm">
-                        {studentDetail.progress.first_opened_at ? new Date(studentDetail.progress.first_opened_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" }) + " " + formatTime(studentDetail.progress.first_opened_at) : "-"}
+                        {studentDetail.progress.first_opened_at ? formatAcademicDateTime(studentDetail.progress.first_opened_at) : "-"}
                       </span>
                     </div>
                   </div>
@@ -1146,7 +1441,7 @@ export default function LecturerJobsheetDetailPage() {
                                   </span>
                                   <span>•</span>
                                   <span>
-                                    {new Date(log.created_at).toLocaleString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                                    {formatAcademicTime(log.created_at)}
                                   </span>
                                 </div>
                               </div>
@@ -1187,7 +1482,7 @@ export default function LecturerJobsheetDetailPage() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <form
             onSubmit={handleCreateRemedialSubmit}
-            className="bg-white rounded-xl shadow-2xl max-w-xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-gray-100"
+            className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-gray-100"
           >
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
               <h3 className="font-bold text-gray-905 text-base">Buat Sesi Remedial: {jobsheet?.title}</h3>
@@ -1200,33 +1495,34 @@ export default function LecturerJobsheetDetailPage() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-700">Waktu Mulai</label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={remStartAt}
-                    onChange={(e) => setRemStartAt(e.target.value)}
-                    className="w-full bg-white border border-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-800"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-700">Waktu Berakhir</label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={remEndAt}
-                    onChange={(e) => setRemEndAt(e.target.value)}
-                    className="w-full bg-white border border-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-800"
-                  />
-                </div>
+            <div className="flex-1 overflow-hidden p-6">
+              <p className="mb-4 text-xs text-gray-500">Semua waktu menggunakan WIB (Asia/Jakarta).</p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <AcademicDatePicker
+                  label="Tanggal Mulai"
+                  value={remStartDate}
+                  onChange={setRemStartDate}
+                />
+                <TimeSelect24Hour
+                  label="Jam Mulai"
+                  value={remStartTime}
+                  onChange={setRemStartTime}
+                />
+                <AcademicDatePicker
+                  label="Tanggal Berakhir"
+                  value={remEndDate}
+                  onChange={setRemEndDate}
+                />
+                <TimeSelect24Hour
+                  label="Jam Berakhir"
+                  value={remEndTime}
+                  onChange={setRemEndTime}
+                />
               </div>
 
-              <div className="space-y-2">
+              <div className="mt-5 space-y-2">
                 <label className="text-xs font-semibold text-gray-700 block">Pilih Mahasiswa</label>
-                <div className="border border-gray-200 rounded-lg p-3 max-h-[180px] overflow-y-auto space-y-2">
+                <div className="border border-gray-200 rounded-lg p-3 max-h-[min(240px,32vh)] overflow-y-auto space-y-2">
                   {matrix.map((item) => {
                     const student = item.student
                     const isChecked = remSelectedStudentIds.includes(student.id)
@@ -1249,10 +1545,10 @@ export default function LecturerJobsheetDetailPage() {
                           <span>{student.fullname} <span className="text-xs text-gray-400">({student.nim})</span></span>
                         </div>
                         <span className={`text-xs px-2 py-0.5 rounded font-bold ${
-                          score === undefined ? "bg-gray-100 text-gray-600" :
+                          score === null || score === undefined ? "bg-gray-100 text-gray-600" :
                           score >= 75 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
                         }`}>
-                          Nilai: {score ?? "-"}
+                          Nilai: {formatNumber(score)}
                         </span>
                       </label>
                     )
@@ -1281,6 +1577,61 @@ export default function LecturerJobsheetDetailPage() {
           </form>
         </div>
       )}
+      {cancelRemedialTarget && (
+        <LecturerModal
+          title="Batalkan Sesi Remedial?"
+          onClose={() => {
+            if (!cancellingRemedial) setCancelRemedialTarget(null)
+          }}
+          size="sm"
+          footer={
+            <>
+              <LecturerButton
+                variant="secondary"
+                onClick={() => setCancelRemedialTarget(null)}
+                disabled={cancellingRemedial}
+              >
+                Kembali
+              </LecturerButton>
+              <LecturerButton
+                variant="danger"
+                onClick={handleConfirmCancelRemedial}
+                disabled={cancellingRemedial}
+              >
+                {cancellingRemedial && <Loader2 size={16} className="animate-spin" />}
+                {cancellingRemedial ? "Membatalkan..." : "Ya, Batalkan Sesi"}
+              </LecturerButton>
+            </>
+          }
+        >
+          <div className="space-y-4 text-sm text-gray-700">
+            <div className="space-y-2">
+              <p>Sesi remedial ini akan dibatalkan.</p>
+              <p>Mahasiswa peserta tidak lagi dapat mengerjakan remedial ini.</p>
+              <p>Pengerjaan, submission, nilai, dan riwayat remedial yang sudah tersimpan tidak akan dihapus.</p>
+            </div>
+            <dl className="grid gap-2 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm">
+              <div className="grid grid-cols-[90px_1fr] gap-3">
+                <dt className="font-semibold text-gray-600">Jobsheet:</dt>
+                <dd className="font-medium text-gray-900">{jobsheet?.title || cancelRemedialTarget.title}</dd>
+              </div>
+              <div className="grid grid-cols-[90px_1fr] gap-3">
+                <dt className="font-semibold text-gray-600">Mulai:</dt>
+                <dd>{formatAcademicDateTime(cancelRemedialTarget.startAt)}</dd>
+              </div>
+              <div className="grid grid-cols-[90px_1fr] gap-3">
+                <dt className="font-semibold text-gray-600">Berakhir:</dt>
+                <dd>{formatAcademicDateTime(cancelRemedialTarget.endAt)}</dd>
+              </div>
+              <div className="grid grid-cols-[90px_1fr] gap-3">
+                <dt className="font-semibold text-gray-600">Peserta:</dt>
+                <dd>{cancelRemedialTarget.participantCount ?? cancelRemedialTarget.participant_count ?? (selectedRemedialId === cancelRemedialTarget.id ? remedialStudents.length : 0)} mahasiswa</dd>
+              </div>
+            </dl>
+          </div>
+        </LecturerModal>
+      )}
      </LecturerLayout>
    )
  }
+

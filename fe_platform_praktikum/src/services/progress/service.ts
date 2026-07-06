@@ -5,9 +5,13 @@ export const getStudentProgress = async (
   jobsheetId: string,
   studentId: string,
   kelasPraktikumId?: string,
+  attemptType?: string,
+  remedialId?: string,
 ): Promise<StudentProgress | null> => {
   const params = new URLSearchParams({ studentId })
   if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
+  if (attemptType) params.set("attemptType", attemptType)
+  if (remedialId) params.set("remedialId", remedialId)
   const res = await apiFetch(
     `/student-progress/${jobsheetId}?${params.toString()}`,
   )
@@ -35,6 +39,8 @@ export interface UpdateStudentProgressPayload {
   instructionId?: string | null
   activityType: string
   metadata?: Record<string, unknown>
+  attemptType?: "normal" | "remedial" | null
+  remedialId?: string | null
 }
 
 export const updateStudentProgressApi = async (

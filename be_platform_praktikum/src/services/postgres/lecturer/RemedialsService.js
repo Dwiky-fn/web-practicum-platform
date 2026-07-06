@@ -85,6 +85,7 @@ class RemedialsService {
     studentIds,
   }, lecturerId) {
     await this._assertLecturerAccess(kelasPraktikumId, lecturerId);
+    const uniqueStudentIds = Array.from(new Set(studentIds || []));
 
     const client = await this._pool.connect();
     try {
@@ -120,7 +121,7 @@ class RemedialsService {
         { role: 'DOSEN', id: lecturerId }
       );
 
-      for (const studentId of studentIds) {
+      for (const studentId of uniqueStudentIds) {
         // Resolve student's class membership (kelas_mhs)
         const kmResult = await client.query(
           `SELECT km.id AS id_kelas_mhs
@@ -238,11 +239,19 @@ class RemedialsService {
 
   async getRemedialsByJobsheet(jobsheetId, lecturerId) {
     const result = await this._pool.query(
-      `SELECT jr.*, kp.nama_kelas
+      `SELECT jr.id, jr.jobsheet_id, jr.id_kelas_praktikum, jr.title, jr.status,
+              to_char(jr.start_at, 'YYYY-MM-DD HH24:MI:SS') AS start_at,
+              to_char(jr.end_at, 'YYYY-MM-DD HH24:MI:SS') AS end_at,
+              to_char(jr.created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at,
+              to_char(jr.updated_at, 'YYYY-MM-DD HH24:MI:SS') AS updated_at,
+              kp.nama_kelas,
+              COUNT(jrs.id)::int AS participant_count
        FROM jobsheet_remedials jr
        JOIN kelas_praktikum kp ON kp.id = jr.id_kelas_praktikum
        JOIN pengampu p ON p.id_kelas_praktikum = kp.id AND p.id_dosen = $2
+       LEFT JOIN jobsheet_remedial_students jrs ON jrs.remedial_id = jr.id
        WHERE jr.jobsheet_id = $1
+       GROUP BY jr.id, kp.nama_kelas
        ORDER BY jr.created_at DESC`,
       [jobsheetId, lecturerId]
     );
@@ -253,6 +262,7 @@ class RemedialsService {
       endAt: row.end_at,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      participantCount: row.participant_count,
     }));
   }
 
@@ -447,9 +457,13 @@ class RemedialsService {
     }
   }
 
-  async deleteRemedial(remedialId, lecturerId) {
+  async cancelRemedial(remedialId, lecturerId) {
     const remResult = await this._pool.query(
-      'SELECT id_kelas_praktikum FROM jobsheet_remedials WHERE id = $1',
+      `SELECT jr.id, jr.id_kelas_praktikum, jr.status, jr.jobsheet_id,
+              to_char(jr.start_at, 'YYYY-MM-DD HH24:MI:SS') AS start_at,
+              to_char(jr.end_at, 'YYYY-MM-DD HH24:MI:SS') AS end_at
+       FROM jobsheet_remedials jr
+       WHERE jr.id = $1`,
       [remedialId]
     );
 
@@ -457,56 +471,32 @@ class RemedialsService {
       throw new NotFoundError('Sesi remedial tidak ditemukan');
     }
 
-    const { id_kelas_praktikum: kelasPraktikumId } = remResult.rows[0];
+    const { id_kelas_praktikum: kelasPraktikumId, status } = remResult.rows[0];
     await this._assertLecturerAccess(kelasPraktikumId, lecturerId);
 
-    const client = await this._pool.connect();
-    try {
-      await client.query('BEGIN');
-
-      // 1. Delete student activity logs for this remedial session
-      await client.query(
-        'DELETE FROM student_jobsheet_activity_logs WHERE remedial_id = $1',
-        [remedialId]
-      );
-
-      // 2. Delete student jobsheet progress for this remedial session
-      await client.query(
-        'DELETE FROM student_jobsheet_progress WHERE remedial_id = $1',
-        [remedialId]
-      );
-
-      // 3. Delete student progress for this remedial session
-      await client.query(
-        'DELETE FROM student_progress WHERE remedial_id = $1',
-        [remedialId]
-      );
-
-      // 4. Delete jobsheet remedial students reference/record
-      await client.query(
-        'DELETE FROM jobsheet_remedial_students WHERE remedial_id = $1',
-        [remedialId]
-      );
-
-      // 5. Delete task submissions for this remedial session
-      await client.query(
-        'DELETE FROM task_submissions WHERE remedial_id = $1',
-        [remedialId]
-      );
-
-      // 6. Delete remedial session itself
-      await client.query(
-        'DELETE FROM jobsheet_remedials WHERE id = $1',
-        [remedialId]
-      );
-
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
+    if (status === 'cancelled') {
+      return {
+        ...remResult.rows[0],
+        alreadyCancelled: true,
+      };
     }
+
+    const result = await this._pool.query(
+      `UPDATE jobsheet_remedials
+       SET status = 'cancelled',
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING id, jobsheet_id, id_kelas_praktikum, status,
+                 to_char(start_at, 'YYYY-MM-DD HH24:MI:SS') AS start_at,
+                 to_char(end_at, 'YYYY-MM-DD HH24:MI:SS') AS end_at,
+                 to_char(updated_at, 'YYYY-MM-DD HH24:MI:SS') AS updated_at`,
+      [remedialId]
+    );
+
+    return {
+      ...result.rows[0],
+      alreadyCancelled: false,
+    };
   }
 }
 

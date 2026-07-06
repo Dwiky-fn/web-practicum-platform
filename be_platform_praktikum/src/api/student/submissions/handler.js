@@ -75,6 +75,8 @@ class SubmissionsHandler {
         // classId is a compatibility alias for kelasPraktikumId.
         classId: req.body.classId || req.query.classId,
         kelasPraktikumId: req.body.kelasPraktikumId || req.body.id_kelas_praktikum || req.query.kelasPraktikumId || req.query.id_kelas_praktikum,
+        attemptType: req.body.attemptType || req.query.attemptType || null,
+        remedialId: req.body.remedialId || req.query.remedialId || null,
       };
 
       const submission = await this._service.createSubmission(payload);
@@ -144,6 +146,8 @@ class SubmissionsHandler {
   async putSubmissionHandler(req, res) {
     const { jobsheetId, courseId, mataKuliahId } = req.params;
     const studentId = this._requireStudentId(req);
+    const attemptType = req.query.attemptType || req.body.attemptType || null;
+    const remedialId = req.query.remedialId || req.body.remedialId || null;
 
     if (req.body.experimentId !== undefined || req.body.instructionId !== undefined) {
       const stepPayload = SubmissionsValidator.validateStepPayload(req.body);
@@ -154,10 +158,12 @@ class SubmissionsHandler {
           studentId,
           courseId,
           mataKuliahId,
-        classId: req.query.classId || req.body.classId,
-        kelasPraktikumId: req.query.kelasPraktikumId || req.query.id_kelas_praktikum || req.body.kelasPraktikumId || req.body.id_kelas_praktikum,
-        stepPayload,
-      });
+          classId: req.query.classId || req.body.classId,
+          kelasPraktikumId: req.query.kelasPraktikumId || req.query.id_kelas_praktikum || req.body.kelasPraktikumId || req.body.id_kelas_praktikum,
+          stepPayload,
+          attemptType,
+          remedialId,
+        });
 
         return res.json({
           status: 'success',
@@ -183,6 +189,8 @@ class SubmissionsHandler {
         status,
         classId: req.query.classId || req.body.classId,
         kelasPraktikumId: req.query.kelasPraktikumId || req.query.id_kelas_praktikum || req.body.kelasPraktikumId || req.body.id_kelas_praktikum,
+        attemptType,
+        remedialId,
       });
 
       return res.json({
@@ -197,6 +205,8 @@ class SubmissionsHandler {
   async submitSubmissionHandler(req, res) {
     const { jobsheetId } = req.params;
     const studentId = this._requireStudentId(req);
+    const attemptType = req.query.attemptType || req.body?.attemptType || null;
+    const remedialId = req.query.remedialId || req.body?.remedialId || null;
 
     const submission = await this._service.submitSubmission(
       jobsheetId,
@@ -204,6 +214,8 @@ class SubmissionsHandler {
       {
         classId: req.query.classId || req.body?.classId,
         kelasPraktikumId: req.query.kelasPraktikumId || req.query.id_kelas_praktikum || req.body?.kelasPraktikumId || req.body?.id_kelas_praktikum,
+        attemptType,
+        remedialId,
       },
     );
 

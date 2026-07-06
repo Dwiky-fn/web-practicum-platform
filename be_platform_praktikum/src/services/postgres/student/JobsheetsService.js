@@ -181,7 +181,7 @@ class JobsheetsService {
     return this._hydrateJobsheets(result.rows);
   }
 
-  async getJobsheetAccess(studentId, jobsheetId, kelasPraktikumId) {
+  async getJobsheetAccess(studentId, jobsheetId, kelasPraktikumId, remedialId = null, attemptType = null) {
     if (!kelasPraktikumId) {
       return {
         accessMode: 'editable_normal',
@@ -191,207 +191,30 @@ class JobsheetsService {
         message: '',
       };
     }
-
-    // 1. Check active remedial
-    const remedialQuery = await this._pool.query(
-      `SELECT jr.id, jr.title, jr.end_at, jrs.status AS remedial_student_status
-       FROM jobsheet_remedials jr
-       JOIN jobsheet_remedial_students jrs ON jrs.remedial_id = jr.id
-       WHERE jr.jobsheet_id = $1 
-         AND jr.id_kelas_praktikum = $2 
-         AND jrs.student_id = $3
-         AND jr.status = 'open'
-         AND (NOW() AT TIME ZONE 'Asia/Jakarta') BETWEEN jr.start_at AND jr.end_at
-       LIMIT 1`,
-      [jobsheetId, kelasPraktikumId, studentId]
-    );
-
-    if (remedialQuery.rows.length) {
-      const activeRemedial = remedialQuery.rows[0];
-      const remedialId = activeRemedial.id;
-
-      // Get submission for this remedial
-      const subQuery = await this._pool.query(
-        `SELECT ts.id, ts.status, ts.attempt_no, ts.attempt_label, sr.decision
-         FROM task_submissions ts
-         LEFT JOIN LATERAL (
-           SELECT decision FROM submission_reviews
-           WHERE submission_id = ts.id
-           ORDER BY id DESC
-           LIMIT 1
-         ) sr ON true
-         WHERE ts.student_id = $1 AND ts.jobsheet_id = $2 AND ts.id_kelas_praktikum = $3 AND ts.remedial_id = $4
-         LIMIT 1`,
-        [studentId, jobsheetId, kelasPraktikumId, remedialId]
-      );
-
-      if (subQuery.rows.length) {
-        const sub = subQuery.rows[0];
-        if (sub.status === 'SUBMITTED') {
-          if (sub.decision && sub.decision !== 'PENDING') {
-            return {
-              accessMode: 'readonly_reviewed',
-              canEdit: false,
-              canSaveProgress: false,
-              canSubmit: false,
-              attemptType: 'remedial',
-              attemptNo: sub.attempt_no,
-              attemptLabel: `Remedial ${Math.max(1, Number(sub.attempt_no || 2) - 1)}`,
-              remedialId,
-            };
-          }
-          return {
-            accessMode: 'readonly_submitted',
-            canEdit: false,
-            canSaveProgress: false,
-            canSubmit: false,
-            attemptType: 'remedial',
-            attemptNo: sub.attempt_no,
-            attemptLabel: `Remedial ${Math.max(1, Number(sub.attempt_no || 2) - 1)}`,
-            remedialId,
-          };
-        }
-
-        // Draft remedial submission
-        return {
-          accessMode: 'editable_remedial',
-          canEdit: true,
-          canSaveProgress: true,
-          canSubmit: true,
-          attemptType: 'remedial',
-          attemptNo: sub.attempt_no,
-          attemptLabel: `Remedial ${Math.max(1, Number(sub.attempt_no || 2) - 1)}`,
-          remedialId,
-          remedialEndAt: activeRemedial.end_at,
-        };
-      }
-
-      const access = await DeadlineAccessService.resolveAttemptAccess({
-        studentId,
-        jobsheetId,
-        kelasPraktikumId,
-      });
-      return access;
-    }
-
-    // 2. No active remedial. Check normal deadline.
-    const deadlineQuery = await this._pool.query(
-      `SELECT
-         to_char(deadline, 'YYYY-MM-DD HH24:MI:SS') AS deadline,
-         CASE
-           WHEN deadline IS NULL THEN false
-           ELSE (NOW() AT TIME ZONE 'Asia/Jakarta') > deadline
-         END AS is_deadline_passed
-       FROM jobsheet_classes
-       WHERE jobsheet_id = $1 AND id_kelas_praktikum = $2`,
-      [jobsheetId, kelasPraktikumId]
-    );
-
-    let isDeadlinePassed = false;
-    let deadlineStr = null;
-    if (deadlineQuery.rows.length) {
-      deadlineStr = deadlineQuery.rows[0].deadline;
-      isDeadlinePassed = Boolean(deadlineQuery.rows[0].is_deadline_passed);
-    }
-
-    // Get normal submission
-    const normalSubQuery = await this._pool.query(
-      `SELECT ts.id, ts.status, ts.attempt_no, ts.attempt_label, sr.decision
-       FROM task_submissions ts
-       LEFT JOIN LATERAL (
-         SELECT decision FROM submission_reviews
-         WHERE submission_id = ts.id
-         ORDER BY id DESC
-         LIMIT 1
-       ) sr ON true
-       WHERE ts.student_id = $1 AND ts.jobsheet_id = $2 AND ts.id_kelas_praktikum = $3 AND ts.remedial_id IS NULL
-       LIMIT 1`,
-      [studentId, jobsheetId, kelasPraktikumId]
-    );
-
-    if (normalSubQuery.rows.length) {
-      const sub = normalSubQuery.rows[0];
-      if (sub.status === 'SUBMITTED') {
-        if (sub.decision && sub.decision !== 'PENDING') {
-          return {
-            accessMode: 'readonly_reviewed',
-            canEdit: false,
-            canSaveProgress: false,
-            canSubmit: false,
-            attemptType: 'normal',
-            attemptNo: sub.attempt_no,
-            attemptLabel: 'Pengerjaan Normal',
-          };
-        }
-        return {
-          accessMode: 'readonly_submitted',
-          canEdit: false,
-          canSaveProgress: false,
-          canSubmit: false,
-          attemptType: 'normal',
-          attemptNo: sub.attempt_no,
-          attemptLabel: 'Pengerjaan Normal',
-        };
-      }
-
-      // It is DRAFT normal submission
-      if (isDeadlinePassed) {
-        return {
-          accessMode: 'locked_deadline',
-          canEdit: false,
-          canSaveProgress: false,
-          canSubmit: false,
-          message: 'Deadline pengerjaan telah berakhir.',
-          attemptType: 'normal',
-          attemptNo: sub.attempt_no,
-          attemptLabel: 'Pengerjaan Normal',
-        };
-      }
-
-      return {
-        accessMode: 'editable_normal',
-        canEdit: true,
-        canSaveProgress: true,
-        canSubmit: true,
-        attemptType: 'normal',
-        attemptNo: sub.attempt_no,
-        attemptLabel: 'Pengerjaan Normal',
-      };
-    }
-
-    // No submission yet
-    if (isDeadlinePassed) {
-      return {
-        accessMode: 'locked_deadline',
-        canEdit: false,
-        canSaveProgress: false,
-        canSubmit: false,
-        message: 'Deadline pengerjaan telah berakhir.',
-        attemptType: 'normal',
-        attemptNo: 1,
-        attemptLabel: 'Pengerjaan Normal',
-      };
-    }
-
-    return {
-      accessMode: 'editable_normal',
-      canEdit: true,
-      canSaveProgress: true,
-      canSubmit: true,
-      attemptType: 'normal',
-      attemptNo: 1,
-      attemptLabel: 'Pengerjaan Normal',
-    };
+    return DeadlineAccessService.resolveAttemptAccess({
+      studentId,
+      jobsheetId,
+      kelasPraktikumId,
+      remedialId,
+      attemptType,
+    });
   }
 
-  async getJobsheetFullByMataKuliah(jobsheetId, mataKuliahId, kelasPraktikumId = null, user = null) {
+
+  async getJobsheetFullByMataKuliah(jobsheetId, mataKuliahId, kelasPraktikumId = null, user = null, remedialId = null, attemptType = null) {
     const jobsheets = await this.getJobsheetsByMataKuliah(mataKuliahId, kelasPraktikumId, user);
     const jobsheet = jobsheets.find((item) => item.id === jobsheetId);
     if (!jobsheet) {
       throw new Error('Jobsheet tidak tersedia untuk kelas Anda.');
     }
     if (user && user.role === 'MAHASISWA') {
-      jobsheet.access = await this.getJobsheetAccess(user.id, jobsheetId, kelasPraktikumId || jobsheet.id_kelas_praktikum);
+      jobsheet.access = await this.getJobsheetAccess(
+        user.id,
+        jobsheetId,
+        kelasPraktikumId || jobsheet.id_kelas_praktikum,
+        remedialId,
+        attemptType
+      );
     } else {
       jobsheet.access = {
         accessMode: 'editable_normal',
@@ -402,6 +225,7 @@ class JobsheetsService {
     }
     return jobsheet;
   }
+
 }
 
 module.exports = JobsheetsService;

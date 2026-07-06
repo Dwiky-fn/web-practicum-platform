@@ -7,6 +7,7 @@ import WorkSidebar from "./components/sidebar/WorkSidebar"
 import TopProgressBar from "../../../../components/loading/TopProgressBar"
 import NotFoundPage from "../../../not-found/NotFoundPage"
 import { academicCourseBasePath, academicJobsheetPath } from "../../../../services/academicScope"
+import { formatAcademicDateTime } from "../../../../shared/utils/formatAcademicDateTime"
 
 export default function WorkPage() {
   const { courseId, mataKuliahId: routeMataKuliahId, jobsheetId } = useParams<{
@@ -43,13 +44,7 @@ export default function WorkPage() {
   const accessMode = access.accessMode
   const readOnly = !access.canEdit || accessMode === "locked_deadline" || accessMode === "readonly_submitted" || accessMode === "readonly_reviewed" || isBrowsingHistory
   const formattedEndAt = access.remedialEndAt
-    ? new Date(access.remedialEndAt).toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
+    ? formatAcademicDateTime(access.remedialEndAt)
     : ""
 
   const handleWorkScroll = useCallback(() => {

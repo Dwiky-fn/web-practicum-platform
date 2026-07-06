@@ -1,5 +1,6 @@
 import type { Jobsheet } from "../../../../../../../services/jobsheet/types"
 import { useCurrentUser } from "../../../../../../../services/user/useCurrentUser"
+import { formatAcademicDate } from "../../../../../../../shared/utils/formatAcademicDateTime"
 
 interface Props {
   jobsheet: Jobsheet
@@ -8,11 +9,7 @@ interface Props {
 export default function StudentIdentityCard({ jobsheet }: Props) {
   const { user, loading } = useCurrentUser()
 
-  const today = new Date().toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  })
+  const today = formatAcademicDate(new Date())
 
   return (
     <div className="bg-white border rounded-xl overflow-hidden">

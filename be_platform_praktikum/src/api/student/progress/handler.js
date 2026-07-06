@@ -11,7 +11,7 @@ class StudentProgressHandler {
   async getProgressHandler(req, res, next) {
     try {
       const { jobsheetId } = req.params;
-      const { classId, studentId, kelasPraktikumId, id_kelas_praktikum } = req.query;
+      const { classId, studentId, kelasPraktikumId, id_kelas_praktikum, attemptType, remedialId } = req.query;
 
       if (!studentId) {
         throw new InvariantError('studentId wajib diisi');
@@ -26,6 +26,8 @@ class StudentProgressHandler {
         studentId,
         jobsheetId,
         resolvedKelasPraktikumId,
+        attemptType || null,
+        remedialId || null,
       );
 
       return res.json({
@@ -40,7 +42,7 @@ class StudentProgressHandler {
   async upsertProgressHandler(req, res, next) {
     try {
       const { jobsheetId } = req.params;
-      const { studentId, classId, kelasPraktikumId, id_kelas_praktikum, progress, lastPage, status, completedItems } = req.body;
+      const { studentId, classId, kelasPraktikumId, id_kelas_praktikum, progress, lastPage, status, completedItems, attemptType, remedialId } = req.body;
 
       if (!studentId) {
         throw new InvariantError('studentId wajib diisi');
@@ -59,6 +61,8 @@ class StudentProgressHandler {
         lastPage,
         status,
         completedItems,
+        attemptType: attemptType || null,
+        remedialId: remedialId || null,
       });
 
       return res.json({
@@ -73,7 +77,7 @@ class StudentProgressHandler {
   async updateJobsheetProgressHandler(req, res, next) {
     try {
       const { jobsheetId } = req.params;
-      const { studentId, classId, kelasPraktikumId, id_kelas_praktikum, moduleId, experimentId, instructionId, activityType, metadata } = req.body;
+      const { studentId, classId, kelasPraktikumId, id_kelas_praktikum, moduleId, experimentId, instructionId, activityType, metadata, attemptType, remedialId } = req.body;
 
       if (!studentId) {
         throw new InvariantError('studentId wajib diisi');
@@ -97,6 +101,8 @@ class StudentProgressHandler {
         instructionId,
         activityType,
         metadata,
+        attemptType: attemptType || null,
+        remedialId: remedialId || null,
       });
 
       return res.json({

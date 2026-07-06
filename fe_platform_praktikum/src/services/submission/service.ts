@@ -84,9 +84,10 @@ export const updateSubmission = async (
   status?: string,
   scope?: SubmissionScope,
 ) => {
-  const res = await apiFetch(buildSubmissionPath(courseId, jobsheetId, scope), {
+  const query = scope ? `?${buildStudentQuery(studentId, scope)}` : `?studentId=${studentId}`
+  const res = await apiFetch(`${buildSubmissionPath(courseId, jobsheetId, scope)}${query}`, {
     method: "PUT",
-    body: JSON.stringify({ studentId, report, status, kelasPraktikumId: scope?.kelasPraktikumId })
+    body: JSON.stringify({ studentId, report, status, kelasPraktikumId: scope?.kelasPraktikumId, attemptType: scope?.attemptType, remedialId: scope?.remedialId })
   })
 
   return res.data.submission ? mapSubmission(res.data.submission) : null
@@ -98,9 +99,10 @@ export const submitSubmission = async (
   studentId: string,
   scope?: SubmissionScope,
 ) => {
-  return apiFetch(`${buildSubmissionPath(courseId, jobsheetId, scope)}/submit`, {
+  const query = scope ? `?${buildStudentQuery(studentId, scope)}` : `?studentId=${studentId}`
+  return apiFetch(`${buildSubmissionPath(courseId, jobsheetId, scope)}/submit${query}`, {
     method: "PATCH",
-    body: JSON.stringify({ studentId, kelasPraktikumId: scope?.kelasPraktikumId }),
+    body: JSON.stringify({ studentId, kelasPraktikumId: scope?.kelasPraktikumId, attemptType: scope?.attemptType, remedialId: scope?.remedialId }),
   })
 }
 

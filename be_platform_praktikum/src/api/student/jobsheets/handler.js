@@ -104,6 +104,8 @@ class JobsheetsHandler {
         mataKuliahId,
         req.query.kelasPraktikumId || req.query.id_kelas_praktikum,
         req.user,
+        req.query.remedialId || null,
+        req.query.attemptType || null,
       );
 
       return res.json({

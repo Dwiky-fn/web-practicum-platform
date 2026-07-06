@@ -9,7 +9,7 @@ import { updateStudentProgressApi } from "../../../../../../services/progress/se
 import { buildReport } from "../../../../../../services/submission/buildReport"
 import { useCurrentUser } from "../../../../../../services/user/useCurrentUser"
 import { toast } from "../../../../../../components/toast/toastStore"
-import { CheckCircle, AlertTriangle, ArrowLeft } from "lucide-react"
+import { CheckCircle, AlertTriangle } from "lucide-react"
 
 export default function TaskPage() {
   const navigate = useNavigate()
@@ -180,7 +180,6 @@ export default function TaskPage() {
               title="Kembali"
               className="w-full flex items-center justify-center gap-2 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
             >
-              <ArrowLeft size={20} />
               <span>Kembali</span>
             </button>
           </div>

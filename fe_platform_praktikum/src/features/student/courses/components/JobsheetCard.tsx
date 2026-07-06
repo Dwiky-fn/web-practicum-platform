@@ -5,6 +5,8 @@ import type {
   JobsheetSubmission,
   SubmissionStatus,
 } from "../../../../services/submission/types";
+import { formatAcademicDate } from "../../../../shared/utils/formatAcademicDateTime";
+import { formatScore } from "../../../../shared/utils/formatScore";
 
 interface JobsheetCardProps {
   jobsheet: Jobsheet;
@@ -81,7 +83,6 @@ export default function JobsheetCard({
   submission,
   onClick,
 }: JobsheetCardProps) {
-  const deadlineDate = new Date(jobsheet.deadline);
   const now = new Date();
   const deadlineState = getDeadlineState(jobsheet.deadline, now);
 
@@ -122,7 +123,6 @@ export default function JobsheetCard({
     ? Math.round((completedWorkItems / totalWorkItems) * 100)
     : 0;
   const latestReviewComment = getLatestReviewComment(submission);
-  const updatedAt = submission?.updatedAt ? new Date(submission.updatedAt) : null;
 
   const isDisabled = isUnpublished;
 
@@ -166,7 +166,7 @@ export default function JobsheetCard({
                   }
                 >
                   Deadline:{" "}
-                  {deadlineDate.toLocaleDateString("id-ID")} - {deadlineState.label}
+                  {formatAcademicDate(jobsheet.deadline)} - {deadlineState.label}
                 </span>
               </>
             )}
@@ -232,11 +232,11 @@ export default function JobsheetCard({
         {/* NILAI */}
         {(status === "ACCEPTED" || status === "REVISION") && score != null ? (
           <p className="text-sm text-green-600 font-medium">
-            Nilai: {score}
+            Nilai: {formatScore(score)}
           </p>
-        ) : updatedAt ? (
+        ) : submission?.updatedAt ? (
           <p className="text-sm text-gray-500">
-            Update terakhir: {updatedAt.toLocaleDateString("id-ID")}
+            Update terakhir: {formatAcademicDate(submission.updatedAt)}
           </p>
         ) : (
           <div />

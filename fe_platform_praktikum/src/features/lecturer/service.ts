@@ -1,5 +1,6 @@
 import type { JSONContent } from "@tiptap/react"
 import { apiFetch } from "../../services/api"
+import { mapSubmission } from "../../services/submission/mapper"
 import type {
   AdminClassDetail,
   AdminStudent,
@@ -66,6 +67,11 @@ type LecturerCourseJobsheetResponse = {
 export type LecturerSubmissionMatrixItem = {
   student: AdminStudent
   jobsheet: ClassJobsheet
+  submission: JobsheetSubmission | null
+}
+
+export type LecturerEvaluationItem = {
+  student: Pick<AdminStudent, "id" | "nim" | "fullname" | "email">
   submission: JobsheetSubmission | null
 }
 
@@ -183,6 +189,12 @@ export function getSubmissionReviewStatus(submission: JobsheetSubmission | null)
   return "Terkumpul"
 }
 
+export function formatAttemptLabel(submission: Pick<JobsheetSubmission, "attemptType" | "attemptNo" | "attemptLabel"> | null | undefined) {
+  if (!submission || submission.attemptType === "normal") return "Pengerjaan Normal"
+  const remedialNumber = Math.max(1, Number(submission.attemptNo || 2) - 1)
+  return `Remedial ${remedialNumber}`
+}
+
 export function getSubmissionWorkStatus(submission: JobsheetSubmission | null) {
   if (!submission || submission.status === "DRAFT" || submission.status === "OVERDUE") return "Belum"
   if (submission.status === "ACCEPTED") return "Selesai"
@@ -287,6 +299,23 @@ export async function getLecturerSubmissionMatrix(
   )
 
   return Promise.all(tasks)
+}
+
+export async function getLecturerEvaluationSubmissions(
+  jobsheetId: string,
+  kelasPraktikumId: string,
+): Promise<LecturerEvaluationItem[]> {
+  const params = new URLSearchParams({ kelasPraktikumId })
+  const response = await apiFetch(`/lecturer/jobsheets/${jobsheetId}/evaluation-submissions?${params.toString()}`)
+  const items = (response.data.items ?? []) as Array<{
+    student: LecturerEvaluationItem["student"]
+    submission: Parameters<typeof mapSubmission>[0] | null
+  }>
+
+  return items.map((item) => ({
+    student: item.student,
+    submission: item.submission ? mapSubmission(item.submission) : null,
+  }))
 }
 
 export function buildLecturerJobsheetSummaries(
@@ -542,6 +571,7 @@ export interface LecturerClassProgressSummary {
   totalStudents: number
   notStartedCount: number
   inProgressCount: number
+  overdueCount?: number
   stalledCount: number
   completedCount: number
 }
@@ -559,7 +589,10 @@ export interface LecturerClassProgressStudent {
   first_opened_at?: string | null
   last_activity_at?: string | null
   completed_at?: string | null
-  status: "not_started" | "in_progress" | "stalled" | "completed"
+  status: "not_started" | "in_progress" | "overdue" | "stalled" | "completed"
+  monitoring_status?: "not_started" | "in_progress" | "overdue" | "completed"
+  monitoring_label?: string
+  submission_label?: string | null
   current_position_title: string
   progress_score?: number
   score_breakdown?: ScoreBreakdown | null
@@ -599,7 +632,7 @@ export interface LecturerStudentDetailProgressResponse {
     first_opened_at?: string | null
     last_activity_at?: string | null
     completed_at?: string | null
-    status: "not_started" | "in_progress" | "stalled" | "completed"
+    status: "not_started" | "in_progress" | "overdue" | "stalled" | "completed"
   }
   progressScore?: ScoreBreakdown
   logs: LecturerStudentActivityLog[]
@@ -642,13 +675,15 @@ export interface LecturerRemedialSession {
   end_at: string
   startAt: string
   endAt: string
-  status: "draft" | "open" | "closed"
+  status: "draft" | "open" | "closed" | "cancelled"
   created_by: string
   created_at: string
   updated_at: string
   createdAt?: string
   updatedAt?: string
   nama_kelas?: string
+  participant_count?: number
+  participantCount?: number
 }
 
 export interface LecturerRemedialStudent {

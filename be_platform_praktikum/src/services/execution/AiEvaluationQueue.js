@@ -19,6 +19,94 @@ function parseTemplateFiles(templateCode, defaultFileName) {
   return { [defaultFileName]: templateCode };
 }
 
+function parseSubmissionSnapshot(rawReport, submissionId = '') {
+  if (!rawReport) {
+    return {};
+  }
+
+  if (typeof rawReport === 'object') {
+    return rawReport;
+  }
+
+  if (typeof rawReport !== 'string') {
+    return {};
+  }
+
+  const trimmed = rawReport.trim();
+  if (!trimmed) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (error) {
+    console.warn(`[AI Queue] [${submissionId}] report_html tidak valid JSON. Evaluasi dilanjutkan dengan snapshot kosong.`);
+    return {};
+  }
+}
+
+function toSourceFiles(filesSnapshot, language) {
+  if (!filesSnapshot || typeof filesSnapshot !== 'object') {
+    return [];
+  }
+
+  return Object.entries(filesSnapshot)
+    .filter(([filename]) => filename && typeof filename === 'string')
+    .map(([filename, content]) => ({
+      id: filename,
+      path: filename,
+      language,
+      content: typeof content === 'string' ? content : String(content || ''),
+    }));
+}
+
+function toTemplateFiles(templateCode, defaultFileName, language) {
+  const templateFiles = parseTemplateFiles(templateCode, defaultFileName);
+
+  return Object.entries(templateFiles)
+    .filter(([filename]) => filename && typeof filename === 'string')
+    .map(([filename, content]) => ({
+      id: filename,
+      path: filename,
+      language,
+      content: typeof content === 'string' ? content : String(content || ''),
+    }));
+}
+
+function normalizeExecution(snapshot = {}) {
+  const execution = snapshot.execution && typeof snapshot.execution === 'object'
+    ? snapshot.execution
+    : {};
+
+  const allowedStatuses = new Set([
+    'success',
+    'compiler_error',
+    'runtime_error',
+    'timeout',
+    'failed',
+    'not_run',
+    'unknown',
+    'not_available',
+  ]);
+
+  const output = typeof snapshot.output === 'string' ? snapshot.output : '';
+  const status = allowedStatuses.has(execution.status)
+    ? execution.status
+    : (output.trim() ? 'success' : 'not_run');
+
+  return {
+    status,
+    stdin: typeof execution.stdin === 'string' ? execution.stdin : '',
+    stdout: typeof execution.stdout === 'string' ? execution.stdout : output,
+    stderr: typeof execution.stderr === 'string' ? execution.stderr : '',
+    expectedOutput: typeof execution.expectedOutput === 'string' ? execution.expectedOutput : '',
+    exitCode: Number.isInteger(execution.exitCode) ? execution.exitCode : null,
+    durationMs: Number.isFinite(execution.durationMs) ? execution.durationMs : null,
+    testCases: Array.isArray(execution.testCases) ? execution.testCases : [],
+  };
+}
+
 function extractTextFromTiptap(node) {
   if (!node) return '';
   if (typeof node === 'string') return node;
@@ -364,15 +452,12 @@ class AiEvaluationQueue {
   }
 
   async _clearPreviousAiReview(submissionId) {
-    console.log(`[AI Queue] [${submissionId}] Retry manual: membersihkan draft AI lama sebelum evaluasi ulang.`);
+    console.log(`[AI Queue] [${submissionId}] Retry manual: membersihkan field AI lama tanpa mengubah review dosen.`);
     await pool.query(
       `UPDATE submission_reviews
        SET
          ai_score = NULL,
-         ai_feedback = NULL,
-         final_score = NULL,
-         feedback = NULL,
-         decision = 'PENDING'
+         ai_feedback = NULL
        WHERE submission_id = $1`,
       [submissionId]
     );
@@ -411,7 +496,7 @@ class AiEvaluationQueue {
     }
 
     const sub = submissionRes.rows[0];
-    const report = typeof sub.report_html === 'string' ? JSON.parse(sub.report_html) : (sub.report_html || {});
+    const report = parseSubmissionSnapshot(sub.report_html, submissionId);
 
     // Dapatkan lecturer_id kelas mahasiswa tersebut
     console.log(`[AI Queue] [${submissionId}] Mengambil lecturer ID kelas mahasiswa...`);
@@ -490,24 +575,9 @@ class AiEvaluationQueue {
         const instructionText = instructions[i] || instructions[instructions.length - 1] || 'Lakukan percobaan sesuai modul.';
         const stepNumber = i + 1;
 
-        const files = Object.entries(step.files || {}).map(([filename, content]) => ({
-          id: filename,
-          path: filename,
-          language: sub.programming_language || 'java',
-          content: content
-        }));
-
-        if (files.length === 0) {
-          const templateFiles = parseTemplateFiles(exp.template_code, defaultFileName);
-          Object.entries(templateFiles).forEach(([filename, content]) => {
-            files.push({
-              id: filename,
-              path: filename,
-              language: sub.programming_language || 'java',
-              content: content || ''
-            });
-          });
-        }
+        const language = sub.programming_language || 'java';
+        const files = toSourceFiles(step.files, language);
+        const templateFiles = toTemplateFiles(exp.template_code, defaultFileName, language);
 
         const totalRubricScore = Number(exp.rubric) || 100;
         const baseScore = Math.floor(totalRubricScore / numSteps);
@@ -521,18 +591,11 @@ class AiEvaluationQueue {
           title: `${exp.title} - Langkah ${stepNumber}`,
           objective: '',
           instruction: instructionText,
-          language: sub.programming_language || 'java',
+          language,
           files,
-          execution: {
-            status: 'success',
-            stdin: '',
-            stdout: step.output || '',
-            stderr: '',
-            expectedOutput: '',
-            exitCode: 0,
-            durationMs: 0,
-            testCases: []
-          },
+          templateFiles,
+          hasStudentCode: files.length > 0,
+          execution: normalizeExecution(step),
           studentAnalysis: extractTextFromTiptap(step.analysis),
           studentConclusion: '',
           rubric: {
@@ -553,24 +616,9 @@ class AiEvaluationQueue {
     const payloadExercises = [];
     for (const exe of exercises) {
       const exeReport = report.exercises?.[exe.id] || {};
-      const files = Object.entries(exeReport.files || {}).map(([filename, content]) => ({
-        id: filename,
-        path: filename,
-        language: sub.programming_language || 'java',
-        content: content
-      }));
-
-      if (files.length === 0) {
-        const templateFiles = parseTemplateFiles(exe.template_code, defaultFileName);
-        Object.entries(templateFiles).forEach(([filename, content]) => {
-          files.push({
-            id: filename,
-            path: filename,
-            language: sub.programming_language || 'java',
-            content: content || ''
-          });
-        });
-      }
+      const language = sub.programming_language || 'java';
+      const files = toSourceFiles(exeReport.files, language);
+      const templateFiles = toTemplateFiles(exe.template_code, defaultFileName, language);
 
       payloadExercises.push({
         id: exe.id,
@@ -579,18 +627,11 @@ class AiEvaluationQueue {
         instruction: typeof exe.instruction_content === 'string'
           ? exe.instruction_content
           : extractTextFromTiptap(exe.instruction_content),
-        language: sub.programming_language || 'java',
+        language,
         files,
-        execution: {
-          status: 'success',
-          stdin: '',
-          stdout: exeReport.output || '',
-          stderr: '',
-          expectedOutput: '',
-          exitCode: 0,
-          durationMs: 0,
-          testCases: []
-        },
+        templateFiles,
+        hasStudentCode: files.length > 0,
+        execution: normalizeExecution(exeReport),
         studentAnalysis: extractTextFromTiptap(exeReport.analysis),
         studentConclusion: '',
         rubric: {
@@ -627,11 +668,24 @@ class AiEvaluationQueue {
     }
 
     const payload = {
+      schemaVersion: '1.0',
       scope: 'jobsheet',
-      submissionId: submissionId,
-      class_id: sub.class_id,
-      course_name: sub.course_name,
-      programming_language: sub.programming_language,
+      submission: {
+        id: submissionId,
+        source: sub.remedial_id ? 'remedial' : (sub.submission_source || 'manual'),
+        attemptType: sub.attempt_type || (sub.remedial_id ? 'remedial' : 'normal'),
+        attemptNo: Number(sub.attempt_no || 1),
+        remedialId: sub.remedial_id || null,
+        isAutoSubmitted: Boolean(sub.is_auto_submitted),
+      },
+      context: {
+        kelasPraktikumId: sub.id_kelas_praktikum || classRes.rows[0]?.id_kelas_praktikum || null,
+        idKelasMhs: sub.id_kelas_mhs || null,
+        studentId: sub.student_id,
+        classId: sub.class_id,
+        programmingLanguage: sub.programming_language,
+        courseName: sub.course_name,
+      },
       jobsheet: {
         id: sub.jobsheet_id,
         title: sub.jobsheet_title,
@@ -648,6 +702,32 @@ class AiEvaluationQueue {
         includeScoreRecommendation: true
       }
     };
+
+    if (process.env.AI_EVALUATOR_DEBUG_PAYLOAD === 'true') {
+      console.log('[AI Queue] Payload summary', {
+        submissionId,
+        scope: payload.scope,
+        schemaVersion: payload.schemaVersion,
+        submissionSource: payload.submission?.source,
+        attemptType: payload.submission?.attemptType,
+        remedialId: payload.submission?.remedialId,
+        experimentsCount: payload.experiments?.length,
+        exercisesCount: payload.exercises?.length,
+        rubricCriteriaCount: payload.rubric?.criteria?.length,
+        experimentFileCounts: payload.experiments?.map((item) => ({
+          id: item.id,
+          files: item.files?.length || 0,
+          templateFiles: item.templateFiles?.length || 0,
+          executionStatus: item.execution?.status,
+        })),
+        exerciseFileCounts: payload.exercises?.map((item) => ({
+          id: item.id,
+          files: item.files?.length || 0,
+          templateFiles: item.templateFiles?.length || 0,
+          executionStatus: item.execution?.status,
+        })),
+      });
+    }
 
     const headers = { 'Content-Type': 'application/json' };
     if (aiServiceKey) {
@@ -905,7 +985,10 @@ class AiEvaluationQueue {
         console.log(`[AI Queue] [${submissionId}] Ditemukan review lama dengan ID: ${reviewId}, mengupdate review...`);
         await client.query(
           `UPDATE submission_reviews
-           SET lecturer_id = $2, ai_score = $3, final_score = NULL, ai_feedback = $4, feedback = NULL, decision = 'PENDING'
+           SET
+             lecturer_id = COALESCE(lecturer_id, $2),
+             ai_score = $3,
+             ai_feedback = $4
            WHERE id = $1`,
           [reviewId, lecturerId, totalScore, JSON.stringify(aiFeedback)]
         );

@@ -77,19 +77,23 @@ class SubmissionsService {
     return options.kelasPraktikumId || options.id_kelas_praktikum || options.classId || null;
   }
 
-  async assertWriteAccess(studentId, jobsheetId, kelasPraktikumId) {
+  async assertWriteAccess(studentId, jobsheetId, kelasPraktikumId, remedialId = null, attemptType = null) {
     return DeadlineAccessService.assertCanWriteDraft({
       studentId,
       jobsheetId,
       kelasPraktikumId,
+      remedialId,
+      attemptType,
     });
   }
 
-  async assertSubmitAccess(studentId, jobsheetId, kelasPraktikumId) {
+  async assertSubmitAccess(studentId, jobsheetId, kelasPraktikumId, remedialId = null, attemptType = null) {
     return DeadlineAccessService.assertCanSubmit({
       studentId,
       jobsheetId,
       kelasPraktikumId,
+      remedialId,
+      attemptType,
     });
   }
 
@@ -110,7 +114,22 @@ class SubmissionsService {
   _buildSubmissionSelect() {
     return `
       SELECT
-        ts.*,
+        ts.id,
+        ts.jobsheet_id,
+        ts.student_id,
+        ts.status,
+        ts.report_html,
+        ts.attempt_no,
+        ts.attempt_type,
+        ts.attempt_label,
+        ts.remedial_id,
+        ts.submission_source,
+        ts.id_kelas_praktikum,
+        ts.id_kelas_mhs,
+        ts.is_auto_submitted,
+        ts.calculated_progress_score,
+        ts.score_breakdown,
+        to_char(ts.submitted_at, 'YYYY-MM-DD HH24:MI:SS') AS submitted_at,
         NULLIF(ts.report_html, '')::json AS report,
         sr.ai_score AS score,
         CASE
@@ -275,6 +294,8 @@ class SubmissionsService {
     classId,
     kelasPraktikumId = null,
     status = 'DRAFT',
+    attemptType = null,
+    remedialId = null,
   }) {
     const id = `sub-${randomUUID().slice(0, 12)}`;
     const nativeKelasPraktikumId = this._resolveKelasPraktikumParam({ kelasPraktikumId, classId });
@@ -287,6 +308,8 @@ class SubmissionsService {
       studentId,
       jobsheetId,
       kelasPraktikumId: academicContext.id_kelas_praktikum,
+      attemptType,
+      remedialId,
     });
 
     const jobsheet = await this._jobsheetService.getJobsheetFullByMataKuliah(
@@ -298,11 +321,11 @@ class SubmissionsService {
 
     const report = this._generateInitialReport(jobsheet);
     const attemptNo = writeAccess.attemptNo || 1;
-    const attemptType = writeAccess.attemptType || 'normal';
-    const attemptLabel = attemptType === 'remedial' ? writeAccess.attemptLabel : 'Pengerjaan Normal';
-    const remedialId = writeAccess.remedialId || null;
-    const submissionSource = attemptType === 'remedial' ? 'remedial' : 'manual';
-    const conflictTarget = remedialId
+    const resolvedAttemptType = writeAccess.attemptType || attemptType || 'normal';
+    const resolvedAttemptLabel = resolvedAttemptType === 'remedial' ? writeAccess.attemptLabel : 'Pengerjaan Normal';
+    const resolvedRemedialId = writeAccess.remedialId || remedialId || null;
+    const submissionSource = resolvedAttemptType === 'remedial' ? 'remedial' : 'manual';
+    const conflictTarget = resolvedRemedialId
       ? '(student_id, jobsheet_id, id_kelas_praktikum, remedial_id) WHERE (remedial_id IS NOT NULL)'
       : '(student_id, jobsheet_id, id_kelas_praktikum) WHERE (remedial_id IS NULL)';
 
@@ -330,9 +353,9 @@ class SubmissionsService {
         JSON.stringify(report),
         status,
         attemptNo,
-        attemptType,
-        attemptLabel,
-        remedialId,
+        resolvedAttemptType,
+        resolvedAttemptLabel,
+        resolvedRemedialId,
         submissionSource,
       ],
     };
@@ -460,6 +483,54 @@ class SubmissionsService {
       return await this._enrichSubmission(submission);
     }
 
+    if (options.attemptType === 'remedial') {
+      let activeRemedialId = null;
+      if (academicContext?.id_kelas_praktikum) {
+        const activeQuery = await this._pool.query(
+          `SELECT jr.id
+           FROM jobsheet_remedials jr
+           JOIN jobsheet_remedial_students jrs ON jrs.remedial_id = jr.id
+           WHERE jr.jobsheet_id = $1 
+             AND jr.id_kelas_praktikum = $2 
+             AND jrs.student_id = $3
+             AND jr.status = 'open'
+             AND (NOW() AT TIME ZONE 'Asia/Jakarta') BETWEEN jr.start_at AND jr.end_at
+           LIMIT 1`,
+          [jobsheetId, academicContext.id_kelas_praktikum, studentId]
+        );
+        if (activeQuery.rows.length) {
+          activeRemedialId = activeQuery.rows[0].id;
+        }
+      }
+
+      if (activeRemedialId) {
+        const result = await this._pool.query(
+          `
+          ${this._buildSubmissionSelect()}
+          WHERE ts.student_id = $1 AND ts.jobsheet_id = $2 AND ts.remedial_id = $3
+          ${scope.clause}
+          LIMIT 1
+          `,
+          [studentId, jobsheetId, activeRemedialId, ...scope.values]
+        );
+        const submission = this._mapSubmissionRow(result.rows[0]) || null;
+        return await this._enrichSubmission(submission);
+      } else {
+        const result = await this._pool.query(
+          `
+          ${this._buildSubmissionSelect()}
+          WHERE ts.student_id = $1 AND ts.jobsheet_id = $2 AND ts.remedial_id IS NOT NULL
+          ${scope.clause}
+          ORDER BY ts.submitted_at DESC NULLS LAST, ts.id DESC
+          LIMIT 1
+          `,
+          [studentId, jobsheetId, ...scope.values]
+        );
+        const submission = this._mapSubmissionRow(result.rows[0]) || null;
+        return await this._enrichSubmission(submission);
+      }
+    }
+
     if (options.attemptType === 'normal') {
       const result = await this._pool.query(
         `
@@ -544,17 +615,19 @@ class SubmissionsService {
       mataKuliahId: options.mataKuliahId || options.id_mata_kuliah,
       studentId,
       kelasPraktikumId: nativeKelasPraktikumId,
+      attemptType: options.attemptType || null,
+      remedialId: options.remedialId || null,
     });
   }
 
-  async updateSubmission({ jobsheetId, studentId, mataKuliahId, courseId, report, status, classId, kelasPraktikumId = null }) {
+  async updateSubmission({ jobsheetId, studentId, mataKuliahId, courseId, report, status, classId, kelasPraktikumId = null, attemptType = null, remedialId = null }) {
     const nativeKelasPraktikumId = this._resolveKelasPraktikumParam({ kelasPraktikumId, classId });
     const academicContext = await this._resolveAcademicContext(
       studentId,
       jobsheetId,
       nativeKelasPraktikumId,
     );
-    const writeAccess = await this.assertWriteAccess(studentId, jobsheetId, academicContext.id_kelas_praktikum);
+    const writeAccess = await this.assertWriteAccess(studentId, jobsheetId, academicContext.id_kelas_praktikum, remedialId, attemptType);
 
     // Perform normalization on report before saving
     try {
@@ -845,7 +918,7 @@ class SubmissionsService {
     return submission;
   }
 
-  async updateSubmissionStep({ jobsheetId, studentId, mataKuliahId, courseId, classId, kelasPraktikumId = null, stepPayload }) {
+  async updateSubmissionStep({ jobsheetId, studentId, mataKuliahId, courseId, classId, kelasPraktikumId = null, stepPayload, attemptType = null, remedialId = null }) {
     const nativeKelasPraktikumId = this._resolveKelasPraktikumParam({ kelasPraktikumId, classId });
     const academicContext = await this._resolveAcademicContext(
       studentId,
@@ -862,6 +935,8 @@ class SubmissionsService {
         AND ks.id_kelas = kp.id_kelas
        JOIN kelas_mhs km
          ON km.id_kelas_semester = ks.id
+        AND km.id_mahasiswa = $1
+        AND km.status = 'active'
        JOIN jobsheet_classes jc ON jc.id_kelas_praktikum = kp.id
        WHERE km.id_mahasiswa = $1
          AND km.status = 'active'
@@ -877,11 +952,13 @@ class SubmissionsService {
       throw new Error('Mahasiswa tidak terdaftar atau tidak memiliki akses ke kelas jobsheet ini');
     }
 
-    const writeAccess = await this.assertWriteAccess(studentId, jobsheetId, academicContext.id_kelas_praktikum);
+    const writeAccess = await this.assertWriteAccess(studentId, jobsheetId, academicContext.id_kelas_praktikum, remedialId, attemptType);
 
     const submission = await this.getOrCreateSubmission(jobsheetId, studentId, {
       mataKuliahId: mataKuliahId || courseId,
       kelasPraktikumId: academicContext.id_kelas_praktikum,
+      attemptType,
+      remedialId,
     });
     if (!submission) {
       throw new Error('Submission tidak dapat ditemukan atau dibuat');
@@ -1019,12 +1096,16 @@ class SubmissionsService {
         ts.status,
         ts.calculated_progress_score AS "calculatedProgressScore",
         ts.score_breakdown AS "scoreBreakdown",
-        rev.final_score AS "finalScore",
+        CASE WHEN rev.decision IS NOT NULL AND rev.decision <> 'PENDING' THEN rev.final_score ELSE NULL END AS "finalScore",
         to_char(ts.submitted_at, 'YYYY-MM-DD HH24:MI:SS') AS "submittedAt",
-        NULL::text AS "reviewedAt"
+        NULL::text AS "reviewedAt",
+        ts.remedial_id AS "remedialId",
+        jr.status AS "remedialStatus",
+        to_char(jr.end_at, 'YYYY-MM-DD HH24:MI:SS') AS "remedialEndAt"
        FROM task_submissions ts
+       LEFT JOIN jobsheet_remedials jr ON jr.id = ts.remedial_id
        LEFT JOIN LATERAL (
-         SELECT final_score FROM submission_reviews
+         SELECT final_score, decision FROM submission_reviews
          WHERE submission_id = ts.id
          ORDER BY id DESC
          LIMIT 1

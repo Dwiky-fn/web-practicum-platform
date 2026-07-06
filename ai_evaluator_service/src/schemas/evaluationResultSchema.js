@@ -171,7 +171,7 @@ const jobsheetFullResultSchema = Joi.object({
   submissionId: Joi.string().trim().min(1).max(200).required(),
   jobsheetId: Joi.string().trim().min(1).max(200).required(),
   evaluationStatus: Joi.string().valid('completed', 'partially_failed').required(),
-  experimentEvaluations: Joi.array().items(experimentEvaluationResultSchema).min(1).max(100).required(),
+  experimentEvaluations: Joi.array().items(experimentEvaluationResultSchema).max(100).required(),
   exerciseEvaluations: Joi.array().items(exerciseEvaluationResultSchema).max(100).optional().default([]),
   jobsheetFeedback: jobsheetFeedbackSchema,
   rubricScores: Joi.array().items(rubricScoreSchema).max(100).default([]),

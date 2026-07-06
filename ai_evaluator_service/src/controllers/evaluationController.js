@@ -8,7 +8,7 @@ const {
 const activeEvaluations = new Set();
 
 async function evaluationController(req, res, next) {
-  const submissionId = req.body?.submissionId;
+  const submissionId = req.body?.submissionId || req.body?.submission?.id;
 
   if (submissionId) {
     if (activeEvaluations.has(submissionId)) {
@@ -26,6 +26,19 @@ async function evaluationController(req, res, next) {
     const { error, value } = validateEvaluationRequest(req.body);
 
     if (error) {
+      if (process.env.AI_EVALUATOR_DEBUG_PAYLOAD === 'true') {
+        console.warn('[AI Service] Payload validation failed', {
+          rootKeys: req.body && typeof req.body === 'object' ? Object.keys(req.body) : [],
+          schemaVersion: req.body?.schemaVersion || null,
+          scope: req.body?.scope || null,
+          details: error.details.map((detail) => ({
+            message: detail.message.replace(/"/g, ''),
+            path: detail.path.join('.'),
+            type: detail.type,
+          })),
+        });
+      }
+
       return res.status(400).json({
         status: 'fail',
         message: 'Payload evaluasi tidak valid',

@@ -164,7 +164,9 @@ class MonitoringService {
   async _getAttempts(kelasPraktikumId, jobsheetId, lecturerId, client = this._pool) {
     await this._assertLecturerAccess(kelasPraktikumId, lecturerId, client);
     const result = await client.query(
-      `SELECT id, title, status, start_at, end_at
+      `SELECT id, title, status,
+              to_char(start_at, 'YYYY-MM-DD HH24:MI:SS') AS start_at,
+              to_char(end_at, 'YYYY-MM-DD HH24:MI:SS') AS end_at
        FROM jobsheet_remedials
        WHERE jobsheet_id = $1
          AND id_kelas_praktikum = $2
@@ -310,13 +312,13 @@ class MonitoringService {
          sjp.current_experiment_id,
          sjp.current_instruction_id,
          sjp.status AS progress_status,
-         sjp.last_activity_at,
-         sjp.first_opened_at,
-         sjp.completed_at,
+         to_char(sjp.last_activity_at, 'YYYY-MM-DD HH24:MI:SS') AS last_activity_at,
+         to_char(sjp.first_opened_at, 'YYYY-MM-DD HH24:MI:SS') AS first_opened_at,
+         to_char(sjp.completed_at, 'YYYY-MM-DD HH24:MI:SS') AS completed_at,
          sjp.progress_percentage,
          spr.progress,
          spr.last_page,
-         spr.last_activity,
+         to_char(spr.last_activity, 'YYYY-MM-DD HH24:MI:SS') AS last_activity,
          COALESCE(spr.completed_items, '[]'::jsonb) AS completed_items,
          ts.id AS submission_id,
          ts.status AS submission_status,
@@ -325,8 +327,8 @@ class MonitoringService {
          ts.attempt_no,
          ts.attempt_type,
          ts.remedial_id AS submission_remedial_id,
-         ts.submitted_at,
-         ts.auto_submitted_at,
+         to_char(ts.submitted_at, 'YYYY-MM-DD HH24:MI:SS') AS submitted_at,
+         to_char(ts.auto_submitted_at, 'YYYY-MM-DD HH24:MI:SS') AS auto_submitted_at,
          ts.calculated_progress_score,
          ts.score_breakdown,
          ts.report_html,

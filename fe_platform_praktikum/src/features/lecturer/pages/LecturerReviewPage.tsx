@@ -3,6 +3,8 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useBackNavigation } from "../../../shared/utils/backNavigation";
 const emptyDoc = { type: "doc" as const, content: [] }
 import { ArrowLeft, Eye, Edit } from "lucide-react"
+import { formatAcademicDateTime } from "../../../shared/utils/formatAcademicDateTime"
+import { formatNumber } from "../../../shared/utils/formatScore"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import type { Jobsheet } from "../../../services/jobsheet/types"
@@ -49,8 +51,7 @@ function hasAiFeedbackPayload(aiFeedback: any) {
 }
 
 function formatScore(value?: number | null) {
-  if (value === undefined || value === null || Number.isNaN(Number(value))) return "-"
-  return Number(value).toFixed(2).replace(/\.?0+$/, "")
+  return formatNumber(value);
 }
 
 function scoreItemTypeLabel(type: "theory" | "experiment" | "exercise") {
@@ -679,7 +680,7 @@ export default function LecturerReviewPage() {
                   <dt className="text-gray-600 font-medium">Status</dt>
                   <dd className="text-gray-900">{getSubmissionReviewStatus(submission)}</dd>
                   <dt className="text-gray-600 font-medium font-sans">Diperbarui</dt>
-                  <dd className="text-gray-900">{new Date(submission.updatedAt).toLocaleString("id-ID")}</dd>
+                  <dd className="text-gray-900">{formatAcademicDateTime(submission.updatedAt)}</dd>
                   {submission && (submission as any).attemptLabel && (
                     <>
                       <dt className="text-gray-600 font-medium">Attempt / Pengerjaan</dt>

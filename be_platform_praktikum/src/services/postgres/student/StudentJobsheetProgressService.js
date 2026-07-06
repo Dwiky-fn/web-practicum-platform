@@ -16,10 +16,58 @@ function resolveModuleId({
 }) {
   return normalizeModuleId(
     moduleId
-      || experimentId
-      || instructionId
-      || `jobsheet:${jobsheetId}`,
+    || experimentId
+    || instructionId
+    || `jobsheet:${jobsheetId}`,
   );
+}
+
+function resolveStudentMonitoringStatus(context = {}) {
+  const submissionStatus = String(context.submissionStatus || '').toUpperCase();
+  const hasSubmittedAttempt = ['SUBMITTED', 'REVIEWED'].includes(submissionStatus);
+
+  if (hasSubmittedAttempt) {
+    return {
+      status: 'completed',
+      label: 'Selesai',
+      submissionLabel: context.isAutoSubmitted || context.submissionSource === 'auto_deadline'
+        ? 'Dikumpulkan Otomatis'
+        : 'Dikumpulkan Manual',
+    };
+  }
+
+  if (context.isDeadlinePassed) {
+    return {
+      status: 'overdue',
+      label: 'Terlambat',
+      submissionLabel: null,
+    };
+  }
+
+  const hasProgressOrActivity = Boolean(
+    context.firstOpenedAt
+    || context.lastActivityAt
+    || context.lastActivity
+    || context.latestActivityLogAt
+    || context.currentExperimentId
+    || context.currentInstructionId
+    || Number(context.progressPercentage || 0) > 0
+    || Number(context.completedSteps || 0) > 0,
+  );
+
+  if (hasProgressOrActivity) {
+    return {
+      status: 'in_progress',
+      label: 'Mengerjakan',
+      submissionLabel: null,
+    };
+  }
+
+  return {
+    status: 'not_started',
+    label: 'Belum Mulai',
+    submissionLabel: null,
+  };
 }
 
 class StudentJobsheetProgressService {
@@ -169,6 +217,8 @@ class StudentJobsheetProgressService {
     instructionId,
     activityType,
     metadata = {},
+    attemptType = null,
+    remedialId = null,
   }) {
     const academicContext = await this._resolveAcademicContext(
       studentId,
@@ -179,6 +229,8 @@ class StudentJobsheetProgressService {
       studentId,
       jobsheetId,
       kelasPraktikumId: academicContext.id_kelas_praktikum,
+      attemptType,
+      remedialId,
     });
 
     const jobsheetRes = await this._pool.query(
@@ -214,9 +266,10 @@ class StudentJobsheetProgressService {
 
     const totalSteps = theoryCount + expCount + exeCount + 1; // +1 for the report/task page
 
-    let activeRemedialId = writeAccess.remedialId;
+    const activeRemedialId = writeAccess.remedialId;
     let attemptNo = writeAccess.attemptNo || 1;
-    let attemptType = writeAccess.attemptType || 'normal';
+    const resolvedAttemptType =
+      writeAccess.attemptType || attemptType || 'normal';
 
     if (activeRemedialId) {
       const checkProgress = await this._pool.query(
@@ -377,7 +430,7 @@ class StudentJobsheetProgressService {
         firstOpenedAt,
         completedAt,
         attemptNo,
-        attemptType,
+        resolvedAttemptType,
         activeRemedialId,
       ],
     );
@@ -390,10 +443,24 @@ class StudentJobsheetProgressService {
 
     // 1. Fetch jobsheet content & experiments & exercises
     const jobsheetRes = await this._pool.query(
-      'SELECT content FROM jobsheets WHERE id = $1',
-      [jobsheetId],
+      `SELECT
+         j.content,
+         jc.deadline,
+         CASE
+           WHEN jc.deadline IS NULL THEN false
+           ELSE (NOW() AT TIME ZONE 'Asia/Jakarta') > jc.deadline
+         END AS is_deadline_passed
+       FROM jobsheets j
+       LEFT JOIN jobsheet_classes jc
+         ON jc.jobsheet_id = j.id
+        AND jc.id_kelas_praktikum = $2
+        AND jc.is_active = true
+       WHERE j.id = $1
+       LIMIT 1`,
+      [jobsheetId, kelasPraktikumId],
     );
     const theoryList = (jobsheetRes.rows[0]?.content?.theory) || [];
+    const isDeadlinePassed = Boolean(jobsheetRes.rows[0]?.is_deadline_passed);
 
     const experimentsRes = await this._pool.query(
       'SELECT id, title, rubric FROM experiments WHERE jobsheet_id = $1',
@@ -441,12 +508,9 @@ class StudentJobsheetProgressService {
         ts.calculated_progress_score,
         ts.score_breakdown,
         COALESCE(spr.completed_items, '[]'::jsonb) AS completed_items,
-        CASE
-          WHEN sjp.status = 'completed' THEN 'completed'
-          WHEN sjp.last_activity_at IS NOT NULL AND (NOW() - sjp.last_activity_at) >= INTERVAL '20 minutes' THEN 'stalled'
-          WHEN sjp.status IS NOT NULL THEN sjp.status
-          ELSE 'not_started'
-        END AS status
+        spr.last_activity,
+        activity_log.latest_activity_log_at,
+        sjp.status AS progress_status
       FROM kelas_praktikum kp
       JOIN kelas_semester ks
         ON ks.id_tahun_semester = kp.id_tahun_semester
@@ -482,6 +546,13 @@ class StudentJobsheetProgressService {
         ORDER BY submitted_at DESC NULLS LAST, id DESC
         LIMIT 1
       ) ts ON true
+      LEFT JOIN LATERAL (
+        SELECT MAX(created_at) AS latest_activity_log_at
+        FROM student_jobsheet_activity_logs
+        WHERE student_id = km.id_mahasiswa
+          AND jobsheet_id = $1
+          AND COALESCE(remedial_id, '') = COALESCE(ts.remedial_id, '')
+      ) activity_log ON true
       WHERE kp.id = $2
         AND LOWER(COALESCE(km.status, 'active')) = 'active'
         AND u.is_active = true
@@ -493,39 +564,51 @@ class StudentJobsheetProgressService {
     // Summary statistics counters
     let notStartedCount = 0;
     let inProgressCount = 0;
-    let stalledCount = 0;
+    let overdueCount = 0;
     let completedCount = 0;
 
     const students = await Promise.all(result.rows.map(async (student) => {
+      const monitoringStatus = resolveStudentMonitoringStatus({
+        submissionStatus: student.submission_status,
+        submissionSource: student.submission_source,
+        isAutoSubmitted: student.is_auto_submitted,
+        isDeadlinePassed,
+        firstOpenedAt: student.first_opened_at,
+        lastActivityAt: student.last_activity_at,
+        lastActivity: student.last_activity,
+        latestActivityLogAt: student.latest_activity_log_at,
+        currentExperimentId: student.current_experiment_id,
+        currentInstructionId: student.current_instruction_id,
+        progressPercentage: student.progress_percentage,
+        completedSteps: student.completed_steps,
+      });
+
       // Map user friendly current position title
-      let currentPositionTitle = 'Belum Mulai';
-      if (student.status === 'completed') {
-        currentPositionTitle = 'Selesai';
-        completedCount++;
-      } else if (student.status === 'not_started') {
-        currentPositionTitle = 'Belum Mulai';
-        notStartedCount++;
-      } else if (student.status === 'stalled') {
-        stalledCount++;
-      } else if (student.status === 'in_progress') {
-        inProgressCount++;
+      let currentPositionTitle = 'Belum ada aktivitas';
+      if (student.current_experiment_id) {
+        currentPositionTitle = experimentMap.get(student.current_experiment_id) || 'Percobaan';
+      } else if (student.current_instruction_id) {
+        if (student.current_instruction_id === 'task') {
+          currentPositionTitle = 'Pengerjaan Mahasiswa';
+        } else if (theoryMap.has(student.current_instruction_id)) {
+          currentPositionTitle = theoryMap.get(student.current_instruction_id);
+        } else if (exerciseMap.has(student.current_instruction_id)) {
+          currentPositionTitle = exerciseMap.get(student.current_instruction_id);
+        } else {
+          currentPositionTitle = 'Detail';
+        }
+      } else if (student.first_opened_at || student.last_activity_at || student.last_activity || student.latest_activity_log_at) {
+        currentPositionTitle = 'Aktivitas tersimpan';
       }
 
-      // If in progress or stalled, resolve details
-      if (student.status === 'in_progress' || student.status === 'stalled') {
-        if (student.current_experiment_id) {
-          currentPositionTitle = experimentMap.get(student.current_experiment_id) || 'Percobaan';
-        } else if (student.current_instruction_id) {
-          if (student.current_instruction_id === 'task') {
-            currentPositionTitle = 'Laporan Praktikum';
-          } else if (theoryMap.has(student.current_instruction_id)) {
-            currentPositionTitle = theoryMap.get(student.current_instruction_id);
-          } else if (exerciseMap.has(student.current_instruction_id)) {
-            currentPositionTitle = exerciseMap.get(student.current_instruction_id);
-          } else {
-            currentPositionTitle = 'Detail';
-          }
-        }
+      if (monitoringStatus.status === 'completed') {
+        completedCount++;
+      } else if (monitoringStatus.status === 'not_started') {
+        notStartedCount++;
+      } else if (monitoringStatus.status === 'overdue') {
+        overdueCount++;
+      } else if (monitoringStatus.status === 'in_progress') {
+        inProgressCount++;
       }
 
       const dynamicScore = student.calculated_progress_score != null
@@ -548,6 +631,10 @@ class StudentJobsheetProgressService {
 
       return {
         ...student,
+        status: monitoringStatus.status,
+        monitoring_status: monitoringStatus.status,
+        monitoring_label: monitoringStatus.label,
+        submission_label: monitoringStatus.submissionLabel,
         current_position_title: currentPositionTitle,
         progress_score: dynamicScore.progressScore,
         score_breakdown: dynamicScore,
@@ -559,7 +646,8 @@ class StudentJobsheetProgressService {
         totalStudents: students.length,
         notStartedCount,
         inProgressCount,
-        stalledCount,
+        overdueCount,
+        stalledCount: overdueCount,
         completedCount,
       },
       students,
@@ -765,3 +853,4 @@ class StudentJobsheetProgressService {
 }
 
 module.exports = StudentJobsheetProgressService;
+module.exports.resolveStudentMonitoringStatus = resolveStudentMonitoringStatus;

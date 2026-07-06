@@ -55,6 +55,8 @@ const executionSchema = Joi.object({
       'timeout',
       'failed',
       'not_run',
+      'unknown',
+      'not_available',
     )
     .required(),
   stdin: textSchema.default(''),
@@ -62,7 +64,7 @@ const executionSchema = Joi.object({
   stderr: textSchema.default(''),
   expectedOutput: textSchema.default(''),
   exitCode: Joi.number().integer().allow(null).optional(),
-  durationMs: Joi.number().min(0).optional(),
+  durationMs: Joi.number().min(0).allow(null).optional(),
   testCases: Joi.array().items(testCaseSchema).max(200).default([]),
 });
 
@@ -119,12 +121,14 @@ const experimentSchema = Joi.object({
   objective: Joi.string().allow('').max(50000).default(''),
   instruction: instructionSchema,
   language: programmingLanguageSchema,
-  files: Joi.array().items(sourceFileSchema).min(1).max(100).required(),
+  files: Joi.array().items(sourceFileSchema).max(100).required(),
+  templateFiles: Joi.array().items(sourceFileSchema).max(100).default([]),
+  hasStudentCode: Joi.boolean().optional(),
   execution: executionSchema.allow(null).optional(),
   studentAnalysis: Joi.string().allow('').max(100000).default(''),
   studentConclusion: Joi.string().allow('').max(100000).default(''),
   rubric: rubricSchema.optional(),
-}).required();
+});
 
 
 const experimentResultSummarySchema = Joi.object({

@@ -723,6 +723,125 @@ class LecturerJobsheetsService {
     return this.publishJobsheetByMataKuliah(courseId, jobsheetId, lecturerId, payload);
   }
 
+  async getEvaluationSubmissions(jobsheetId, kelasPraktikumId, lecturerId) {
+    if (!kelasPraktikumId) {
+      throw new ClientError('kelasPraktikumId wajib diisi.', 400);
+    }
+
+    const kelasPraktikum = await this._ensureKelasPraktikumOwnedByLecturer(kelasPraktikumId, lecturerId);
+    await this._ensureJobsheetExistsByMataKuliah(kelasPraktikum.id_mata_kuliah, jobsheetId);
+
+    const result = await this._pool.query(
+      `
+      SELECT
+        u.id AS student_id,
+        u.fullname,
+        u.email,
+        sp.nim,
+        ts.id AS submission_id,
+        ts.jobsheet_id,
+        ts.status AS submission_status,
+        ts.report_html,
+        ts.attempt_no,
+        ts.attempt_type,
+        ts.attempt_label,
+        ts.remedial_id,
+        ts.submission_source,
+        ts.id_kelas_praktikum,
+        ts.id_kelas_mhs,
+        ts.is_auto_submitted,
+        ts.calculated_progress_score,
+        ts.score_breakdown,
+        ts.ai_evaluation_status,
+        ts.ai_evaluation_error,
+        to_char(ts.ai_evaluation_started_at, 'YYYY-MM-DD HH24:MI:SS') AS ai_evaluation_started_at,
+        to_char(ts.ai_evaluation_finished_at, 'YYYY-MM-DD HH24:MI:SS') AS ai_evaluation_finished_at,
+        to_char(ts.submitted_at, 'YYYY-MM-DD HH24:MI:SS') AS submitted_at,
+        sr.ai_score,
+        sr.final_score,
+        sr.feedback,
+        sr.decision,
+        sr.ai_feedback
+      FROM kelas_praktikum kp
+      JOIN jobsheet_classes jc
+        ON jc.id_kelas_praktikum = kp.id
+       AND jc.jobsheet_id = $1
+      JOIN kelas_semester ks
+        ON ks.id_tahun_semester = kp.id_tahun_semester
+       AND ks.id_semester = kp.id_semester
+       AND ks.id_kelas = kp.id_kelas
+      JOIN kelas_mhs km
+        ON km.id_kelas_semester = ks.id
+       AND km.status = 'active'
+      JOIN users u ON u.id = km.id_mahasiswa
+      LEFT JOIN student_profiles sp ON sp.user_id = u.id
+      LEFT JOIN task_submissions ts
+        ON ts.student_id = u.id
+       AND ts.jobsheet_id = jc.jobsheet_id
+       AND ts.id_kelas_praktikum = kp.id
+      LEFT JOIN LATERAL (
+        SELECT *
+        FROM submission_reviews
+        WHERE submission_id = ts.id
+        ORDER BY id DESC
+        LIMIT 1
+      ) sr ON true
+      WHERE kp.id = $2
+      ORDER BY
+        u.fullname ASC,
+        CASE WHEN ts.id IS NULL THEN 0 WHEN ts.attempt_type = 'normal' THEN 0 ELSE 1 END ASC,
+        COALESCE(ts.attempt_no, 1) ASC,
+        ts.submitted_at ASC NULLS LAST,
+        ts.id ASC NULLS LAST
+      `,
+      [jobsheetId, kelasPraktikumId],
+    );
+
+    return result.rows.map((row) => ({
+      student: {
+        id: row.student_id,
+        fullname: row.fullname,
+        nim: row.nim || '-',
+        email: row.email || '',
+      },
+      submission: row.submission_id
+        ? {
+          id: row.submission_id,
+          jobsheet_id: row.jobsheet_id,
+          student_id: row.student_id,
+          status: row.submission_status,
+          report_html: row.report_html,
+          attempt_no: row.attempt_no,
+          attempt_type: row.attempt_type,
+          attempt_label: row.attempt_label,
+          remedial_id: row.remedial_id,
+          submission_source: row.submission_source,
+          id_kelas_praktikum: row.id_kelas_praktikum,
+          id_kelas_mhs: row.id_kelas_mhs,
+          is_auto_submitted: row.is_auto_submitted,
+          calculated_progress_score: row.calculated_progress_score,
+          score_breakdown: row.score_breakdown,
+          ai_evaluation_status: row.ai_evaluation_status,
+          ai_evaluation_error: row.ai_evaluation_error,
+          ai_evaluation_started_at: row.ai_evaluation_started_at,
+          ai_evaluation_finished_at: row.ai_evaluation_finished_at,
+          submitted_at: row.submitted_at,
+          updated_at: row.submitted_at,
+          score: row.ai_score,
+          review: row.decision
+            ? {
+              ai_score: row.ai_score,
+              final_score: row.final_score,
+              feedback: row.feedback,
+              decision: row.decision,
+              ai_feedback: row.ai_feedback || {},
+            }
+            : null,
+        }
+        : null,
+    }));
+  }
+
   async deleteJobsheetByMataKuliah(mataKuliahId, jobsheetId, lecturerId) {
     const client = await this._pool.connect();
 

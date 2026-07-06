@@ -14,12 +14,11 @@ import {
   type MonitoringResponse,
   type MonitoringStudent,
 } from "../../../services/lecturerMonitoring"
+import { formatAcademicTime } from "../../../shared/utils/formatAcademicDateTime"
 
 function formatTime(value?: string | null) {
   if (!value) return "-"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "-"
-  return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+  return formatAcademicTime(value)
 }
 
 function locationKey(item?: Pick<MonitoringLocation, "moduleType" | "moduleId" | "stepId"> | null) {

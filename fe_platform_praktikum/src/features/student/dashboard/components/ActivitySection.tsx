@@ -1,6 +1,7 @@
 import { CheckCircle, BookOpen, ClipboardList } from "lucide-react";
 import type { Activity, ActivityType } from "../../../../services/activity/types";
 import ActivitySectionSkeleton from "../loading/ActivitySkeleton";
+import { formatAcademicDateTime } from "../../../../shared/utils/formatAcademicDateTime";
 
 interface ActivitySectionProps {
   activities: Activity[];
@@ -55,7 +56,7 @@ export default function ActivitySection({
                   {activity.description}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
-                  {new Date(activity.createdAt).toLocaleString()}
+                  {formatAcademicDateTime(activity.createdAt)}
                 </p>
               </div>
             </div>

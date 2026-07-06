@@ -31,6 +31,7 @@ module.exports = (handler) => {
   );
 
   // Remedial routes
+  router.get('/lecturer/jobsheets/:jobsheetId/evaluation-submissions', handler.getEvaluationSubmissionsHandler);
   router.post('/lecturer/jobsheets/:jobsheetId/remedials', handler.postRemedialHandler);
   router.get('/lecturer/jobsheets/:jobsheetId/remedials', handler.getRemedialsHandler);
   router.delete('/lecturer/remedials/:remedialId', handler.deleteRemedialHandler);

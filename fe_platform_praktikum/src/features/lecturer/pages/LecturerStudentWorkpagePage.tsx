@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
-import { ExternalLink, RefreshCw } from "lucide-react"
+import { ExternalLink, RefreshCw, User, MapPin, Activity, Settings } from "lucide-react"
 import type { JSONContent } from "@tiptap/react"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
 import { toast } from "../../../components/toast/toastStore"
@@ -14,27 +14,65 @@ import type { Course } from "../../../services/course/types"
 import type { Jobsheet } from "../../../services/jobsheet/types"
 import type { StudentProgressItem } from "../../../services/progress/types"
 import type { JobsheetSubmission } from "../../../services/submission/types"
+import { formatAcademicDateTime, formatAcademicTime } from "../../../shared/utils/formatAcademicDateTime"
 
 const EMPTY_DOC: JSONContent = { type: "doc", content: [] }
 
 function formatDate(value?: string | null) {
   if (!value) return "-"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "-"
-  return date.toLocaleString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
+  return formatAcademicDateTime(value)
 }
 
 function formatClock(value?: string | null) {
   if (!value) return "-"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "-"
-  return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+  return formatAcademicTime(value)
+}
+
+function renderStatusBadge(status: string) {
+  let bg = "bg-gray-100 text-gray-800 border-gray-200"
+  if (status === "Direview") {
+    bg = "bg-purple-50 text-purple-700 border-purple-200"
+  } else if (status === "Dikumpulkan Otomatis" || status === "Dikumpulkan Manual") {
+    bg = "bg-emerald-50 text-emerald-700 border-emerald-200"
+  } else if (status === "Sedang Mengerjakan") {
+    bg = "bg-amber-50 text-amber-700 border-amber-200"
+  } else if (status === "Belum Memulai") {
+    bg = "bg-gray-50 text-gray-600 border-gray-200"
+  }
+
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${bg}`}>
+      {status}
+    </span>
+  )
+}
+
+function renderStuckValue(stats?: {
+  runCount: number
+  lastMeaningfulActivityAt: string | null
+  inactiveDurationSeconds: number | null
+  inactiveLabel: string
+  hasActivity: boolean
+}) {
+  if (!stats || !stats.hasActivity || stats.inactiveDurationSeconds === null) {
+    return (
+      <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
+        Belum terdeteksi stuck
+      </span>
+    )
+  }
+  if (stats.inactiveDurationSeconds < 600) {
+    return (
+      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+        Aktif
+      </span>
+    )
+  }
+  return (
+    <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">
+      Stuck: {stats.inactiveLabel}
+    </span>
+  )
 }
 
 function toDoc(value: unknown): JSONContent {
@@ -409,72 +447,150 @@ export default function LecturerStudentWorkpagePage() {
         basePath={basePath}
       />
 
-      <div className="shrink-0 border-b border-blue-100 bg-blue-50 px-5 py-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0 text-sm text-blue-900">
-            <p className="font-semibold">Mode Monitoring Dosen</p>
-            <p className="mt-1">
-              Mahasiswa: <span className="font-semibold">{data.student.name}</span>
-              <span className="mx-2 text-blue-300">|</span>
-              NIM: <span className="font-semibold">{data.student.nim}</span>
-              <span className="mx-2 text-blue-300">|</span>
-              Status: <span className="font-semibold">{data.status}</span>
-            </p>
-            <p className="mt-1 text-blue-800">
-              Posisi Terakhir: {currentLocation?.title ?? "-"} · Terakhir diperbarui: {formatDate(data.progress.lastUpdatedAt)}
-              {data.submission.isAutoSubmitted && " · Dikumpulkan otomatis setelah deadline."}
-              {data.status === "Belum Memulai" && " · Belum ada aktivitas pengerjaan yang tersimpan."}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {data.attempts.length > 1 && (
-              <select
-                value={`${data.attemptScope.attemptType}:${data.attemptScope.remedialId ?? ""}`}
-                onChange={(event) => handleAttemptChange(event.target.value)}
-                className="h-9 rounded-md border border-blue-200 bg-white px-3 text-sm font-semibold text-blue-900"
-              >
-                {data.attempts.map((attempt) => (
-                  <option key={`${attempt.attemptType}:${attempt.remedialId ?? ""}`} value={`${attempt.attemptType}:${attempt.remedialId ?? ""}`}>
-                    {attempt.label}
-                  </option>
-                ))}
-              </select>
-            )}
-            <Link to={monitoringPath} className="inline-flex h-9 items-center rounded-md border border-blue-200 bg-white px-3 text-sm font-semibold text-blue-800 hover:bg-blue-100">
-              Kembali ke Monitoring Mahasiswa
-            </Link>
-            <button
-              type="button"
-              onClick={() => loadData()}
-              className="inline-flex h-9 items-center gap-2 rounded-md border border-blue-200 bg-white px-3 text-sm font-semibold text-blue-800 hover:bg-blue-100"
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-              Refresh Data
-            </button>
-            {reviewPath ? (
-              <Link to={reviewPath} className="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700">
-                <ExternalLink className="h-4 w-4" />
-                Buka Review
-              </Link>
-            ) : (
-              <button
-                type="button"
-                disabled
-                title="Pengerjaan mahasiswa belum dapat direview karena belum memiliki submission."
-                className="inline-flex h-9 cursor-not-allowed items-center gap-2 rounded-md bg-gray-200 px-3 text-sm font-semibold text-gray-500"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Buka Review
-              </button>
-            )}
+      <div className="shrink-0 border-b border-gray-200 bg-white px-3 py-1.5">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+              Monitoring Dosen
+            </span>
+            <span className="text-gray-300 text-[10px]">·</span>
+            <span className="text-[10px] text-gray-500 font-semibold">
+              Sync: {formatClock(lastRefreshAt || data.lastUpdatedAt)}
+            </span>
           </div>
         </div>
-        <p className="mt-2 text-xs font-medium text-blue-700">Terakhir diperbarui: {formatClock(lastRefreshAt || data.lastUpdatedAt)}</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+          {/* Card 1: Mahasiswa */}
+          <div className="flex flex-col justify-between p-2 bg-white rounded border border-gray-200 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Mahasiswa</span>
+              <User className="h-3.5 w-3.5 text-blue-500" />
+            </div>
+            <div className="mt-1 min-w-0">
+              <h3 className="text-xs font-bold text-gray-900 truncate" title={data.student.name}>
+                {data.student.name}
+              </h3>
+              <p className="text-[10px] text-gray-500 font-medium mt-0.5">NIM: {data.student.nim}</p>
+            </div>
+            <div className="mt-1.5">
+              {renderStatusBadge(data.status)}
+            </div>
+          </div>
+
+          {/* Card 2: Posisi Terakhir */}
+          <div className="flex flex-col justify-between p-2 bg-white rounded border border-gray-200 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Posisi Terakhir</span>
+              <MapPin className="h-3.5 w-3.5 text-emerald-500" />
+            </div>
+            <div className="mt-1 min-w-0">
+              <h3 className="text-xs font-bold text-gray-900 truncate" title={currentLocation?.title ?? "-"}>
+                {currentLocation?.title ?? "-"}
+              </h3>
+              <p className="text-[10px] text-gray-400 font-medium mt-0.5">
+                Update: {formatDate(data.progress.lastUpdatedAt)}
+              </p>
+            </div>
+            <div className="mt-1.5 text-[9px] font-medium text-gray-400 truncate">
+              {data.submission.isAutoSubmitted && "Dikumpulkan otomatis (deadline)."}
+              {data.status === "Belum Memulai" && "Belum ada aktivitas."}
+              {!data.submission.isAutoSubmitted && data.status !== "Belum Memulai" && "Sedang berjalan."}
+            </div>
+          </div>
+
+          {/* Card 3: Aktivitas */}
+          <div className="flex flex-col justify-between p-2 bg-white rounded border border-gray-200 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Aktivitas</span>
+              <Activity className="h-3.5 w-3.5 text-amber-500" />
+            </div>
+            <div className="mt-1 space-y-1">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-gray-500 font-medium">Run Kode:</span>
+                <span className="font-bold text-gray-900 bg-gray-50 px-1 py-0.5 rounded border border-gray-100">
+                  {data.monitoringStats?.runCount ?? 0} kali
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-gray-500 font-medium">Stuck:</span>
+                {renderStuckValue(data.monitoringStats)}
+              </div>
+            </div>
+            <div className="mt-1.5 text-[9px] font-semibold text-gray-400">
+              Sesi: {data.attemptScope.label}
+            </div>
+          </div>
+
+          {/* Card 4: Aksi & Sesi */}
+          <div className="flex flex-col justify-between p-2 bg-white rounded border border-gray-200 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Aksi & Sesi</span>
+              <Settings className="h-3.5 w-3.5 text-purple-500" />
+            </div>
+            <div className="mt-1 space-y-1.5">
+              {data.attempts.length > 1 ? (
+                <select
+                  value={`${data.attemptScope.attemptType}:${data.attemptScope.remedialId ?? ""}`}
+                  onChange={(event) => handleAttemptChange(event.target.value)}
+                  className="w-full h-6 rounded border border-gray-200 bg-white px-1.5 py-0 text-[10px] font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  {data.attempts.map((attempt) => (
+                    <option key={`${attempt.attemptType}:${attempt.remedialId ?? ""}`} value={`${attempt.attemptType}:${attempt.remedialId ?? ""}`}>
+                      {attempt.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="w-full h-6 flex items-center justify-center rounded bg-gray-50 border border-gray-100 text-[10px] font-semibold text-gray-500 px-1.5">
+                  {data.attemptScope.label}
+                </div>
+              )}
+              <div className="grid grid-cols-3 gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => loadData()}
+                  title="Refresh Data"
+                  className="inline-flex h-6 items-center justify-center gap-0.5 rounded border border-gray-200 bg-white text-[10px] font-bold text-gray-700 hover:bg-gray-50 cursor-pointer"
+                >
+                  <RefreshCw className={`h-2.5 w-2.5 ${refreshing ? "animate-spin" : ""}`} />
+                  <span className="sr-only lg:not-sr-only">Refresh</span>
+                </button>
+                {reviewPath ? (
+                  <Link
+                    to={reviewPath}
+                    title="Buka Review"
+                    className="inline-flex h-6 items-center justify-center gap-0.5 rounded bg-blue-600 text-[10px] font-bold text-white hover:bg-blue-700 cursor-pointer text-center"
+                  >
+                    <ExternalLink className="h-2.5 w-2.5" />
+                    <span className="sr-only lg:not-sr-only">Review</span>
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    title="Belum ada pengerjaan."
+                    className="inline-flex h-6 cursor-not-allowed items-center justify-center gap-0.5 rounded bg-gray-50 text-[10px] font-bold text-gray-400 border border-gray-200"
+                  >
+                    <ExternalLink className="h-2.5 w-2.5" />
+                    <span className="sr-only lg:not-sr-only">Review</span>
+                  </button>
+                )}
+                <Link
+                  to={monitoringPath}
+                  title="Kembali ke Monitoring Mahasiswa"
+                  className="inline-flex h-6 items-center justify-center gap-0.5 rounded border border-gray-200 bg-white text-[10px] font-bold text-gray-700 hover:bg-gray-50 cursor-pointer text-center"
+                >
+                  <span className="sr-only lg:not-sr-only">Kembali</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-1 relative overflow-hidden">
-        <main className="flex-1 overflow-y-auto px-6 py-8 lg:px-10">
+        <main className="flex-1 overflow-y-auto px-4 py-4 lg:px-6">
           <div className="mx-auto max-w-6xl">{renderMainContent()}</div>
         </main>
 

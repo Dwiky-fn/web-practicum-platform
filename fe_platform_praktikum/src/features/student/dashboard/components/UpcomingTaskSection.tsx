@@ -4,6 +4,7 @@ import type { JobsheetSubmission, SubmissionStatus } from "../../../../services/
 import { getDeadlineState, parseDeadline } from "../../../../shared/utils/deadline"
 import { academicJobsheetWorkPath } from "../../../../services/academicScope"
 import UpcomingTaskSkeleton from "../loading/UpcomingSkeleton"
+import { formatAcademicDate } from "../../../../shared/utils/formatAcademicDateTime"
 
 interface UpcomingTaskSectionProps {
   jobsheets: Jobsheet[]
@@ -102,7 +103,6 @@ export default function UpcomingTaskSection({
   return (
     <div className="bg-white rounded-2xl shadow-sm divide-y overflow-hidden">
       {upcomingJobsheets.map((jobsheet) => {
-        const deadlineDate = new Date(jobsheet.deadline)
         const deadlineState = getDeadlineState(jobsheet.deadline, now)
         const submission = submissionMap.get(jobsheet.id)
         const status = submission?.status
@@ -140,7 +140,7 @@ export default function UpcomingTaskSection({
                 isOverdue ? "text-red-500" : "text-gray-500"
               }`}
             >
-              {deadlineDate.toLocaleDateString("id-ID")}
+              {formatAcademicDate(jobsheet.deadline)}
             </span>
           </button>
         )

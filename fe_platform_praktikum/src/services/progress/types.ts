@@ -48,4 +48,6 @@ export interface UpsertStudentProgressPayload {
   lastPage?: string
   status: StudentProgressStatus
   completedItems?: StudentProgressItem[]
+  attemptType?: "normal" | "remedial" | null
+  remedialId?: string | null
 }

@@ -33,9 +33,9 @@ const execution = (server) => {
     });
   });
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, request) => {
     const gateway = new ExecutionGatewayService(new InteractiveRunnerClient(), {
-      user: request.user,
+      user: request?.user,
       activityLogger: new CodeRunActivityLogger(),
     });
 

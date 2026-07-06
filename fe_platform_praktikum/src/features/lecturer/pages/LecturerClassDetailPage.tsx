@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Trash2 } from "lucide-react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import { useBackNavigation } from "../../../shared/utils/backNavigation"
+import { formatAcademicDateTime } from "../../../shared/utils/formatAcademicDateTime"
 import LecturerLayout from "../components/LecturerLayout"
 import {
   LecturerButton,
@@ -273,7 +274,7 @@ export default function LecturerClassDetailPage() {
                         const jobsheet = jobsheets.find((current) => current.id === item.jobsheet.id)
                         return (
                           <li key={`${item.student.id}-${item.jobsheet.id}`}>
-                            {item.student.fullname} memperbarui Jobsheet {jobsheet?.number ?? "-"} pada {new Date(item.submission?.updatedAt ?? "").toLocaleString("id-ID")}
+                            {item.student.fullname} memperbarui Jobsheet {jobsheet?.number ?? "-"} pada {formatAcademicDateTime(item.submission?.updatedAt)}
                           </li>
                         )
                       })}

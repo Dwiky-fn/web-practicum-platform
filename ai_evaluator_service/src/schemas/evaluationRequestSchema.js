@@ -13,7 +13,24 @@ const {
 
 const baseFields = {
   requestId: Joi.string().trim().min(1).max(200).optional(),
-  submissionId: idSchema,
+  schemaVersion: Joi.string().valid('1.0').optional(),
+  submissionId: idSchema.optional(),
+  submission: Joi.object({
+    id: idSchema,
+    source: Joi.string().valid('manual', 'auto_deadline', 'remedial').required(),
+    attemptType: Joi.string().valid('normal', 'remedial').required(),
+    attemptNo: Joi.number().integer().min(1).required(),
+    remedialId: Joi.string().trim().min(1).max(200).allow(null).default(null),
+    isAutoSubmitted: Joi.boolean().default(false),
+  }).optional(),
+  context: Joi.object({
+    kelasPraktikumId: idSchema,
+    idKelasMhs: Joi.string().trim().min(1).max(200).allow(null).optional(),
+    studentId: idSchema,
+    classId: Joi.string().trim().min(1).max(200).allow(null).optional(),
+    programmingLanguage: Joi.string().valid('java', 'python').required(),
+    courseName: Joi.string().allow('').max(500).default(''),
+  }).optional(),
   jobsheet: jobsheetSchema,
   rubric: rubricSchema,
   options: evaluationOptionsSchema,
@@ -22,16 +39,18 @@ const baseFields = {
 const experimentEvaluationRequestSchema = Joi.object({
   scope: Joi.string().valid('experiment').required(),
   ...baseFields,
-  experiment: experimentSchema,
+  experiment: experimentSchema.required(),
 })
+  .custom(normalizeCanonicalRequest)
   .custom(validateExperimentRequest)
   .required();
 
 const exerciseEvaluationRequestSchema = Joi.object({
   scope: Joi.string().valid('exercise').required(),
   ...baseFields,
-  exercise: exerciseSchema,
+  exercise: exerciseSchema.required(),
 })
+  .custom(normalizeCanonicalRequest)
   .custom(validateExerciseRequest)
   .required();
 
@@ -40,7 +59,6 @@ const jobsheetEvaluationRequestSchema = Joi.object({
   ...baseFields,
   experiments: Joi.array()
     .items(experimentSchema)
-    .min(1)
     .max(100)
     .required(),
   exercises: Joi.array()
@@ -50,6 +68,7 @@ const jobsheetEvaluationRequestSchema = Joi.object({
     .default([]),
   studentConclusion: Joi.string().allow('').max(100000).default(''),
 })
+  .custom(normalizeCanonicalRequest)
   .custom(validateJobsheetRequest)
   .required();
 
@@ -62,6 +81,9 @@ const evaluationRequestSchema = Joi.alternatives()
   .match('one');
 
 function validateExperimentRequest(payload, helpers) {
+  const submissionError = validateSubmissionContext(payload, helpers);
+  if (submissionError) return submissionError;
+
   const duplicateCriterion = findDuplicateValue(
     payload.rubric?.criteria || [],
     'id',
@@ -110,6 +132,9 @@ function validateExperimentRequest(payload, helpers) {
 }
 
 function validateExerciseRequest(payload, helpers) {
+  const submissionError = validateSubmissionContext(payload, helpers);
+  if (submissionError) return submissionError;
+
   const duplicateCriterion = findDuplicateValue(
     payload.rubric?.criteria || [],
     'id',
@@ -158,6 +183,15 @@ function validateExerciseRequest(payload, helpers) {
 }
 
 function validateJobsheetRequest(payload, helpers) {
+  const submissionError = validateSubmissionContext(payload, helpers);
+  if (submissionError) return submissionError;
+
+  if ((payload.experiments || []).length === 0 && (payload.exercises || []).length === 0) {
+    return helpers.message({
+      custom: 'Payload jobsheet harus memiliki minimal satu percobaan atau latihan',
+    });
+  }
+
   const duplicateCriterion = findDuplicateValue(
     payload.rubric?.criteria || [],
     'id',
@@ -191,6 +225,60 @@ function validateJobsheetRequest(payload, helpers) {
   return payload;
 }
 
+function normalizeCanonicalRequest(payload) {
+  const submissionId = payload.submissionId || payload.submission?.id;
+  const normalized = {
+    ...payload,
+    submissionId,
+  };
+
+  if (!normalized.submission && submissionId) {
+    normalized.submission = {
+      id: submissionId,
+      source: 'manual',
+      attemptType: 'normal',
+      attemptNo: 1,
+      remedialId: null,
+      isAutoSubmitted: false,
+    };
+  }
+
+  return normalized;
+}
+
+function validateSubmissionContext(payload, helpers) {
+  if (!payload.submissionId) {
+    return helpers.message({
+      custom: 'submission.id atau submissionId wajib diisi',
+    });
+  }
+
+  if (payload.schemaVersion && !payload.context) {
+    return helpers.message({
+      custom: 'context wajib dikirim untuk payload canonical',
+    });
+  }
+
+  if (payload.schemaVersion && !payload.submission) {
+    return helpers.message({
+      custom: 'submission wajib dikirim untuk payload canonical',
+    });
+  }
+
+  if (payload.submission?.attemptType === 'normal' && payload.submission?.remedialId) {
+    return helpers.message({
+      custom: 'remedialId harus kosong untuk Pengerjaan Normal',
+    });
+  }
+
+  if (payload.submission?.attemptType === 'remedial' && !payload.submission?.remedialId) {
+    return helpers.message({
+      custom: 'remedialId wajib diisi untuk Pengerjaan Remedial',
+    });
+  }
+
+  return null;
+}
 
 function findDuplicateValue(items, field) {
   const values = new Set();

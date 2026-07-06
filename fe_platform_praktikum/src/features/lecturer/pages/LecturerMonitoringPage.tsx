@@ -3,6 +3,7 @@ import StudentProfileModal from "../components/StudentProfileModal"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
 import LecturerLayout from "../components/LecturerLayout"
+import { formatAcademicDateTime } from "../../../shared/utils/formatAcademicDateTime"
 import {
   LecturerEmptyState,
   LecturerPanel,
@@ -244,7 +245,7 @@ export default function LecturerMonitoringPage() {
                     const jobsheet = jobsheets.find((current) => current.id === item.jobsheet.id)
                     return (
                       <li key={`${item.student.id}-${item.jobsheet.id}`}>
-                        {item.student.fullname} memperbarui Jobsheet {jobsheet?.number ?? "-"} pada {new Date(item.submission?.updatedAt ?? "").toLocaleString("id-ID")}
+                        {item.student.fullname} memperbarui Jobsheet {jobsheet?.number ?? "-"} pada {formatAcademicDateTime(item.submission?.updatedAt)}
                       </li>
                     )
                   })}
@@ -278,7 +279,7 @@ export default function LecturerMonitoringPage() {
                     <td className="px-4 py-3 text-center">{getSubmissionWorkStatus(item.submission)}</td>
                     <td className="px-4 py-3 text-center">Jobsheet {jobsheets.find((jobsheet) => jobsheet.id === item.jobsheet.id)?.number ?? "-"}</td>
                     <td className="px-4 py-3 text-center">
-                      {item.submission?.updatedAt ? new Date(item.submission.updatedAt).toLocaleString("id-ID") : "-"}
+                      {item.submission?.updatedAt ? formatAcademicDateTime(item.submission.updatedAt) : "-"}
                     </td>
                   </tr>
                 ))}

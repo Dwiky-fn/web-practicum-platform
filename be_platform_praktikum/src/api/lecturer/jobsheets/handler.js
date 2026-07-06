@@ -2,6 +2,7 @@ const autoBind = require('auto-bind');
 const { created, ok, handleAdminError } = require('../../admin/utils');
 const LecturerJobsheetsValidator = require('../../../validator/lecturer/jobsheets');
 const { createId } = require('../../../services/postgres/admin/utils');
+const { InvariantError } = require('../../../exceptions');
 
 class LecturerJobsheetsHandler {
   constructor(service, remedialsService, cloudinaryService) {
@@ -201,13 +202,34 @@ class LecturerJobsheetsHandler {
     try {
       const { jobsheetId } = req.params;
       const { kelasPraktikumId, title, description, startAt, endAt, studentIds } = req.body;
+
+      const datetimeRegex = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/;
+      if (!startAt || !endAt || !datetimeRegex.test(startAt) || !datetimeRegex.test(endAt)) {
+        throw new InvariantError(
+          "Format tanggal atau jam tidak valid.\nGunakan tanggal DD/MM/YYYY dan jam HH:mm."
+        );
+      }
+
+      // Normalize to YYYY-MM-DD HH:mm:ss
+      const normalizedStartAt = startAt.length === 16 ? `${startAt}:00` : startAt;
+      const normalizedEndAt = endAt.length === 16 ? `${endAt}:00` : endAt;
+
+      // Compare academic wall-clock strings directly; do not convert WIB input to UTC.
+      if (normalizedEndAt <= normalizedStartAt) {
+        throw new InvariantError("Waktu berakhir harus setelah waktu mulai.");
+      }
+
+      if (!Array.isArray(studentIds) || studentIds.length === 0) {
+        throw new InvariantError('Pilih minimal satu mahasiswa untuk remedial.');
+      }
+
       const remedialId = await this._remedialsService.createRemedial({
         jobsheetId,
         kelasPraktikumId,
         title,
         description,
-        startAt,
-        endAt,
+        startAt: normalizedStartAt,
+        endAt: normalizedEndAt,
         studentIds,
       }, req.user.id);
 
@@ -228,12 +250,24 @@ class LecturerJobsheetsHandler {
     }
   }
 
+  async getEvaluationSubmissionsHandler(req, res) {
+    try {
+      const { jobsheetId } = req.params;
+      const kelasPraktikumId = req.query.kelasPraktikumId || req.query.id_kelas_praktikum || req.query.classId;
+      const items = await this._service.getEvaluationSubmissions(jobsheetId, kelasPraktikumId, req.user.id);
+
+      return ok(res, { items }, 'Submission evaluasi berhasil diambil');
+    } catch (error) {
+      return handleAdminError(error, res);
+    }
+  }
+
   async deleteRemedialHandler(req, res) {
     try {
       const { remedialId } = req.params;
-      await this._remedialsService.deleteRemedial(remedialId, req.user.id);
+      const remedial = await this._remedialsService.cancelRemedial(remedialId, req.user.id);
 
-      return ok(res, null, 'Sesi remedial berhasil dibatalkan');
+      return ok(res, { remedial }, remedial.alreadyCancelled ? 'Sesi remedial sudah dibatalkan.' : 'Sesi remedial berhasil dibatalkan');
     } catch (error) {
       return handleAdminError(error, res);
     }

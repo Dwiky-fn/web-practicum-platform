@@ -2,7 +2,9 @@ import { useNavigate } from "react-router-dom";
 import { getDeadlineState } from "../../../../shared/utils/deadline";
 import { academicJobsheetWorkPath, type AcademicScope } from "../../../../services/academicScope";
 import type { Jobsheet } from "../../../../services/jobsheet/types";
-import type { JobsheetSubmission, SubmissionStatus } from "../../../../services/submission/types";
+import type { JobsheetSubmission } from "../../../../services/submission/types";
+import { formatAcademicDateTime } from "../../../../shared/utils/formatAcademicDateTime";
+import { formatScore } from "../../../../shared/utils/formatScore";
 
 interface Props {
   jobsheet: Jobsheet;
@@ -12,6 +14,7 @@ interface Props {
   classId?: string;
   mataKuliahId?: string;
   kelasPraktikumId?: string;
+  mainScore?: number | null;
 }
 
 export default function SidebarCard({
@@ -22,6 +25,7 @@ export default function SidebarCard({
   classId,
   mataKuliahId,
   kelasPraktikumId,
+  mainScore,
 }: Props) {
   const navigate = useNavigate();
 
@@ -32,7 +36,7 @@ export default function SidebarCard({
   const access = jobsheet.access || { accessMode: "editable_normal" };
   const accessMode = access.accessMode;
   const isLockedByDeadline = accessMode === "locked_deadline";
-  const displayScore = submission?.review?.finalScore ?? submission?.score;
+  const displayScore = mainScore ?? submission?.review?.finalScore ?? submission?.score;
   const scope: AcademicScope = { classId, mataKuliahId, kelasPraktikumId };
 
   function goTo() {
@@ -40,21 +44,41 @@ export default function SidebarCard({
     navigate(academicJobsheetWorkPath(courseId, jobsheetId, scope));
   }
 
-  function getStatusStyle(status?: SubmissionStatus) {
-    if (!status) return "text-gray-600";
+  function getDisplayStatus() {
+    if (accessMode === "editable_remedial") return "Remedial Aktif";
+    if (!status) return "Belum Mulai";
 
     switch (status) {
-      case "ACCEPTED":
-        return "text-green-600";
+      case "DRAFT":
+        return "Draft";
       case "SUBMITTED":
       case "REVIEWING":
-        return "text-green-600";
+        return "Menunggu Review";
       case "REVISION":
-        return "text-red-600";
-      case "DRAFT":
-        return "text-yellow-600";
+        return "Perlu Revisi";
+      case "ACCEPTED":
+        return "Sudah Dinilai";
       default:
-        return "text-gray-600";
+        return status;
+    }
+  }
+
+  function getStatusStyle(displayStatus: string) {
+    switch (displayStatus) {
+      case "Remedial Aktif":
+        return "text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-xs font-semibold";
+      case "Belum Mulai":
+        return "text-gray-600 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded text-xs font-semibold";
+      case "Draft":
+        return "text-yellow-700 bg-yellow-50 border border-yellow-200 px-2 py-0.5 rounded text-xs font-semibold";
+      case "Menunggu Review":
+        return "text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-xs font-semibold";
+      case "Perlu Revisi":
+        return "text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded text-xs font-semibold";
+      case "Sudah Dinilai":
+        return "text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded text-xs font-semibold";
+      default:
+        return "text-gray-600 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded text-xs font-semibold";
     }
   }
 
@@ -66,27 +90,6 @@ export default function SidebarCard({
     return "Mulai Mengerjakan";
   }
 
-  function getStatusLabel(status?: SubmissionStatus) {
-    if (!status) return "Belum Dikerjakan";
-
-    switch (status) {
-      case "DRAFT":
-        return "Draft";
-      case "SUBMITTED":
-        return "Selesai";
-      case "REVIEWING":
-        return "Selesai";
-      case "REVISION":
-        return "Perlu Revisi";
-      case "ACCEPTED":
-        return "Selesai";
-      case "OVERDUE":
-        return "Terlambat";
-      default:
-        return status;
-    }
-  }
-
   function getLatestReviewComment() {
     const comments = submission?.review?.comments ?? [];
     const latestComment = comments[comments.length - 1]?.comment?.trim();
@@ -95,103 +98,92 @@ export default function SidebarCard({
   }
 
   const latestReviewComment = getLatestReviewComment();
+  const displayStatus = getDisplayStatus();
 
   return (
-    <div className="w-full rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-      <div className="space-y-6">
+    <div className="w-full rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+      <h2 className="text-base font-semibold text-gray-900 border-b border-gray-100 pb-3 mb-4">
+        Status Pengerjaan
+      </h2>
       
-      {/* STATUS */}
-      <div className="flex justify-between">
-        <p className="text-sm text-gray-500">Status Pengerjaan</p>
-        <span className={`text-sm font-medium ${getStatusStyle(status)}`}>
-          {getStatusLabel(status)}
-        </span>
-      </div>
+      <div className="space-y-4">
+        {/* STATUS */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-gray-500">Status</p>
+          <span className={getStatusStyle(displayStatus)}>
+            {displayStatus}
+          </span>
+        </div>
 
-      {/* DEADLINE */}
-      <div>
-        <div className="flex justify-between">
-          <p className="text-sm text-gray-500">Deadline</p>
-          <p
-            className={`text-sm font-medium ${
-              isOverdue
-                ? "text-red-600"
-                : deadlineState.label === "Deadline hari ini"
-                ? "text-yellow-600"
-                : "text-gray-800"
-            }`}
-          >
-            {deadlineState.date
-              ? deadlineState.date.toLocaleDateString("id-ID", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "Belum diatur"}
+        {/* DEADLINE */}
+        <div>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-gray-500">
+              {accessMode === "editable_remedial" ? "Deadline Normal" : "Deadline"}
+            </p>
+            <p
+              className={`text-sm font-semibold ${
+                isOverdue
+                  ? "text-red-600"
+                  : deadlineState.label === "Deadline hari ini"
+                  ? "text-yellow-600"
+                  : "text-gray-800"
+              }`}
+            >
+              {jobsheet.deadline
+                ? formatAcademicDateTime(jobsheet.deadline)
+                : "Belum diatur"}
+            </p>
+          </div>
+
+          {!isOverdue && deadlineState.date && (
+            <p className="text-[10px] text-gray-400 text-right mt-0.5">
+              {deadlineState.label}
+            </p>
+          )}
+        </div>
+
+        {/* NILAI */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-gray-500">
+            {accessMode === "editable_remedial" ? "Nilai Terakhir" : "Nilai"}
+          </p>
+          <p className="text-sm font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-100">
+            {formatScore(displayScore)}
           </p>
         </div>
 
-        {!isOverdue && deadlineState.date && (
-          <p className="text-xs text-gray-400 text-right mt-1">
-            {deadlineState.label}
+        {submission?.updatedAt && (
+          <p className="text-[11px] text-gray-400 text-right mt-1">
+            Terakhir diperbarui: {formatAcademicDateTime(submission.updatedAt)}
           </p>
         )}
-      </div>
 
-      {/* NILAI */}
-      <div className="flex justify-between">
-        <p className="text-sm text-gray-500">Nilai</p>
-        <p className="text-sm font-semibold text-green-600">
-          {displayScore ?? "-"}
-        </p>
-      </div>
+        {accessMode === "editable_remedial" && (
+          <div className="rounded-lg border border-amber-100 bg-amber-50/50 p-2.5 text-xs text-amber-800 mt-2">
+            <span className="font-semibold">Informasi:</span> Remedial tersedia sesuai waktu yang ditentukan dosen.
+          </div>
+        )}
 
-      {submission && (
-        <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-          <p className="font-medium text-gray-700">Informasi Submission</p>
-          <p className="mt-1">
-            Update terakhir:{" "}
-            {submission.updatedAt
-              ? new Date(submission.updatedAt).toLocaleDateString("id-ID", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "-"}
-          </p>
-        </div>
-      )}
+        {latestReviewComment && status === "REVISION" && (
+          <div className="rounded-lg border border-red-100 bg-red-50 p-2.5 text-xs text-red-700 mt-2">
+            <span className="font-semibold">Catatan revisi:</span> {latestReviewComment}
+          </div>
+        )}
 
-
-
-      {latestReviewComment && status === "REVISION" && (
-        <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3">
-          <p className="text-xs font-semibold text-red-700">
-            Catatan revisi
-          </p>
-          <p className="mt-1 text-sm text-red-700">
-            {latestReviewComment}
-          </p>
-        </div>
-      )}
-
-      {/* ACTION */}
-      <button
-        type="button"
-        onClick={goTo}
-        disabled={isLockedByDeadline}
-        className={`w-full py-2 rounded-lg transition ${
-          isLockedByDeadline
-            ? "cursor-not-allowed bg-gray-200 text-gray-500"
-            : "bg-blue-600 text-white hover:bg-blue-700"
-        }`}
-      >
-        {getActionLabel()}
-      </button>
+        {/* ACTION */}
+        <button
+          type="button"
+          onClick={goTo}
+          disabled={isLockedByDeadline}
+          className={`w-full py-2 rounded-lg font-semibold text-sm transition mt-2 cursor-pointer ${
+            isLockedByDeadline
+              ? "cursor-not-allowed bg-gray-200 text-gray-500"
+              : "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800"
+          }`}
+        >
+          {getActionLabel()}
+        </button>
       </div>
     </div>
   );

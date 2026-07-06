@@ -22,21 +22,20 @@ export default function WorkHeader({ title, backTo, course, jobsheet, scope, bas
   const activeTitle = activeItem?.label || title
 
   return (
-    <header className="shrink-0 border-b bg-white px-4 py-2 sm:px-5">
-      <div className="flex min-w-0 items-center gap-3">
-<button
-  type="button"
-  onClick={() => navigate(backTo)}
-  aria-label="Kembali"
-  title="Kembali"
-  className="flex h-8 shrink-0 items-center rounded-md p-2 text-gray-700 hover:bg-gray-100"
->
-  <ArrowLeft size={17} className="shrink-0" />
-</button>
-
-        <h1 className="min-w-0 truncate text-base font-semibold text-gray-900">
-          {activeTitle}
-        </h1>
+    <header className="shrink-0 border-b bg-white px-4 py-1.5 sm:px-5">
+      <div className="flex min-w-0">
+        <button
+          type="button"
+          onClick={() => navigate(backTo)}
+          aria-label="Kembali"
+          title="Kembali"
+          className="flex items-center gap-2 rounded-md py-1 px-2 text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors cursor-pointer"
+        >
+          <ArrowLeft size={16} className="shrink-0 text-gray-500" />
+          <h1 className="min-w-0 truncate text-sm font-semibold text-gray-900">
+            {activeTitle}
+          </h1>
+        </button>
       </div>
     </header>
   )

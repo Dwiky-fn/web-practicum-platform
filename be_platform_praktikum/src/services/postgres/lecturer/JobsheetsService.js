@@ -195,9 +195,11 @@ class LecturerJobsheetsService {
         kp.id_mata_kuliah,
         kp.id_tahun_semester,
         kp.id_semester,
-        kp.id_kelas
+        kp.id_kelas,
+        ts.status AS tahun_semester_status
       FROM kelas_praktikum kp
       JOIN pengampu p ON p.id_kelas_praktikum = kp.id
+      JOIN tahun_semester ts ON ts.id = kp.id_tahun_semester
       WHERE kp.id = $1
         AND p.id_dosen = $2
       LIMIT 1
@@ -210,6 +212,12 @@ class LecturerJobsheetsService {
     }
 
     return result.rows[0];
+  }
+
+  _assertKelasPraktikumActive(kelasPraktikum) {
+    if (String(kelasPraktikum.tahun_semester_status || '').toLowerCase() !== 'active') {
+      throw new ClientError('Data riwayat pengajaran bersifat read-only dan tidak dapat diubah.', 403);
+    }
   }
 
   async _ensureJobsheetExistsByMataKuliah(mataKuliahId, jobsheetId, client = this._pool) {
@@ -352,6 +360,7 @@ class LecturerJobsheetsService {
     try {
       await client.query('BEGIN');
       const kelasPraktikum = await this._ensureKelasPraktikumOwnedByLecturer(kelasPraktikumId, lecturerId, client);
+      this._assertKelasPraktikumActive(kelasPraktikum);
       const mataKuliahId = kelasPraktikum.id_mata_kuliah;
 
       const jobsheetId = payload.id || createId('job');
@@ -409,6 +418,7 @@ class LecturerJobsheetsService {
     try {
       await client.query('BEGIN');
       const kelasPraktikum = await this._ensureKelasPraktikumOwnedByLecturer(kelasPraktikumId, lecturerId, client);
+      this._assertKelasPraktikumActive(kelasPraktikum);
       const mataKuliahId = kelasPraktikum.id_mata_kuliah;
       const existing = await this._ensureJobsheetExistsByMataKuliah(mataKuliahId, jobsheetId, client);
 
@@ -682,6 +692,7 @@ class LecturerJobsheetsService {
     try {
       await client.query('BEGIN');
       const kelasPraktikum = await this._ensureKelasPraktikumOwnedByLecturer(kelasPraktikumId, lecturerId, client);
+      this._assertKelasPraktikumActive(kelasPraktikum);
       const jobsheet = await this._ensureJobsheetExistsByMataKuliah(kelasPraktikum.id_mata_kuliah, jobsheetId, client);
       await this._assertPublishableJobsheet(client, jobsheet);
       const isActive = payload.isActive !== false;
@@ -906,20 +917,9 @@ class LecturerJobsheetsService {
       const jobsheet = jobsheetRes.rows[0];
 
       // 2. Cek dosen memiliki akses ke kelas praktikum
-      const classRes = await client.query(
-        `
-        SELECT kp.id_mata_kuliah
-        FROM kelas_praktikum kp
-        JOIN pengampu p ON p.id_kelas_praktikum = kp.id
-        WHERE kp.id = $1 AND p.id_dosen = $2
-        LIMIT 1
-        `,
-        [kelasPraktikumId, lecturerId],
-      );
-      if (!classRes.rows.length) {
-        throw new AuthorizationError('Anda tidak memiliki akses ke jobsheet ini.');
-      }
-      const classMataKuliahId = classRes.rows[0].id_mata_kuliah;
+      const kelasPraktikum = await this._ensureKelasPraktikumOwnedByLecturer(kelasPraktikumId, lecturerId, client);
+      this._assertKelasPraktikumActive(kelasPraktikum);
+      const classMataKuliahId = kelasPraktikum.id_mata_kuliah;
 
       // Verifikasi jobsheet terhubung ke mata kuliah kelas praktikum ini
       if (jobsheet.id_mata_kuliah !== classMataKuliahId) {

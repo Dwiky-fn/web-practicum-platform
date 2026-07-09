@@ -9,9 +9,10 @@ class LecturerReviewsService {
   async ensureSubmissionAccess(submissionId, lecturerId, client = this._pool) {
     const result = await client.query(
       `
-      SELECT ts.id, ts.id_kelas_praktikum
+      SELECT ts.id, ts.id_kelas_praktikum, tys.status AS tahun_semester_status
       FROM task_submissions ts
       JOIN kelas_praktikum kp ON kp.id = ts.id_kelas_praktikum
+      JOIN tahun_semester tys ON tys.id = kp.id_tahun_semester
       JOIN pengampu p ON p.id_kelas_praktikum = kp.id
       WHERE ts.id = $1
         AND p.id_dosen = $2
@@ -27,13 +28,20 @@ class LecturerReviewsService {
     return result.rows[0];
   }
 
+  assertActiveTeachingContext(access) {
+    if (String(access.tahun_semester_status || '').toLowerCase() !== 'active') {
+      throw new Error('Data riwayat pengajaran bersifat read-only dan tidak dapat diubah.');
+    }
+  }
+
   async saveSubmissionReview(payload, lecturerId) {
     const client = await this._pool.connect();
 
     try {
       await client.query('BEGIN');
 
-      await this.ensureSubmissionAccess(payload.submissionId, lecturerId, client);
+      const access = await this.ensureSubmissionAccess(payload.submissionId, lecturerId, client);
+      this.assertActiveTeachingContext(access);
 
       const existing = await client.query(
         `
@@ -142,7 +150,8 @@ class LecturerReviewsService {
   }
 
   async deleteAiFeedbackForSubmission(submissionId, lecturerId) {
-    await this.ensureSubmissionAccess(submissionId, lecturerId);
+    const access = await this.ensureSubmissionAccess(submissionId, lecturerId);
+    this.assertActiveTeachingContext(access);
 
     const result = await this._pool.query(
       `
@@ -183,7 +192,8 @@ class LecturerReviewsService {
     const client = await this._pool.connect();
     try {
       await client.query('BEGIN');
-      await this.ensureSubmissionAccess(submissionId, lecturerId, client);
+      const access = await this.ensureSubmissionAccess(submissionId, lecturerId, client);
+      this.assertActiveTeachingContext(access);
       const existing = await client.query(
         `
         SELECT id, ai_feedback

@@ -18,6 +18,12 @@ const createStudentPayloadSchema = baseUserPayloadSchema.keys({
   semester: Joi.number().integer().min(1).max(14).allow(null),
   studyProgramId: Joi.string().allow('', null),
   study_program_id: Joi.string().allow('', null),
+  isTransferStudent: Joi.boolean(),
+  is_transfer_student: Joi.boolean(),
+  transferOriginSemester: Joi.number().integer().min(1).max(14).allow(null),
+  transfer_origin_semester: Joi.number().integer().min(1).max(14).allow(null),
+  transferReason: Joi.string().trim().allow('', null),
+  transfer_reason: Joi.string().trim().allow('', null),
 });
 
 const createLecturerPayloadSchema = baseUserPayloadSchema.keys({
@@ -38,6 +44,12 @@ const updateUserPayloadSchema = Joi.object({
   jurusan: Joi.string().trim().allow('', null),
   studyProgramId: Joi.string().allow('', null),
   study_program_id: Joi.string().allow('', null),
+  isTransferStudent: Joi.boolean(),
+  is_transfer_student: Joi.boolean(),
+  transferOriginSemester: Joi.number().integer().min(1).max(14).allow(null),
+  transfer_origin_semester: Joi.number().integer().min(1).max(14).allow(null),
+  transferReason: Joi.string().trim().allow('', null),
+  transfer_reason: Joi.string().trim().allow('', null),
 }).min(1);
 
 const usersQuerySchema = Joi.object({

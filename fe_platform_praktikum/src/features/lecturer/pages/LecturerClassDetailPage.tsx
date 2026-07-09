@@ -47,6 +47,7 @@ export default function LecturerClassDetailPage() {
   const { goBackToParent } = useBackNavigation()
   const { courseId = "", classId = "" } = useParams()
   const [searchParams] = useSearchParams()
+  const isHistoryScope = searchParams.get("scope") === "history"
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [activeTab, setActiveTab] = useState<ClassTab>(() => {
@@ -91,7 +92,7 @@ export default function LecturerClassDetailPage() {
       setError("")
 
       try {
-        const classDetail = await getLecturerClassDetail(classId)
+        const classDetail = await getLecturerClassDetail(classId, isHistoryScope ? { scope: "history" } : {})
         const mataKuliahId = classDetail.mataKuliahId || classDetail.id_mata_kuliah || classDetail.courseId
         const kelasPraktikumId = classDetail.kelasPraktikumId || classDetail.id_kelas_praktikum
         const submissionMatrix = await getLecturerSubmissionMatrix(
@@ -127,7 +128,7 @@ export default function LecturerClassDetailPage() {
     }
 
     loadClassData()
-  }, [classId, refreshTrigger])
+  }, [classId, refreshTrigger, isHistoryScope])
 
   async function handleDeleteJobsheet() {
     if (!deleteTarget) return
@@ -287,10 +288,12 @@ export default function LecturerClassDetailPage() {
             {activeTab === "modules" && (
               <div>
                 <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
-                  <LecturerButton onClick={() => navigate(`/mata-kuliah/${nativeScope.mataKuliahId || courseId}/jobsheets/create`)}>
-                    <Plus size={16} />
-                    Tambah Jobsheet
-                  </LecturerButton>
+                  {!isHistoryScope && (
+                    <LecturerButton onClick={() => navigate(`/mata-kuliah/${nativeScope.mataKuliahId || courseId}/jobsheets/create`)}>
+                      <Plus size={16} />
+                      Tambah Jobsheet
+                    </LecturerButton>
+                  )}
                   <NativeSelect value={statusFilter} onChange={setStatusFilter} label="">
                     <option value="all">Semua Status</option>
                     <option value="Published">Published</option>
@@ -318,26 +321,31 @@ export default function LecturerClassDetailPage() {
                               const params = new URLSearchParams({ courseId, classId, jobsheetId: jobsheet.id })
                               if (nativeScope.mataKuliahId) params.set("mataKuliahId", nativeScope.mataKuliahId)
                               if (nativeScope.kelasPraktikumId) params.set("kelasPraktikumId", nativeScope.kelasPraktikumId)
+                              if (isHistoryScope) params.set("scope", "history")
                               navigate(`/jobsheets/${jobsheet.id}?${params.toString()}`)
                             }}
                           >
                             Lihat Detail
                           </LecturerButton>
-                          <LecturerButton
-                            variant="secondary"
-                            onClick={() => {
-                              const params = new URLSearchParams({ courseId, classId })
-                              if (nativeScope.mataKuliahId) params.set("mataKuliahId", nativeScope.mataKuliahId)
-                              if (nativeScope.kelasPraktikumId) params.set("kelasPraktikumId", nativeScope.kelasPraktikumId)
-                              navigate(`/mata-kuliah/${nativeScope.mataKuliahId || courseId}/jobsheets/${jobsheet.id}/edit?${params.toString()}`)
-                            }}
-                          >
-                            Edit
-                          </LecturerButton>
-                          <LecturerButton variant="secondary" onClick={() => setDeleteTarget(jobsheet)}>
-                            <Trash2 size={16} />
-                            Hapus
-                          </LecturerButton>
+                          {!isHistoryScope && (
+                            <>
+                              <LecturerButton
+                                variant="secondary"
+                                onClick={() => {
+                                  const params = new URLSearchParams({ courseId, classId })
+                                  if (nativeScope.mataKuliahId) params.set("mataKuliahId", nativeScope.mataKuliahId)
+                                  if (nativeScope.kelasPraktikumId) params.set("kelasPraktikumId", nativeScope.kelasPraktikumId)
+                                  navigate(`/mata-kuliah/${nativeScope.mataKuliahId || courseId}/jobsheets/${jobsheet.id}/edit?${params.toString()}`)
+                                }}
+                              >
+                                Edit
+                              </LecturerButton>
+                              <LecturerButton variant="secondary" onClick={() => setDeleteTarget(jobsheet)}>
+                                <Trash2 size={16} />
+                                Hapus
+                              </LecturerButton>
+                            </>
+                          )}
                         </div>
                       </LecturerPanel>
                     ))}
@@ -455,6 +463,7 @@ export default function LecturerClassDetailPage() {
                                   })
                                   if (nativeScope.mataKuliahId) params.set("mataKuliahId", nativeScope.mataKuliahId)
                                   if (nativeScope.kelasPraktikumId) params.set("kelasPraktikumId", nativeScope.kelasPraktikumId)
+                                  params.set("from", "class-evaluation")
                                   navigate(`/reviews/${student.id}?${params.toString()}`)
                                 }
                               }

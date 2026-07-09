@@ -1,4 +1,5 @@
 const pool = require('..');
+const { ClientError } = require('../../../exceptions');
 
 class CoursesService {
   constructor() {
@@ -28,6 +29,18 @@ class CoursesService {
   }
 
   async getCoursesByStudentId(studentId) {
+    const profileResult = await this._pool.query(
+      `SELECT semester
+       FROM student_profiles
+       WHERE user_id = $1
+       LIMIT 1`,
+      [studentId],
+    );
+
+    if (!profileResult.rows.length) {
+      throw new ClientError('Profil mahasiswa tidak ditemukan.', 404);
+    }
+
     const nativeResult = await this._pool.query(
       `
       SELECT
@@ -64,8 +77,10 @@ class CoursesService {
         ON kp.id_tahun_semester = ks.id_tahun_semester
        AND kp.id_semester = ks.id_semester
        AND kp.id_kelas = ks.id_kelas
+      JOIN tahun_semester ts ON ts.id = ks.id_tahun_semester
       JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
       JOIN semester s ON s.id = mk.id_semester
+      JOIN student_profiles profile ON profile.user_id = km.id_mahasiswa
       LEFT JOIN pengampu p ON p.id_kelas_praktikum = kp.id
       LEFT JOIN users lecturer ON lecturer.id = p.id_dosen
       LEFT JOIN jobsheets j
@@ -82,6 +97,8 @@ class CoursesService {
        AND sp.jobsheet_id = j.id
       WHERE km.id_mahasiswa = $1
         AND km.status = 'active'
+        AND ts.status = 'active'
+        AND profile.semester = s.semester
         AND kp.status IN ('open', 'active')
       GROUP BY
         mk.id,

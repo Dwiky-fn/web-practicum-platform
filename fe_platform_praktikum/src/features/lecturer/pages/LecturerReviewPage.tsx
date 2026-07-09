@@ -164,6 +164,15 @@ export default function LecturerReviewPage() {
 
   const handleBack = useCallback(() => {
     const fromVal = searchParams.get("from")
+    const buildJobsheetParams = (tab: string) => {
+      const params = new URLSearchParams({ tab })
+      if (classId) params.set("classId", classId)
+      if (courseId) params.set("courseId", courseId)
+      if (mataKuliahId) params.set("mataKuliahId", mataKuliahId)
+      if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
+      return params
+    }
+
     if (fromVal === "monitor" && kelasPraktikumId && jobsheetId && studentId) {
       const params = new URLSearchParams()
       if (courseId) params.set("courseId", courseId)
@@ -173,14 +182,18 @@ export default function LecturerReviewPage() {
       if (attemptTypeParam) params.set("attemptType", attemptTypeParam)
       if (remedialIdParam) params.set("remedialId", remedialIdParam)
       navigate(`/lecturer/kelas-praktikum/${kelasPraktikumId}/jobsheets/${jobsheetId}/students/${studentId}/monitor?${params.toString()}`)
+    } else if (fromVal === "class-evaluation" && classId && courseId) {
+      navigate(`/kelas-praktikum/${courseId}/${classId}?tab=evaluation`)
     } else if (fromVal === "monitoring" && jobsheetId && classId && courseId) {
-      const params = new URLSearchParams({ tab: "monitoring", classId, courseId })
-      if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
-      if (mataKuliahId) params.set("mataKuliahId", mataKuliahId)
+      const params = buildJobsheetParams("monitoring")
+      navigate(`/jobsheets/${jobsheetId}?${params.toString()}`)
+    } else if (fromVal === "evaluation" && jobsheetId && classId && courseId) {
+      const params = buildJobsheetParams("students")
       navigate(`/jobsheets/${jobsheetId}?${params.toString()}`)
     } else if (jobsheetId && classId && courseId) {
-      const savedTab = sessionStorage.getItem(`activeTab_jobsheet_${jobsheetId}`) || "monitoring"
-      navigate(`/jobsheets/${jobsheetId}?tab=${savedTab}&classId=${classId}&courseId=${courseId}`)
+      const savedTab = sessionStorage.getItem(`activeTab_jobsheet_${jobsheetId}`) || "students"
+      const params = buildJobsheetParams(savedTab)
+      navigate(`/jobsheets/${jobsheetId}?${params.toString()}`)
     } else {
         if (window.history.length > 1) {
           goBack({ parentPath: "/mata-kuliah", fallbackPath: "/mata-kuliah" });

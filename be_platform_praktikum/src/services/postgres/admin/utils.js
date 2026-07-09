@@ -52,6 +52,9 @@ const mapStudent = (row) => ({
   programStudi: row.program_studi || 'Teknik Informatika',
   jurusan: row.jurusan || 'Teknologi Informasi',
   studyProgramId: row.study_program_id || undefined,
+  isTransferStudent: Boolean(row.is_transfer_student),
+  transferOriginSemester: row.transfer_origin_semester || undefined,
+  transferReason: row.transfer_reason || '',
   avatarUrl: row.avatar_url || undefined,
 });
 

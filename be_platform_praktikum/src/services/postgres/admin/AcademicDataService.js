@@ -117,11 +117,11 @@ class AcademicDataService {
   async createTahunSemester(payload) {
     const id = payload.id || createId('ts');
     const status = normalizeSimpleStatus(payload.status);
+    if (status === 'active') throw new Error('TAHUN_SEMESTER_ACTIVATION_REQUIRES_PROMOTION');
     const client = await this._pool.connect();
     try {
       await client.query('BEGIN');
       await this._ensureUniqueTahunSemester(client, payload.tahun_semester);
-      if (status === 'active') await client.query("UPDATE tahun_semester SET status = 'inactive', updated_at = CURRENT_TIMESTAMP WHERE status = 'active'");
       await client.query(
         `INSERT INTO tahun_semester (id, tahun_semester, status)
          VALUES ($1, $2, $3)`,
@@ -140,12 +140,12 @@ class AcademicDataService {
 
   async updateTahunSemester(id, payload) {
     const status = payload.status ? normalizeSimpleStatus(payload.status) : null;
+    if (status === 'active') throw new Error('TAHUN_SEMESTER_ACTIVATION_REQUIRES_PROMOTION');
     const client = await this._pool.connect();
     try {
       await client.query('BEGIN');
       await this._ensureExists(client, 'tahun_semester', id, 'TAHUN_SEMESTER_NOT_FOUND');
       if (payload.tahun_semester) await this._ensureUniqueTahunSemester(client, payload.tahun_semester, id);
-      if (status === 'active') await client.query("UPDATE tahun_semester SET status = 'inactive', updated_at = CURRENT_TIMESTAMP WHERE status = 'active' AND id <> $1", [id]);
       await client.query(
         `UPDATE tahun_semester
          SET tahun_semester = COALESCE($2, tahun_semester),
@@ -166,7 +166,28 @@ class AcademicDataService {
   }
 
   async activateTahunSemester(id) {
-    return this.updateTahunSemester(id, { status: 'active' });
+    const active = await this._pool.query("SELECT id FROM tahun_semester WHERE status = 'active' LIMIT 1");
+    if (active.rows.length) throw new Error('TAHUN_SEMESTER_MANUAL_ACTIVATION_DISABLED');
+    return this.initialActivateTahunSemester(id);
+  }
+
+  async initialActivateTahunSemester(id) {
+    const client = await this._pool.connect();
+    try {
+      await client.query('BEGIN');
+      const target = await client.query('SELECT id, tahun_semester, status FROM tahun_semester WHERE id = $1 LIMIT 1', [id]);
+      if (!target.rows.length) throw new Error('TAHUN_SEMESTER_NOT_FOUND');
+      const active = await client.query("SELECT id FROM tahun_semester WHERE status = 'active' LIMIT 1");
+      if (active.rows.length) throw new Error('TAHUN_SEMESTER_INITIAL_ACTIVATION_LOCKED');
+      await client.query("UPDATE tahun_semester SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
+      await client.query('COMMIT');
+      return (await this.getTahunSemester()).find((item) => item.id === id);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async deleteTahunSemester(id, force = false) {
@@ -737,16 +758,24 @@ class AcademicDataService {
 
       // Fetch or automatically create the corresponding kelas_semester group
       const groupResult = await client.query(
-        'SELECT id FROM kelas_semester WHERE id_tahun_semester = $1 AND id_semester = $2 AND id_kelas = $3 LIMIT 1',
-        [payload.id_tahun_semester, payload.id_semester, payload.id_kelas]
+        `SELECT id, study_program_id
+         FROM kelas_semester
+         WHERE id_tahun_semester = $1
+           AND id_semester = $2
+           AND id_kelas = $3
+           AND (study_program_id = (SELECT study_program_id FROM student_profiles WHERE user_id = $4) OR study_program_id IS NULL)
+         ORDER BY study_program_id IS NULL ASC
+         LIMIT 1`,
+        [payload.id_tahun_semester, payload.id_semester, payload.id_kelas, payload.id_mahasiswa]
       );
       let id_kelas_semester = groupResult.rows[0]?.id || null;
       if (!id_kelas_semester) {
+        const studentProgram = await client.query('SELECT study_program_id FROM student_profiles WHERE user_id = $1 LIMIT 1', [payload.id_mahasiswa]);
         id_kelas_semester = createId('ks');
         await client.query(
-          `INSERT INTO kelas_semester (id, id_tahun_semester, id_semester, id_kelas, status)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [id_kelas_semester, payload.id_tahun_semester, payload.id_semester, payload.id_kelas, 'active']
+          `INSERT INTO kelas_semester (id, id_tahun_semester, id_semester, id_kelas, study_program_id, status)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [id_kelas_semester, payload.id_tahun_semester, payload.id_semester, payload.id_kelas, studentProgram.rows[0]?.study_program_id || null, 'active']
         );
       }
 
@@ -797,16 +826,24 @@ class AcademicDataService {
         const targetKelas = payload.id_kelas || current.id_kelas;
 
         const groupResult = await client.query(
-          'SELECT id FROM kelas_semester WHERE id_tahun_semester = $1 AND id_semester = $2 AND id_kelas = $3 LIMIT 1',
-          [targetTahun, targetSemester, targetKelas]
+          `SELECT id
+           FROM kelas_semester
+           WHERE id_tahun_semester = $1
+             AND id_semester = $2
+             AND id_kelas = $3
+             AND (study_program_id = (SELECT study_program_id FROM student_profiles WHERE user_id = $4) OR study_program_id IS NULL)
+           ORDER BY study_program_id IS NULL ASC
+           LIMIT 1`,
+          [targetTahun, targetSemester, targetKelas, payload.id_mahasiswa || current.id_mahasiswa]
         );
         id_kelas_semester = groupResult.rows[0]?.id || null;
         if (!id_kelas_semester) {
+          const studentProgram = await client.query('SELECT study_program_id FROM student_profiles WHERE user_id = $1 LIMIT 1', [payload.id_mahasiswa || current.id_mahasiswa]);
           id_kelas_semester = createId('ks');
           await client.query(
-            `INSERT INTO kelas_semester (id, id_tahun_semester, id_semester, id_kelas, status)
-             VALUES ($1, $2, $3, $4, $5)`,
-            [id_kelas_semester, targetTahun, targetSemester, targetKelas, 'active']
+            `INSERT INTO kelas_semester (id, id_tahun_semester, id_semester, id_kelas, study_program_id, status)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [id_kelas_semester, targetTahun, targetSemester, targetKelas, studentProgram.rows[0]?.study_program_id || null, 'active']
           );
         }
       }
@@ -867,6 +904,135 @@ class AcademicDataService {
     return Number(result.rows[0].semester);
   }
 
+  async transitionStudents(payload) {
+    const client = await this._pool.connect();
+    try {
+      await client.query('BEGIN');
+      const sourceClass = await client.query(
+        `SELECT ks.id, ks.id_tahun_semester, ks.id_semester, ks.id_kelas, s.semester, k.kelas, ts.tahun_semester
+         FROM kelas_semester ks
+         JOIN semester s ON s.id = ks.id_semester
+         JOIN kelas k ON k.id = ks.id_kelas
+         JOIN tahun_semester ts ON ts.id = ks.id_tahun_semester
+         WHERE ks.id = $1
+         LIMIT 1`,
+        [payload.sourceKelasSemesterId],
+      );
+      if (!sourceClass.rows.length) throw new Error('KELAS_SEMESTER_NOT_FOUND');
+      const source = sourceClass.rows[0];
+      const transitions = payload.transitions || [];
+      const promotedStudents = [];
+
+      for (const transition of transitions) {
+        const current = await client.query(
+          `SELECT
+             km.id AS id_kelas_mhs,
+             km.id_mahasiswa,
+             km.id_tahun_semester,
+             km.id_semester,
+             km.id_kelas,
+             sp.semester AS student_semester,
+             sp.status AS student_status,
+             u.is_active
+           FROM kelas_mhs km
+           JOIN users u ON u.id = km.id_mahasiswa
+           JOIN student_profiles sp ON sp.user_id = km.id_mahasiswa
+           WHERE km.id_kelas_semester = $1
+             AND km.id_mahasiswa = $2
+             AND km.status = 'active'
+           LIMIT 1`,
+          [source.id, transition.studentId],
+        );
+        if (!current.rows.length) throw new Error('KELAS_MAHASISWA_NOT_FOUND');
+        const row = current.rows[0];
+        if (!row.is_active || String(row.student_status || '').toLowerCase() !== 'aktif') {
+          throw new Error('MAHASISWA_NOT_ACTIVE');
+        }
+        const currentSemester = Number(row.student_semester);
+        if (currentSemester !== Number(source.semester)) throw new Error('STUDENT_SEMESTER_MISMATCH');
+
+        const target = await client.query(
+          `SELECT ks.id, ks.id_tahun_semester, ks.id_semester, ks.id_kelas, s.semester, k.kelas
+           FROM kelas_semester ks
+           JOIN semester s ON s.id = ks.id_semester
+           JOIN kelas k ON k.id = ks.id_kelas
+           WHERE ks.id = $1
+           LIMIT 1`,
+          [transition.targetKelasSemesterId],
+        );
+        if (!target.rows.length) throw new Error('KELAS_SEMESTER_TARGET_NOT_FOUND');
+        const targetClass = target.rows[0];
+        const targetSemester = currentSemester + 1;
+        if (Number(targetClass.semester) !== targetSemester) throw new Error('STUDENT_PROMOTION_SEMESTER_INVALID');
+
+        const duplicateTargetPeriod = await client.query(
+          `SELECT 1
+           FROM kelas_mhs
+           WHERE id_tahun_semester = $1
+             AND id_mahasiswa = $2
+           LIMIT 1`,
+          [targetClass.id_tahun_semester, row.id_mahasiswa],
+        );
+        if (duplicateTargetPeriod.rows.length) throw new Error('KELAS_MAHASISWA_DUPLICATE');
+
+        const kmId = createId('km');
+        await client.query(
+          `INSERT INTO kelas_mhs (id, id_tahun_semester, id_semester, id_kelas, id_mahasiswa, status, id_kelas_semester)
+           VALUES ($1, $2, $3, $4, $5, 'active', $6)`,
+          [
+            kmId,
+            targetClass.id_tahun_semester,
+            targetClass.id_semester,
+            targetClass.id_kelas,
+            row.id_mahasiswa,
+            targetClass.id,
+          ],
+        );
+        await client.query(
+          'UPDATE student_profiles SET semester = $2 WHERE user_id = $1',
+          [row.id_mahasiswa, targetSemester],
+        );
+        await client.query(
+          `INSERT INTO student_class_history (
+             id, id_mahasiswa, from_kelas_mhs_id, to_kelas_mhs_id,
+             from_tahun_semester_id, to_tahun_semester_id,
+             from_semester, to_semester, from_kelas_id, to_kelas_id, action, note
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'promote', $11)`,
+          [
+            createId('sch'),
+            row.id_mahasiswa,
+            row.id_kelas_mhs,
+            kmId,
+            row.id_tahun_semester,
+            targetClass.id_tahun_semester,
+            currentSemester,
+            targetSemester,
+            row.id_kelas,
+            targetClass.id_kelas,
+            'Kenaikan semester melalui kelas semester.',
+          ],
+        );
+        promotedStudents.push({
+          studentId: row.id_mahasiswa,
+          fromSemester: currentSemester,
+          toSemester: targetSemester,
+          targetKelasSemesterId: targetClass.id,
+        });
+      }
+
+      await client.query('COMMIT');
+      return {
+        processed_students: promotedStudents.length,
+        students: promotedStudents,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async _validateStudentClassEligibility(client, {
     studentId,
     tahunSemesterId,
@@ -914,120 +1080,6 @@ class AcademicDataService {
       ? [tahunSemesterId, semesterId, kelasId, studentId, ignoredKelasMahasiswaId]
       : [tahunSemesterId, semesterId, kelasId, studentId]);
     if (sameClass.rows.length) throw new Error('KELAS_MAHASISWA_DUPLICATE');
-  }
-
-  async transitionStudents(payload) {
-    const { targetTahunSemesterId, transitions } = payload;
-    const client = await this._pool.connect();
-    try {
-      await client.query('BEGIN');
-      await this._ensureExists(client, 'tahun_semester', targetTahunSemesterId, 'TAHUN_SEMESTER_NOT_FOUND');
-
-      const prepared = [];
-      for (const t of transitions) {
-        const { studentId, action, targetSemesterId, targetKelasId, transferException, transferReason } = t;
-        if (action !== 'promote') throw new Error('STUDENT_PROMOTION_ACTION_INVALID');
-        if (!targetSemesterId || !targetKelasId) throw new Error('STUDENT_PROMOTION_TARGET_REQUIRED');
-
-        const studentRes = await client.query(`
-          SELECT u.id, u.is_active, sp.semester, sp.status, sp.is_transfer_student
-          FROM users u
-          JOIN student_profiles sp ON sp.user_id = u.id
-          WHERE u.id = $1 AND u.role = 'MAHASISWA'
-          LIMIT 1
-        `, [studentId]);
-        if (!studentRes.rows.length) throw new Error('MAHASISWA_NOT_FOUND');
-        const student = studentRes.rows[0];
-        if (!student.is_active || String(student.status || '').toLowerCase() !== 'aktif') {
-          throw new Error('MAHASISWA_NOT_ACTIVE');
-        }
-
-        const current = await client.query(`
-          SELECT km.*, s.semester AS relation_semester
-          FROM kelas_mhs km
-          JOIN semester s ON s.id = km.id_semester
-          WHERE km.id_mahasiswa = $1
-          ORDER BY km.created_at DESC
-          LIMIT 1
-        `, [studentId]);
-        if (!current.rows.length) throw new Error('STUDENT_HISTORY_REQUIRED');
-
-        const targetSemesterNum = await this._getSemesterNumber(client, targetSemesterId);
-        const currentSemesterNum = Number(student.semester ?? current.rows[0].relation_semester);
-        const isSequential = targetSemesterNum === currentSemesterNum + 1;
-        if (!isSequential && !transferException) throw new Error('STUDENT_SEMESTER_JUMP_NOT_ALLOWED');
-        if (!isSequential && !String(transferReason || '').trim()) throw new Error('TRANSFER_REASON_REQUIRED');
-
-        await this._ensureExists(client, 'kelas', targetKelasId, 'MASTER_KELAS_NOT_FOUND');
-        const targetClass = await client.query(
-          'SELECT id FROM kelas_semester WHERE id_tahun_semester = $1 AND id_semester = $2 AND id_kelas = $3 LIMIT 1',
-          [targetTahunSemesterId, targetSemesterId, targetKelasId],
-        );
-        if (!targetClass.rows.length) throw new Error('KELAS_SEMESTER_TARGET_NOT_FOUND');
-
-        const duplicate = await client.query(
-          'SELECT 1 FROM kelas_mhs WHERE id_tahun_semester = $1 AND id_mahasiswa = $2 LIMIT 1',
-          [targetTahunSemesterId, studentId],
-        );
-        if (duplicate.rows.length) throw new Error('KELAS_MAHASISWA_DUPLICATE');
-
-        prepared.push({
-          ...t,
-          current: current.rows[0],
-          currentSemesterNum,
-          targetSemesterNum,
-          targetClassId: targetClass.rows[0].id,
-        });
-      }
-
-      for (const item of prepared) {
-        await client.query(
-          `UPDATE student_profiles
-           SET semester = $2,
-               is_transfer_student = CASE WHEN $3 THEN true ELSE is_transfer_student END,
-               transfer_origin_semester = CASE WHEN $3 THEN $4 ELSE transfer_origin_semester END,
-               transfer_reason = CASE WHEN $3 THEN $5 ELSE transfer_reason END
-           WHERE user_id = $1`,
-          [item.studentId, item.targetSemesterNum, Boolean(item.transferException), item.currentSemesterNum, item.transferReason || null],
-        );
-
-        const kmId = createId('km');
-        await client.query(
-          `INSERT INTO kelas_mhs (id, id_tahun_semester, id_semester, id_kelas, id_mahasiswa, status, id_kelas_semester)
-           VALUES ($1, $2, $3, $4, $5, 'active', $6)`,
-          [kmId, targetTahunSemesterId, item.targetSemesterId, item.targetKelasId, item.studentId, item.targetClassId],
-        );
-
-        await client.query(
-          `INSERT INTO student_class_history (
-             id, id_mahasiswa, from_kelas_mhs_id, to_kelas_mhs_id,
-             from_tahun_semester_id, to_tahun_semester_id,
-             from_semester, to_semester, from_kelas_id, to_kelas_id, action, note
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-          [
-            createId('sch'),
-            item.studentId,
-            item.current.id,
-            kmId,
-            item.current.id_tahun_semester,
-            targetTahunSemesterId,
-            item.currentSemesterNum,
-            item.targetSemesterNum,
-            item.current.id_kelas,
-            item.targetKelasId,
-            item.transferException ? 'transfer_exception' : 'promote',
-            item.transferReason || null,
-          ],
-        );
-      }
-
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
   }
 
   _buildKelasPraktikumName(row) {
@@ -1314,6 +1366,8 @@ class AcademicDataService {
         ks.id_tahun_semester,
         ks.id_semester,
         ks.id_kelas,
+        ks.study_program_id,
+        sp.name AS study_program_name,
         s.semester,
         k.kelas,
         (s.semester || k.kelas) AS nama_kelas,
@@ -1324,9 +1378,10 @@ class AcademicDataService {
       JOIN tahun_semester ts ON ts.id = ks.id_tahun_semester
       JOIN semester s ON s.id = ks.id_semester
       JOIN kelas k ON k.id = ks.id_kelas
+      LEFT JOIN study_programs sp ON sp.id = ks.study_program_id
       LEFT JOIN kelas_mhs km ON km.id_kelas_semester = ks.id
       WHERE true${clause}
-      GROUP BY ks.id, s.semester, k.kelas, ts.tahun_semester
+      GROUP BY ks.id, sp.name, s.semester, k.kelas, ts.tahun_semester
       ORDER BY s.semester ASC, k.kelas ASC
     `, params);
     return result.rows;
@@ -1339,6 +1394,8 @@ class AcademicDataService {
         ks.id_tahun_semester,
         ks.id_semester,
         ks.id_kelas,
+        ks.study_program_id,
+        sp.name AS study_program_name,
         s.semester,
         k.kelas,
         (s.semester || k.kelas) AS nama_kelas,
@@ -1348,6 +1405,7 @@ class AcademicDataService {
       JOIN tahun_semester ts ON ts.id = ks.id_tahun_semester
       JOIN semester s ON s.id = ks.id_semester
       JOIN kelas k ON k.id = ks.id_kelas
+      LEFT JOIN study_programs sp ON sp.id = ks.study_program_id
       WHERE ks.id = $1
     `, [id]);
     if (!result.rows.length) throw new Error('KELAS_SEMESTER_NOT_FOUND');
@@ -1362,10 +1420,11 @@ class AcademicDataService {
       await this._ensureExists(client, 'tahun_semester', payload.id_tahun_semester, 'TAHUN_SEMESTER_NOT_FOUND');
       await this._ensureExists(client, 'semester', payload.id_semester, 'MASTER_SEMESTER_NOT_FOUND');
       await this._ensureExists(client, 'kelas', payload.id_kelas, 'MASTER_KELAS_NOT_FOUND');
+      if (payload.study_program_id) await this._ensureExists(client, 'study_programs', payload.study_program_id, 'STUDY_PROGRAM_NOT_FOUND');
       await client.query(
-        `INSERT INTO kelas_semester (id, id_tahun_semester, id_semester, id_kelas, status)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [id, payload.id_tahun_semester, payload.id_semester, payload.id_kelas, normalizeSimpleStatus(payload.status, 'active')],
+        `INSERT INTO kelas_semester (id, id_tahun_semester, id_semester, id_kelas, study_program_id, status)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [id, payload.id_tahun_semester, payload.id_semester, payload.id_kelas, payload.study_program_id || null, normalizeSimpleStatus(payload.status, 'active')],
       );
       await client.query('COMMIT');
       return (await this.getKelasSemester()).find((item) => item.id === id);
@@ -1404,15 +1463,17 @@ class AcademicDataService {
       if (payload.id_tahun_semester) await this._ensureExists(client, 'tahun_semester', payload.id_tahun_semester, 'TAHUN_SEMESTER_NOT_FOUND');
       if (payload.id_semester) await this._ensureExists(client, 'semester', payload.id_semester, 'MASTER_SEMESTER_NOT_FOUND');
       if (payload.id_kelas) await this._ensureExists(client, 'kelas', payload.id_kelas, 'MASTER_KELAS_NOT_FOUND');
+      if (payload.study_program_id) await this._ensureExists(client, 'study_programs', payload.study_program_id, 'STUDY_PROGRAM_NOT_FOUND');
       await client.query(
         `UPDATE kelas_semester
          SET id_tahun_semester = COALESCE($2, id_tahun_semester),
              id_semester = COALESCE($3, id_semester),
              id_kelas = COALESCE($4, id_kelas),
-             status = COALESCE($5, status),
+             study_program_id = COALESCE($5, study_program_id),
+             status = COALESCE($6, status),
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $1`,
-        [id, payload.id_tahun_semester || null, payload.id_semester || null, payload.id_kelas || null, payload.status ? normalizeSimpleStatus(payload.status, 'active') : null],
+        [id, payload.id_tahun_semester || null, payload.id_semester || null, payload.id_kelas || null, payload.study_program_id || null, payload.status ? normalizeSimpleStatus(payload.status, 'active') : null],
       );
       await client.query('COMMIT');
       return (await this.getKelasSemester()).find((item) => item.id === id);

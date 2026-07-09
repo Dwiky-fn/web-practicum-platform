@@ -73,6 +73,7 @@ class AdminUsersService {
         COALESCE(dept.name, sp.jurusan) AS jurusan, 
         sp.study_program_id,
         sp.angkatan, sp.semester,
+        sp.is_transfer_student, sp.transfer_origin_semester, sp.transfer_reason,
         sp.status, u.avatar_url, sp.no_telepon, sp.tempat_lahir,
         TO_CHAR(sp.tanggal_lahir, 'YYYY-MM-DD') AS tanggal_lahir,
         sp.kota
@@ -158,9 +159,13 @@ class AdminUsersService {
           }
         }
 
+        const isTransferStudent = Boolean(payload.isTransferStudent || payload.is_transfer_student);
         await client.query(
-          `INSERT INTO student_profiles (user_id, nim, program_studi, jurusan, angkatan, semester, status, study_program_id)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          `INSERT INTO student_profiles (
+             user_id, nim, program_studi, jurusan, angkatan, semester, status, study_program_id,
+             is_transfer_student, transfer_origin_semester, transfer_reason
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
           [
             id,
             payload.nim,
@@ -170,6 +175,9 @@ class AdminUsersService {
             payload.semester ? Number(payload.semester) : null,
             displayStatus(normalizeStatus(payload.status)),
             studyProgramId,
+            isTransferStudent,
+            isTransferStudent ? Number(payload.transferOriginSemester || payload.transfer_origin_semester || payload.semester || 0) || null : null,
+            isTransferStudent ? (payload.transferReason || payload.transfer_reason || null) : null,
           ],
         );
       }
@@ -239,6 +247,7 @@ class AdminUsersService {
           }
         }
 
+        const isTransferStudent = payload.isTransferStudent ?? payload.is_transfer_student;
         await client.query(
           `UPDATE student_profiles
            SET
@@ -248,7 +257,10 @@ class AdminUsersService {
             program_studi = COALESCE($5, program_studi),
             jurusan = COALESCE($6, jurusan),
             status = COALESCE($7, status),
-            study_program_id = COALESCE($8, study_program_id)
+            study_program_id = COALESCE($8, study_program_id),
+            is_transfer_student = COALESCE($9, is_transfer_student),
+            transfer_origin_semester = COALESCE($10, transfer_origin_semester),
+            transfer_reason = COALESCE($11, transfer_reason)
            WHERE user_id = $1`,
           [
             id,
@@ -259,6 +271,9 @@ class AdminUsersService {
             jurusan,
             status ? displayStatus(status) : null,
             studyProgramId,
+            typeof isTransferStudent === 'boolean' ? isTransferStudent : null,
+            payload.transferOriginSemester || payload.transfer_origin_semester || null,
+            payload.transferReason || payload.transfer_reason || null,
           ],
         );
       }

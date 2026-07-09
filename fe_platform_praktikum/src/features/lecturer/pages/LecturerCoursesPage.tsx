@@ -13,8 +13,11 @@ export default function LecturerCoursesPage() {
   const { user } = useCurrentUser()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [courses, setCourses] = useState<LecturerCourseGroup[]>([])
+  const [activeCourses, setActiveCourses] = useState<LecturerCourseGroup[]>([])
+  const [historyCourses, setHistoryCourses] = useState<LecturerCourseGroup[]>([])
+  const [activeTab, setActiveTab] = useState<"active" | "history">("active")
   const [openIds, setOpenIds] = useState<string[]>([])
+  const [historyPeriod, setHistoryPeriod] = useState("all")
 
   useEffect(() => {
     async function loadCourses() {
@@ -24,9 +27,16 @@ export default function LecturerCoursesPage() {
       setError("")
 
       try {
-        const groups = await getLecturerCourseGroups()
-        setCourses(groups)
-        setOpenIds(groups[0] ? [groups[0].id] : [])
+        const activeGroups = await getLecturerCourseGroups({ scope: "active" })
+        let historyGroups: LecturerCourseGroup[] = []
+        try {
+          historyGroups = await getLecturerCourseGroups({ scope: "history" })
+        } catch {
+          historyGroups = []
+        }
+        setActiveCourses(activeGroups)
+        setHistoryCourses(historyGroups)
+        setOpenIds(activeGroups[0] ? [activeGroups[0].id] : [])
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Gagal memuat mata kuliah dosen.")
       } finally {
@@ -45,6 +55,15 @@ export default function LecturerCoursesPage() {
     )
   }
 
+  const historyPeriods = Array.from(new Set(historyCourses.map((course) => course.period).filter(Boolean)))
+  const filteredHistoryCourses = historyPeriod === "all"
+    ? historyCourses
+    : historyCourses.filter((course) => course.period === historyPeriod)
+  const courses = activeTab === "active" ? activeCourses : filteredHistoryCourses
+  const emptyTitle = activeTab === "active"
+    ? "Belum ada mata kuliah yang diampu pada semester aktif."
+    : "Belum ada riwayat pengajaran."
+
   if (loading) {
     return <TopProgressBar />
   }
@@ -53,7 +72,7 @@ export default function LecturerCoursesPage() {
     <LecturerLayout>
       <PageHeader
         title="Mata Kuliah yang Diampu"
-        subtitle="Daftar mata kuliah dan kelas yang diampu pada semester aktif."
+        subtitle="Pisahkan pengajaran semester berjalan dan riwayat pengajaran sebelumnya."
       />
 
       {error && (
@@ -62,8 +81,48 @@ export default function LecturerCoursesPage() {
         </div>
       )}
 
+      <div className="mb-5 flex flex-wrap gap-2 border-b border-gray-200">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("active")
+            setOpenIds(activeCourses[0] ? [activeCourses[0].id] : [])
+          }}
+          className={`rounded-t-lg px-5 py-3 text-sm font-semibold transition ${activeTab === "active" ? "bg-blue-700 text-white" : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700"}`}
+        >
+          Pengajaran Aktif
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("history")
+            setOpenIds(historyCourses[0] ? [historyCourses[0].id] : [])
+          }}
+          className={`rounded-t-lg px-5 py-3 text-sm font-semibold transition ${activeTab === "history" ? "bg-blue-700 text-white" : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700"}`}
+        >
+          Riwayat Pengajaran
+        </button>
+      </div>
+
+      {activeTab === "history" && (
+        <div className="mb-5 flex flex-col gap-2 sm:max-w-xs">
+          <label className="text-sm font-semibold text-gray-700" htmlFor="history-period-filter">Tahun Semester</label>
+          <select
+            id="history-period-filter"
+            value={historyPeriod}
+            onChange={(event) => setHistoryPeriod(event.target.value)}
+            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="all">Semua Tahun Semester</option>
+            {historyPeriods.map((period) => (
+              <option key={period} value={period}>{period}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {!courses.length ? (
-        <LecturerEmptyState title="Belum ada mata kuliah yang diampu pada semester aktif." />
+        <LecturerEmptyState title={emptyTitle} />
       ) : (
         <div className="space-y-5">
           {courses.map((course) => {
@@ -85,7 +144,9 @@ export default function LecturerCoursesPage() {
 
                 {open && (
                   <div className="border-t border-gray-200 p-5">
-                    <h2 className="mb-3 text-sm font-semibold text-gray-900">Kelas Praktikum yang Diampu</h2>
+                    <h2 className="mb-3 text-sm font-semibold text-gray-900">
+                      {activeTab === "active" ? "Kelas Praktikum yang Diampu" : "Riwayat Kelas Praktikum"}
+                    </h2>
                     <div className="space-y-3">
                       {course.classes.map((item) => (
                         <div
@@ -93,25 +154,28 @@ export default function LecturerCoursesPage() {
                           className="flex flex-col gap-3 rounded-md border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
                         >
                           <div>
-                            <p className="font-semibold">Kelas Praktikum {item.name}</p>
+                            <p className="font-semibold">{item.name}</p>
                             <p className="text-sm text-gray-600">
                               {item.studentCount} mahasiswa, {item.jobsheetCount} jobsheet
                             </p>
                           </div>
-                          <LecturerButton onClick={() => navigate(`/kelas-praktikum/${course.id}/${item.id}`)}>
-                            Masuk Kelas Praktikum
+                          <LecturerButton
+                            variant={activeTab === "history" ? "secondary" : "primary"}
+                            onClick={() => navigate(`/kelas-praktikum/${course.id}/${item.id}${activeTab === "history" ? "?scope=history" : ""}`)}
+                          >
+                            {activeTab === "history" ? "Lihat Riwayat" : "Masuk Kelas Praktikum"}
                           </LecturerButton>
                         </div>
                       ))}
                     </div>
-                    <div className="mt-5 border-t border-gray-200 pt-4">
+                    {activeTab === "active" && <div className="mt-5 border-t border-gray-200 pt-4">
                       <LecturerButton
                         variant="secondary"
                         onClick={() => navigate(`${academicCourseBasePath(course.id, { mataKuliahId: course.mataKuliahId || course.id })}/jobsheets`)}
                       >
                         Kelola Jobsheet
                       </LecturerButton>
-                    </div>
+                    </div>}
                   </div>
                 )}
               </LecturerPanel>

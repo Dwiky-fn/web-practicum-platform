@@ -90,6 +90,8 @@ class ClassesService {
       id_tahun_semester: row.id_tahun_semester,
       tahunSemester: row.tahun_semester,
       tahun_semester: row.tahun_semester,
+      tahunSemesterStatus: row.tahun_semester_status,
+      tahun_semester_status: row.tahun_semester_status,
       semesterId: row.id_semester,
       id_semester: row.id_semester,
       kelasId: row.id_kelas,
@@ -134,6 +136,8 @@ class ClassesService {
     let lecturerClause = '';
     let courseClause = '';
     let statusClause = '';
+    let periodScopeClause = "AND LOWER(COALESCE(ts.status, 'inactive')) IN ('active', 'aktif')";
+    let classActiveScopeClause = "AND LOWER(COALESCE(kp.status, 'inactive')) IN ('open', 'active', 'aktif')";
 
     if (filters.lecturerId) {
       params.push(filters.lecturerId);
@@ -152,6 +156,13 @@ class ClassesService {
       const normalized = normalizeStatus(filters.status).toLowerCase();
       params.push(normalized === 'aktif' ? 'open' : normalized);
       statusClause = `AND kp.status = $${params.length}`;
+    }
+    if (filters.scope === 'history' || filters.history === 'true') {
+      periodScopeClause = "AND LOWER(COALESCE(ts.status, 'inactive')) NOT IN ('active', 'aktif')";
+      classActiveScopeClause = '';
+    } else if (filters.scope === 'all') {
+      periodScopeClause = '';
+      classActiveScopeClause = '';
     }
 
     const result = await this._pool.query(
@@ -172,6 +183,7 @@ class ClassesService {
         u.fullname AS lecturer,
         ts.id AS id_tahun_semester,
         ts.tahun_semester,
+        ts.status AS tahun_semester_status,
         COUNT(DISTINCT km.id_mahasiswa)::int AS student_count,
         COUNT(DISTINCT jc.id)::int AS jobsheet_count
       FROM kelas_praktikum kp
@@ -198,8 +210,10 @@ class ClassesService {
         ${lecturerClause}
         ${courseClause}
         ${statusClause}
+        ${periodScopeClause}
+        ${classActiveScopeClause}
       GROUP BY kp.id, mk.id, s.id, k.id, p.id_dosen, u.id, ts.id
-      ORDER BY ts.status = 'active' DESC, ts.tahun_semester DESC, mk.nama_mk ASC, kp.nama_kelas ASC
+      ORDER BY LOWER(COALESCE(ts.status, 'inactive')) IN ('active', 'aktif') DESC, ts.tahun_semester DESC, mk.nama_mk ASC, kp.nama_kelas ASC
       `,
       params,
     );
@@ -305,8 +319,11 @@ class ClassesService {
     }
   }
 
-  async getClassDetail(id) {
-    const nativeClass = (await this._getNativeClasses()).find((item) => item.id === id);
+  async getClassDetail(id, filters = {}) {
+    let nativeClass = (await this._getNativeClasses(filters)).find((item) => item.id === id);
+    if (!nativeClass && !filters.scope && !filters.history) {
+      nativeClass = (await this._getNativeClasses({ scope: 'all' })).find((item) => item.id === id);
+    }
     if (!nativeClass) throw new Error('CLASS_NOT_FOUND');
 
     const [students, jobsheets] = await Promise.all([

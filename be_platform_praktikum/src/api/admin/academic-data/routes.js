@@ -18,6 +18,7 @@ const routes = (handler) => {
   router.put('/tahun-semester/:id', adminOnly, safe(handler.updateTahunSemesterHandler));
   router.delete('/tahun-semester/:id', adminOnly, safe(handler.deleteTahunSemesterHandler));
   router.patch('/tahun-semester/:id/activate', adminOnly, safe(handler.activateTahunSemesterHandler));
+  router.patch('/tahun-semester/:id/initial-activate', adminOnly, safe(handler.initialActivateTahunSemesterHandler));
 
   router.get('/kurikulum', adminOnly, safe(handler.getKurikulumHandler));
   router.post('/kurikulum', adminOnly, safe(handler.createKurikulumHandler));

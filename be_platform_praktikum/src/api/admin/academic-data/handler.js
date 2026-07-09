@@ -32,6 +32,10 @@ class AcademicDataHandler {
     return ok(res, { tahun_semester: await this._service.activateTahunSemester(req.params.id) }, 'Tahun semester berhasil diaktifkan');
   }
 
+  async initialActivateTahunSemesterHandler(req, res) {
+    return ok(res, { tahun_semester: await this._service.initialActivateTahunSemester(req.params.id) }, 'Tahun semester awal berhasil diaktifkan');
+  }
+
   async getKurikulumHandler(req, res) {
     return ok(res, { kurikulum: await this._service.getKurikulum() });
   }
@@ -220,9 +224,9 @@ class AcademicDataHandler {
 
   async transitionStudentsHandler(req, res) {
     const payload = Validator.validateStudentTransitionPayload(req.body);
-    await this._service.transitionStudents(payload);
-    return ok(res, {}, 'Perpindahan semester mahasiswa berhasil diproses');
+    return ok(res, { result: await this._service.transitionStudents(payload) }, 'Kenaikan semester berhasil diproses');
   }
+
 }
 
 module.exports = AcademicDataHandler;

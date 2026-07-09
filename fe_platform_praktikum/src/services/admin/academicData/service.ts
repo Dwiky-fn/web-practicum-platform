@@ -62,6 +62,8 @@ export type KelasSemester = {
   id_tahun_semester: string
   id_semester: string
   id_kelas: string
+  study_program_id?: string
+  study_program_name?: string
   semester?: number
   kelas?: string
   nama_kelas?: string
@@ -108,6 +110,46 @@ export type KelasPraktikumMahasiswa = {
   fullname?: string
   email?: string
   nim?: string
+}
+
+export type SemesterPromotionPreviewStudent = {
+  id_kelas_mhs: string
+  id_mahasiswa: string
+  id_kelas: string
+  id_semester: string
+  nim?: string
+  fullname?: string
+  student_status?: string
+  kelas?: string
+  current_semester: number
+  target_semester: number
+  default_target_kelas_semester_id: string
+  available_target_classes?: Array<{
+    id: string
+    id_kelas: string
+    kelas: string
+  }>
+  eligible: boolean
+  reason?: string | null
+}
+
+export type SemesterPromotionPreviewClass = {
+  id: string
+  id_semester: string
+  id_kelas: string
+  semester: number
+  kelas: string
+  active_count: number
+  students: SemesterPromotionPreviewStudent[]
+}
+
+export type SemesterPromotionPreview = {
+  source_kelas_semester: KelasSemester
+  classes: SemesterPromotionPreviewClass[]
+  summary: {
+    active_students: number
+    source_classes: number
+  }
 }
 
 const unwrap = <T>(res: any, key: string): T => res.data[key] ?? []
@@ -238,19 +280,23 @@ export const academicDataApi = {
     await apiFetch(`/admin/kelas-semester/${id}`, { method: "DELETE" })
   },
   async transitionStudents(payload: {
-    targetTahunSemesterId: string
+    sourceKelasSemesterId: string
     transitions: Array<{
       studentId: string
-      action: "promote"
-      targetSemesterId: string
-      targetKelasId: string
-      transferException?: boolean
-      transferReason?: string
+      targetKelasSemesterId: string
     }>
   }) {
-    await apiFetch("/admin/kelas-semester/transition", {
+    return unwrap<{
+      processed_students: number
+      students: Array<{
+        studentId: string
+        fromSemester: number
+        toSemester: number
+        targetKelasSemesterId: string
+      }>
+    }>(await apiFetch("/admin/kelas-semester/transition", {
       method: "POST",
       body: JSON.stringify(payload),
-    })
+    }), "result")
   },
 }

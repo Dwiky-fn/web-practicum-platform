@@ -13,6 +13,10 @@ export interface AdminStudent {
   status: AdminUserStatus
   programStudi: string
   jurusan: string
+  studyProgramId?: string
+  isTransferStudent?: boolean
+  transferOriginSemester?: number
+  transferReason?: string
   avatarUrl?: string
 }
 
@@ -62,8 +66,16 @@ export interface AcademicClass {
   lecturerId: string
   lecturer: string
   academicPeriodId: string
+  tahunSemesterId?: string
+  id_tahun_semester?: string
   semesterYear: string
+  tahunSemesterStatus?: string
+  tahun_semester_status?: string
   studentSemester: number
+  jumlahMahasiswa?: number
+  jumlah_mahasiswa?: number
+  jumlahJobsheet?: number
+  jumlah_jobsheet?: number
   programmingLanguage: "java" | "python"
   programmingLanguageDisplayName: "Java" | "Python"
   status: "Aktif" | "Nonaktif" | "Draft" | "Arsip" | "Selesai"
@@ -169,6 +181,9 @@ export interface CreateStudentPayload {
   programStudi?: string
   jurusan?: string
   studyProgramId?: string
+  isTransferStudent?: boolean
+  transferOriginSemester?: number
+  transferReason?: string
 }
 
 export interface CreateLecturerPayload {
@@ -189,6 +204,9 @@ export interface UpdateAdminUserPayload {
   programStudi?: string
   jurusan?: string
   studyProgramId?: string
+  isTransferStudent?: boolean
+  transferOriginSemester?: number
+  transferReason?: string
 }
 
 export interface CreateSemesterPayload {

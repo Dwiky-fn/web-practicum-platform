@@ -25,6 +25,7 @@ export type LecturerCourseGroup = {
   code: string
   semester: number
   period: string
+  periodStatus?: string
   classes: LecturerClassSummary[]
 }
 
@@ -205,13 +206,21 @@ export function isSubmittedSubmission(submission: JobsheetSubmission | null) {
   return Boolean(submission && submission.status !== "DRAFT")
 }
 
-export async function getLecturerCourseGroups(): Promise<LecturerCourseGroup[]> {
-  const response = await apiFetch("/lecturer/kelas-praktikum")
+export async function getLecturerCourseGroups(options: { scope?: "active" | "history" } = {}): Promise<LecturerCourseGroup[]> {
+  const response = await apiFetch(`/lecturer/kelas-praktikum${options.scope === "history" ? "?scope=history" : ""}`)
   const lecturerClasses = response.data.classes as AcademicClass[]
 
   const detailedClasses = await Promise.all(
     lecturerClasses.map(async (classItem) => {
-      const detail = await getLecturerClassDetail(classItem.id)
+      if (options.scope === "history") {
+        return {
+          ...classItem,
+          studentCount: classItem.jumlahMahasiswa ?? classItem.jumlah_mahasiswa ?? 0,
+          jobsheetCount: classItem.jumlahJobsheet ?? classItem.jumlah_jobsheet ?? 0,
+        }
+      }
+
+      const detail = await getLecturerClassDetail(classItem.id, options)
 
       return {
         ...classItem,
@@ -224,7 +233,10 @@ export async function getLecturerCourseGroups(): Promise<LecturerCourseGroup[]> 
   const grouped = new Map<string, LecturerCourseGroup>()
 
   for (const classItem of detailedClasses) {
-    const groupId = getClassMataKuliahId(classItem)
+    const mataKuliahId = getClassMataKuliahId(classItem)
+    const groupId = options.scope === "history"
+      ? `${classItem.tahunSemesterId || classItem.id_tahun_semester || classItem.semesterYear}-${mataKuliahId}`
+      : mataKuliahId
     const current = grouped.get(groupId)
 
     if (current) {
@@ -234,11 +246,12 @@ export async function getLecturerCourseGroups(): Promise<LecturerCourseGroup[]> 
 
     grouped.set(groupId, {
       id: groupId,
-      mataKuliahId: groupId !== classItem.courseId ? groupId : classItem.mataKuliahId || classItem.id_mata_kuliah,
+      mataKuliahId,
       name: classItem.courseName,
       code: buildCourseCode(classItem.courseName),
       semester: classItem.studentSemester,
       period: classItem.semesterYear,
+      periodStatus: classItem.tahun_semester_status,
       classes: [classItem],
     })
   }
@@ -259,8 +272,12 @@ export async function getLecturerCourseGroup(
   return groups.find((group) => group.id === courseId) ?? null
 }
 
-export async function getLecturerClassDetail(classId: string): Promise<AdminClassDetail> {
-  const response = await apiFetch(`/lecturer/kelas-praktikum/${classId}`)
+export async function getLecturerClassDetail(
+  classId: string,
+  options: { scope?: "active" | "history" | "all" } = {},
+): Promise<AdminClassDetail> {
+  const query = options.scope === "history" ? "?scope=history" : options.scope === "all" ? "?scope=all" : ""
+  const response = await apiFetch(`/lecturer/kelas-praktikum/${classId}${query}`)
   return response.data.class
 }
 

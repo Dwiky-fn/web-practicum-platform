@@ -120,6 +120,7 @@ const kelasSemesterPayloadSchema = Joi.object({
   id_tahun_semester: idSchema,
   id_semester: idSchema,
   id_kelas: idSchema,
+  study_program_id: Joi.string().trim().allow('', null),
   status: Joi.string().valid('active', 'inactive', 'archived').default('active'),
 });
 
@@ -127,19 +128,16 @@ const updateKelasSemesterPayloadSchema = Joi.object({
   id_tahun_semester: Joi.string().trim(),
   id_semester: Joi.string().trim(),
   id_kelas: Joi.string().trim(),
+  study_program_id: Joi.string().trim().allow('', null),
   status: Joi.string().valid('active', 'inactive', 'archived'),
 }).min(1);
 
 const studentTransitionPayloadSchema = Joi.object({
-  targetTahunSemesterId: idSchema,
+  sourceKelasSemesterId: idSchema,
   transitions: Joi.array().items(
     Joi.object({
       studentId: idSchema,
-      action: Joi.string().valid('promote').required(),
-      targetSemesterId: idSchema,
-      targetKelasId: idSchema,
-      transferException: Joi.boolean().default(false),
-      transferReason: Joi.string().trim().allow('', null),
+      targetKelasSemesterId: idSchema,
     })
   ).min(1).required(),
 });

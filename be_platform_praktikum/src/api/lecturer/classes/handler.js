@@ -23,7 +23,7 @@ class LecturerClassesHandler {
 
   async getClassByIdHandler(req, res, next) {
     try {
-      const classItem = await this._service.getClassDetail(req.params.id);
+      const classItem = await this._service.getClassDetail(req.params.id, req.query);
 
       const canAccess = await this._service.canAccessKelasPraktikum(req.params.id, req.user.id);
       if (!canAccess) {

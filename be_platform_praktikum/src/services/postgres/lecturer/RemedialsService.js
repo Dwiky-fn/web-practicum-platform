@@ -75,6 +75,25 @@ class RemedialsService {
     }
   }
 
+  async _assertActiveTeachingContext(kelasPraktikumId, lecturerId, client = this._pool) {
+    const result = await client.query(
+      `SELECT ts.status AS tahun_semester_status
+       FROM kelas_praktikum kp
+       JOIN tahun_semester ts ON ts.id = kp.id_tahun_semester
+       JOIN pengampu p ON p.id_kelas_praktikum = kp.id
+       WHERE kp.id = $1
+         AND p.id_dosen = $2
+       LIMIT 1`,
+      [kelasPraktikumId, lecturerId],
+    );
+    if (!result.rows.length) {
+      throw new AuthorizationError('Anda tidak memiliki akses ke kelas praktikum ini');
+    }
+    if (String(result.rows[0].tahun_semester_status || '').toLowerCase() !== 'active') {
+      throw new ClientError('Data riwayat pengajaran bersifat read-only dan tidak dapat diubah.', 403);
+    }
+  }
+
   async createRemedial({
     jobsheetId,
     kelasPraktikumId,
@@ -85,6 +104,7 @@ class RemedialsService {
     studentIds,
   }, lecturerId) {
     await this._assertLecturerAccess(kelasPraktikumId, lecturerId);
+    await this._assertActiveTeachingContext(kelasPraktikumId, lecturerId);
     const uniqueStudentIds = Array.from(new Set(studentIds || []));
 
     const client = await this._pool.connect();
@@ -322,6 +342,7 @@ class RemedialsService {
     }
     const { jobsheet_id: jobsheetId, id_kelas_praktikum: kelasPraktikumId } = remedialRes.rows[0];
     await this._assertLecturerAccess(kelasPraktikumId, lecturerId);
+    await this._assertActiveTeachingContext(kelasPraktikumId, lecturerId);
 
     const client = await this._pool.connect();
     try {
@@ -473,6 +494,7 @@ class RemedialsService {
 
     const { id_kelas_praktikum: kelasPraktikumId, status } = remResult.rows[0];
     await this._assertLecturerAccess(kelasPraktikumId, lecturerId);
+    await this._assertActiveTeachingContext(kelasPraktikumId, lecturerId);
 
     if (status === 'cancelled') {
       return {

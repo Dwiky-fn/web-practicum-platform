@@ -75,6 +75,8 @@ export const mapJobsheet = (data: RawJobsheet): Jobsheet => {
     summary: data.summary ?? data.material_summary ?? data.ringkasan_materi ?? data.overview ?? emptyDoc,
     goal: data.goal || "",
     deadline: data.deadline || "",
+    urutan: data.urutan ?? data.sequence,
+    sequence: data.sequence ?? data.urutan,
     task,
     access: data.access,
 

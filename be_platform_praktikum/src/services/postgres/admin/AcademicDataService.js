@@ -1086,6 +1086,29 @@ class AcademicDataService {
     return `${row.nama_mk} - Semester ${row.semester} - Kelas ${row.kelas} - ${row.tahun_semester}`;
   }
 
+  _normalizeJobsheetPlan(value, fallback = 1) {
+    const plan = Number(value ?? fallback);
+    if (!Number.isInteger(plan) || plan < 1) throw new Error('JOBSHEET_PLAN_MIN_INVALID');
+    return plan;
+  }
+
+  async _countKelasPraktikumJobsheets(client, kelasPraktikumId) {
+    const result = await client.query(
+      `SELECT COUNT(*)::int AS total
+       FROM jobsheet_classes
+       WHERE id_kelas_praktikum = $1`,
+      [kelasPraktikumId],
+    );
+    return result.rows[0]?.total || 0;
+  }
+
+  async _assertJobsheetPlanAllowed(client, kelasPraktikumId, jumlahJobsheetRencana) {
+    const plan = this._normalizeJobsheetPlan(jumlahJobsheetRencana);
+    const created = await this._countKelasPraktikumJobsheets(client, kelasPraktikumId);
+    if (plan < created) throw new Error('JOBSHEET_PLAN_BELOW_CREATED');
+    return plan;
+  }
+
   async getKelasPraktikum(filters = {}) {
     const params = [];
     let clause = 'WHERE true';
@@ -1094,13 +1117,17 @@ class AcademicDataService {
       clause += ` AND EXISTS (SELECT 1 FROM pengampu p WHERE p.id_kelas_praktikum = kp.id AND p.id_dosen = $${params.length})`;
     }
     const result = await this._pool.query(`
-      SELECT kp.*, ts.tahun_semester, mk.nama_mk, mk.kode_mk, mk.id_kurikulum, s.semester, k.kelas
+      SELECT kp.*, ts.tahun_semester, mk.nama_mk, mk.kode_mk, mk.id_kurikulum, s.semester, k.kelas,
+        COUNT(DISTINCT jc.id)::int AS jumlah_jobsheet_dibuat,
+        COUNT(DISTINCT CASE WHEN jc.status = 'PUBLISHED' AND jc.is_active = true THEN jc.id END)::int AS jumlah_jobsheet_publish
       FROM kelas_praktikum kp
       JOIN tahun_semester ts ON ts.id = kp.id_tahun_semester
       JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
       JOIN semester s ON s.id = kp.id_semester
       JOIN kelas k ON k.id = kp.id_kelas
+      LEFT JOIN jobsheet_classes jc ON jc.id_kelas_praktikum = kp.id
       ${clause}
+      GROUP BY kp.id, ts.id, mk.id, s.id, k.id
       ORDER BY ts.tahun_semester DESC, mk.nama_mk ASC, s.semester ASC, k.kelas ASC
     `, params);
     return result.rows;
@@ -1135,11 +1162,14 @@ class AcademicDataService {
       if (payload.id_kurikulum && payload.id_kurikulum !== row.id_kurikulum) throw new Error('KELAS_PRAKTIKUM_KURIKULUM_MISMATCH');
       if (idSemester !== row.mk_id_semester) throw new Error('KELAS_PRAKTIKUM_SEMESTER_MISMATCH');
       const status = normalizeClassStatus(payload.status);
+      const jumlahJobsheetRencana = this._normalizeJobsheetPlan(payload.jumlah_jobsheet_rencana, 1);
       const namaKelas = this._buildKelasPraktikumName({ ...row, id_semester: idSemester });
       await client.query(
-        `INSERT INTO kelas_praktikum (id, id_tahun_semester, id_mata_kuliah, id_semester, id_kelas, nama_kelas, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [id, payload.id_tahun_semester, payload.id_mata_kuliah, idSemester, payload.id_kelas, namaKelas, status],
+        `INSERT INTO kelas_praktikum (
+          id, id_tahun_semester, id_mata_kuliah, id_semester, id_kelas, nama_kelas, status, jumlah_jobsheet_rencana
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [id, payload.id_tahun_semester, payload.id_mata_kuliah, idSemester, payload.id_kelas, namaKelas, status, jumlahJobsheetRencana],
       );
       await client.query('COMMIT');
       return this.getKelasPraktikumById(id);
@@ -1172,6 +1202,9 @@ class AcademicDataService {
       if (!related.rows.length) throw new Error('KELAS_PRAKTIKUM_REFERENCE_NOT_FOUND');
       if (payload.id_kurikulum && payload.id_kurikulum !== related.rows[0].id_kurikulum) throw new Error('KELAS_PRAKTIKUM_KURIKULUM_MISMATCH');
       if (next.id_semester !== related.rows[0].mk_id_semester) throw new Error('KELAS_PRAKTIKUM_SEMESTER_MISMATCH');
+      const jumlahJobsheetRencana = payload.jumlah_jobsheet_rencana === undefined
+        ? current.jumlah_jobsheet_rencana
+        : await this._assertJobsheetPlanAllowed(client, id, payload.jumlah_jobsheet_rencana);
       await client.query(
         `UPDATE kelas_praktikum
          SET id_tahun_semester = $2,
@@ -1180,9 +1213,19 @@ class AcademicDataService {
              id_kelas = $5,
              nama_kelas = $6,
              status = COALESCE($7, status),
+             jumlah_jobsheet_rencana = $8,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $1`,
-        [id, next.id_tahun_semester, next.id_mata_kuliah, next.id_semester, next.id_kelas, this._buildKelasPraktikumName(related.rows[0]), payload.status ? normalizeClassStatus(payload.status) : null],
+        [
+          id,
+          next.id_tahun_semester,
+          next.id_mata_kuliah,
+          next.id_semester,
+          next.id_kelas,
+          this._buildKelasPraktikumName(related.rows[0]),
+          payload.status ? normalizeClassStatus(payload.status) : null,
+          jumlahJobsheetRencana,
+        ],
       );
       await client.query('COMMIT');
       return this.getKelasPraktikumById(id);

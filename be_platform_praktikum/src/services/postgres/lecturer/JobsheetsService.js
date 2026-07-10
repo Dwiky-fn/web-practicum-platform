@@ -36,6 +36,14 @@ function isValidRubric(value) {
   return Math.abs(number * 100 - Math.round(number * 100)) < 0.0001;
 }
 
+function getRequestedSequence(payload = {}) {
+  const value = payload.urutan ?? payload.sequence ?? payload.jobsheet_number;
+  if (value === undefined || value === null || value === '') return null;
+  const sequence = Number(value);
+  if (!Number.isInteger(sequence) || sequence < 1) throw new Error('JOBSHEET_SEQUENCE_INVALID');
+  return sequence;
+}
+
 class LecturerJobsheetsService {
   constructor() {
     this._pool = pool;
@@ -102,15 +110,27 @@ class LecturerJobsheetsService {
   }
 
   async _deleteJobsheetDraft(client, jobsheetId) {
-    const used = await client.query(
-      "SELECT COUNT(*)::int AS total FROM jobsheet_classes WHERE jobsheet_id = $1 AND status = 'PUBLISHED'",
+    const workData = await client.query(
+      `SELECT
+        (SELECT COUNT(*)::int FROM task_submissions WHERE jobsheet_id = $1) AS submissions,
+        (SELECT COUNT(*)::int FROM student_progress WHERE jobsheet_id = $1) AS student_progress,
+        (SELECT COUNT(*)::int FROM student_jobsheet_progress WHERE jobsheet_id = $1) AS jobsheet_progress,
+        (SELECT COUNT(*)::int FROM student_jobsheet_activity_logs WHERE jobsheet_id = $1) AS activity_logs,
+        (SELECT COUNT(*)::int
+         FROM submission_reviews sr
+         JOIN task_submissions ts ON ts.id = sr.submission_id
+         WHERE ts.jobsheet_id = $1) AS reviews,
+        (SELECT COUNT(*)::int FROM jobsheet_remedials WHERE jobsheet_id = $1) AS remedials`,
       [jobsheetId],
     );
 
-    if (used.rows[0].total > 0) {
-      throw new ClientError('Jobsheet tidak dapat dihapus karena sudah digunakan di kelas.', 409);
+    const counts = workData.rows[0] || {};
+    const totalWork = Object.values(counts).reduce((total, value) => total + Number(value || 0), 0);
+    if (totalWork > 0) {
+      throw new ClientError('Jobsheet tidak dapat dihapus karena sudah memiliki data pengerjaan mahasiswa.', 409);
     }
 
+    await client.query('DELETE FROM jobsheet_classes WHERE jobsheet_id = $1', [jobsheetId]);
     await client.query('DELETE FROM experiments WHERE jobsheet_id = $1', [jobsheetId]);
     await client.query('DELETE FROM exercises WHERE jobsheet_id = $1', [jobsheetId]);
     const deleted = await client.query(
@@ -196,6 +216,7 @@ class LecturerJobsheetsService {
         kp.id_tahun_semester,
         kp.id_semester,
         kp.id_kelas,
+        kp.jumlah_jobsheet_rencana,
         ts.status AS tahun_semester_status
       FROM kelas_praktikum kp
       JOIN pengampu p ON p.id_kelas_praktikum = kp.id
@@ -268,9 +289,9 @@ class LecturerJobsheetsService {
       `
       INSERT INTO jobsheet_classes (
         id, jobsheet_id, id_kelas_praktikum, is_active, deadline,
-        title, description, goal, content, status
+        title, description, goal, content, status, urutan
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       ON CONFLICT (jobsheet_id, id_kelas_praktikum)
       WHERE id_kelas_praktikum IS NOT NULL
       DO UPDATE SET
@@ -280,7 +301,8 @@ class LecturerJobsheetsService {
         description = EXCLUDED.description,
         goal = EXCLUDED.goal,
         content = EXCLUDED.content,
-        status = EXCLUDED.status
+        status = EXCLUDED.status,
+        urutan = EXCLUDED.urutan
       `,
       [
         payload.id,
@@ -293,8 +315,41 @@ class LecturerJobsheetsService {
         payload.goal || '',
         JSON.stringify(payload.content || {}),
         payload.status,
+        payload.urutan,
       ],
     );
+  }
+
+  async _getNextJobsheetSequence(client, kelasPraktikumId) {
+    const result = await client.query(
+      `SELECT COALESCE(MAX(urutan), 0)::int + 1 AS next_urutan
+       FROM jobsheet_classes
+       WHERE id_kelas_praktikum = $1`,
+      [kelasPraktikumId],
+    );
+    return result.rows[0]?.next_urutan || 1;
+  }
+
+  async _validateJobsheetSequence(client, { kelasPraktikumId, sequence, jobsheetId = null }) {
+    const kelas = await client.query(
+      'SELECT jumlah_jobsheet_rencana FROM kelas_praktikum WHERE id = $1 LIMIT 1',
+      [kelasPraktikumId],
+    );
+    if (!kelas.rows.length) throw new Error('KELAS_PRAKTIKUM_NOT_FOUND');
+    const plan = Number(kelas.rows[0].jumlah_jobsheet_rencana || 1);
+    if (!Number.isInteger(sequence) || sequence < 1) throw new Error('JOBSHEET_SEQUENCE_INVALID');
+    if (sequence > plan) throw new Error('JOBSHEET_SEQUENCE_EXCEEDS_PLAN');
+
+    const duplicate = await client.query(
+      `SELECT 1
+       FROM jobsheet_classes
+       WHERE id_kelas_praktikum = $1
+         AND urutan = $2
+         AND jobsheet_id <> COALESCE($3, '')
+       LIMIT 1`,
+      [kelasPraktikumId, sequence, jobsheetId || ''],
+    );
+    if (duplicate.rows.length) throw new Error('JOBSHEET_SEQUENCE_DUPLICATE');
   }
 
   async _syncExperiments(client, jobsheetId, experiments) {
@@ -377,6 +432,8 @@ class LecturerJobsheetsService {
         : payload.title.trim();
       const description = payload.description || '';
       const goal = payload.goal || extractTextContent(payload.goalContent);
+      const urutan = getRequestedSequence(payload) || await this._getNextJobsheetSequence(client, kelasPraktikumId);
+      await this._validateJobsheetSequence(client, { kelasPraktikumId, sequence: urutan });
 
       const programmingLanguage = payload.programmingLanguage || payload.programming_language || 'java';
       const editorMode = 'mini_ide';
@@ -401,6 +458,19 @@ class LecturerJobsheetsService {
 
       await this._syncExperiments(client, jobsheetId, experiments);
       await this._syncExercises(client, jobsheetId, exercises);
+      await this._upsertJobsheetClassCopy(client, {
+        id: createId('jkc'),
+        jobsheetId,
+        kelasPraktikumId,
+        isActive: true,
+        deadline: normalizeLocalDeadline(payload.deadline),
+        title,
+        description,
+        goal,
+        content,
+        status: 'DRAFT',
+        urutan,
+      });
       await client.query('COMMIT');
 
       return { id: jobsheetId };
@@ -435,6 +505,14 @@ class LecturerJobsheetsService {
         : payload.title.trim();
       const description = payload.description || '';
       const goal = payload.goal || extractTextContent(payload.goalContent);
+      const existingClassCopy = await client.query(
+        'SELECT urutan, status, is_active, deadline FROM jobsheet_classes WHERE jobsheet_id = $1 AND id_kelas_praktikum = $2 LIMIT 1',
+        [jobsheetId, kelasPraktikumId],
+      );
+      const urutan = getRequestedSequence(payload)
+        || existingClassCopy.rows[0]?.urutan
+        || await this._getNextJobsheetSequence(client, kelasPraktikumId);
+      await this._validateJobsheetSequence(client, { kelasPraktikumId, sequence: urutan, jobsheetId });
 
       const programmingLanguage = payload.programmingLanguage || payload.programming_language || existing.programming_language || 'java';
       const editorMode = 'mini_ide';
@@ -473,6 +551,19 @@ class LecturerJobsheetsService {
         goal,
         content,
       );
+      await this._upsertJobsheetClassCopy(client, {
+        id: createId('jkc'),
+        jobsheetId,
+        kelasPraktikumId,
+        isActive: true,
+        deadline: normalizeLocalDeadline(payload.deadline),
+        title,
+        description,
+        goal,
+        content,
+        status: existingClassCopy.rows[0]?.status || 'DRAFT',
+        urutan,
+      });
 
       await client.query('COMMIT');
       return { id: jobsheetId };
@@ -641,6 +732,14 @@ class LecturerJobsheetsService {
 
         const isActive = item.isActive !== false;
         const status = isActive ? 'PUBLISHED' : 'UNPUBLISHED';
+        const existingClassCopy = await client.query(
+          'SELECT urutan FROM jobsheet_classes WHERE jobsheet_id = $1 AND id_kelas_praktikum = $2 LIMIT 1',
+          [jobsheetId, kelasPraktikumId],
+        );
+        const urutan = getRequestedSequence(item)
+          || existingClassCopy.rows[0]?.urutan
+          || await this._getNextJobsheetSequence(client, kelasPraktikumId);
+        await this._validateJobsheetSequence(client, { kelasPraktikumId, sequence: urutan, jobsheetId });
 
         await this._upsertJobsheetClassCopy(client, {
           id: createId('jkc'),
@@ -653,6 +752,7 @@ class LecturerJobsheetsService {
           goal: jobsheet.goal || '',
           content: jobsheet.content || {},
           status,
+          urutan,
         });
       }
 
@@ -697,6 +797,14 @@ class LecturerJobsheetsService {
       await this._assertPublishableJobsheet(client, jobsheet);
       const isActive = payload.isActive !== false;
       const status = isActive ? 'PUBLISHED' : 'UNPUBLISHED';
+      const existingClassCopy = await client.query(
+        'SELECT urutan FROM jobsheet_classes WHERE jobsheet_id = $1 AND id_kelas_praktikum = $2 LIMIT 1',
+        [jobsheetId, kelasPraktikumId],
+      );
+      const urutan = getRequestedSequence(payload)
+        || existingClassCopy.rows[0]?.urutan
+        || await this._getNextJobsheetSequence(client, kelasPraktikumId);
+      await this._validateJobsheetSequence(client, { kelasPraktikumId, sequence: urutan, jobsheetId });
 
       await this._upsertJobsheetClassCopy(client, {
         id: createId('jkc'),
@@ -709,6 +817,7 @@ class LecturerJobsheetsService {
         goal: jobsheet.goal || '',
         content: jobsheet.content || {},
         status,
+        urutan,
       });
 
       await client.query(
@@ -1003,3 +1112,6 @@ class LecturerJobsheetsService {
 }
 
 module.exports = LecturerJobsheetsService;
+module.exports._private = {
+  getRequestedSequence,
+};

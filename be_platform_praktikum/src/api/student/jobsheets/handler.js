@@ -1,5 +1,4 @@
 const autoBind = require('auto-bind');
-const { NotFoundError } = require('../../../exceptions');
 
 class JobsheetsHandler {
   constructor(service) {
@@ -74,7 +73,7 @@ class JobsheetsHandler {
         data: { jobsheet },
       });
     } catch (error) {
-      return next(new NotFoundError(error.message));
+      return next(error);
     }
   }
 
@@ -113,7 +112,7 @@ class JobsheetsHandler {
         data: { jobsheet },
       });
     } catch (error) {
-      return next(new NotFoundError(error.message));
+      return next(error);
     }
   }
 }

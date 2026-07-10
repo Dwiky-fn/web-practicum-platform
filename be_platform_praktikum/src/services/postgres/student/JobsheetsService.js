@@ -1,5 +1,6 @@
 const pool = require('..');
 const DeadlineAccessService = require('./DeadlineAccessService');
+const { ClientError, NotFoundError } = require('../../../exceptions');
 
 const emptyDoc = { type: 'doc', content: [] };
 
@@ -11,6 +12,14 @@ const languageMeta = (language) => {
     programming_language_file_extension: normalized === 'python' ? 'py' : 'java',
   };
 };
+
+function isCompletedSubmissionStatus(row = {}) {
+  return Boolean(
+    ['SUBMITTED', 'REVIEWED', 'ACCEPTED', 'REVISION', 'REVIEWING'].includes(row.status)
+    || row.submitted_at
+    || row.submittedAt
+  );
+}
 
 class JobsheetsService {
   constructor() {
@@ -119,17 +128,17 @@ class JobsheetsService {
           j.description,
           j.goal,
           j.content,
-          j.status,
+          jc.status,
           j.programming_language,
           j.editor_mode,
           jc.id_kelas_praktikum,
           km.id AS id_kelas_mhs,
+          jc.urutan,
           to_char(jc.deadline, 'YYYY-MM-DD HH24:MI:SS') AS deadline
         FROM jobsheets j
         JOIN jobsheet_classes jc
           ON jc.jobsheet_id = j.id
          AND jc.is_active = true
-         AND jc.status = 'PUBLISHED'
         JOIN kelas_praktikum kp ON kp.id = jc.id_kelas_praktikum
         JOIN kelas_semester ks
           ON ks.id_tahun_semester = kp.id_tahun_semester
@@ -141,9 +150,8 @@ class JobsheetsService {
          AND km.status = 'active'
         WHERE j.id_mata_kuliah = $1
           AND kp.id_mata_kuliah = $1
-          AND j.status = 'PUBLISHED'
           ${kelasFilter}
-         ORDER BY j.created_at ASC
+         ORDER BY jc.urutan ASC NULLS LAST, j.created_at ASC
         `,
         params,
       );
@@ -191,6 +199,17 @@ class JobsheetsService {
         message: '',
       };
     }
+    const sequenceAccess = await this._resolveSequenceAccess(studentId, jobsheetId, kelasPraktikumId);
+    if (!sequenceAccess.canOpen) {
+      return {
+        accessMode: 'locked_sequence',
+        canEdit: false,
+        canSaveProgress: false,
+        canSubmit: false,
+        message: sequenceAccess.message,
+      };
+    }
+
     return DeadlineAccessService.resolveAttemptAccess({
       studentId,
       jobsheetId,
@@ -200,12 +219,75 @@ class JobsheetsService {
     });
   }
 
+  async _resolveSequenceAccess(studentId, jobsheetId, kelasPraktikumId) {
+    const current = await this._pool.query(
+      `SELECT id, urutan, status, is_active
+       FROM jobsheet_classes
+       WHERE jobsheet_id = $1
+         AND id_kelas_praktikum = $2
+       LIMIT 1`,
+      [jobsheetId, kelasPraktikumId],
+    );
+
+    if (!current.rows.length || current.rows[0].status !== 'PUBLISHED' || !current.rows[0].is_active) {
+      return { canOpen: false, message: 'Jobsheet belum dipublish.' };
+    }
+
+    const sequence = Number(current.rows[0].urutan || 0);
+    if (!sequence) return { canOpen: true, message: '' };
+
+    const previous = await this._pool.query(
+      `SELECT jc.jobsheet_id, jc.urutan
+       FROM jobsheet_classes jc
+       WHERE jc.id_kelas_praktikum = $1
+         AND jc.urutan < $2
+         AND jc.is_active = true
+       ORDER BY jc.urutan ASC`,
+      [kelasPraktikumId, sequence],
+    );
+
+    for (const item of previous.rows) {
+      const done = await this._pool.query(
+        `SELECT 1
+         FROM task_submissions
+         WHERE student_id = $1
+           AND jobsheet_id = $2
+           AND id_kelas_praktikum = $3
+           AND remedial_id IS NULL
+           AND (
+             status IN ('SUBMITTED', 'REVIEWED', 'ACCEPTED', 'REVISION', 'REVIEWING')
+             OR submitted_at IS NOT NULL
+           )
+         LIMIT 1`,
+        [studentId, item.jobsheet_id, kelasPraktikumId],
+      );
+      if (!done.rows.length) {
+        return { canOpen: false, message: 'Selesaikan jobsheet sebelumnya terlebih dahulu.' };
+      }
+    }
+
+    return { canOpen: true, message: '' };
+  }
+
 
   async getJobsheetFullByMataKuliah(jobsheetId, mataKuliahId, kelasPraktikumId = null, user = null, remedialId = null, attemptType = null) {
     const jobsheets = await this.getJobsheetsByMataKuliah(mataKuliahId, kelasPraktikumId, user);
     const jobsheet = jobsheets.find((item) => item.id === jobsheetId);
     if (!jobsheet) {
-      throw new Error('Jobsheet tidak tersedia untuk kelas Anda.');
+      if (user && user.role === 'MAHASISWA' && kelasPraktikumId) {
+        const unpublished = await this._pool.query(
+          `SELECT 1
+           FROM jobsheet_classes jc
+           JOIN jobsheets j ON j.id = jc.jobsheet_id
+           WHERE jc.jobsheet_id = $1
+             AND jc.id_kelas_praktikum = $2
+             AND j.id_mata_kuliah = $3
+           LIMIT 1`,
+          [jobsheetId, kelasPraktikumId, mataKuliahId],
+        );
+        if (unpublished.rows.length) throw new ClientError('Jobsheet belum dipublish.', 403);
+      }
+      throw new NotFoundError('Jobsheet tidak tersedia untuk kelas Anda.');
     }
     if (user && user.role === 'MAHASISWA') {
       jobsheet.access = await this.getJobsheetAccess(
@@ -215,6 +297,9 @@ class JobsheetsService {
         remedialId,
         attemptType
       );
+      if (!jobsheet.access.canEdit && jobsheet.access.accessMode === 'locked_sequence') {
+        throw new ClientError(jobsheet.access.message || 'Selesaikan jobsheet sebelumnya terlebih dahulu.', 403);
+      }
     } else {
       jobsheet.access = {
         accessMode: 'editable_normal',
@@ -229,3 +314,6 @@ class JobsheetsService {
 }
 
 module.exports = JobsheetsService;
+module.exports._private = {
+  isCompletedSubmissionStatus,
+};

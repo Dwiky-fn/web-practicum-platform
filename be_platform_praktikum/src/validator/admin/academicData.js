@@ -82,6 +82,7 @@ const kelasPraktikumPayloadSchema = Joi.object({
   id_mata_kuliah: idSchema,
   id_semester: Joi.string().trim().allow('', null),
   id_kelas: idSchema,
+  jumlah_jobsheet_rencana: Joi.number().integer().min(1).default(1),
   status: kelasPraktikumStatusSchema.default('draft'),
 });
 
@@ -91,6 +92,7 @@ const updateKelasPraktikumPayloadSchema = Joi.object({
   id_mata_kuliah: Joi.string().trim(),
   id_semester: Joi.string().trim(),
   id_kelas: Joi.string().trim(),
+  jumlah_jobsheet_rencana: Joi.number().integer().min(1),
   status: kelasPraktikumStatusSchema,
 }).min(1);
 

@@ -779,6 +779,7 @@ export default function AdminAcademicNativePage() {
       id_mata_kuliah: kelasPraktikumItem?.id_mata_kuliah ?? "",
       id_semester: kelasPraktikumItem?.id_semester ?? "",
       id_kelas: kelasPraktikumItem?.id_kelas ?? "",
+      jumlah_jobsheet_rencana: String(kelasPraktikumItem?.jumlah_jobsheet_rencana ?? kelasPraktikumItem?.jumlahJobsheetRencana ?? 1),
       status: kelasPraktikumItem?.status ?? "open",
       id_dosen: existingPengampu?.id_dosen ?? "",
       peran: existingPengampu?.peran ?? "utama",
@@ -973,6 +974,7 @@ export default function AdminAcademicNativePage() {
           id_mata_kuliah: form.id_mata_kuliah,
           id_semester: mk?.id_semester ?? form.id_semester,
           id_kelas: form.id_kelas,
+          jumlah_jobsheet_rencana: Number(form.jumlah_jobsheet_rencana || 1),
           status: form.status as KelasPraktikumStatus,
         }
         const saved = await academicDataApi.saveKelasPraktikum(kelasPraktikumPayload, id)
@@ -1155,8 +1157,8 @@ export default function AdminAcademicNativePage() {
   function renderKelasPraktikum(items: KelasPraktikum[] = filtered as KelasPraktikum[], isDetailView = false) {
     if (!items.length) return <EmptyState title="Belum ada kelas praktikum untuk tahun semester ini." action={<AdminButton onClick={() => openModal("kelas-praktikum")}><Plus size={16} />Tambah Kelas Praktikum</AdminButton>} />
     const headers = isDetailView
-      ? ["Nama Kelas", "Pengampu", "Aksi"]
-      : ["Nama Kelas", "Tahun Semester", "Mata Kuliah", "Semester", "Kelas", "Pengampu", "Aksi"]
+      ? ["Nama Kelas", "Jobsheet", "Pengampu", "Aksi"]
+      : ["Nama Kelas", "Tahun Semester", "Mata Kuliah", "Semester", "Kelas", "Jobsheet", "Pengampu", "Aksi"]
     return (
       <AdminTable headers={headers}>
         {items.map((i) => {
@@ -1169,6 +1171,9 @@ export default function AdminAcademicNativePage() {
               {!isDetailView && <td className="px-4 py-3">{i.nama_mk}</td>}
               {!isDetailView && <td className="px-4 py-3 text-center">{i.semester}</td>}
               {!isDetailView && <td className="px-4 py-3 text-center">{i.kelas}</td>}
+              <td className="px-4 py-3 text-sm">
+                Rencana {i.jumlah_jobsheet_rencana ?? i.jumlahJobsheetRencana ?? 1} / Dibuat {i.jumlah_jobsheet_dibuat ?? i.jumlahJobsheetDibuat ?? 0} / Publish {i.jumlah_jobsheet_publish ?? i.jumlahJobsheetPublish ?? 0}
+              </td>
               <td className="px-4 py-3">{lecturersForClass.map((item) => item.nama_dosen ?? item.fullname ?? item.id_dosen).join(", ") || "-"}</td>
               {actionCell("kelas-praktikum", i, displayClassName)}
             </tr>
@@ -1258,6 +1263,16 @@ export default function AdminAcademicNativePage() {
             <option value="">Pilih dosen</option>
             {lecturers.map((i) => option(i.id, `${i.nip ?? "-"} - ${i.fullname}`))}
           </AdminSelect>
+        </FieldRow>
+        <FieldRow label="Jobsheet Rencana">
+          <input
+            className={inputClass}
+            type="number"
+            min="1"
+            value={form.jumlah_jobsheet_rencana ?? "1"}
+            onChange={(e) => setField("jumlah_jobsheet_rencana", e.target.value)}
+            required
+          />
         </FieldRow>
         <FieldRow label="Nama Kelas Otomatis">
           <input className={`${inputClass} bg-gray-100 text-gray-700`} value={generatedKelasPraktikumName} readOnly disabled />
@@ -1448,6 +1463,9 @@ export default function AdminAcademicNativePage() {
                   <dt className="text-gray-500">Kelas</dt><dd>{detail.kelas}</dd>
                   <dt className="text-gray-500">Nama Kelas</dt><dd>{detail.nama_kelas}</dd>
                   <dt className="text-gray-500">Status</dt><dd>{statusBadge(detail.status)}</dd>
+                  <dt className="text-gray-500">Jobsheet Rencana</dt><dd>{detail.jumlah_jobsheet_rencana ?? detail.jumlahJobsheetRencana ?? 1}</dd>
+                  <dt className="text-gray-500">Jobsheet Dibuat</dt><dd>{detail.jumlah_jobsheet_dibuat ?? detail.jumlahJobsheetDibuat ?? 0}</dd>
+                  <dt className="text-gray-500">Jobsheet Publish</dt><dd>{detail.jumlah_jobsheet_publish ?? detail.jumlahJobsheetPublish ?? 0}</dd>
                   <dt className="text-gray-500">Dosen Pengampu</dt><dd>{detailPengampu.map((item) => `${item.nama_dosen ?? item.fullname ?? item.id_dosen} (${item.peran})`).join(", ") || "-"}</dd>
                 </dl>
               </AdminPanel>
@@ -2028,6 +2046,9 @@ export default function AdminAcademicNativePage() {
                 <dt className="text-gray-500">Kelas</dt><dd>{detail.kelas}</dd>
                 <dt className="text-gray-500">Nama Kelas</dt><dd>{detail.nama_kelas}</dd>
                 <dt className="text-gray-500">Status</dt><dd>{statusBadge(detail.status)}</dd>
+                <dt className="text-gray-500">Jobsheet Rencana</dt><dd>{detail.jumlah_jobsheet_rencana ?? detail.jumlahJobsheetRencana ?? 1}</dd>
+                <dt className="text-gray-500">Jobsheet Dibuat</dt><dd>{detail.jumlah_jobsheet_dibuat ?? detail.jumlahJobsheetDibuat ?? 0}</dd>
+                <dt className="text-gray-500">Jobsheet Publish</dt><dd>{detail.jumlah_jobsheet_publish ?? detail.jumlahJobsheetPublish ?? 0}</dd>
                 <dt className="text-gray-500">Dosen Pengampu</dt><dd>{detailPengampu.map((item) => `${item.nama_dosen ?? item.fullname ?? item.id_dosen} (${item.peran})`).join(", ") || "-"}</dd>
               </dl>
             </AdminPanel>

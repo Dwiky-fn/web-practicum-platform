@@ -120,6 +120,8 @@ export type RawJobsheet = {
   exercises?: RawExercise[];
   theory?: RawTheory[];
   access?: Jobsheet["access"];
+  urutan?: number;
+  sequence?: number;
 };
 
 // ================= FINAL FE MODEL =================
@@ -139,6 +141,8 @@ export interface Jobsheet {
   summary: JSONContent;
   goal: string;
   deadline: string;
+  urutan?: number;
+  sequence?: number;
 
   theory: TheoryItem[];
   experiments: Experiment[];
@@ -146,7 +150,7 @@ export interface Jobsheet {
 
   task: TaskConfig;
   access?: {
-    accessMode: "editable_normal" | "locked_deadline" | "readonly_submitted" | "readonly_reviewed" | "editable_remedial";
+    accessMode: "editable_normal" | "locked_deadline" | "locked_sequence" | "readonly_submitted" | "readonly_reviewed" | "editable_remedial";
     canEdit: boolean;
     canSaveProgress?: boolean;
     canSubmit: boolean;

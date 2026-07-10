@@ -64,6 +64,12 @@ const createClientError = (message, statusCode = 400) => {
   return error;
 };
 
+const normalizeJobsheetPlan = (value, fallback = 1) => {
+  const plan = Number(value ?? fallback);
+  if (!Number.isInteger(plan) || plan < 1) throw createClientError('Jumlah jobsheet rencana minimal 1.', 400);
+  return plan;
+};
+
 class ClassesService {
   constructor() {
     this._pool = pool;
@@ -109,6 +115,12 @@ class ClassesService {
       jumlah_mahasiswa: row.student_count ?? 0,
       jumlahJobsheet: row.jobsheet_count ?? 0,
       jumlah_jobsheet: row.jobsheet_count ?? 0,
+      jumlahJobsheetRencana: row.jumlah_jobsheet_rencana ?? 1,
+      jumlah_jobsheet_rencana: row.jumlah_jobsheet_rencana ?? 1,
+      jumlahJobsheetDibuat: row.jobsheet_created_count ?? row.jobsheet_count ?? 0,
+      jumlah_jobsheet_dibuat: row.jobsheet_created_count ?? row.jobsheet_count ?? 0,
+      jumlahJobsheetPublish: row.jobsheet_published_count ?? 0,
+      jumlah_jobsheet_publish: row.jobsheet_published_count ?? 0,
       programmingLanguage: 'java',
       programmingLanguageDisplayName: 'Java',
       status: row.status === 'open' || row.status === 'active' ? 'Aktif' : 'Nonaktif',
@@ -172,6 +184,7 @@ class ClassesService {
         kp.nama_kelas,
         CONCAT(mk.nama_mk, ' - ', s.semester, k.kelas) AS display_name,
         kp.status,
+        kp.jumlah_jobsheet_rencana,
         mk.id AS id_mata_kuliah,
         mk.kode_mk,
         mk.nama_mk AS course_name,
@@ -185,7 +198,9 @@ class ClassesService {
         ts.tahun_semester,
         ts.status AS tahun_semester_status,
         COUNT(DISTINCT km.id_mahasiswa)::int AS student_count,
-        COUNT(DISTINCT jc.id)::int AS jobsheet_count
+        COUNT(DISTINCT jc.id)::int AS jobsheet_created_count,
+        COUNT(DISTINCT CASE WHEN jc.status = 'PUBLISHED' AND jc.is_active = true THEN jc.id END)::int AS jobsheet_published_count,
+        COUNT(DISTINCT CASE WHEN jc.is_active = true THEN jc.id END)::int AS jobsheet_count
       FROM kelas_praktikum kp
       JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
       JOIN semester s ON s.id = kp.id_semester
@@ -202,7 +217,6 @@ class ClassesService {
        AND km.status = 'active'
       LEFT JOIN jobsheet_classes jc
         ON jc.id_kelas_praktikum = kp.id
-       AND jc.is_active = true
       WHERE ($1 = '%%'
         OR LOWER(kp.nama_kelas) LIKE $1
         OR LOWER(mk.nama_mk) LIKE $1
@@ -283,15 +297,19 @@ class ClassesService {
     });
 
     const id = payload.id || createId('kp');
+    const jumlahJobsheetRencana = normalizeJobsheetPlan(
+      payload.jumlahJobsheetRencana || payload.jumlah_jobsheet_rencana,
+      1,
+    );
 
     const client = await this._pool.connect();
     try {
       await client.query('BEGIN');
       await client.query(
         `INSERT INTO kelas_praktikum (
-          id, id_tahun_semester, id_mata_kuliah, id_semester, id_kelas, nama_kelas, status
+          id, id_tahun_semester, id_mata_kuliah, id_semester, id_kelas, nama_kelas, status, jumlah_jobsheet_rencana
          )
-         VALUES ($1, $2, $3, $4, $5, $6, 'open')`,
+         VALUES ($1, $2, $3, $4, $5, $6, 'open', $7)`,
         [
           id,
           activePeriod.id,
@@ -299,6 +317,7 @@ class ClassesService {
           idSemester,
           idKelas,
           className,
+          jumlahJobsheetRencana,
         ],
       );
 
@@ -341,6 +360,7 @@ class ClassesService {
   async updateClass(id, payload) {
     const lecturerId = payload.lecturerId || payload.lecturer_id;
     const status = payload.status;
+    const hasPlanUpdate = payload.jumlahJobsheetRencana !== undefined || payload.jumlah_jobsheet_rencana !== undefined;
     const courseId = payload.mataKuliahId || payload.id_mata_kuliah || payload.courseId;
     const name = payload.name;
 
@@ -352,6 +372,18 @@ class ClassesService {
     if (!existing.rows.length) throw new Error('CLASS_NOT_FOUND');
     if (!lecturerId) throw new Error('LECTURER_REQUIRED');
     if (!status) throw new Error('STATUS_REQUIRED');
+    const nextPlan = hasPlanUpdate
+      ? normalizeJobsheetPlan(payload.jumlahJobsheetRencana || payload.jumlah_jobsheet_rencana)
+      : null;
+    if (nextPlan !== null) {
+      const created = await this._pool.query(
+        'SELECT COUNT(*)::int AS total FROM jobsheet_classes WHERE id_kelas_praktikum = $1',
+        [id],
+      );
+      if (nextPlan < created.rows[0].total) {
+        throw createClientError('Jumlah jobsheet rencana tidak boleh lebih kecil dari jumlah jobsheet yang sudah dibuat.', 400);
+      }
+    }
 
     let targetStatus = 'open';
     const norm = normalizeStatus(status);
@@ -394,9 +426,13 @@ class ClassesService {
       await client.query('BEGIN');
       await client.query(
         `UPDATE kelas_praktikum
-         SET id_mata_kuliah = $1, nama_kelas = $2, status = $3, id_semester = $4
-         WHERE id = $5`,
-        [nextCourseId, nextName, targetStatus, nextIdSemester, id],
+         SET id_mata_kuliah = $1,
+             nama_kelas = $2,
+             status = $3,
+             id_semester = $4,
+             jumlah_jobsheet_rencana = COALESCE($5, jumlah_jobsheet_rencana)
+         WHERE id = $6`,
+        [nextCourseId, nextName, targetStatus, nextIdSemester, nextPlan, id],
       );
 
       await client.query('DELETE FROM pengampu WHERE id_kelas_praktikum = $1', [id]);
@@ -1074,12 +1110,13 @@ class ClassesService {
         jc.id,
         jc.jobsheet_id,
         jc.title,
+        jc.urutan,
         to_char(jc.deadline, 'YYYY-MM-DD HH24:MI:SS') AS deadline,
         jc.status
       FROM jobsheet_classes jc
       JOIN jobsheets j ON j.id = jc.jobsheet_id
       WHERE jc.id_kelas_praktikum = $1 AND jc.is_active = true
-      ORDER BY j.created_at ASC
+      ORDER BY jc.urutan ASC NULLS LAST, j.created_at ASC
       `,
       [kelasPraktikumId],
     );
@@ -1087,6 +1124,8 @@ class ClassesService {
     return result.rows.map((row) => ({
       id: row.jobsheet_id,
       classJobsheetId: row.id,
+      urutan: row.urutan,
+      sequence: row.urutan,
       title: row.title,
       deadline: row.deadline || '-',
       status: displayStatus(row.status),

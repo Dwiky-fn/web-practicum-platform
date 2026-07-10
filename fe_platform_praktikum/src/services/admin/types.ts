@@ -76,6 +76,12 @@ export interface AcademicClass {
   jumlah_mahasiswa?: number
   jumlahJobsheet?: number
   jumlah_jobsheet?: number
+  jumlahJobsheetRencana?: number
+  jumlah_jobsheet_rencana?: number
+  jumlahJobsheetDibuat?: number
+  jumlah_jobsheet_dibuat?: number
+  jumlahJobsheetPublish?: number
+  jumlah_jobsheet_publish?: number
   programmingLanguage: "java" | "python"
   programmingLanguageDisplayName: "Java" | "Python"
   status: "Aktif" | "Nonaktif" | "Draft" | "Arsip" | "Selesai"
@@ -130,6 +136,8 @@ export interface ClassJobsheet {
   id_kelas_praktikum?: string
   mataKuliahId?: string
   id_mata_kuliah?: string
+  urutan?: number
+  sequence?: number
   title: string
   deadline: string
   status: "Selesai" | "Aktif" | "Draft" | "Nonaktif" | "Arsip"

@@ -81,6 +81,12 @@ export type KelasPraktikum = {
   id_kelas: string
   nama_kelas: string
   status: KelasPraktikumStatus
+  jumlah_jobsheet_rencana?: number
+  jumlah_jobsheet_dibuat?: number
+  jumlah_jobsheet_publish?: number
+  jumlahJobsheetRencana?: number
+  jumlahJobsheetDibuat?: number
+  jumlahJobsheetPublish?: number
   tahun_semester?: string
   kode_mk?: string
   nama_mk?: string

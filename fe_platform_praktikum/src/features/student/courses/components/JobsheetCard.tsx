@@ -89,7 +89,8 @@ export default function JobsheetCard({
   const status = submission?.status;
   const score = submission?.review?.finalScore ?? submission?.score;
 
-  const isUnpublished = jobsheet.status === "UNPUBLISHED";
+  const isUnpublished = jobsheet.status === "UNPUBLISHED" || jobsheet.status === "DRAFT";
+  const isLockedBySequence = jobsheet.access?.accessMode === "locked_sequence";
 
   const isOverdue =
     status === "OVERDUE" ||
@@ -124,7 +125,7 @@ export default function JobsheetCard({
     : 0;
   const latestReviewComment = getLatestReviewComment(submission);
 
-  const isDisabled = isUnpublished;
+  const isDisabled = isUnpublished || isLockedBySequence;
 
   return (
     <div
@@ -143,11 +144,13 @@ export default function JobsheetCard({
           </p>
 
           <div className="flex items-center gap-2 mt-3 text-xs">
-            {isUnpublished ? (
+            {isUnpublished || isLockedBySequence ? (
               <>
                 <Lock size={14} className="text-gray-400" />
                 <span className="text-gray-400">
-                  Belum dipublikasikan
+                  {isLockedBySequence
+                    ? jobsheet.access?.message || "Selesaikan jobsheet sebelumnya terlebih dahulu."
+                    : "Jobsheet belum dipublish."}
                 </span>
               </>
             ) : (

@@ -49,6 +49,7 @@ export type LecturerJobsheetSummary = {
   classJobsheetId: string
   courseId: string
   number: number
+  urutan?: number
   title: string
   status: LecturerJobsheetStatus
   deadline: string
@@ -115,6 +116,7 @@ export type LecturerTheoryInput = {
 export type LecturerJobsheetPayload = {
   lecturerId?: string
   title: string
+  urutan?: number
   description: string
   goal: string
   status?: string
@@ -144,6 +146,7 @@ export type LecturerJobsheetPublishPayload = {
     // classId is a compatibility alias for kelasPraktikumId.
     classId?: string
     kelasPraktikumId?: string
+    urutan?: number
     deadline: string | null
     isActive: boolean
   }>
@@ -362,7 +365,8 @@ export function buildLecturerJobsheetSummaries(
       id: jobsheet.id,
       classJobsheetId: jobsheet.classJobsheetId,
       courseId: "",
-      number: index + 1,
+      number: jobsheet.urutan ?? jobsheet.sequence ?? index + 1,
+      urutan: jobsheet.urutan ?? jobsheet.sequence ?? index + 1,
       title: jobsheet.title,
       status: toLecturerJobsheetStatus(jobsheet.status),
       deadline: jobsheet.deadline,

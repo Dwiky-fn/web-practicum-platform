@@ -36,11 +36,12 @@ export default function SidebarCard({
   const access = jobsheet.access || { accessMode: "editable_normal" };
   const accessMode = access.accessMode;
   const isLockedByDeadline = accessMode === "locked_deadline";
+  const isLockedBySequence = accessMode === "locked_sequence";
   const displayScore = mainScore ?? submission?.review?.finalScore ?? submission?.score;
   const scope: AcademicScope = { classId, mataKuliahId, kelasPraktikumId };
 
   function goTo() {
-    if (isLockedByDeadline) return;
+    if (isLockedByDeadline || isLockedBySequence) return;
     navigate(academicJobsheetWorkPath(courseId, jobsheetId, scope));
   }
 
@@ -84,6 +85,7 @@ export default function SidebarCard({
 
   function getActionLabel() {
     if (accessMode === "editable_remedial") return "Kerjakan Remedial";
+    if (isLockedBySequence) return "Terkunci";
     if (isLockedByDeadline) return "Deadline Berakhir";
     if (accessMode === "readonly_submitted" || accessMode === "readonly_reviewed") return "Lihat Pengerjaan";
     if (status === "DRAFT") return "Lanjutkan Pengerjaan";
@@ -159,6 +161,12 @@ export default function SidebarCard({
           </p>
         )}
 
+        {isLockedBySequence && (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-2.5 text-xs text-gray-700 mt-2">
+            {access.message || "Selesaikan jobsheet sebelumnya terlebih dahulu."}
+          </div>
+        )}
+
         {accessMode === "editable_remedial" && (
           <div className="rounded-lg border border-amber-100 bg-amber-50/50 p-2.5 text-xs text-amber-800 mt-2">
             <span className="font-semibold">Informasi:</span> Remedial tersedia sesuai waktu yang ditentukan dosen.
@@ -175,9 +183,9 @@ export default function SidebarCard({
         <button
           type="button"
           onClick={goTo}
-          disabled={isLockedByDeadline}
+          disabled={isLockedByDeadline || isLockedBySequence}
           className={`w-full py-2 rounded-lg font-semibold text-sm transition mt-2 cursor-pointer ${
-            isLockedByDeadline
+            isLockedByDeadline || isLockedBySequence
               ? "cursor-not-allowed bg-gray-200 text-gray-500"
               : "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800"
           }`}

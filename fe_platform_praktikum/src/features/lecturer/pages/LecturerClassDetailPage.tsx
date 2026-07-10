@@ -76,6 +76,9 @@ export default function LecturerClassDetailPage() {
     semester: 0,
     period: "",
     studentCount: 0,
+    jobsheetPlan: 1,
+    jobsheetCreated: 0,
+    jobsheetPublished: 0,
   })
   const [jobsheets, setJobsheets] = useState<LecturerJobsheetSummary[]>([])
   const [matrix, setMatrix] = useState<LecturerSubmissionMatrixItem[]>([])
@@ -116,6 +119,9 @@ export default function LecturerClassDetailPage() {
           semester: classDetail.studentSemester,
           period: classDetail.semesterYear,
           studentCount: classDetail.students.length,
+          jobsheetPlan: classDetail.jumlahJobsheetRencana ?? classDetail.jumlah_jobsheet_rencana ?? 1,
+          jobsheetCreated: classDetail.jumlahJobsheetDibuat ?? classDetail.jumlah_jobsheet_dibuat ?? summaries.length,
+          jobsheetPublished: classDetail.jumlahJobsheetPublish ?? classDetail.jumlah_jobsheet_publish ?? summaries.filter((item) => item.status === "Published").length,
         })
         setJobsheets(summaries)
         setMatrix(submissionMatrix)
@@ -252,12 +258,16 @@ export default function LecturerClassDetailPage() {
               <div className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-3">
                   <StatCard label="Total Mahasiswa" value={header.studentCount} />
-                  <StatCard label="Jobsheet Aktif" value={jobsheets.filter((item) => item.status === "Published").length} />
+                  <StatCard label="Jobsheet Rencana" value={header.jobsheetPlan} />
                   <StatCard
                     label="Belum Direview"
                     value={matrix.filter((item) => getSubmissionReviewStatus(item.submission) === "Terkumpul").length}
                     caption="Laporan"
                   />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <StatCard label="Jobsheet Dibuat" value={header.jobsheetCreated} />
+                  <StatCard label="Jobsheet Publish" value={header.jobsheetPublished} />
                 </div>
 
                 <LecturerPanel className="p-5">

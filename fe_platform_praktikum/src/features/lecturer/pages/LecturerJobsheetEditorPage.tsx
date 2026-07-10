@@ -120,6 +120,7 @@ export default function LecturerJobsheetEditorPage() {
   const { user } = useCurrentUser()
   const { courseId = "", mataKuliahId: routeMataKuliahId = "", jobsheetId } = useParams()
   const effectiveCourseId = routeMataKuliahId || courseId
+  const queryKelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -130,6 +131,7 @@ export default function LecturerJobsheetEditorPage() {
   const [savedJobsheetId, setSavedJobsheetId] = useState(jobsheetId ?? "")
 
   const [title, setTitle] = useState("")
+  const [jobsheetSequence, setJobsheetSequence] = useState("1")
   const [description, setDescription] = useState("")
   const [goalContent, setGoalContent] = useState<JSONContent>(emptyDoc)
   const [programmingLanguage, setProgrammingLanguage] = useState<"java" | "python" | "">("")
@@ -144,7 +146,7 @@ export default function LecturerJobsheetEditorPage() {
   const isCreate = !savedJobsheetId
   const activeJobsheetId = savedJobsheetId || jobsheetId || ""
   const mataKuliahId = dataset?.course.mataKuliahId || dataset?.course.id
-  const primaryKelasPraktikumId = dataset?.course.classes[0]?.kelasPraktikumId || dataset?.course.classes[0]?.id_kelas_praktikum
+  const primaryKelasPraktikumId = queryKelasPraktikumId || dataset?.course.classes[0]?.kelasPraktikumId || dataset?.course.classes[0]?.id_kelas_praktikum
   const jobsheetBasePath = `${academicCourseBasePath(effectiveCourseId, { mataKuliahId: mataKuliahId || routeMataKuliahId || undefined })}/jobsheets`
 
   useEffect(() => {
@@ -166,8 +168,10 @@ export default function LecturerJobsheetEditorPage() {
         if (savedJobsheetId) {
           const selectedJobsheet = await getLecturerJobsheetById(effectiveCourseId, savedJobsheetId, {
             mataKuliahId: nextDataset?.course.mataKuliahId || nextDataset?.course.id,
+            kelasPraktikumId: queryKelasPraktikumId,
           })
           setTitle(selectedJobsheet.title)
+          setJobsheetSequence(String(selectedJobsheet.urutan ?? selectedJobsheet.sequence ?? 1))
           setDescription(selectedJobsheet.description)
           setGoalContent(
             selectedJobsheet.goal
@@ -228,6 +232,8 @@ export default function LecturerJobsheetEditorPage() {
           const firstClass = nextDataset?.course.classes?.[0]
           const defaultLang = firstClass?.programmingLanguage || "java"
           setProgrammingLanguage(defaultLang)
+          const currentClass = nextDataset?.course.classes.find((item) => (item.kelasPraktikumId || item.id_kelas_praktikum) === queryKelasPraktikumId) ?? nextDataset?.course.classes?.[0]
+          setJobsheetSequence(String((currentClass?.jumlahJobsheetDibuat ?? currentClass?.jumlah_jobsheet_dibuat ?? 0) + 1))
           setTheoryItems([])
           setExperiments([])
           setExercises([])
@@ -249,7 +255,7 @@ export default function LecturerJobsheetEditorPage() {
     }
 
     loadData()
-  }, [effectiveCourseId, savedJobsheetId, user])
+  }, [effectiveCourseId, queryKelasPraktikumId, savedJobsheetId, user])
 
   const totalRubric = useMemo(() => {
     const theoryTotal = theoryItems.reduce((acc, item) => acc + toHundredths(item.rubric), 0)
@@ -268,6 +274,7 @@ export default function LecturerJobsheetEditorPage() {
     return {
       lecturerId: user?.id ?? "",
       title,
+      urutan: Number(jobsheetSequence || 1),
       description,
       goal: extractTextContent(goalContent).trim(),
       programmingLanguage: programmingLanguage || "java",
@@ -391,6 +398,7 @@ export default function LecturerJobsheetEditorPage() {
         lecturerId: user.id,
         classes: publishSettings.map((item) => ({
           kelasPraktikumId: item.kelasPraktikumId,
+          urutan: Number(jobsheetSequence || 1),
           deadline: datetimeLocalToDbValue(item.deadline),
           isActive: item.isActive,
         })),
@@ -536,6 +544,16 @@ export default function LecturerJobsheetEditorPage() {
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="Masukkan judul jobsheet"
+              />
+            </FieldRow>
+            <FieldRow label="Urutan Jobsheet">
+              <input
+                className={inputClass}
+                type="number"
+                min="1"
+                value={jobsheetSequence}
+                onChange={(event) => setJobsheetSequence(event.target.value)}
+                placeholder="1"
               />
             </FieldRow>
             <FieldRow label="Deskripsi Singkat">

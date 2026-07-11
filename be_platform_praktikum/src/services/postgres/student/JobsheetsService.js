@@ -66,7 +66,8 @@ class JobsheetsService {
         instruction_content,
         template_code,
         template_code AS default_template_code,
-        rubric
+        rubric,
+        inactive_duration_minutes
       FROM experiments
       WHERE jobsheet_id = ANY($1)
       ORDER BY jobsheet_id ASC, id ASC`,
@@ -81,7 +82,8 @@ class JobsheetsService {
         instruction_content,
         template_code,
         template_code AS default_template_code,
-        rubric
+        rubric,
+        inactive_duration_minutes
       FROM exercises
       WHERE jobsheet_id = ANY($1)
       ORDER BY jobsheet_id ASC, id ASC`,

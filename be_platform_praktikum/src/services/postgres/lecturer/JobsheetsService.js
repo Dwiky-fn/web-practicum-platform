@@ -17,6 +17,13 @@ function normalizeLocalDeadline(value) {
   return withSeconds;
 }
 
+function normalizeInactiveDuration(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 1) throw new Error('INACTIVE_DURATION_INVALID');
+  return number;
+}
+
 function extractTextContent(node) {
   if (!node) return '';
   if (typeof node === 'string') return node;
@@ -194,6 +201,7 @@ class LecturerJobsheetsService {
       instructionContent: item.instructionContent || emptyDoc,
       templateCode: item.templateCode || '',
       rubric: normalizeRubric(item.rubric),
+      inactiveDurationMinutes: normalizeInactiveDuration(item.inactiveDurationMinutes ?? item.inactive_duration_minutes),
     }));
   }
 
@@ -204,6 +212,7 @@ class LecturerJobsheetsService {
       instructionContent: item.instructionContent || emptyDoc,
       templateCode: item.templateCode || '',
       rubric: normalizeRubric(item.rubric),
+      inactiveDurationMinutes: normalizeInactiveDuration(item.inactiveDurationMinutes ?? item.inactive_duration_minutes),
     }));
   }
 
@@ -289,9 +298,9 @@ class LecturerJobsheetsService {
       `
       INSERT INTO jobsheet_classes (
         id, jobsheet_id, id_kelas_praktikum, is_active, deadline,
-        title, description, goal, content, status, urutan
+        title, description, goal, content, status, urutan, inactive_duration_minutes
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       ON CONFLICT (jobsheet_id, id_kelas_praktikum)
       WHERE id_kelas_praktikum IS NOT NULL
       DO UPDATE SET
@@ -302,7 +311,8 @@ class LecturerJobsheetsService {
         goal = EXCLUDED.goal,
         content = EXCLUDED.content,
         status = EXCLUDED.status,
-        urutan = EXCLUDED.urutan
+        urutan = EXCLUDED.urutan,
+        inactive_duration_minutes = EXCLUDED.inactive_duration_minutes
       `,
       [
         payload.id,
@@ -316,6 +326,7 @@ class LecturerJobsheetsService {
         JSON.stringify(payload.content || {}),
         payload.status,
         payload.urutan,
+        payload.inactiveDurationMinutes,
       ],
     );
   }
@@ -358,8 +369,8 @@ class LecturerJobsheetsService {
     for (const experiment of experiments) {
       await client.query(
         `
-        INSERT INTO experiments (id, jobsheet_id, title, instruction_content, template_code, rubric)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO experiments (id, jobsheet_id, title, instruction_content, template_code, rubric, inactive_duration_minutes)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         `,
         [
           experiment.id,
@@ -368,6 +379,7 @@ class LecturerJobsheetsService {
           JSON.stringify(experiment.instructionContent || emptyDoc),
           experiment.templateCode || '',
           experiment.rubric,
+          experiment.inactiveDurationMinutes,
         ],
       );
     }
@@ -379,8 +391,8 @@ class LecturerJobsheetsService {
     for (const exercise of exercises) {
       await client.query(
         `
-        INSERT INTO exercises (id, jobsheet_id, title, instruction_content, template_code, rubric)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO exercises (id, jobsheet_id, title, instruction_content, template_code, rubric, inactive_duration_minutes)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         `,
         [
           exercise.id,
@@ -389,6 +401,7 @@ class LecturerJobsheetsService {
           JSON.stringify(exercise.instructionContent || emptyDoc),
           exercise.templateCode || '',
           exercise.rubric,
+          exercise.inactiveDurationMinutes,
         ],
       );
     }
@@ -753,6 +766,7 @@ class LecturerJobsheetsService {
           content: jobsheet.content || {},
           status,
           urutan,
+          inactiveDurationMinutes: normalizeInactiveDuration(item.inactiveDurationMinutes ?? item.inactive_duration_minutes),
         });
       }
 
@@ -818,6 +832,7 @@ class LecturerJobsheetsService {
         content: jobsheet.content || {},
         status,
         urutan,
+        inactiveDurationMinutes: normalizeInactiveDuration(payload.inactiveDurationMinutes ?? payload.inactive_duration_minutes),
       });
 
       await client.query(

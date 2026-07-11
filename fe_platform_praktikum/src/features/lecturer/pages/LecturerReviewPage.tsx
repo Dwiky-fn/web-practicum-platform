@@ -134,6 +134,73 @@ function parseAiFeedbackToFeedbacks(submissionId: string, aiFeedback: any): Revi
   return initialFeedbacks
 }
 
+type SectionEvaluationDraft = {
+  type: "experiment" | "exercise"
+  sectionId: string
+  score: string
+  feedback: string
+  aiScore?: number | null
+  aiFeedback?: string
+}
+
+function sumRubricScores(result: any) {
+  const scores = Array.isArray(result?.rubricScores) ? result.rubricScores : []
+  return {
+    score: scores.reduce((sum: number, item: any) => sum + Number(item.score || 0), 0),
+    maxScore: scores.reduce((sum: number, item: any) => sum + Number(item.maxScore || 0), 0),
+    feedback: result?.summary || scores.map((item: any) => item.reason).filter(Boolean).join("\n"),
+  }
+}
+
+function buildSectionEvaluationDrafts(jobsheet: Jobsheet, submission: JobsheetSubmission): Record<string, SectionEvaluationDraft> {
+  const existing = submission.review?.aiFeedback?.sectionEvaluations
+  if (Array.isArray(existing) && existing.length) {
+    return Object.fromEntries(existing
+      .filter((item: any) => item.type === "experiment" || item.type === "exercise")
+      .map((item: any) => [`${item.type}:${item.sectionId}`, {
+        type: item.type,
+        sectionId: item.sectionId,
+        score: item.score != null ? String(item.score) : "",
+        feedback: item.feedback || item.aiFeedback || "",
+        aiScore: item.aiScore ?? null,
+        aiFeedback: item.aiFeedback || "",
+      }]))
+  }
+
+  const aiResults = Array.isArray(submission.review?.aiFeedback?.experimentResults)
+    ? submission.review?.aiFeedback?.experimentResults
+    : []
+  const byId = new Map<string, ReturnType<typeof sumRubricScores>>(
+    aiResults.map((item: any) => [String(item.experimentId), sumRubricScores(item)]),
+  )
+
+  const entries: Array<[string, SectionEvaluationDraft]> = []
+  jobsheet.experiments.forEach((item) => {
+    const ai = byId.get(item.id)
+    entries.push([`experiment:${item.id}`, {
+      type: "experiment",
+      sectionId: item.id,
+      score: ai?.score != null ? String(Math.min(Number(item.rubric || 0), ai.score)) : "",
+      feedback: ai?.feedback || "",
+      aiScore: ai?.score ?? null,
+      aiFeedback: ai?.feedback || "",
+    }])
+  })
+  jobsheet.exercises.forEach((item) => {
+    const ai = byId.get(item.id)
+    entries.push([`exercise:${item.id}`, {
+      type: "exercise",
+      sectionId: item.id,
+      score: ai?.score != null ? String(Math.min(Number(item.rubric || 0), ai.score)) : "",
+      feedback: ai?.feedback || "",
+      aiScore: ai?.score ?? null,
+      aiFeedback: ai?.feedback || "",
+    }])
+  })
+
+  return Object.fromEntries(entries)
+}
+
 
 
 export default function LecturerReviewPage() {
@@ -222,6 +289,7 @@ export default function LecturerReviewPage() {
   const [triggeringAi, setTriggeringAi] = useState(false)
   const [deletingAiFeedback, setDeletingAiFeedback] = useState(false)
   const [confirmDeleteAiFeedback, setConfirmDeleteAiFeedback] = useState(false)
+  const [sectionEvaluations, setSectionEvaluations] = useState<Record<string, SectionEvaluationDraft>>({})
 
   useEffect(() => {
     async function loadData() {
@@ -243,6 +311,9 @@ export default function LecturerReviewPage() {
         setJobsheet(selectedJobsheet)
         setSubmission(selectedSubmission)
         setScore(String(selectedSubmission?.review?.finalScore ?? ""))
+        if (selectedSubmission) {
+          setSectionEvaluations(buildSectionEvaluationDrafts(selectedJobsheet, selectedSubmission))
+        }
 
         if (classId) {
           const classDetail = await getLecturerClassDetail(classId)
@@ -402,6 +473,7 @@ export default function LecturerReviewPage() {
               // Load the feedbacks from database
               const reviewFeedbacks = await getFeedbacks(refreshedSubmission.id)
               setFeedbacks(reviewFeedbacks)
+              setSectionEvaluations(buildSectionEvaluationDrafts(jobsheet!, refreshedSubmission))
             }
           }
         } catch (err) {
@@ -533,6 +605,17 @@ export default function LecturerReviewPage() {
     const jobsheetFeedback = feedbacks.find(f => f.scope === "jobsheet")
     const lecturerFeedbackText = jobsheetFeedback ? jobsheetFeedback.content : ""
 
+    const sectionEvaluationPayload = Object.values(sectionEvaluations)
+      .filter((item) => item.score !== "")
+      .map((item) => ({
+        type: item.type,
+        sectionId: item.sectionId,
+        score: Number(item.score),
+        feedback: item.feedback,
+        aiScore: item.aiScore,
+        aiFeedback: item.aiFeedback,
+      }))
+
     try {
       setSaving(true)
       setError("")
@@ -540,9 +623,9 @@ export default function LecturerReviewPage() {
       await saveLecturerSubmissionReview(submission.id, {
         lecturerId: user.id,
         aiScore: submission.score !== undefined && submission.score !== null ? Math.min(100, Math.max(0, submission.score)) : undefined,
-        finalScore: score ? Math.min(100, Math.max(0, Number(score))) : undefined,
         feedback: lecturerFeedbackText,
         decision: nextDecision,
+        sectionEvaluations: sectionEvaluationPayload,
         aiFeedback: {
           feedbacks: feedbacks,
         },
@@ -560,6 +643,17 @@ export default function LecturerReviewPage() {
     }
   }
 
+  const scoreBreakdownItems = submission?.scoreBreakdown?.items ?? []
+  const automaticFinalScore = useMemo(() => {
+    if (!jobsheet) return 0
+    const theoryScore = scoreBreakdownItems
+      .filter((item) => item.type === "theory")
+      .reduce((sum, item) => sum + Number(item.earnedScore || 0), 0)
+    const sectionScore = Object.values(sectionEvaluations)
+      .reduce((sum, item) => sum + (item.score === "" ? 0 : Number(item.score)), 0)
+    return Math.round((theoryScore + sectionScore) * 100) / 100
+  }, [jobsheet, scoreBreakdownItems, sectionEvaluations])
+
   if (loading) {
     return <TopProgressBar />
   }
@@ -568,7 +662,6 @@ export default function LecturerReviewPage() {
   const isReviewed = submission?.status === "ACCEPTED"
   const isReadOnly = isDraft || (isReviewed && !isEditingReview)
   const progressScore = submission?.calculatedProgressScore ?? submission?.scoreBreakdown?.progressScore ?? null
-  const scoreBreakdownItems = submission?.scoreBreakdown?.items ?? []
 
   return (
     <LecturerLayout>
@@ -720,7 +813,7 @@ export default function LecturerReviewPage() {
               <LecturerPanel className="p-5">
                 <div className="mb-4 flex items-start justify-between gap-4 border-b border-gray-100 pb-3">
                   <div>
-                    <h2 className="text-lg font-semibold">Nilai Progress Pengerjaan</h2>
+                    <h2 className="text-lg font-semibold">Progres Pengerjaan</h2>
                     <p className="mt-1 text-xs text-gray-500">
                       Nilai sistem berdasarkan bobot Dasar Teori, Percobaan, dan Latihan.
                     </p>
@@ -738,7 +831,7 @@ export default function LecturerReviewPage() {
 
                 {!scoreBreakdownItems.length ? (
                   <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3 text-center font-medium">
-                    Nilai Progress belum tersedia untuk pengerjaan lama.
+                    Progres belum tersedia untuk pengerjaan lama.
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -923,6 +1016,20 @@ export default function LecturerReviewPage() {
                       submissionId={submission.id}
                       experiment={experiment}
                       steps={steps}
+                      rubric={Number(experiment.rubric || 0)}
+                      evaluation={sectionEvaluations[`experiment:${experiment.id}`]}
+                      aiRecommendation={{
+                        score: sectionEvaluations[`experiment:${experiment.id}`]?.aiScore ?? null,
+                        maxScore: Number(experiment.rubric || 0),
+                        feedback: sectionEvaluations[`experiment:${experiment.id}`]?.aiFeedback || "",
+                      }}
+                      onEvaluationChange={(value) => setSectionEvaluations((current) => ({
+                        ...current,
+                        [`experiment:${experiment.id}`]: {
+                          ...(current[`experiment:${experiment.id}`] || { type: "experiment", sectionId: experiment.id }),
+                          ...value,
+                        },
+                      }))}
                       feedbacks={feedbacks}
                       readOnly={isReadOnly}
                       selectedLineRange={isReadOnly ? null : selectedLineRange}
@@ -970,6 +1077,20 @@ export default function LecturerReviewPage() {
                           instructionContent: exercise.instructionContent,
                         }}
                         steps={exerciseSteps}
+                        rubric={Number(exercise.rubric || 0)}
+                        evaluation={sectionEvaluations[`exercise:${exercise.id}`]}
+                        aiRecommendation={{
+                          score: sectionEvaluations[`exercise:${exercise.id}`]?.aiScore ?? null,
+                          maxScore: Number(exercise.rubric || 0),
+                          feedback: sectionEvaluations[`exercise:${exercise.id}`]?.aiFeedback || "",
+                        }}
+                        onEvaluationChange={(value) => setSectionEvaluations((current) => ({
+                          ...current,
+                          [`exercise:${exercise.id}`]: {
+                            ...(current[`exercise:${exercise.id}`] || { type: "exercise", sectionId: exercise.id }),
+                            ...value,
+                          },
+                        }))}
                         feedbacks={feedbacks}
                         readOnly={isReadOnly}
                         selectedLineRange={isReadOnly ? null : selectedLineRange}
@@ -1036,7 +1157,6 @@ export default function LecturerReviewPage() {
                   activeExperimentId={activeExperimentId}
                   onSetActiveExperimentId={setActiveExperimentId}
                   score={score}
-                  onScoreChange={setScore}
                   saving={saving}
                   onSaveReview={handleSaveReview}
                   activeTab={activeTab}
@@ -1044,6 +1164,7 @@ export default function LecturerReviewPage() {
                   readOnly={isReadOnly}
                   aiScore={submission.score}
                   aiScoreSummary={submission.review?.aiFeedback?.scoreSummary}
+                  automaticFinalScore={automaticFinalScore}
                 />
               )}
             </aside>

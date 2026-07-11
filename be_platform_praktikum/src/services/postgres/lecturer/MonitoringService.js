@@ -90,6 +90,18 @@ function formatInactiveDuration(seconds) {
   return remainingHours > 0 ? `${days} hari ${remainingHours} jam` : `${days} hari`;
 }
 
+function toActivityStatus(lastActiveAt, thresholdMinutes) {
+  if (!lastActiveAt) return 'not_started';
+  const elapsedMinutes = Math.max(0, Math.floor((Date.now() - new Date(lastActiveAt).getTime()) / 60000));
+  return elapsedMinutes <= thresholdMinutes ? 'active' : 'inactive';
+}
+
+function activityStatusLabel(status) {
+  if (status === 'active') return 'Aktif';
+  if (status === 'inactive') return 'Tidak Aktif';
+  return 'Belum Memulai';
+}
+
 class MonitoringService {
   constructor() {
     this._pool = pool;
@@ -550,6 +562,165 @@ class MonitoringService {
       summary: this._summary(students),
       sidebar,
       insights: this._insights(sidebar),
+      lastUpdatedAt: new Date().toISOString(),
+    };
+  }
+
+  async getClassMonitoring({ kelasPraktikumId, lecturerId }) {
+    await this._assertLecturerAccess(kelasPraktikumId, lecturerId);
+
+    const contextRes = await this._pool.query(
+      `SELECT
+         kp.id AS kelas_praktikum_id,
+         kp.nama_kelas,
+         k.kelas AS rombel,
+         mk.id AS mata_kuliah_id,
+         mk.nama_mk,
+         ts.tahun_semester,
+         COUNT(DISTINCT jc.jobsheet_id)::int AS total_jobsheets
+       FROM kelas_praktikum kp
+       JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
+       JOIN kelas k ON k.id = kp.id_kelas
+       JOIN tahun_semester ts ON ts.id = kp.id_tahun_semester
+       LEFT JOIN jobsheet_classes jc
+         ON jc.id_kelas_praktikum = kp.id
+        AND jc.is_active = true
+        AND jc.status = 'PUBLISHED'
+       WHERE kp.id = $1
+       GROUP BY kp.id, k.kelas, mk.id, mk.nama_mk, ts.tahun_semester
+       LIMIT 1`,
+      [kelasPraktikumId],
+    );
+
+    if (!contextRes.rows.length) {
+      throw new NotFoundError('Kelas praktikum tidak ditemukan.');
+    }
+
+    const studentsRes = await this._pool.query(
+      `WITH class_students AS (
+         SELECT
+           km.id AS id_kelas_mhs,
+           km.id_mahasiswa AS student_id,
+           u.fullname,
+           u.avatar_url,
+           spf.nim
+         FROM kelas_praktikum kp
+         JOIN kelas_semester ks
+           ON ks.id_tahun_semester = kp.id_tahun_semester
+          AND ks.id_semester = kp.id_semester
+          AND ks.id_kelas = kp.id_kelas
+         JOIN kelas_mhs km
+           ON km.id_kelas_semester = ks.id
+          AND km.status = 'active'
+         JOIN users u ON u.id = km.id_mahasiswa AND u.is_active = true
+         LEFT JOIN student_profiles spf ON spf.user_id = u.id
+         WHERE kp.id = $1
+       )
+       SELECT
+         cs.*,
+         j.id AS jobsheet_id,
+         j.title AS jobsheet_title,
+         jc.urutan,
+         COALESCE(exp.inactive_duration_minutes, ex.inactive_duration_minutes, jc.inactive_duration_minutes, 15)::int AS inactive_threshold_minutes,
+         CASE
+           WHEN COALESCE(exp.inactive_duration_minutes, ex.inactive_duration_minutes) IS NOT NULL THEN 'section'
+           WHEN jc.inactive_duration_minutes IS NOT NULL THEN 'jobsheet'
+           ELSE 'default'
+         END AS inactive_threshold_source,
+         last_log.experiment_id,
+         last_log.exercise_id,
+         last_log.instruction_id,
+         last_log.activity_type,
+         last_log.created_at AS last_active_at,
+         COALESCE(exp.title, ex.title, last_log.instruction_id, 'Belum Memulai') AS section_name,
+         CASE
+           WHEN last_log.exercise_id IS NOT NULL THEN 'exercise'
+           WHEN last_log.experiment_id IS NOT NULL THEN 'experiment'
+           WHEN last_log.instruction_id IS NOT NULL THEN 'instruction'
+           ELSE NULL
+         END AS section_type,
+         COALESCE(run_counts.run_count, 0)::int AS run_count
+       FROM class_students cs
+       LEFT JOIN LATERAL (
+         SELECT log.*
+         FROM student_jobsheet_activity_logs log
+         WHERE log.student_id = cs.student_id
+           AND log.id_kelas_praktikum = $1
+           AND log.activity_type NOT IN ('workspace_opened', 'workspace_closed')
+         ORDER BY log.created_at DESC
+         LIMIT 1
+       ) last_log ON true
+       LEFT JOIN jobsheet_classes jc
+         ON jc.id_kelas_praktikum = $1
+        AND jc.jobsheet_id = last_log.jobsheet_id
+       LEFT JOIN jobsheets j ON j.id = last_log.jobsheet_id
+       LEFT JOIN experiments exp ON exp.id = last_log.experiment_id
+       LEFT JOIN exercises ex ON ex.id = COALESCE(last_log.exercise_id, last_log.instruction_id)
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*)::int AS run_count
+         FROM student_jobsheet_activity_logs run_log
+         WHERE run_log.student_id = cs.student_id
+           AND run_log.id_kelas_praktikum = $1
+           AND run_log.jobsheet_id = last_log.jobsheet_id
+           AND UPPER(run_log.activity_type) = 'CODE_RUN'
+           AND COALESCE(run_log.experiment_id, '') = COALESCE(last_log.experiment_id, '')
+           AND COALESCE(run_log.exercise_id, run_log.instruction_id, '') = COALESCE(last_log.exercise_id, last_log.instruction_id, '')
+       ) run_counts ON true
+       ORDER BY cs.fullname ASC`,
+      [kelasPraktikumId],
+    );
+
+    const students = studentsRes.rows.map((row) => {
+      const threshold = Number(row.inactive_threshold_minutes || 15);
+      const lastActiveAt = row.last_active_at || null;
+      const inactiveDurationMinutes = lastActiveAt
+        ? Math.max(0, Math.floor((Date.now() - new Date(lastActiveAt).getTime()) / 60000))
+        : null;
+      const activityStatus = toActivityStatus(lastActiveAt, threshold);
+
+      return {
+        studentId: row.student_id,
+        nim: row.nim || '-',
+        name: row.fullname,
+        profilePhotoUrl: row.avatar_url || null,
+        currentJobsheet: row.jobsheet_id ? {
+          id: row.jobsheet_id,
+          name: row.jobsheet_title,
+          urutan: row.urutan,
+        } : null,
+        currentSection: row.section_type ? {
+          type: row.section_type,
+          id: row.exercise_id || row.experiment_id || row.instruction_id,
+          name: row.section_name,
+        } : null,
+        lastActiveAt,
+        inactiveDurationMinutes,
+        inactiveDurationLabel: inactiveDurationMinutes == null ? 'Belum ada aktivitas' : formatInactiveDuration(inactiveDurationMinutes * 60),
+        inactiveThresholdMinutes: threshold,
+        inactiveThresholdSource: row.inactive_threshold_source || 'default',
+        activityStatus,
+        activityStatusLabel: activityStatusLabel(activityStatus),
+        runCount: Number(row.run_count || 0),
+      };
+    });
+
+    const context = contextRes.rows[0];
+    return {
+      context: {
+        kelasPraktikumId: context.kelas_praktikum_id,
+        mataKuliahId: context.mata_kuliah_id,
+        courseName: context.nama_mk,
+        className: context.rombel || context.nama_kelas,
+        academicPeriod: context.tahun_semester,
+        totalJobsheets: Number(context.total_jobsheets || 0),
+      },
+      summary: {
+        totalStudents: students.length,
+        active: students.filter((student) => student.activityStatus === 'active').length,
+        inactive: students.filter((student) => student.activityStatus === 'inactive').length,
+        notStarted: students.filter((student) => student.activityStatus === 'not_started').length,
+      },
+      students,
       lastUpdatedAt: new Date().toISOString(),
     };
   }

@@ -4,6 +4,9 @@ import { ChevronDown, ChevronUp, Play, RotateCcw, Save, Square, AlertTriangle } 
 import CodeEditorPanel from "../../../../../../../components/code-editor/CodeEditorPanel"
 import AnalysisEditor from "./workSpace/AnalysisEditor"
 import { ExecutionClient } from "../../../../../../../services/execution/executionClient"
+import type { connectLiveWorkspaceSocket } from "../../../../../../../services/liveWorkspaceSocket"
+
+const LIVE_WORKSPACE_DEBUG = import.meta.env.DEV && import.meta.env.VITE_LIVE_WORKSPACE_DEBUG === "true"
 
 interface Props {
   title: string
@@ -38,6 +41,12 @@ interface Props {
     totalRunCount?: number | null
     instructionRunCounts?: Record<number, number | null>
     hasRunEventData?: boolean
+  }
+  liveWorkspace?: ReturnType<typeof connectLiveWorkspaceSocket> | null
+  liveSection?: {
+    type: "experiment" | "exercise"
+    id: string
+    name: string
   }
 }
 
@@ -92,6 +101,8 @@ export default function InstructionWorkspaceCard({
   readOnly = false,
   runContext,
   runStats,
+  liveWorkspace,
+  liveSection,
 }: Props) {
   const defaultFileName = getDefaultFileName(language)
   const totalSteps = Math.max(instructions.length, initialSteps?.length || 0, 1)
@@ -120,10 +131,79 @@ export default function InstructionWorkspaceCard({
   const terminalInputRef = useRef<HTMLInputElement | null>(null)
   const terminalScrollRef = useRef<HTMLDivElement | null>(null)
   const hasHydratedInitialStateRef = useRef(false)
+  const liveDebounceRef = useRef<number | null>(null)
+  const latestLiveFileRef = useRef<{ filePath: string; content: string } | null>(null)
+  const liveAnalysisDebounceRef = useRef<number | null>(null)
+  const latestLiveAnalysisRef = useRef<JSONContent | null>(null)
 
   useEffect(() => {
-    return () => executionClientRef.current?.close()
+    return () => {
+      executionClientRef.current?.close()
+      if (liveDebounceRef.current) window.clearTimeout(liveDebounceRef.current)
+      if (liveAnalysisDebounceRef.current) window.clearTimeout(liveAnalysisDebounceRef.current)
+    }
   }, [])
+
+  const flushLiveFile = useCallback(() => {
+    if (!liveWorkspace || !latestLiveFileRef.current || !liveSection || readOnly) return
+    const latest = latestLiveFileRef.current
+    if (LIVE_WORKSPACE_DEBUG) {
+      console.debug("[LIVE-WS][STUDENT] sending workspace update", {
+        filePath: latest.filePath,
+        contentLength: latest.content.length,
+        sectionType: liveSection.type,
+        sectionId: liveSection.id,
+      })
+    }
+    liveWorkspace.send({
+      type: "workspace-file-content",
+      filePath: latest.filePath,
+      content: latest.content,
+      activeFilePath: latest.filePath,
+      sectionType: liveSection.type,
+      sectionId: liveSection.id,
+      sectionName: liveSection.name,
+    })
+  }, [liveSection, liveWorkspace, readOnly])
+
+  const scheduleLiveFile = useCallback((filePath: string, content: string) => {
+    if (!liveWorkspace || !liveSection || readOnly) return
+    if (LIVE_WORKSPACE_DEBUG) {
+      console.debug("[LIVE-WS][STUDENT] debounce file update", {
+        filePath,
+        contentLength: content.length,
+        sectionType: liveSection.type,
+        sectionId: liveSection.id,
+      })
+    }
+    latestLiveFileRef.current = { filePath, content }
+    if (liveDebounceRef.current) window.clearTimeout(liveDebounceRef.current)
+    liveDebounceRef.current = window.setTimeout(flushLiveFile, 180)
+  }, [flushLiveFile, liveSection, liveWorkspace, readOnly])
+
+  const flushLiveAnalysis = useCallback(() => {
+    if (!liveWorkspace || !latestLiveAnalysisRef.current || !liveSection || readOnly) return
+    if (LIVE_WORKSPACE_DEBUG) {
+      console.debug("[LIVE-WS][STUDENT] sending analysis update", {
+        sectionType: liveSection.type,
+        sectionId: liveSection.id,
+      })
+    }
+    liveWorkspace.send({
+      type: "analysis-patch",
+      sectionType: liveSection.type,
+      sectionId: liveSection.id,
+      sectionName: liveSection.name,
+      content: latestLiveAnalysisRef.current,
+    })
+  }, [liveSection, liveWorkspace, readOnly])
+
+  const scheduleLiveAnalysis = useCallback((content: JSONContent) => {
+    if (!liveWorkspace || !liveSection || readOnly) return
+    latestLiveAnalysisRef.current = content
+    if (liveAnalysisDebounceRef.current) window.clearTimeout(liveAnalysisDebounceRef.current)
+    liveAnalysisDebounceRef.current = window.setTimeout(flushLiveAnalysis, 220)
+  }, [flushLiveAnalysis, liveSection, liveWorkspace, readOnly])
 
   useEffect(() => {
     if (hasHydratedInitialStateRef.current) return
@@ -164,6 +244,35 @@ export default function InstructionWorkspaceCard({
   }, [initialSteps, templateCode, defaultFileName, totalSteps])
 
   useEffect(() => {
+    if (!readOnly || !hasHydratedInitialStateRef.current) return
+
+    const nextCodeMap = Object.fromEntries(
+      Array.from({ length: totalSteps }, (_, index) => {
+        const savedFiles = initialSteps?.[index]?.files
+
+        return [
+          index,
+          hasFiles(savedFiles) ? savedFiles : { [defaultFileName]: templateCode || "" },
+        ]
+      })
+    )
+    const nextAnalysisMap = Object.fromEntries(
+      Array.from({ length: totalSteps }, (_, index) => [
+        index,
+        initialSteps?.[index]?.analysis || { type: "doc", content: [] },
+      ])
+    )
+    const nextOutputMap = Object.fromEntries(
+      Array.from({ length: totalSteps }, (_, index) => [index, initialSteps?.[index]?.output || ""])
+    )
+
+    terminalOutputRef.current = nextOutputMap
+    setCodeMap(nextCodeMap)
+    setAnalysisMap(nextAnalysisMap)
+    setOutputMap(nextOutputMap)
+  }, [defaultFileName, initialSteps, readOnly, templateCode, totalSteps])
+
+  useEffect(() => {
     const currentFiles = codeMap[activeIndex] || {}
     const fileNames = Object.keys(currentFiles)
 
@@ -189,7 +298,15 @@ export default function InstructionWorkspaceCard({
 
     setActiveIndex(index)
     if (firstFile) setActiveFile(firstFile)
-  }, [codeMap])
+    if (liveWorkspace && liveSection) {
+      liveWorkspace.send({
+        type: "active-section-changed",
+        sectionType: liveSection.type,
+        sectionId: liveSection.id,
+        sectionName: liveSection.name,
+      })
+    }
+  }, [codeMap, liveSection?.id, liveSection?.name, liveSection?.type, liveWorkspace])
 
   const saveCurrentSteps = useCallback(async () => {
     if (!onChange) return
@@ -211,12 +328,20 @@ export default function InstructionWorkspaceCard({
       if (onSave) {
         onSave()
       }
+      flushLiveFile()
+      flushLiveAnalysis()
+      liveWorkspace?.send({
+        type: "workspace-saved",
+        sectionType: liveSection?.type,
+        sectionId: liveSection?.id,
+        sectionName: liveSection?.name,
+      })
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Gagal menyimpan workspace.")
     } finally {
       setIsSaving(false)
     }
-  }, [analysisMap, codeMap, onChange, outputMap, totalSteps])
+  }, [analysisMap, codeMap, flushLiveAnalysis, flushLiveFile, liveSection?.id, liveSection?.name, liveSection?.type, liveWorkspace, onChange, onSave, outputMap, totalSteps])
 
   const appendOutput = useCallback((index: number, chunk: string) => {
     const nextOutput = `${terminalOutputRef.current[index] || ""}${chunk}`
@@ -381,7 +506,17 @@ export default function InstructionWorkspaceCard({
       [activeIndex]: files,
     }))
     if (nextActiveFile) setActiveFile(nextActiveFile)
-  }, [activeIndex])
+    if (nextActiveFile) {
+      liveWorkspace?.send({
+        type: "active-file-changed",
+        filePath: nextActiveFile,
+        activeFilePath: nextActiveFile,
+        sectionType: liveSection?.type,
+        sectionId: liveSection?.id,
+        sectionName: liveSection?.name,
+      })
+    }
+  }, [activeIndex, liveSection?.id, liveSection?.name, liveSection?.type, liveWorkspace])
 
   const handleBottomPanelResize = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -408,9 +543,27 @@ export default function InstructionWorkspaceCard({
     files: codeMap[activeIndex] || {},
     activeFile,
     editorPath: `instruction-${activeIndex}/${activeFile}`,
-    onChangeFile: setActiveFile,
+    onChangeFile: (filePath: string) => {
+      setActiveFile(filePath)
+      liveWorkspace?.send({
+        type: "active-file-changed",
+        filePath,
+        activeFilePath: filePath,
+        sectionType: liveSection?.type,
+        sectionId: liveSection?.id,
+        sectionName: liveSection?.name,
+      })
+    },
     onCodeChange: (value: string) => {
       if (readOnly) return
+      if (LIVE_WORKSPACE_DEBUG) {
+        console.debug("[LIVE-WS][STUDENT] editor changed", {
+          filePath: activeFile,
+          contentLength: value.length,
+          sectionType: liveSection?.type,
+          sectionId: liveSection?.id,
+        })
+      }
       setIsDirty(true)
       setCodeMap(prev => ({
         ...prev,
@@ -419,13 +572,26 @@ export default function InstructionWorkspaceCard({
           [activeFile]: value,
         },
       }))
+      scheduleLiveFile(activeFile, value)
     },
     onFilesChange: handleFilesChange,
     getNewFileName: (files: Record<string, string>) => (
       `File${Object.keys(files).length + 1}.${getFileExtension(language)}`
     ),
     readOnly,
-  }), [activeFile, activeIndex, codeMap, handleFilesChange, language, readOnly])
+  }), [
+    activeFile,
+    activeIndex,
+    codeMap,
+    handleFilesChange,
+    language,
+    liveSection?.id,
+    liveSection?.name,
+    liveSection?.type,
+    liveWorkspace,
+    readOnly,
+    scheduleLiveFile,
+  ])
 
   return (
     <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -526,37 +692,38 @@ export default function InstructionWorkspaceCard({
                     {saveError || saveStatus}
                   </span>
                 )}
-                <ToolbarButton
-                  onClick={handleRun}
-                  disabled={readOnly || Object.values(runningMap).some(Boolean)}
-                  title={readOnly ? "Tidak tersedia pada mode monitoring dosen." : undefined}
-                  primary
-                >
-                  <Play size={16} fill="currentColor" aria-hidden="true" />
-                  Run
-                </ToolbarButton>
-                {runningMap[activeIndex] && !readOnly && (
-                  <ToolbarButton onClick={() => executionClientRef.current?.stop()} danger>
-                    <Square size={16} fill="currentColor" aria-hidden="true" />
-                    Stop
-                  </ToolbarButton>
+                {!readOnly && (
+                  <>
+                    <ToolbarButton
+                      onClick={handleRun}
+                      disabled={Object.values(runningMap).some(Boolean)}
+                      primary
+                    >
+                      <Play size={16} fill="currentColor" aria-hidden="true" />
+                      Run
+                    </ToolbarButton>
+                    {runningMap[activeIndex] && (
+                      <ToolbarButton onClick={() => executionClientRef.current?.stop()} danger>
+                        <Square size={16} fill="currentColor" aria-hidden="true" />
+                        Stop
+                      </ToolbarButton>
+                    )}
+                    <ToolbarButton
+                      onClick={() => saveCurrentSteps()}
+                      disabled={isSaving}
+                    >
+                      <Save size={16} aria-hidden="true" />
+                      {isSaving ? "Saving" : "Save"}
+                    </ToolbarButton>
+                    <ToolbarButton
+                      onClick={handleReset}
+                      disabled={!!runningMap[activeIndex]}
+                    >
+                      <RotateCcw size={16} aria-hidden="true" />
+                      Reset
+                    </ToolbarButton>
+                  </>
                 )}
-                <ToolbarButton
-                  onClick={() => saveCurrentSteps()}
-                  disabled={readOnly || isSaving}
-                  title={readOnly ? "Tidak tersedia pada mode monitoring dosen." : undefined}
-                >
-                  <Save size={16} aria-hidden="true" />
-                  {isSaving ? "Saving" : "Save"}
-                </ToolbarButton>
-                <ToolbarButton
-                  onClick={handleReset}
-                  disabled={readOnly || !!runningMap[activeIndex]}
-                  title={readOnly ? "Tidak tersedia pada mode monitoring dosen." : undefined}
-                >
-                  <RotateCcw size={16} aria-hidden="true" />
-                  Reset
-                </ToolbarButton>
                 <ToolbarButton onClick={() => setIsWorkspaceExpanded(false)}>
                   <ChevronUp size={16} aria-hidden="true" />
                   Collapse
@@ -633,6 +800,7 @@ export default function InstructionWorkspaceCard({
                               ...prev,
                               [activeIndex]: value,
                             }))
+                            scheduleLiveAnalysis(value)
                           }}
                           readOnly={readOnly}
                         />

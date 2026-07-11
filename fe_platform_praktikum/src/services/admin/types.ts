@@ -138,6 +138,8 @@ export interface ClassJobsheet {
   id_mata_kuliah?: string
   urutan?: number
   sequence?: number
+  inactiveDurationMinutes?: number | null
+  inactive_duration_minutes?: number | null
   title: string
   deadline: string
   status: "Selesai" | "Aktif" | "Draft" | "Nonaktif" | "Arsip"

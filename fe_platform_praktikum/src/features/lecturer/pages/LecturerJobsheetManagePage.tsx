@@ -31,6 +31,7 @@ type PublishClassSetting = {
   className: string
   isActive: boolean
   deadline: string
+  inactiveDurationMinutes: string
 }
 
 function renderUsedIn(jobsheet: LecturerJobsheetSummary) {
@@ -153,6 +154,7 @@ export default function LecturerJobsheetManagePage() {
           className: item.name,
           isActive: existing ? existing.isActive : false,
           deadline: dbValueToDatetimeLocal(existing?.deadline),
+          inactiveDurationMinutes: existing?.inactiveDurationMinutes ? String(existing.inactiveDurationMinutes) : "",
         }
       }),
     )
@@ -170,6 +172,7 @@ export default function LecturerJobsheetManagePage() {
         classes: publishSettings.map((item) => ({
           kelasPraktikumId: item.kelasPraktikumId,
           deadline: datetimeLocalToDbValue(item.deadline),
+          inactiveDurationMinutes: item.inactiveDurationMinutes ? Number(item.inactiveDurationMinutes) : null,
           isActive: item.isActive,
         })),
       }, { mataKuliahId: dataset?.course.mataKuliahId || dataset?.course.id })
@@ -355,6 +358,31 @@ export default function LecturerJobsheetManagePage() {
                     className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm disabled:bg-gray-100 disabled:text-gray-400"
                     aria-label={`Deadline kelas ${item.className}`}
                   />
+                ))}
+              </div>
+              <div className="space-y-3">
+                <p className="font-semibold">Batas Tidak Aktif</p>
+                {publishSettings.map((item, index) => (
+                  <label key={item.classId} className="block text-xs font-medium text-gray-600">
+                    Kelas Praktikum {item.className}
+                    <input
+                      type="number"
+                      min={1}
+                      value={item.inactiveDurationMinutes}
+                      disabled={!item.isActive}
+                      onChange={(event) =>
+                        setPublishSettings((current) =>
+                          current.map((entry, currentIndex) =>
+                            currentIndex === index ? { ...entry, inactiveDurationMinutes: event.target.value } : entry,
+                          ),
+                        )
+                      }
+                      placeholder="15"
+                      className="mt-1 h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                      aria-label={`Batas tidak aktif kelas ${item.className}`}
+                    />
+                    <span className="mt-1 block text-[11px] text-gray-500">Mahasiswa dianggap tidak aktif setelah menit tanpa aktivitas.</span>
+                  </label>
                 ))}
               </div>
             </div>

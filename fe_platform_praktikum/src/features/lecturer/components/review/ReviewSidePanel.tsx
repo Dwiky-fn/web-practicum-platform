@@ -23,7 +23,6 @@ interface Props {
   activeExperimentId: string | null
   onSetActiveExperimentId: (id: string | null) => void
   score: string
-  onScoreChange: (score: string) => void
   saving: boolean
   onSaveReview: (decision: "ACCEPTED") => void
   activeTab: "percobaan" | "komentar_kode" | "jobsheet"
@@ -36,6 +35,7 @@ interface Props {
     totalMaxScore?: number
     finalGradeRecommendation?: number
   }
+  automaticFinalScore?: number
 }
 
 export default function ReviewSidePanel({
@@ -53,7 +53,6 @@ export default function ReviewSidePanel({
   activeExperimentId,
   onSetActiveExperimentId,
   score,
-  onScoreChange,
   saving,
   onSaveReview,
   activeTab,
@@ -62,6 +61,7 @@ export default function ReviewSidePanel({
   readOnly = false,
   aiScore,
   aiScoreSummary,
+  automaticFinalScore = 0,
 }: Props) {
   // ── Inline code comment editor state ──
   const [inlineComment, setInlineComment] = useState("")
@@ -629,30 +629,13 @@ export default function ReviewSidePanel({
                   ) : null}
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Nilai Akhir</label>
-                  {readOnly ? (
-                    <span className="text-lg font-extrabold text-green-700 block mt-0.5">
-                      {score || "-"}
-                    </span>
-                  ) : (
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={score}
-                      onChange={(e) => {
-                        let val = e.target.value;
-                        if (val !== "") {
-                          const num = Number(val);
-                          if (num > 100) val = "100";
-                          if (num < 0) val = "0";
-                        }
-                        onScoreChange(val);
-                      }}
-                      placeholder="0 - 100"
-                      className="mt-1 h-8 w-full rounded-lg border border-gray-300 px-2.5 text-xs font-semibold focus:border-blue-500 outline-none"
-                    />
-                  )}
+                  <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Nilai Akhir Otomatis</span>
+                  <span className="text-lg font-extrabold text-green-700 block mt-0.5">
+                    {readOnly ? (score || "-") : automaticFinalScore}
+                  </span>
+                  <span className="mt-0.5 block text-[10px] font-semibold text-gray-500">
+                    Dihitung dari Dasar Teori + Percobaan + Latihan.
+                  </span>
                 </div>
               </div>
             </div>

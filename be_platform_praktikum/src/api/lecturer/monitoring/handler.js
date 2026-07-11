@@ -22,6 +22,20 @@ class LecturerMonitoringHandler {
     }
   }
 
+  async getClassMonitoringHandler(req, res, next) {
+    try {
+      const { kelasPraktikumId } = req.params;
+      const data = await this._service.getClassMonitoring({
+        kelasPraktikumId,
+        lecturerId: req.user.id,
+      });
+
+      return res.json({ status: 'success', data });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   async getLocationDetailHandler(req, res, next) {
     try {
       const { kelasPraktikumId, jobsheetId } = req.params;

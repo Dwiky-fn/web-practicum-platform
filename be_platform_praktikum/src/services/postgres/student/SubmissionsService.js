@@ -3,6 +3,7 @@ const { randomUUID } = require('crypto');
 const AiEvaluationQueue = require('../../execution/AiEvaluationQueue');
 const DeadlineAccessService = require('./DeadlineAccessService');
 const JobsheetProgressScoringService = require('../../scoring/JobsheetProgressScoringService');
+const MonitoringActivityService = require('../../monitoring/MonitoringActivityService');
 const { AuthorizationError } = require('../../../exceptions');
 
 function extractSteps(content) {
@@ -817,6 +818,16 @@ class SubmissionsService {
       await this.resetReviewForSubmission(existing.id, client);
       await client.query('COMMIT');
       AiEvaluationQueue.addJob(existing.id);
+
+      await MonitoringActivityService.broadcastActivity({
+        kelasPraktikumId: academicContext.id_kelas_praktikum,
+        studentId,
+        jobsheetId,
+        activityType: 'submit_answer',
+        lastActiveAt: new Date(),
+        progressPercentage: scoreSnapshot.progressPercentage ?? scoreSnapshot.progressScore,
+        submissionStatus: 'SUBMITTED',
+      });
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

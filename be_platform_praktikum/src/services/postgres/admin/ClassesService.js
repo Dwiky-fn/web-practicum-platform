@@ -1111,6 +1111,7 @@ class ClassesService {
         jc.jobsheet_id,
         jc.title,
         jc.urutan,
+        jc.inactive_duration_minutes,
         to_char(jc.deadline, 'YYYY-MM-DD HH24:MI:SS') AS deadline,
         jc.status
       FROM jobsheet_classes jc
@@ -1126,6 +1127,8 @@ class ClassesService {
       classJobsheetId: row.id,
       urutan: row.urutan,
       sequence: row.urutan,
+      inactiveDurationMinutes: row.inactive_duration_minutes,
+      inactive_duration_minutes: row.inactive_duration_minutes,
       title: row.title,
       deadline: row.deadline || '-',
       status: displayStatus(row.status),

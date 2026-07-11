@@ -88,6 +88,7 @@ export const mapJobsheet = (data: RawJobsheet): Jobsheet => {
       instructionContent: exp.instruction_content || emptyDoc,
       defaultTemplateCode: exp.default_template_code || exp.template_code || "",
       rubric: exp.rubric ?? 0,
+      inactiveDurationMinutes: exp.inactiveDurationMinutes ?? exp.inactive_duration_minutes ?? null,
     })),
 
     exercises: (data.exercises || []).map((exe, index) => ({
@@ -98,6 +99,7 @@ export const mapJobsheet = (data: RawJobsheet): Jobsheet => {
       instructionContent: exe.instruction_content || emptyDoc,
       defaultTemplateCode: exe.default_template_code || exe.template_code || "",
       rubric: exe.rubric ?? 0,
+      inactiveDurationMinutes: exe.inactiveDurationMinutes ?? exe.inactive_duration_minutes ?? null,
     })),
 
     theory: (data.theory || []).map((t, index) => ({

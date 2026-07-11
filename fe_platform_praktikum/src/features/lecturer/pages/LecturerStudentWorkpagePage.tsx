@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { ExternalLink, RefreshCw, User, MapPin, Activity, Settings } from "lucide-react"
 import type { JSONContent } from "@tiptap/react"
@@ -15,8 +15,10 @@ import type { Jobsheet } from "../../../services/jobsheet/types"
 import type { StudentProgressItem } from "../../../services/progress/types"
 import type { JobsheetSubmission } from "../../../services/submission/types"
 import { formatAcademicDateTime, formatAcademicTime } from "../../../shared/utils/formatAcademicDateTime"
+import { connectLiveWorkspaceSocket, type LiveWorkspaceEvent } from "../../../services/liveWorkspaceSocket"
 
 const EMPTY_DOC: JSONContent = { type: "doc", content: [] }
+const LIVE_WORKSPACE_DEBUG = import.meta.env.DEV && import.meta.env.VITE_LIVE_WORKSPACE_DEBUG === "true"
 
 function formatDate(value?: string | null) {
   if (!value) return "-"
@@ -47,7 +49,7 @@ function renderStatusBadge(status: string) {
   )
 }
 
-function renderStuckValue(stats?: {
+function renderLastActivityValue(stats?: {
   runCount: number
   lastMeaningfulActivityAt: string | null
   inactiveDurationSeconds: number | null
@@ -57,7 +59,7 @@ function renderStuckValue(stats?: {
   if (!stats || !stats.hasActivity || stats.inactiveDurationSeconds === null) {
     return (
       <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
-        Belum terdeteksi stuck
+        Belum ada aktivitas.
       </span>
     )
   }
@@ -70,7 +72,7 @@ function renderStuckValue(stats?: {
   }
   return (
     <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">
-      Stuck: {stats.inactiveLabel}
+      Terakhir Aktif: {stats.inactiveLabel}
     </span>
   )
 }
@@ -266,6 +268,9 @@ export default function LecturerStudentWorkpagePage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null)
+  const [liveStatus, setLiveStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("disconnected")
+  const [studentOnline, setStudentOnline] = useState(false)
+  const liveWorkspaceVersionRef = useRef(0)
 
   const basePath = `/lecturer/kelas-praktikum/${kelasPraktikumId}/jobsheets/${jobsheetId}/students/${studentId}/monitor`
   const monitoringParams = new URLSearchParams(location.search)
@@ -292,13 +297,191 @@ export default function LecturerStudentWorkpagePage() {
     loadData()
   }, [loadData])
 
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible") loadData(true)
-    }, 30000)
+  const applyLiveEvent = useCallback((event: LiveWorkspaceEvent) => {
+    if (LIVE_WORKSPACE_DEBUG) {
+      console.debug("[LIVE-WS][LECTURER] message received", { type: event.type, workspaceVersion: event.workspaceVersion ?? event.nextVersion })
+    }
+    if (event.type === "workspace-joined") {
+      setStudentOnline(Boolean(event.studentOnline))
+      const joinedVersion = Number(event.workspaceVersion || 0)
+      liveWorkspaceVersionRef.current = joinedVersion
+      return
+    }
+    if (event.type === "student-workspace-online") {
+      setStudentOnline(true)
+      return
+    }
+    if (event.type === "student-workspace-offline") {
+      setStudentOnline(false)
+      return
+    }
+    if (event.type === "workspace-resync-required") {
+      loadData(true)
+      return
+    }
 
-    return () => window.clearInterval(interval)
+    const nextVersion = Number(event.nextVersion ?? event.workspaceVersion ?? 0)
+    const currentVersion = liveWorkspaceVersionRef.current
+    if (nextVersion && nextVersion <= currentVersion) {
+      if (LIVE_WORKSPACE_DEBUG) {
+        console.debug("[LIVE-WS][LECTURER] event ignored old version", { nextVersion, liveWorkspaceVersion: currentVersion })
+      }
+      return
+    }
+    if (nextVersion && currentVersion && nextVersion > currentVersion + 1) {
+      if (LIVE_WORKSPACE_DEBUG) {
+        console.debug("[LIVE-WS][LECTURER] event gap detected, refreshing snapshot", { nextVersion, liveWorkspaceVersion: currentVersion })
+      }
+      loadData(true)
+      return
+    }
+
+    if (nextVersion) {
+      liveWorkspaceVersionRef.current = nextVersion
+    }
+    setLastRefreshAt(event.updatedAt || new Date().toISOString())
+
+    setData((current) => {
+      if (!current) return current
+      const sectionType = event.sectionType
+      const sectionId = event.sectionId || ""
+
+      if (event.type === "active-section-changed") {
+        return {
+          ...current,
+          progress: {
+            ...current.progress,
+            currentLocation: sectionType && sectionId ? {
+              type: sectionType,
+              moduleType: sectionType,
+              moduleId: sectionId,
+              stepId: null,
+              title: event.sectionName || sectionId,
+              instruction: "",
+            } as MonitoringLocation : current.progress.currentLocation,
+            lastUpdatedAt: event.updatedAt || current.progress.lastUpdatedAt,
+          },
+        }
+      }
+
+      if (event.type === "workspace-file-content" && event.filePath) {
+        if (LIVE_WORKSPACE_DEBUG) {
+          console.debug("[LIVE-WS][LECTURER] updating file state", {
+            filePath: event.filePath,
+            contentLength: String(event.content ?? "").length,
+            sectionType,
+            sectionId,
+          })
+        }
+        if (sectionType === "experiment" && sectionId) {
+          const previous = current.submission.report.experiments?.[sectionId]?.steps ?? [{ files: {}, output: "", analysis: EMPTY_DOC }]
+          const nextSteps = [...previous]
+          const first = nextSteps[0] ?? { files: {}, output: "", analysis: EMPTY_DOC }
+          nextSteps[0] = {
+            ...first,
+            files: {
+              ...(first.files ?? {}),
+              [event.filePath]: String(event.content ?? ""),
+            },
+          }
+          return {
+            ...current,
+            progress: { ...current.progress, lastUpdatedAt: event.updatedAt || current.progress.lastUpdatedAt },
+            submission: {
+              ...current.submission,
+              report: {
+                ...current.submission.report,
+                experiments: {
+                  ...(current.submission.report.experiments ?? {}),
+                  [sectionId]: { steps: nextSteps },
+                },
+              },
+            },
+          }
+        }
+        if (sectionType === "exercise" && sectionId) {
+          const previous = current.submission.report.exercises?.[sectionId] ?? { files: {}, output: "", analysis: EMPTY_DOC }
+          return {
+            ...current,
+            progress: { ...current.progress, lastUpdatedAt: event.updatedAt || current.progress.lastUpdatedAt },
+            submission: {
+              ...current.submission,
+              report: {
+                ...current.submission.report,
+                exercises: {
+                  ...(current.submission.report.exercises ?? {}),
+                  [sectionId]: {
+                    ...previous,
+                    files: {
+                      ...(previous.files ?? {}),
+                      [event.filePath]: String(event.content ?? ""),
+                    },
+                  },
+                },
+              },
+            },
+          }
+        }
+      }
+
+      if (event.type === "analysis-patch" && sectionType && sectionId) {
+        if (LIVE_WORKSPACE_DEBUG) {
+          console.debug("[LIVE-WS][LECTURER] updating analysis state", { sectionType, sectionId })
+        }
+        if (sectionType === "experiment") {
+          const previous = current.submission.report.experiments?.[sectionId]?.steps ?? [{ files: {}, output: "", analysis: EMPTY_DOC }]
+          const nextSteps = [...previous]
+          const first = nextSteps[0] ?? { files: {}, output: "", analysis: EMPTY_DOC }
+          nextSteps[0] = { ...first, analysis: event.content as JSONContent }
+          return {
+            ...current,
+            submission: {
+              ...current.submission,
+              report: {
+                ...current.submission.report,
+                experiments: {
+                  ...(current.submission.report.experiments ?? {}),
+                  [sectionId]: { steps: nextSteps },
+                },
+              },
+            },
+          }
+        }
+        if (sectionType === "exercise") {
+          const previous = current.submission.report.exercises?.[sectionId] ?? { files: {}, output: "", analysis: EMPTY_DOC }
+          return {
+            ...current,
+            submission: {
+              ...current.submission,
+              report: {
+                ...current.submission.report,
+                exercises: {
+                  ...(current.submission.report.exercises ?? {}),
+                  [sectionId]: { ...previous, analysis: event.content as JSONContent },
+                },
+              },
+            },
+          }
+        }
+      }
+
+      return current
+    })
   }, [loadData])
+
+  useEffect(() => {
+    const connection = connectLiveWorkspaceSocket({
+      role: "lecturer-viewer",
+      kelasPraktikumId,
+      jobsheetId,
+      studentId,
+      onEvent: applyLiveEvent,
+      onStatus: setLiveStatus,
+      onResync: () => loadData(true),
+    })
+
+    return () => connection.close()
+  }, [applyLiveEvent, jobsheetId, kelasPraktikumId, loadData, studentId])
 
   const jobsheet = useMemo(() => data ? buildJobsheet(data) : null, [data])
   const submission = useMemo(() => data ? buildSubmission(data) : null, [data])
@@ -388,6 +571,7 @@ export default function LecturerStudentWorkpagePage() {
           <RichTextViewer content={experiment.instructionContent ?? EMPTY_DOC} mode="viewer-default" />
           {hasSavedWorkspace(rawSteps) ? (
             <InstructionWorkspaceCard
+              key={`${studentId}-${jobsheetId}-${experiment.id}`}
               title={experiment.title}
               label="Monitoring Dosen"
               instructions={(group?.children ?? []).map((item) => toDoc(item.instruction || item.title))}
@@ -419,6 +603,7 @@ export default function LecturerStudentWorkpagePage() {
           <RichTextViewer content={exercise.instructionContent ?? EMPTY_DOC} mode="viewer-default" />
           {hasSavedWorkspace(rawSteps) ? (
             <InstructionWorkspaceCard
+              key={`${studentId}-${jobsheetId}-${exercise.id}`}
               title={exercise.title}
               label="Monitoring Dosen"
               instructions={[exercise.instructionContent ?? EMPTY_DOC]}
@@ -454,10 +639,18 @@ export default function LecturerStudentWorkpagePage() {
               Monitoring Dosen
             </span>
             <span className="text-gray-300 text-[10px]">·</span>
-            <span className="text-[10px] text-gray-500 font-semibold">
-              Sync: {formatClock(lastRefreshAt || data.lastUpdatedAt)}
-            </span>
-          </div>
+              <span className="text-[10px] text-gray-500 font-semibold">
+                Sync: {formatClock(lastRefreshAt || data.lastUpdatedAt)}
+              </span>
+              <span className="text-gray-300 text-[10px]">Â·</span>
+              <span className="text-[10px] font-semibold text-gray-600">
+                Live: {liveStatus === "connected" ? "Terhubung" : liveStatus === "reconnecting" ? "Menghubungkan Ulang" : liveStatus === "connecting" ? "Menghubungkan" : "Terputus"}
+              </span>
+              <span className="text-gray-300 text-[10px]">Â·</span>
+              <span className={`text-[10px] font-bold ${studentOnline ? "text-emerald-600" : "text-gray-500"}`}>
+                {studentOnline ? "Mahasiswa sedang online" : "Mahasiswa tidak sedang membuka workspace"}
+              </span>
+            </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -513,8 +706,8 @@ export default function LecturerStudentWorkpagePage() {
                 </span>
               </div>
               <div className="flex items-center justify-between text-[10px]">
-                <span className="text-gray-500 font-medium">Stuck:</span>
-                {renderStuckValue(data.monitoringStats)}
+                <span className="text-gray-500 font-medium">Aktivitas Terakhir:</span>
+                {renderLastActivityValue(data.monitoringStats)}
               </div>
             </div>
             <div className="mt-1.5 text-[9px] font-semibold text-gray-400">

@@ -13,6 +13,12 @@ function normalizeWeight(value) {
   return Number(Math.min(100, Math.max(0, number)).toFixed(2));
 }
 
+function clampPercentage(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Number(Math.min(100, Math.max(0, number)).toFixed(2));
+}
+
 function extractTextFromTiptap(node) {
   if (!node) return '';
   if (typeof node === 'string') return node;
@@ -302,9 +308,14 @@ class JobsheetProgressScoringService {
 
     const totalWeight = round2(scoredItems.reduce((total, item) => total + item.weight, 0));
     const completedWeight = round2(scoredItems.reduce((total, item) => total + item.earnedScore, 0));
+    const completedItems = scoredItems.filter((item) => item.completionRatio >= 1).length;
+    const progressPercentage = totalWeight > 0
+      ? clampPercentage((completedWeight / totalWeight) * 100)
+      : clampPercentage(scoredItems.length ? (completedItems / scoredItems.length) * 100 : 0);
 
     return {
-      progressScore: completedWeight,
+      progressScore: progressPercentage,
+      progressPercentage,
       totalWeight,
       completedWeight,
       calculatedAt,

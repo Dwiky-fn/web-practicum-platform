@@ -40,6 +40,15 @@ function getFileSignature(files: Record<string, string>): string {
   return Object.keys(files).sort().join("|")
 }
 
+function hasSameFileContent(left: Record<string, string>, right: Record<string, string>): boolean {
+  const leftKeys = Object.keys(left)
+  const rightKeys = Object.keys(right)
+
+  if (leftKeys.length !== rightKeys.length) return false
+
+  return leftKeys.every(key => left[key] === right[key])
+}
+
 function makeUniqueName(siblings: FileTreeNode[], baseName: string): string {
   if (!hasDuplicateName(siblings, baseName)) return baseName
 
@@ -109,6 +118,22 @@ export default function CodeEditorPanel({
     setFileSignature(nextSignature)
     setSelectedNodeId(null)
     setRenamingNodeId(null)
+  }, [fileSignature, files])
+
+  useEffect(() => {
+    const nextSignature = getFileSignature(files)
+
+    if (nextSignature !== fileSignature) return
+
+    setTree(currentTree => {
+      const currentFiles = treeToFiles(currentTree)
+      if (hasSameFileContent(currentFiles, files)) return currentTree
+
+      return Object.entries(files).reduce(
+        (nextTree, [filePath, content]) => updateFileContentByPath(nextTree, filePath, content),
+        currentTree
+      )
+    })
   }, [fileSignature, files])
 
   useEffect(() => {

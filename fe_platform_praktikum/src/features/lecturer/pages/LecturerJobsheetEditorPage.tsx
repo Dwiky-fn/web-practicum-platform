@@ -199,6 +199,7 @@ export default function LecturerJobsheetEditorPage() {
               templateCode: item.defaultTemplateCode,
               isReported: item.isReported,
               rubric: item.rubric ?? 0,
+              inactiveDurationMinutes: item.inactiveDurationMinutes ?? null,
             })),
           )
           setExercises(
@@ -209,6 +210,7 @@ export default function LecturerJobsheetEditorPage() {
               templateCode: item.defaultTemplateCode ?? "",
               isReported: item.isReported,
               rubric: item.rubric ?? 0,
+              inactiveDurationMinutes: item.inactiveDurationMinutes ?? null,
             })),
           )
 
@@ -291,6 +293,7 @@ export default function LecturerJobsheetEditorPage() {
         instructionContent: item.instructionContent || emptyDoc,
         templateCode: item.templateCode,
         rubric: normalizeRubric(item.rubric),
+        inactiveDurationMinutes: item.inactiveDurationMinutes ? Number(item.inactiveDurationMinutes) : null,
       })),
       exercises: exercises.map((item, index) => ({
         id: item.id,
@@ -298,6 +301,7 @@ export default function LecturerJobsheetEditorPage() {
         instructionContent: item.instructionContent || emptyDoc,
         templateCode: item.templateCode,
         rubric: normalizeRubric(item.rubric),
+        inactiveDurationMinutes: item.inactiveDurationMinutes ? Number(item.inactiveDurationMinutes) : null,
       })),
       task: {
         instructionContent: emptyDoc,
@@ -700,26 +704,45 @@ export default function LecturerJobsheetEditorPage() {
                       <Trash2 size={16} />
                     </button>
                   </div>
-                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
-                    Bobot
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
-                      value={item.rubric ?? 0}
-                      onChange={(event) => {
-                        const val = normalizeRubric(event.target.value)
-                        setExperiments((current) =>
-                          current.map((entry, currentIndex) =>
-                            currentIndex === index ? { ...entry, rubric: val } : entry,
-                          ),
-                        )
-                      }}
-                    />
-                    %
-                  </label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                      Bobot
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
+                        value={item.rubric ?? 0}
+                        onChange={(event) => {
+                          const val = normalizeRubric(event.target.value)
+                          setExperiments((current) =>
+                            current.map((entry, currentIndex) =>
+                              currentIndex === index ? { ...entry, rubric: val } : entry,
+                            ),
+                          )
+                        }}
+                      />
+                      %
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                      Batas Tidak Aktif
+                      <input
+                        type="number"
+                        min="1"
+                        className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
+                        value={item.inactiveDurationMinutes ?? ""}
+                        onChange={(event) =>
+                          setExperiments((current) =>
+                            current.map((entry, currentIndex) =>
+                              currentIndex === index ? { ...entry, inactiveDurationMinutes: event.target.value ? Number(event.target.value) : null } : entry,
+                            ),
+                          )
+                        }
+                      />
+                      menit
+                    </label>
+                  </div>
                 </div>
                 <div className="space-y-3">
                   <div className="space-y-1">
@@ -804,26 +827,45 @@ export default function LecturerJobsheetEditorPage() {
                       <Trash2 size={16} />
                     </button>
                   </div>
-                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
-                    Bobot
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
-                      value={item.rubric ?? 0}
-                      onChange={(event) => {
-                        const val = normalizeRubric(event.target.value)
-                        setExercises((current) =>
-                          current.map((entry, currentIndex) =>
-                            currentIndex === index ? { ...entry, rubric: val } : entry,
-                          ),
-                        )
-                      }}
-                    />
-                    %
-                  </label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                      Bobot
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
+                        value={item.rubric ?? 0}
+                        onChange={(event) => {
+                          const val = normalizeRubric(event.target.value)
+                          setExercises((current) =>
+                            current.map((entry, currentIndex) =>
+                              currentIndex === index ? { ...entry, rubric: val } : entry,
+                            ),
+                          )
+                        }}
+                      />
+                      %
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                      Batas Tidak Aktif
+                      <input
+                        type="number"
+                        min="1"
+                        className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
+                        value={item.inactiveDurationMinutes ?? ""}
+                        onChange={(event) =>
+                          setExercises((current) =>
+                            current.map((entry, currentIndex) =>
+                              currentIndex === index ? { ...entry, inactiveDurationMinutes: event.target.value ? Number(event.target.value) : null } : entry,
+                            ),
+                          )
+                        }
+                      />
+                      menit
+                    </label>
+                  </div>
                 </div>
                 <div className="space-y-3">
                   <div className="space-y-1">

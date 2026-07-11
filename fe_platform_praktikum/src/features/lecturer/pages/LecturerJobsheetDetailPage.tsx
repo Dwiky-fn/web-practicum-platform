@@ -635,7 +635,7 @@ export default function LecturerJobsheetDetailPage() {
     const labels = {
       not_started: "Belum Mulai",
       in_progress: "Mengerjakan",
-      stalled: "Terhambat",
+      stalled: "Tidak Aktif",
       overdue: "Terlambat",
       completed: "Selesai",
     }
@@ -932,7 +932,7 @@ export default function LecturerJobsheetDetailPage() {
                   </div>
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col justify-between shadow-sm">
                     <div className="flex items-center justify-between text-amber-500">
-                      <span className="text-xs font-semibold uppercase tracking-wider">Terhambat</span>
+                      <span className="text-xs font-semibold uppercase tracking-wider">Tidak Aktif</span>
                       <Loader2 className={monitoringData?.summary.stalledCount ? "animate-spin" : ""} size={16} />
                     </div>
                     <div className="mt-2 text-2xl font-bold text-amber-800">
@@ -986,7 +986,7 @@ export default function LecturerJobsheetDetailPage() {
                         <option value="all">Semua Status</option>
                         <option value="not_started">Belum Mulai</option>
                         <option value="in_progress">Mengerjakan</option>
-                        <option value="stalled">Terhambat</option>
+                        <option value="stalled">Tidak Aktif</option>
                         <option value="completed">Selesai</option>
                       </select>
                     </div>
@@ -1000,8 +1000,8 @@ export default function LecturerJobsheetDetailPage() {
                       >
                         <option value="name_asc">Nama (A - Z)</option>
                         <option value="name_desc">Nama (Z - A)</option>
-                        <option value="progress_desc">Progress Terbanyak</option>
-                        <option value="progress_asc">Progress Terkecil</option>
+                        <option value="progress_desc">Progres Terbanyak</option>
+                        <option value="progress_asc">Progres Terkecil</option>
                         <option value="activity_desc">Aktivitas Terkini</option>
                       </select>
                     </div>
@@ -1014,7 +1014,7 @@ export default function LecturerJobsheetDetailPage() {
                 {!sortedAndFilteredProgressStudents.length ? (
                   <LecturerEmptyState title="Tidak ada mahasiswa yang cocok dengan filter saat ini." />
                 ) : (
-                  <LecturerTable headers={["Nama Mahasiswa", "NIM", "Status", "Posisi Terakhir", "Kemajuan", "Nilai Progress", "Aktivitas Terakhir", "Aksi"]}>
+                  <LecturerTable headers={["Nama Mahasiswa", "NIM", "Status", "Posisi Terakhir", "Kemajuan", "Progres", "Aktivitas Terakhir", "Aksi"]}>
                     {sortedAndFilteredProgressStudents.map((student) => (
                       <tr key={student.student_id}>
                         <td className="px-4 py-3">
@@ -1132,7 +1132,7 @@ export default function LecturerJobsheetDetailPage() {
                 ) : !filteredEvaluationItems.length ? (
                   <LecturerEmptyState title="Belum ada data submission mahasiswa untuk jobsheet ini." />
                 ) : (
-                  <LecturerTable headers={["NIM", "Mahasiswa", "Attempt", "Status", "Nilai AI", "Nilai Progress", "Nilai Akhir", "Aksi"]}>
+                  <LecturerTable headers={["NIM", "Mahasiswa", "Attempt", "Status", "Nilai AI", "Progres", "Nilai Akhir", "Aksi"]}>
                     {filteredEvaluationItems.map((item) => (
                       <tr key={`${item.student.id}-${item.submission?.id ?? "empty"}`}>
                         <td className="px-4 py-3 font-mono">{item.student.nim}</td>
@@ -1380,7 +1380,7 @@ export default function LecturerJobsheetDetailPage() {
                       </span>
                     </div>
                     <div className="text-center md:text-left">
-                      <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Nilai Progress</span>
+                      <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Progres</span>
                       <span className="block mt-1 font-bold text-gray-800 text-lg">
                         {formatNumber(studentDetail.progressScore?.progressScore)} / 100
                       </span>

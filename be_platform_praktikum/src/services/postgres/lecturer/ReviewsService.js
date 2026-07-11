@@ -1,5 +1,7 @@
 const pool = require('..');
 const { createId } = require('../admin/utils');
+const MonitoringActivityService = require('../../monitoring/MonitoringActivityService');
+const { calculateFinalReviewScore } = require('../../review/SubmissionReviewScoringService');
 
 class LecturerReviewsService {
   constructor() {
@@ -34,6 +36,47 @@ class LecturerReviewsService {
     }
   }
 
+  async getReviewScoringContext(submissionId, client = this._pool) {
+    const submission = await client.query(
+      `SELECT ts.jobsheet_id, ts.score_breakdown
+       FROM task_submissions ts
+       WHERE ts.id = $1
+       LIMIT 1`,
+      [submissionId],
+    );
+
+    if (!submission.rows.length) {
+      throw new Error('Submission tidak ditemukan.');
+    }
+
+    const jobsheetId = submission.rows[0].jobsheet_id;
+    const [experiments, exercises] = await Promise.all([
+      client.query(
+        `SELECT id, title, COALESCE(rubric, 0) AS rubric
+         FROM experiments
+         WHERE jobsheet_id = $1
+         ORDER BY id ASC`,
+        [jobsheetId],
+      ),
+      client.query(
+        `SELECT id, title, COALESCE(rubric, 0) AS rubric
+         FROM exercises
+         WHERE jobsheet_id = $1
+         ORDER BY id ASC`,
+        [jobsheetId],
+      ),
+    ]);
+
+    return {
+      scoreBreakdown: submission.rows[0].score_breakdown,
+      jobsheetParts: {
+        theory: [],
+        experiments: experiments.rows,
+        exercises: exercises.rows,
+      },
+    };
+  }
+
   async saveSubmissionReview(payload, lecturerId) {
     const client = await this._pool.connect();
 
@@ -55,16 +98,46 @@ class LecturerReviewsService {
       );
 
       const reviewId = existing.rows[0]?.id || createId('rev');
-      const aiFeedback = payload.aiFeedback || {};
+      const existingReview = existing.rows.length
+        ? await client.query(
+          `SELECT ai_feedback FROM submission_reviews WHERE id = $1 LIMIT 1`,
+          [existing.rows[0].id],
+        )
+        : { rows: [] };
+
+      const previousAiFeedback = existingReview.rows[0]?.ai_feedback || {};
+      const aiFeedback = {
+        ...previousAiFeedback,
+        ...(payload.aiFeedback || {}),
+      };
 
       const clampedAiScore = payload.aiScore !== undefined && payload.aiScore !== null
         ? Math.min(100, Math.max(0, Number(payload.aiScore)))
         : null;
-      const clampedFinalScore = payload.finalScore !== undefined && payload.finalScore !== null
-        ? Math.min(100, Math.max(0, Number(payload.finalScore)))
-        : null;
+      const scoringContext = await this.getReviewScoringContext(payload.submissionId, client);
+      const sectionEvaluations = payload.sectionEvaluations
+        || aiFeedback.sectionEvaluations
+        || aiFeedback.evaluations
+        || [];
+      const scoring = calculateFinalReviewScore({
+        ...scoringContext,
+        sectionEvaluations,
+      });
+      if (payload.decision === 'ACCEPTED' && !scoring.isComplete) {
+        throw new Error('Masih ada Percobaan atau Latihan yang belum dinilai.');
+      }
 
       const feedbacks = aiFeedback.feedbacks || [];
+      aiFeedback.sectionEvaluations = scoring.evaluations;
+      aiFeedback.scoreSummary = {
+        ...(aiFeedback.scoreSummary || {}),
+        finalLecturerScore: scoring.finalScore,
+        totalMaxScore: scoring.totalWeight,
+        theoryScore: scoring.theoryScore,
+        sectionScore: scoring.sectionScore,
+        isComplete: scoring.isComplete,
+        missingRequired: scoring.missingRequired,
+      };
 
       if (existing.rows.length) {
         await client.query(
@@ -84,7 +157,7 @@ class LecturerReviewsService {
             reviewId,
             lecturerId,
             clampedAiScore,
-            clampedFinalScore,
+            scoring.finalScore,
             JSON.stringify(aiFeedback),
             payload.feedback || null,
             payload.decision || 'PENDING',
@@ -105,7 +178,7 @@ class LecturerReviewsService {
             payload.submissionId,
             lecturerId,
             clampedAiScore,
-            clampedFinalScore,
+            scoring.finalScore,
             JSON.stringify(aiFeedback),
             payload.feedback || null,
             payload.decision || 'PENDING',
@@ -139,7 +212,28 @@ class LecturerReviewsService {
         [reviewId],
       );
 
+      const submission = await client.query(
+        `SELECT student_id, jobsheet_id, id_kelas_praktikum, calculated_progress_score
+         FROM task_submissions
+         WHERE id = $1
+         LIMIT 1`,
+        [payload.submissionId],
+      );
+
       await client.query('COMMIT');
+
+      if (submission.rows[0]) {
+        await MonitoringActivityService.broadcastActivity({
+          kelasPraktikumId: submission.rows[0].id_kelas_praktikum,
+          studentId: submission.rows[0].student_id,
+          jobsheetId: submission.rows[0].jobsheet_id,
+          activityType: 'review_updated',
+          lastActiveAt: new Date(),
+          progressPercentage: submission.rows[0].calculated_progress_score,
+          submissionStatus: 'REVIEWED',
+        });
+      }
+
       return reviewResult.rows[0];
     } catch (error) {
       await client.query('ROLLBACK');
@@ -188,12 +282,38 @@ class LecturerReviewsService {
     return typeof details === 'string' ? JSON.parse(details) : (details || []);
   }
 
+  validateFeedbacks(feedbacks) {
+    if (!Array.isArray(feedbacks)) {
+      throw new Error('Daftar feedback tidak valid.');
+    }
+
+    feedbacks.forEach((item) => {
+      if (!item || typeof item !== 'object') {
+        throw new Error('Feedback tidak valid.');
+      }
+      if (!String(item.content || '').trim()) {
+        throw new Error('Isi feedback tidak boleh kosong.');
+      }
+      if (item.scope === 'code') {
+        if (!item.fileName || typeof item.fileName !== 'string') {
+          throw new Error('Komentar kode harus memiliki file.');
+        }
+        const startLine = Number(item.startLine);
+        const endLine = Number(item.endLine || item.startLine);
+        if (!Number.isInteger(startLine) || !Number.isInteger(endLine) || startLine < 1 || endLine < startLine) {
+          throw new Error('Baris komentar kode tidak valid.');
+        }
+      }
+    });
+  }
+
   async saveFeedbacks(submissionId, feedbacks, lecturerId) {
     const client = await this._pool.connect();
     try {
       await client.query('BEGIN');
       const access = await this.ensureSubmissionAccess(submissionId, lecturerId, client);
       this.assertActiveTeachingContext(access);
+      this.validateFeedbacks(feedbacks);
       const existing = await client.query(
         `
         SELECT id, ai_feedback

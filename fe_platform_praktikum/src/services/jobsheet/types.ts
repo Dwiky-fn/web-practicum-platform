@@ -26,6 +26,7 @@ export interface Experiment {
   instructionContent?: JSONContent;
   defaultTemplateCode: string;
   rubric?: number;
+  inactiveDurationMinutes?: number | null;
 }
 
 // ================= EXERCISE =================
@@ -37,6 +38,7 @@ export interface Exercise {
   instructionContent: JSONContent;
   defaultTemplateCode?: string;
   rubric?: number;
+  inactiveDurationMinutes?: number | null;
 }
 
 export interface ReportableItemConfig {
@@ -72,6 +74,8 @@ export type RawExperiment = {
   template_code?: string;
   default_template_code?: string;
   rubric?: number;
+  inactiveDurationMinutes?: number | null;
+  inactive_duration_minutes?: number | null;
 };
 
 export type RawExercise = {
@@ -82,6 +86,8 @@ export type RawExercise = {
   template_code?: string;
   default_template_code?: string;
   rubric?: number;
+  inactiveDurationMinutes?: number | null;
+  inactive_duration_minutes?: number | null;
 };
 
 export type RawTheory = {

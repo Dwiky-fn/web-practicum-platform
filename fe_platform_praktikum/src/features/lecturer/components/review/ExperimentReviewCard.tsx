@@ -31,6 +31,17 @@ interface Props {
   submissionId: string
   type?: "experiment" | "exercise"
   isStudent?: boolean
+  rubric?: number
+  evaluation?: {
+    score: string
+    feedback: string
+  }
+  aiRecommendation?: {
+    score?: number | null
+    maxScore?: number | null
+    feedback?: string
+  } | null
+  onEvaluationChange?: (value: { score: string; feedback: string }) => void
 }
 
 export default function ExperimentReviewCard({
@@ -48,6 +59,10 @@ export default function ExperimentReviewCard({
   submissionId,
   type = "experiment",
   isStudent = false,
+  rubric = 0,
+  evaluation,
+  aiRecommendation,
+  onEvaluationChange,
 }: Props) {
   const [isExpanded, setIsExpanded] = useState(isExpandedByDefault)
 
@@ -210,6 +225,78 @@ export default function ExperimentReviewCard({
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {!isStudent && (
+            <div className="border-t border-gray-100 pt-5">
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
+                <div className="rounded-xl border border-purple-100 bg-purple-50/40 p-4">
+                  <div className="mb-2 inline-flex items-center gap-1 rounded-full border border-purple-100 bg-white px-2 py-0.5 text-[10px] font-bold text-purple-700">
+                    <Sparkles size={11} />
+                    Rekomendasi AI
+                  </div>
+                  <div className="text-sm font-semibold text-gray-800">
+                    Nilai: {aiRecommendation?.score ?? "-"} dari {aiRecommendation?.maxScore ?? rubric}
+                  </div>
+                  <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-gray-700">
+                    {aiRecommendation?.feedback || "Rekomendasi AI belum tersedia untuk bagian ini."}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+                  <h4 className="text-xs font-bold uppercase tracking-wide text-gray-700">
+                    Form Evaluasi Dosen
+                  </h4>
+                  <p className="mt-1 text-[11px] font-semibold text-gray-500">
+                    Bobot bagian: {rubric || 0}. Rentang nilai: 0-{rubric || 0}.
+                  </p>
+
+                  <label className="mt-3 block text-xs font-semibold text-gray-700">
+                    Nilai Bagian
+                    {readOnly ? (
+                      <span className="mt-1 block rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-800">
+                        {evaluation?.score || "-"} / {rubric || 0}
+                      </span>
+                    ) : (
+                      <input
+                        type="number"
+                        min="0"
+                        max={rubric || 0}
+                        step="0.01"
+                        value={evaluation?.score ?? ""}
+                        onChange={(event) => {
+                          const raw = event.target.value
+                          if (raw === "") {
+                            onEvaluationChange?.({ score: "", feedback: evaluation?.feedback ?? "" })
+                            return
+                          }
+                          const numeric = Math.min(Math.max(Number(raw), 0), rubric || 0)
+                          onEvaluationChange?.({ score: String(numeric), feedback: evaluation?.feedback ?? "" })
+                        }}
+                        className="mt-1 h-9 w-full rounded-lg border border-gray-300 px-3 text-sm font-semibold outline-none focus:border-blue-500"
+                      />
+                    )}
+                  </label>
+
+                  <label className="mt-3 block text-xs font-semibold text-gray-700">
+                    Feedback Bagian
+                    {readOnly ? (
+                      <p className="mt-1 min-h-20 whitespace-pre-wrap rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700">
+                        {evaluation?.feedback || "Belum ada feedback bagian."}
+                      </p>
+                    ) : (
+                      <textarea
+                        value={evaluation?.feedback ?? ""}
+                        onChange={(event) => onEvaluationChange?.({ score: evaluation?.score ?? "", feedback: event.target.value })}
+                        rows={4}
+                        placeholder="Feedback final Dosen untuk bagian ini..."
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-xs outline-none focus:border-blue-500"
+                      />
+                    )}
+                  </label>
+                </div>
+              </div>
             </div>
           )}
 

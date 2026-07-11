@@ -5,6 +5,7 @@ import type { JobsheetSubmission } from "../../../../../../services/submission/t
 import InstructionWorkspaceCard from "./components/InstructionWorkspaceCard"
 import NotFoundPage from "../../../../../not-found/NotFoundPage"
 import RichTextViewer from "../../../../../../components/editor/RichTextViewer"
+import type { connectLiveWorkspaceSocket } from "../../../../../../services/liveWorkspaceSocket"
 
 type StepData = {
   files: Record<string, string>
@@ -16,12 +17,13 @@ export default function ExercisePage() {
   const { exerciseId } = useParams()
   const location = useLocation()
   const searchParams = new URLSearchParams(location.search)
-  const { jobsheet, programmingLanguage, updateExercise, submission, trackActivity, readOnly } = useOutletContext<{
+  const { jobsheet, programmingLanguage, updateExercise, submission, trackActivity, liveWorkspace, readOnly } = useOutletContext<{
     jobsheet: Jobsheet
     programmingLanguage: string
     updateExercise: (exerciseId: string, data: StepData) => Promise<void>
     submission: JobsheetSubmission
     trackActivity?: (activityType: string, opts?: { experimentId?: string | null; instructionId?: string | null; metadata?: Record<string, any> }) => Promise<void>
+    liveWorkspace?: ReturnType<typeof connectLiveWorkspaceSocket> | null
     readOnly?: boolean
   }>()
 
@@ -63,6 +65,8 @@ export default function ExercisePage() {
         initialSteps={initialStep ? [initialStep] : undefined}
         onChange={(steps) => updateExercise(exerciseId, steps[0])}
         onSave={() => trackActivity?.("save_code", { instructionId: exerciseId })}
+        liveWorkspace={liveWorkspace}
+        liveSection={{ type: "exercise", id: exerciseId, name: exercise.title }}
         readOnly={readOnly}
         runContext={kelasPraktikumId ? {
           jobsheetId: jobsheet.id,

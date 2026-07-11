@@ -232,6 +232,27 @@ function getErrorMessage(error) {
   return String(error);
 }
 
+function getMaxRetryAttempts() {
+  const value = Number(process.env.AI_EVALUATION_MAX_RETRY || 3);
+  return Number.isInteger(value) && value >= 0 ? value : 3;
+}
+
+function getRetryDelayMs() {
+  const value = Number(process.env.AI_EVALUATION_RETRY_DELAY_MS || 1500);
+  return Number.isFinite(value) && value >= 0 ? value : 1500;
+}
+
+function isTransientAiError(error) {
+  const message = getErrorMessage(error).toLowerCase();
+  if (/http 4\d\d/.test(message) && !/http 408|http 429/.test(message)) return false;
+  return message.includes('timeout')
+    || message.includes('econnreset')
+    || message.includes('econnrefused')
+    || message.includes('http 408')
+    || message.includes('http 429')
+    || /http 5\d\d/.test(message);
+}
+
 class AiEvaluationQueue {
   constructor() {
     this._queue = [];
@@ -374,9 +395,11 @@ class AiEvaluationQueue {
            ai_evaluation_status = 'queued',
            ai_evaluation_error = NULL,
            ai_evaluation_started_at = NULL,
-           ai_evaluation_finished_at = NULL
+           ai_evaluation_finished_at = NULL,
+           ai_evaluation_retry_count = CASE WHEN $2 = true THEN 0 ELSE COALESCE(ai_evaluation_retry_count, 0) END,
+           ai_evaluation_last_attempt_at = NULL
          WHERE id = $1`,
-        [submissionId]
+        [submissionId, options.force === true]
       );
 
       this._queue.push(submissionId);
@@ -412,16 +435,6 @@ class AiEvaluationQueue {
       await this._evaluateSubmissionJob(submissionId);
     } catch (error) {
       console.error(`[AI Queue] Gagal mengevaluasi submission ${submissionId}:`, error);
-      const errorMessage = getErrorMessage(error);
-      await pool.query(
-        `UPDATE task_submissions 
-         SET
-           ai_evaluation_status = 'failed',
-           ai_evaluation_error = $2,
-           ai_evaluation_finished_at = CURRENT_TIMESTAMP
-         WHERE id = $1`,
-        [submissionId, errorMessage]
-      );
     } finally {
       this._activeSubmissionIds.delete(submissionId);
       this._processing = false;
@@ -433,22 +446,52 @@ class AiEvaluationQueue {
     try {
       await this._evaluateSubmissionJobInternal(submissionId);
     } catch (error) {
-      await this._markSubmissionAiFailed(submissionId, error);
-      throw error;
+      const retried = await this._retryOrFail(submissionId, error);
+      if (!retried) throw error;
     }
   }
 
-  async _markSubmissionAiFailed(submissionId, error) {
+  async _retryOrFail(submissionId, error) {
     const errorMessage = getErrorMessage(error);
+    const retryState = await pool.query(
+      `SELECT COALESCE(ai_evaluation_retry_count, 0)::int AS retry_count
+       FROM task_submissions
+       WHERE id = $1`,
+      [submissionId],
+    );
+    const retryCount = Number(retryState.rows[0]?.retry_count || 0);
+    const shouldRetry = isTransientAiError(error) && retryCount < getMaxRetryAttempts();
+
+    if (shouldRetry) {
+      const nextRetryCount = retryCount + 1;
+      await pool.query(
+        `UPDATE task_submissions
+         SET
+           ai_evaluation_status = 'queued',
+           ai_evaluation_error = $2,
+           ai_evaluation_retry_count = $3,
+           ai_evaluation_last_attempt_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [submissionId, errorMessage, nextRetryCount]
+      );
+      setTimeout(() => {
+        this._queue.push(submissionId);
+        this._processNext();
+      }, getRetryDelayMs());
+      return true;
+    }
+
     await pool.query(
       `UPDATE task_submissions
        SET
          ai_evaluation_status = 'failed',
          ai_evaluation_error = $2,
+         ai_evaluation_last_attempt_at = CURRENT_TIMESTAMP,
          ai_evaluation_finished_at = CURRENT_TIMESTAMP
        WHERE id = $1`,
       [submissionId, errorMessage]
     );
+    return false;
   }
 
   async _clearPreviousAiReview(submissionId) {
@@ -472,6 +515,7 @@ class AiEvaluationQueue {
        SET
          ai_evaluation_status = 'processing',
          ai_evaluation_started_at = COALESCE(ai_evaluation_started_at, CURRENT_TIMESTAMP),
+         ai_evaluation_last_attempt_at = CURRENT_TIMESTAMP,
          ai_evaluation_finished_at = NULL
        WHERE id = $1`,
       [submissionId]

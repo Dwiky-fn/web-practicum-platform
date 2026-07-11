@@ -2,6 +2,7 @@ const pool = require('..');
 const { randomUUID } = require('crypto');
 const DeadlineAccessService = require('./DeadlineAccessService');
 const JobsheetProgressScoringService = require('../../scoring/JobsheetProgressScoringService');
+const MonitoringActivityService = require('../../monitoring/MonitoringActivityService');
 
 function normalizeModuleId(value) {
   if (!value) return null;
@@ -349,20 +350,32 @@ class StudentJobsheetProgressService {
         activeRemedialId,
       }));
 
+    const exerciseId = metadata?.moduleType === 'exercise' || metadata?.sectionType === 'exercise'
+      ? (instructionId || metadata?.exerciseId || null)
+      : null;
+
     if (shouldLogActivity) {
       const logId = `log-${randomUUID().slice(0, 8)}`;
       await this._pool.query(
-        `INSERT INTO student_jobsheet_activity_logs (id, student_id, jobsheet_id, experiment_id, instruction_id, activity_type, metadata, attempt_no, remedial_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        `INSERT INTO student_jobsheet_activity_logs (
+           id, student_id, jobsheet_id, id_kelas_praktikum, id_kelas_mhs,
+           experiment_id, exercise_id, instruction_id, activity_type, metadata,
+           attempt_no, attempt_type, remedial_id
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
         [
           logId,
           studentId,
           jobsheetId,
+          academicContext.id_kelas_praktikum,
+          academicContext.id_kelas_mhs,
           experimentId || null,
-          instructionId || null,
+          exerciseId,
+          exerciseId ? null : (instructionId || null),
           activityType,
           JSON.stringify(metadata),
           attemptNo,
+          resolvedAttemptType,
           activeRemedialId,
         ],
       );
@@ -404,7 +417,20 @@ class StudentJobsheetProgressService {
       ],
     );
 
-    if (updateResult.rows.length) return updateResult.rows[0];
+    if (updateResult.rows.length) {
+      await MonitoringActivityService.broadcastActivity({
+        kelasPraktikumId: academicContext.id_kelas_praktikum,
+        studentId,
+        jobsheetId,
+        experimentId: experimentId || null,
+        exerciseId,
+        instructionId: exerciseId ? null : (instructionId || null),
+        activityType,
+        lastActiveAt: new Date(),
+        progressPercentage,
+      });
+      return updateResult.rows[0];
+    }
 
     const result = await this._pool.query(
       `INSERT INTO student_jobsheet_progress (
@@ -434,6 +460,18 @@ class StudentJobsheetProgressService {
         activeRemedialId,
       ],
     );
+
+    await MonitoringActivityService.broadcastActivity({
+      kelasPraktikumId: academicContext.id_kelas_praktikum,
+      studentId,
+      jobsheetId,
+      experimentId: experimentId || null,
+      exerciseId,
+      instructionId: exerciseId ? null : (instructionId || null),
+      activityType,
+      lastActiveAt: new Date(),
+      progressPercentage,
+    });
 
     return result.rows[0];
   }

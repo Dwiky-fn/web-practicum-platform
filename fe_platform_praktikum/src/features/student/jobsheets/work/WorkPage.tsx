@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Outlet, useLocation, useParams } from "react-router-dom"
 import { useWorkPage } from "./hooks/useWorkPage"
 import WorkHeader from "./components/WorkHeader"
@@ -8,6 +8,9 @@ import TopProgressBar from "../../../../components/loading/TopProgressBar"
 import NotFoundPage from "../../../not-found/NotFoundPage"
 import { academicCourseBasePath, academicJobsheetPath } from "../../../../services/academicScope"
 import { formatAcademicDateTime } from "../../../../shared/utils/formatAcademicDateTime"
+import { connectLiveWorkspaceSocket } from "../../../../services/liveWorkspaceSocket"
+
+const LIVE_WORKSPACE_DEBUG = import.meta.env.DEV && import.meta.env.VITE_LIVE_WORKSPACE_DEBUG === "true"
 
 export default function WorkPage() {
   const { courseId, mataKuliahId: routeMataKuliahId, jobsheetId } = useParams<{
@@ -25,6 +28,8 @@ export default function WorkPage() {
     kelasPraktikumId: searchParams.get("kelasPraktikumId") || undefined,
   }
   const scrollContainerRef = useRef<HTMLElement | null>(null)
+  const liveWorkspaceRef = useRef<ReturnType<typeof connectLiveWorkspaceSocket> | null>(null)
+  const [liveWorkspaceConnection, setLiveWorkspaceConnection] = useState<ReturnType<typeof connectLiveWorkspaceSocket> | null>(null)
   const {
     jobsheet,
     course,
@@ -66,6 +71,32 @@ export default function WorkPage() {
     handleWorkScrollRef.current = handleWorkScroll
   }, [handleWorkScroll])
 
+  useEffect(() => {
+    liveWorkspaceRef.current?.close()
+    liveWorkspaceRef.current = null
+
+    if (!jobsheet || !jobsheetId || !scope.kelasPraktikumId || readOnly) return undefined
+
+    const connection = connectLiveWorkspaceSocket({
+      role: "student",
+      kelasPraktikumId: scope.kelasPraktikumId,
+      jobsheetId,
+      onEvent: (event) => {
+        if (LIVE_WORKSPACE_DEBUG) {
+          console.debug("[LIVE-WS][STUDENT] event", { type: event.type, workspaceVersion: event.workspaceVersion })
+        }
+      },
+    })
+    liveWorkspaceRef.current = connection
+    setLiveWorkspaceConnection(connection)
+
+    return () => {
+      connection.close()
+      if (liveWorkspaceRef.current === connection) liveWorkspaceRef.current = null
+      setLiveWorkspaceConnection((current) => current === connection ? null : current)
+    }
+  }, [jobsheet, jobsheetId, readOnly, scope.kelasPraktikumId])
+
   // Scroll ke atas hanya saat navigasi antar halaman
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current
@@ -79,6 +110,26 @@ export default function WorkPage() {
 
     return () => window.clearTimeout(timer)
   }, [location.pathname])
+
+  useEffect(() => {
+    if (!jobsheet || !jobsheetId || !scope.kelasPraktikumId || readOnly) return
+    const relative = location.pathname.split("/works/")[1] || ""
+    const [section, id] = relative.split("/")
+    if (!id) return
+    const sectionType = section === "experiments" ? "experiment" : section === "exercises" ? "exercise" : "instruction"
+    const sectionName =
+      sectionType === "experiment"
+        ? jobsheet.experiments.find((item) => item.id === id)?.title
+        : sectionType === "exercise"
+          ? jobsheet.exercises.find((item) => item.id === id)?.title
+          : jobsheet.theory.find((item) => item.id === id)?.title
+    liveWorkspaceRef.current?.send({
+      type: "active-section-changed",
+      sectionType,
+      sectionId: id,
+      sectionName: sectionName || id,
+    })
+  }, [jobsheet, jobsheetId, location.pathname, readOnly, scope.kelasPraktikumId])
 
   // Cek scroll saat handleWorkScroll berubah (misal data baru dimuat)
   useEffect(() => {
@@ -172,6 +223,7 @@ export default function WorkPage() {
                     updateExperiment,
                     updateExercise,
                     trackActivity,
+                    liveWorkspace: liveWorkspaceConnection,
                     readOnly,
                   }}
                 />

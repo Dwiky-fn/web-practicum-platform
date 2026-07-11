@@ -42,6 +42,7 @@ export type LecturerJobsheetSummaryClassSetting = {
   className: string
   isActive: boolean
   deadline: string
+  inactiveDurationMinutes?: number | null
 }
 
 export type LecturerJobsheetSummary = {
@@ -104,6 +105,7 @@ export type LecturerPracticeInput = {
   instructionContent: JSONContent
   templateCode: string
   rubric?: number
+  inactiveDurationMinutes?: number | null
 }
 
 export type LecturerTheoryInput = {
@@ -148,6 +150,8 @@ export type LecturerJobsheetPublishPayload = {
     kelasPraktikumId?: string
     urutan?: number
     deadline: string | null
+    inactiveDurationMinutes?: number | null
+    inactive_duration_minutes?: number | null
     isActive: boolean
   }>
 }
@@ -359,6 +363,7 @@ export function buildLecturerJobsheetSummaries(
       className: className || "",
       isActive,
       deadline: deadlineVal,
+      inactiveDurationMinutes: jobsheet.inactiveDurationMinutes ?? jobsheet.inactive_duration_minutes ?? null,
     }
 
     return {
@@ -531,9 +536,16 @@ export async function saveLecturerSubmissionReview(
   payload: {
     lecturerId: string
     aiScore?: number
-    finalScore?: number
     feedback?: string
     decision: "PENDING" | "ACCEPTED" | "REVISION"
+    sectionEvaluations?: Array<{
+      type: "experiment" | "exercise"
+      sectionId: string
+      score: number
+      feedback?: string
+      aiScore?: number | null
+      aiFeedback?: string
+    }>
     aiFeedback?: unknown
   },
 ) {
@@ -683,6 +695,48 @@ export async function getLecturerStudentDetailProgress(
   const response = await apiFetch(
     `/lecturer/jobsheets/${jobsheetId}/progress/${studentId}?${params.toString()}`,
   )
+  return response.data
+}
+
+export interface LecturerClassMonitoringStudent {
+  studentId: string
+  nim: string
+  name: string
+  currentJobsheet: { id: string; name: string; urutan?: number | null } | null
+  currentSection: { type: string; id?: string | null; name: string } | null
+  lastActiveAt: string | null
+  inactiveDurationMinutes: number | null
+  inactiveDurationLabel: string
+  inactiveThresholdMinutes: number
+  inactiveThresholdSource: "section" | "jobsheet" | "difficulty" | "default"
+  activityStatus: "active" | "inactive" | "not_started"
+  activityStatusLabel: string
+  runCount: number
+}
+
+export interface LecturerClassMonitoringResponse {
+  context: {
+    kelasPraktikumId: string
+    mataKuliahId: string
+    courseName: string
+    className: string
+    academicPeriod?: string
+    totalJobsheets: number
+  }
+  summary: {
+    totalStudents: number
+    active: number
+    inactive: number
+    notStarted: number
+  }
+  students: LecturerClassMonitoringStudent[]
+  lastUpdatedAt: string
+}
+
+export async function getLecturerClassMonitoring(
+  kelasPraktikumId: string,
+): Promise<LecturerClassMonitoringResponse> {
+  const response = await apiFetch(`/lecturer/kelas-praktikum/${kelasPraktikumId}/monitoring`)
   return response.data
 }
 

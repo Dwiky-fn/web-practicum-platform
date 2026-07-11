@@ -1,5 +1,6 @@
 const { randomUUID } = require('crypto');
 const pool = require('../postgres');
+const MonitoringActivityService = require('../monitoring/MonitoringActivityService');
 
 class CodeRunActivityLogger {
   constructor(db = pool) {
@@ -78,6 +79,17 @@ class CodeRunActivityLogger {
         executionId,
       ],
     );
+
+    await MonitoringActivityService.broadcastActivity({
+      kelasPraktikumId: academicContext.id_kelas_praktikum,
+      studentId: userId,
+      jobsheetId: context.jobsheetId,
+      experimentId,
+      exerciseId,
+      instructionId,
+      activityType: 'CODE_RUN',
+      lastActiveAt: new Date().toISOString(),
+    });
   }
 
   async _resolveAcademicContext({ studentId, jobsheetId, kelasPraktikumId }) {

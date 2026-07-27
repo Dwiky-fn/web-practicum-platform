@@ -12,12 +12,14 @@ import DesktopNavbar from "./DesktopNavbar";
 const studentNavItems = [
   { to: "/dashboard", label: "Dashboard" },
   { to: "/mata-kuliah", label: "Mata Kuliah" },
+  { to: "/panduan", label: "Buku Panduan" },
 ]
 
 const lecturerNavItems = [
   { to: "/dashboard", label: "Dashboard" },
   { to: "/mata-kuliah", label: "Mata Kuliah" },
   { to: "/monitoring", label: "Monitoring" },
+  { to: "/panduan", label: "Buku Panduan" },
 ]
 
 interface NavbarProps {

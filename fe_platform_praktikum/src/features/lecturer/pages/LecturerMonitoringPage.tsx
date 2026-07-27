@@ -29,13 +29,13 @@ function formatDurationFromNow(value?: string | null) {
   const time = new Date(value).getTime()
   if (Number.isNaN(time)) return "Belum ada aktivitas"
   const minutes = Math.max(0, Math.floor((Date.now() - time) / 60000))
-  if (minutes < 1) return "kurang dari 1 menit"
-  if (minutes < 60) return `${minutes} menit`
+  if (minutes < 1) return "Baru saja"
+  if (minutes < 60) return `${minutes} menit yang lalu`
   const hours = Math.floor(minutes / 60)
   const remainingMinutes = minutes % 60
-  if (hours < 24) return remainingMinutes ? `${hours} jam ${remainingMinutes} menit` : `${hours} jam`
+  if (hours < 24) return remainingMinutes ? `${hours} jam ${remainingMinutes} menit yang lalu` : `${hours} jam yang lalu`
   const days = Math.floor(hours / 24)
-  return `${days} hari`
+  return `${days} hari yang lalu`
 }
 
 function resolveActivityStatus(lastActiveAt: string | null, thresholdMinutes: number) {

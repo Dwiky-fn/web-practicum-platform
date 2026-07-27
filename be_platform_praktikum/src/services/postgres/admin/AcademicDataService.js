@@ -734,9 +734,11 @@ class AcademicDataService {
       ${clause}
       ORDER BY ts.tahun_semester DESC, COALESCE(sp.semester, s.semester) ASC, k.kelas ASC, sp.nim ASC
     `, params);
+    // `student_semester` is the individual's semester. The joined `s.semester`
+    // value is only the academic context of the class enrollment.
     return result.rows.map((row) => ({
       ...row,
-      student_semester: row.student_semester ?? row.semester,
+      student_semester: row.student_semester ?? null,
     }));
   }
 
@@ -779,6 +781,8 @@ class AcademicDataService {
         );
       }
 
+      // Legacy compatibility metadata: km.id_semester identifies the class
+      // semester context and is never used as the student's semester source.
       await client.query(
         `INSERT INTO kelas_mhs (id, id_tahun_semester, id_semester, id_kelas, id_mahasiswa, status, id_kelas_semester)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,

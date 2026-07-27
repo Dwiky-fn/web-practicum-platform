@@ -269,6 +269,7 @@ export default function AdminAcademicNativePage() {
   const [kelasPraktikumSearch, setKelasPraktikumSearch] = useState("")
   const [localTab, setLocalTab] = useState<"mahasiswa" | "praktikum">("mahasiswa")
   const [searchMahasiswa, setSearchMahasiswa] = useState("")
+  const [isPindahan, setIsPindahan] = useState(false)
   const [selectedMahasiswaIds, setSelectedMahasiswaIds] = useState<string[]>([])
   const [operationalTahunSemesterId, setOperationalTahunSemesterId] = useState("")
   const [loading, setLoading] = useState(true)
@@ -717,7 +718,7 @@ export default function AdminAcademicNativePage() {
         !existingStudentIds.has(s.id)
         && !registeredInSamePeriod.has(s.id)
         && s.status === "Aktif"
-        && Number(s.semester) === Number(targetSemester)
+        && (isPindahan || Number(s.semester) === Number(targetSemester))
       )
     }
     if (!normalized) return pool
@@ -726,7 +727,7 @@ export default function AdminAcademicNativePage() {
         value?.toLowerCase().includes(normalized),
       )
     )
-  }, [searchMahasiswa, students, isKelasMahasiswaDetail, existingStudentIds])
+  }, [searchMahasiswa, isPindahan, students, isKelasMahasiswaDetail, paramSemesterId, semester, scopedKelasMahasiswa, tahunSemesterId, existingStudentIds])
 
 
   const filtered = useMemo(() => {
@@ -816,6 +817,7 @@ export default function AdminAcademicNativePage() {
     setError("")
     setSuccess("")
     setSearchMahasiswa("")
+    setIsPindahan(false)
     setSelectedMahasiswaIds([])
     setModal({ tab, item })
     setForm(normalizeForm(tab, item))
@@ -824,6 +826,7 @@ export default function AdminAcademicNativePage() {
   const closeModal = () => {
     setModal(null)
     setSearchMahasiswa("")
+    setIsPindahan(false)
     setSelectedMahasiswaIds([])
     setForm({})
   }
@@ -1950,6 +1953,17 @@ export default function AdminAcademicNativePage() {
                             placeholder="Cari NIM atau nama mahasiswa..."
                           />
                         </FieldRow>
+                        <div className="rounded-md border border-blue-100 bg-blue-50 p-2.5 text-xs text-blue-800">
+                          <label className="flex items-center gap-2 cursor-pointer font-medium">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                              checked={isPindahan}
+                              onChange={(e) => setIsPindahan(e.target.checked)}
+                            />
+                            Tampilkan Mahasiswa Pindahan (Abaikan validasi kesesuaian semester)
+                          </label>
+                        </div>
                         <div className="space-y-2">
                           <label className="text-sm font-medium text-gray-700">Daftar Mahasiswa</label>
                           <div className="max-h-60 overflow-y-auto rounded-md border border-gray-200 p-2 space-y-1 bg-white">

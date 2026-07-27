@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { MessageSquare, Plus } from "lucide-react"
+import { MessageSquare, Plus, X } from "lucide-react"
 import type { ReviewFeedback } from "../../../../services/reviewFeedbackService"
 
 export interface SelectedLineRange {
@@ -41,6 +41,7 @@ export default function CodeReviewBlock({
 }: Props) {
   const lines = code.split("\n")
   const [dragStart, setDragStart] = useState<number | null>(null)
+  const [commentLine, setCommentLine] = useState<number | null>(null)
 
   // Filter feedbacks belonging to this specific file and code block
   const fileFeedbacks = feedbacks.filter(
@@ -213,17 +214,50 @@ export default function CodeReviewBlock({
 
                 {/* Comment Indicator */}
                 {lineFbs.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => onSelectFeedback?.(lineFbs[0].id)}
-                    className="ml-1 text-yellow-500 hover:text-yellow-300 flex items-center gap-0.5"
-                    title={`${lineFbs.length} komentar pada baris ini`}
-                  >
-                    <MessageSquare size={10} className="fill-current" />
-                    {lineFbs.length > 1 && (
-                      <span className="text-[8px] font-bold">{lineFbs.length}</span>
+                  <>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setCommentLine((current) => current === lineNum ? null : lineNum)
+                        onSelectFeedback?.(lineFbs[0].id)
+                      }}
+                      className="ml-1 text-yellow-500 hover:text-yellow-300 flex items-center gap-0.5"
+                      title={`${lineFbs.length} komentar pada baris ini`}
+                      aria-label={`Tampilkan ${lineFbs.length} komentar pada baris ${lineNum}`}
+                    >
+                      <MessageSquare size={10} className="fill-current" />
+                      {lineFbs.length > 1 && (
+                        <span className="text-[8px] font-bold">{lineFbs.length}</span>
+                      )}
+                    </button>
+                    {commentLine === lineNum && (
+                      <div
+                        role="dialog"
+                        aria-label={`Komentar Dosen pada baris ${lineNum}`}
+                        className="absolute left-16 top-full z-30 mt-1 w-96 max-w-[calc(100vw-6rem)] rounded-md border border-yellow-700 bg-gray-900 p-3 font-sans text-xs text-gray-100 shadow-xl"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <div className="mb-2 flex items-center justify-between border-b border-gray-700 pb-2">
+                          <div>
+                            <div className="font-semibold text-yellow-300">Komentar Dosen</div>
+                            <div className="text-[10px] text-gray-400">{fileName} · baris {lineFbs[0].startLine ?? lineNum}{(lineFbs[0].endLine ?? lineNum) !== (lineFbs[0].startLine ?? lineNum) ? `-${lineFbs[0].endLine}` : ""}</div>
+                          </div>
+                          <button type="button" onClick={() => setCommentLine(null)} className="text-gray-400 hover:text-white" aria-label="Tutup komentar">
+                            <X size={14} />
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {lineFbs.map((feedback) => (
+                            <div key={feedback.id} className="rounded border border-gray-700 bg-gray-950/60 p-2">
+                              <div className="mb-1 text-[10px] text-gray-400">{feedback.createdBy?.name || "Dosen"}</div>
+                              <div className="whitespace-pre-wrap">{feedback.content}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
-                  </button>
+                  </>
                 )}
               </div>
 

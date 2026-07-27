@@ -31,6 +31,7 @@ import LecturerJobsheetDetailPage from "./features/lecturer/pages/LecturerJobshe
 import LecturerMonitoringPage from "./features/lecturer/pages/LecturerMonitoringPage"
 import LecturerStudentWorkpagePage from "./features/lecturer/pages/LecturerStudentWorkpagePage"
 import LecturerReviewPage from "./features/lecturer/pages/LecturerReviewPage"
+import UserGuidePage from "./features/documentation/UserGuidePage"
 import ToastContainer from "./components/toast/ToastContainer"
 
 function LegacyClassMonitoringRedirect() {
@@ -85,6 +86,7 @@ function AppContent() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/dashboard" element={requireUser(<DashboardPage />)} />
       <Route path="/settings" element={requireUser(<SettingsPage />)} />
+      <Route path="/panduan" element={requireUser(<UserGuidePage />)} />
       <Route
         path="/mata-kuliah"
         element={byRole({

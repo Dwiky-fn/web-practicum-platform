@@ -16,8 +16,6 @@ exports.up = (pgm) => {
     class_id: {
       type: 'VARCHAR(20)',
       notNull: true,
-      references: 'classes(id)',
-      onDelete: 'CASCADE',
     },
     module_id: {
       type: 'VARCHAR(20)',

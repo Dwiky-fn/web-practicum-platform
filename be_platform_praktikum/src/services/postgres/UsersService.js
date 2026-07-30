@@ -698,7 +698,7 @@ class UsersService {
       throw new Error('EMAIL_SAME');
     }
 
-    const validPassword = await compareBcrypt(currentPassword, user.password);
+    const validPassword = await verifyPassword(currentPassword, user.password);
 
     if (!validPassword) {
       throw new Error('PASSWORD_INVALID');
@@ -774,7 +774,7 @@ class UsersService {
       throw new Error('USER_NOT_FOUND');
     }
 
-    const validPassword = await compareBcrypt(
+    const validPassword = await verifyPassword(
       currentPassword,
       userResult.rows[0].password,
     );
@@ -821,7 +821,7 @@ class UsersService {
 
     const user = userResult.rows[0];
 
-    const validPassword = await compareBcrypt(
+    const validPassword = await verifyPassword(
       currentPassword,
       user.password,
     );
@@ -830,7 +830,7 @@ class UsersService {
       throw new Error('PASSWORD_INVALID');
     }
 
-    const isSamePassword = await compareBcrypt(
+    const isSamePassword = await verifyPassword(
       newPassword,
       user.password,
     );

@@ -9,8 +9,6 @@ exports.up = (pgm) => {
     course_id: {
       type: 'VARCHAR(20)',
       notNull: true,
-      references: 'courses(id)',
-      onDelete: 'CASCADE',
     },
     title: {
       type: 'TEXT',

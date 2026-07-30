@@ -8,10 +8,15 @@ import {
   Layers,
   Search,
   ShieldCheck,
+  Sparkles,
   UserCheck,
   Users,
 } from "lucide-react"
 import { useCurrentUser } from "../../services/user/useCurrentUser"
+import Navbar from "../../components/navbar/Navbar"
+import AdminLayout from "../admin/components/AdminLayout"
+import LecturerLayout from "../lecturer/components/LecturerLayout"
+import TopProgressBar from "../../components/loading/TopProgressBar"
 
 type RoleTab = "dosen" | "mahasiswa" | "admin"
 
@@ -25,20 +30,19 @@ interface Topic {
 
 export default function UserGuidePage() {
   const { user } = useCurrentUser()
-  const defaultTab: RoleTab =
+  const activeRoleTab: RoleTab =
     user?.role === "DOSEN" ? "dosen" : user?.role === "MAHASISWA" ? "mahasiswa" : "admin"
 
-  const [activeTab, setActiveTab] = useState<RoleTab>(defaultTab)
   const [searchTerm, setSearchTerm] = useState("")
 
   const dosenTopics: Topic[] = [
     {
       id: "dashboard-overview",
-      title: "Dashboard Dosen & Metrik Pembelajaran",
+      title: "Dashboard Dosen & Progres Kelas",
       icon: Layers,
-      description: "Memahami indikator Progres Pembelajaran, Menunggu Review, dan Deadline Mendatang.",
+      description: "Memahami indikator Progres Pembelajaran, Menunggu Review, dan Batas Waktu Mendatang.",
       content: (
-        <div className="space-y-4 text-sm text-gray-700 leading-relaxed">
+        <div className="space-y-4 text-xs text-gray-700 leading-relaxed">
           <p>
             Dashboard Dosen dirancang untuk memberikan gambaran umum secara cepat mengenai perkembangan pengerjaan praktikum di kelas yang diampu:
           </p>
@@ -47,10 +51,10 @@ export default function UserGuidePage() {
               <strong>Kartu Progres Pembelajaran:</strong> Menampilkan posisi perkuliahan saat ini (misalnya <em>Jobsheet 3 dari 10</em>) serta jumlah mahasiswa yang telah menyelesaikan submission. Klik tombol <strong>Detail</strong> untuk melihat matriks pengerjaan seluruh mahasiswa.
             </li>
             <li>
-              <strong>Kartu Menunggu Review:</strong> Menampilkan total laporan/submission mahasiswa yang berstatus <em>Terkumpul</em> dan memerlukan masukan/penilaian dari Dosen.
+              <strong>Kartu Menunggu Review:</strong> Menampilkan total jobsheet/submission mahasiswa yang berstatus <em>Terkumpul</em> dan memerlukan masukan/penilaian dari Dosen.
             </li>
             <li>
-              <strong>Kartu Deadline Mendatang:</strong> Menampilkan jobsheet yang dipublish yang memiliki batas waktu paling dekat.
+              <strong>Kartu Batas Waktu Mendatang:</strong> Menampilkan jobsheet yang dipublish yang memiliki batas waktu paling dekat.
             </li>
           </ul>
         </div>
@@ -62,16 +66,16 @@ export default function UserGuidePage() {
       icon: Clock,
       description: "Cara memantau pengerjaan mahasiswa secara real-time melalui fitur Monitoring.",
       content: (
-        <div className="space-y-4 text-sm text-gray-700 leading-relaxed">
+        <div className="space-y-4 text-xs text-gray-700 leading-relaxed">
           <p>
-            Halaman Monitoring Dosen menyajikan data pengerjaan mahasiswa secara terukur:
+            Halaman Detail Kelas &amp; Monitoring Dosen menyajikan data pengerjaan mahasiswa secara terukur:
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li>
-              <strong>Aktivitas Terakhir (Durasi Relative):</strong> Menunjukkan kapan mahasiswa terakhir kali melakukan aksi di workspace (misal <em>15 menit yang lalu</em> atau <em>2 jam yang lalu</em>).
+              <strong>Aktivitas Terakhir:</strong> Menunjukkan kapan mahasiswa terakhir kali melakukan pengumpulan jobsheet atau aksi di workspace.
             </li>
             <li>
-              <strong>Penghitungan Progres Akumulatif:</strong> Nilai persentase progres mahasiswa dihitung berdasarkan <strong>Bobot Percobaan</strong> + <strong>Bobot Latihan</strong> yang telah berhasil diselesaikan secara bertahap.
+              <strong>Penghitungan Progres Akumulatif:</strong> Nilai persentase progres mahasiswa dihitung berdasarkan <strong>Bobot Percobaan</strong> + <strong>Bobot Latihan</strong> yang telah berhasil diselesaikan.
             </li>
             <li>
               <strong>Live Workspace:</strong> Dosen dapat mengklik tombol <em>Lihat Live Workspace</em> pada mahasiswa tertentu untuk memantau kode yang sedang diketik atau diuji.
@@ -86,7 +90,7 @@ export default function UserGuidePage() {
       icon: FileText,
       description: "Pengaturan visibilitas jobsheet serta ketentuan Auto-Submit.",
       content: (
-        <div className="space-y-4 text-sm text-gray-700 leading-relaxed">
+        <div className="space-y-4 text-xs text-gray-700 leading-relaxed">
           <p>
             Setiap Jobsheet memiliki status yang menentukan aksesibilitas bagi mahasiswa:
           </p>
@@ -98,7 +102,7 @@ export default function UserGuidePage() {
               <strong>Published:</strong> Jobsheet yang sudah disetujui untuk dibagikan ke kelas praktikum. Mahasiswa dapat melihat materi dan melakukan pengerjaan.
             </li>
             <li>
-              <strong>Auto-Submit pada Deadline:</strong> Apabila batas waktu (deadline) terlampaui, sistem secara otomatis menandai pekerjaan mahasiswa yang belum dikumpulkan menjadi berstatus <em>Terkumpul (Auto-Submit)</em> berdasarkan progres kode terakhir yang tersimpan.
+              <strong>Auto-Submit pada Batas Waktu:</strong> Apabila batas waktu (deadline) terlampaui, sistem secara otomatis menandai pekerjaan mahasiswa yang belum dikumpulkan menjadi berstatus <em>Terkumpul (Auto-Submit)</em> berdasarkan progres kode terakhir.
             </li>
           </ul>
         </div>
@@ -113,7 +117,7 @@ export default function UserGuidePage() {
       icon: BookOpen,
       description: "Alur pengerjaan praktikum pada IDE Workspace online.",
       content: (
-        <div className="space-y-4 text-sm text-gray-700 leading-relaxed">
+        <div className="space-y-4 text-xs text-gray-700 leading-relaxed">
           <p>
             Mahasiswa dapat menyelesaikan setiap Jobsheet dengan urutan langkah berikut:
           </p>
@@ -129,11 +133,11 @@ export default function UserGuidePage() {
     },
     {
       id: "deadline-progress",
-      title: "Deadline, Nilai Progres & Revisi",
+      title: "Tenggat Waktu, Nilai Progres & Revisi",
       icon: CheckCircle,
       description: "Memahami batas waktu, perhitungan persentase progres, dan permintaan revisi.",
       content: (
-        <div className="space-y-4 text-sm text-gray-700 leading-relaxed">
+        <div className="space-y-4 text-xs text-gray-700 leading-relaxed">
           <p>
             Ketentuan penilaian dan penyelesaian tugas praktikum:
           </p>
@@ -142,7 +146,7 @@ export default function UserGuidePage() {
               <strong>Indikator Progres:</strong> Persentase progres di dashboard mahasiswa menggambarkan total bobot bagian percobaan dan latihan yang sudah Anda selesaikan.
             </li>
             <li>
-              <strong>Batas Waktu (Deadline):</strong> Jika Anda belum sempat mengumpulkan laporan hingga tenggat waktu tiba, sistem akan mengumpulkan draf pengerjaan Anda secara otomatis.
+              <strong>Batas Waktu (Deadline):</strong> Jika Anda belum sempat mengumpulkan jobsheet hingga tenggat waktu tiba, sistem akan mengumpulkan draf pengerjaan Anda secara otomatis.
             </li>
             <li>
               <strong>Status Revisi/Remedial:</strong> Dosen dapat mengembalikan submission dengan catatan revisi. Anda dapat memperbaiki kode dan melakukan pengiriman ulang.
@@ -160,7 +164,7 @@ export default function UserGuidePage() {
       icon: UserCheck,
       description: "Aturan pendaftaran mahasiswa ke kelas semester dan pengolahan status akademik.",
       content: (
-        <div className="space-y-4 text-sm text-gray-700 leading-relaxed">
+        <div className="space-y-4 text-xs text-gray-700 leading-relaxed">
           <p>
             Ketentuan penambahan dan pemindahan mahasiswa pada Kelas Semester:
           </p>
@@ -169,10 +173,10 @@ export default function UserGuidePage() {
               <strong>Validasi Status Aktif:</strong> Mahasiswa berstatus <strong>Cuti</strong> atau <strong>Non-Aktif</strong> tidak akan dimunculkan dalam opsi pendaftaran/rolling kelas semester.
             </li>
             <li>
-              <strong>Filter Semester Mahasiswa:</strong> Kandidat mahasiswa disaring berdasarkan semester aktifnya. Mahasiswa tidak dapat dimasukkan melompat ke semester tinggi tanpa riwayat akademik, kecuali jika ditandai sebagai <em>Mahasiswa Pindahan</em>.
+              <strong>Filter Semester Mahasiswa:</strong> Kandidat mahasiswa disaring berdasarkan semester aktifnya.
             </li>
             <li>
-              <strong>Rolling Kelas Otomatis:</strong> Fitur naik kelas memindahkan mahasiswa dari semester $N$ langsung ke semester $N+1$ tanpa prompt yang membingungkan.
+              <strong>Rolling Kelas Otomatis:</strong> Fitur naik kelas memindahkan mahasiswa dari semester N ke semester N+1 secara teratur.
             </li>
           </ul>
         </div>
@@ -184,7 +188,7 @@ export default function UserGuidePage() {
       icon: ShieldCheck,
       description: "Pengaturan kurikulum aktif dan pemfilteran mata kuliah berdasarkan semester.",
       content: (
-        <div className="space-y-4 text-sm text-gray-700 leading-relaxed">
+        <div className="space-y-4 text-xs text-gray-700 leading-relaxed">
           <p>
             Pengelolaan Kurikulum dan Kelas Praktikum:
           </p>
@@ -193,7 +197,7 @@ export default function UserGuidePage() {
               <strong>Multi-Kurikulum Aktif:</strong> Sistem mendukung lebih dari 1 kurikulum aktif secara bersamaan (misal Kurikulum 2018 dan Kurikulum 2024).
             </li>
             <li>
-              <strong>Penyaringan Mata Kuliah Ganjil/Genap:</strong> Pada pembuatan Kelas Praktikum, admin memilih Kurikulum Aktif terlebih dahulu. Sistem secara otomatis menyaring mata kuliah yang sesuai dengan tipe semester (Genap untuk semester 2, 4, 6; Ganjil untuk semester 1, 3, 5).
+              <strong>Penyaringan Mata Kuliah Ganjil/Genap:</strong> Pada pembuatan Kelas Praktikum, admin memilih Kurikulum Aktif terlebih dahulu.
             </li>
           </ul>
         </div>
@@ -207,108 +211,120 @@ export default function UserGuidePage() {
     admin: adminTopics,
   }
 
-  const currentTopics = topicsMap[activeTab].filter(
+  const roleLabelMap: Record<RoleTab, { roleName: string; subtitle: string; icon: typeof Users }> = {
+    dosen: {
+      roleName: "Dosen",
+      subtitle: "Panduan operasional dan manajemen kelas praktikum khusus Dosen.",
+      icon: Users,
+    },
+    mahasiswa: {
+      roleName: "Mahasiswa",
+      subtitle: "Panduan pengerjaan modul praktikum, IDE workspace online, dan penyerahan tugas.",
+      icon: BookOpen,
+    },
+    admin: {
+      roleName: "Administrator",
+      subtitle: "Panduan konfigurasi akademik, master data, dan pengelolaan sistem untuk Administrator.",
+      icon: ShieldCheck,
+    },
+  }
+
+  const currentRoleInfo = roleLabelMap[activeRoleTab]
+  const currentTopics = topicsMap[activeRoleTab].filter(
     (item) =>
       !searchTerm.trim() ||
       item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.description.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+  const pageContent = (
+    <div className="space-y-6">
+      {/* Hero Banner Panel */}
+      <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-800 p-6 text-white shadow-lg">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
-              <BookOpen className="h-7 w-7 text-blue-600" /> Buku Panduan System
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-200">
+              <Sparkles size={16} className="text-yellow-400" />
+              Dokumentasi &amp; Panduan Penggunaan
+            </div>
+            <h1 className="mt-1 text-2xl font-bold text-white flex items-center gap-2">
+              Panduan {currentRoleInfo.roleName}
             </h1>
-            <p className="mt-1 text-sm text-gray-600">
-              Dokumentasi resmi dan panduan penggunaan platform praktikum interaktif.
+            <p className="mt-0.5 text-xs text-blue-200">
+              {currentRoleInfo.subtitle}
             </p>
           </div>
 
-          <div className="relative w-full md:w-72">
+          <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
             <input
               type="text"
               placeholder="Cari topik panduan..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-xl border border-white/20 bg-white/10 py-2 pl-9 pr-4 text-xs font-medium text-white placeholder-blue-200 backdrop-blur-md focus:border-white focus:outline-none"
             />
           </div>
         </div>
-
-        {/* Role Tabs */}
-        <div className="mb-6 border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              type="button"
-              onClick={() => setActiveTab("dosen")}
-              className={`flex items-center gap-2 border-b-2 py-3 px-1 text-sm font-medium ${
-                activeTab === "dosen"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-              }`}
-            >
-              <Users className="h-4 w-4" /> Panduan Dosen
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("mahasiswa")}
-              className={`flex items-center gap-2 border-b-2 py-3 px-1 text-sm font-medium ${
-                activeTab === "mahasiswa"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-              }`}
-            >
-              <BookOpen className="h-4 w-4" /> Panduan Mahasiswa
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("admin")}
-              className={`flex items-center gap-2 border-b-2 py-3 px-1 text-sm font-medium ${
-                activeTab === "admin"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-              }`}
-            >
-              <ShieldCheck className="h-4 w-4" /> Panduan Admin
-            </button>
-          </nav>
-        </div>
-
-        {/* Content Section */}
-        {currentTopics.length === 0 ? (
-          <div className="rounded-lg border border-gray-200 bg-white p-8 text-center text-gray-500">
-            <HelpCircle className="mx-auto h-12 w-12 text-gray-300" />
-            <p className="mt-2 text-base font-medium">Tidak ada topik panduan yang cocok dengan pencarian.</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {currentTopics.map((topic) => {
-              const IconComp = topic.icon
-              return (
-                <div
-                  key={topic.id}
-                  className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition hover:shadow-md"
-                >
-                  <div className="mb-4 flex items-start gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                      <IconComp className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-semibold text-gray-900">{topic.title}</h2>
-                      <p className="text-sm text-gray-500">{topic.description}</p>
-                    </div>
-                  </div>
-                  <div className="border-t border-gray-100 pt-4">{topic.content}</div>
-                </div>
-              )
-            })}
-          </div>
-        )}
       </div>
+
+      {/* Content Topics khusus role yang login */}
+      {currentTopics.length === 0 ? (
+        <div className="rounded-2xl border border-gray-200/80 bg-white p-12 text-center text-gray-500 shadow-sm">
+          <HelpCircle className="mx-auto h-12 w-12 text-gray-300" />
+          <p className="mt-3 text-sm font-bold text-gray-700">Tidak ada topik panduan yang cocok dengan kata kunci pencarian.</p>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {currentTopics.map((topic) => {
+            const IconComp = topic.icon
+            return (
+              <div
+                key={topic.id}
+                className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm transition-all hover:shadow-md"
+              >
+                <div className="mb-4 flex items-start gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+                    <IconComp className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-gray-900">{topic.title}</h2>
+                    <p className="text-xs text-gray-500">{topic.description}</p>
+                  </div>
+                </div>
+                <div className="border-t border-gray-100 pt-4">{topic.content}</div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+
+  if (user?.role === "ADMIN") {
+    return (
+      <AdminLayout>
+        <TopProgressBar />
+        {pageContent}
+      </AdminLayout>
+    )
+  }
+
+  if (user?.role === "DOSEN") {
+    return (
+      <LecturerLayout>
+        {pageContent}
+      </LecturerLayout>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      <TopProgressBar />
+      <main className="max-w-7xl mx-auto px-6 lg:px-10 py-8">
+        {pageContent}
+      </main>
     </div>
   )
 }

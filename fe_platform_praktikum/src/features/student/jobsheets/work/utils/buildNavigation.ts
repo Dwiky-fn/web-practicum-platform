@@ -52,7 +52,7 @@ export function buildWorkNavigation(
   // Tugas
   items.push({
     id: "task",
-    label: "Laporan Praktikum",
+    label: "Jobsheet Praktikum",
     path: `${base}/task${query}`,
     type: "task",
   })

@@ -128,22 +128,42 @@ class AdminUsersService {
         ],
       );
 
-      if (normalizedRole === 'DOSEN') {
+      if (normalizedRole === 'ADMIN') {
+        const studyProgramId = payload.studyProgramId || payload.study_program_id || 'prodi-8';
+        const departmentId = payload.departmentId || payload.department_id || 'dept-3';
+        await client.query(
+          `INSERT INTO admin_profiles (user_id, study_program_id, department_id, nip, no_telepon)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (user_id) DO UPDATE
+           SET study_program_id = EXCLUDED.study_program_id,
+               department_id = EXCLUDED.department_id,
+               nip = EXCLUDED.nip,
+               no_telepon = EXCLUDED.no_telepon,
+               updated_at = CURRENT_TIMESTAMP`,
+          [
+            id,
+            studyProgramId,
+            departmentId,
+            payload.nip || null,
+            payload.noTelepon || payload.no_telepon || null,
+          ],
+        );
+      } else if (normalizedRole === 'DOSEN') {
         await client.query(
           `INSERT INTO lecturer_profiles (user_id, nip, program_studi, jurusan, status)
            VALUES ($1, $2, $3, $4, $5)`,
           [
             id,
             payload.nip,
-            payload.programStudi || payload.program_studi || 'Teknik Informatika',
-            payload.jurusan || 'Teknologi Informasi',
+            payload.programStudi || payload.program_studi || 'D3 Teknik Informatika',
+            payload.jurusan || 'Teknik Elektro',
             displayStatus(normalizeStatus(payload.status)),
           ],
         );
       } else {
-        let programStudi = payload.programStudi || payload.program_studi || 'Teknik Informatika';
-        let jurusan = payload.jurusan || 'Teknologi Informasi';
-        const studyProgramId = payload.studyProgramId || payload.study_program_id || null;
+        const studyProgramId = payload.studyProgramId || payload.study_program_id || 'prodi-8';
+        let programStudi = 'D3 Teknik Informatika';
+        let jurusan = 'Teknik Elektro';
 
         if (studyProgramId) {
           const spResult = await client.query(

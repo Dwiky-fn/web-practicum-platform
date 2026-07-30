@@ -80,7 +80,7 @@ const statusOptions: Array<{ label: string; value: AcademicStatus }> = [
   { label: "Aktif", value: "active" },
   { label: "Tidak Aktif", value: "inactive" },
 ]
-const tipeOptions = ["teori", "praktikum", "teori_praktikum"]
+const tipeOptions = ["Teori", "Praktikum"]
 const routeToTab: Record<string, NativeTab> = {
   "tahun-semester": "tahun",
   kurikulum: "kurikulum",
@@ -1261,22 +1261,13 @@ export default function AdminAcademicNativePage() {
             {kelas.map((i) => option(i.id, i.kelas))}
           </AdminSelect>
         </FieldRow>
-        <FieldRow label="Dosen Pengampu">
+        <FieldRow label="Dosen">
           <AdminSelect value={form.id_dosen ?? ""} onChange={(v) => setField("id_dosen", v)} required>
             <option value="">Pilih dosen</option>
             {lecturers.map((i) => option(i.id, `${i.nip ?? "-"} - ${i.fullname}`))}
           </AdminSelect>
         </FieldRow>
-        <FieldRow label="Jobsheet Rencana">
-          <input
-            className={inputClass}
-            type="number"
-            min="1"
-            value={form.jumlah_jobsheet_rencana ?? "1"}
-            onChange={(e) => setField("jumlah_jobsheet_rencana", e.target.value)}
-            required
-          />
-        </FieldRow>
+
         <FieldRow label="Nama Kelas Otomatis">
           <input className={`${inputClass} bg-gray-100 text-gray-700`} value={generatedKelasPraktikumName} readOnly disabled />
         </FieldRow>
@@ -1343,10 +1334,10 @@ export default function AdminAcademicNativePage() {
           >
             <form id="native-academic-form" className="space-y-4" onSubmit={submitForm}>
               {formTab === "tahun" && renderTahunSemesterFields()}
-              {formTab === "kurikulum" && <><FieldRow label="Tahun Kurikulum"><input className={inputClass} value={form.tahun_kurikulum ?? ""} onChange={(e) => setField("tahun_kurikulum", e.target.value)} placeholder="2024" required /></FieldRow><FieldRow label="Nama Kurikulum"><input className={inputClass} value={form.nama_kurikulum ?? ""} onChange={(e) => setField("nama_kurikulum", e.target.value)} placeholder="Kurikulum 2024" required /></FieldRow><FieldRow label="Status Kurikulum"><AdminSelect value={form.status ?? "inactive"} onChange={(v) => setField("status", v)}>{statusOptions.map((item) => option(item.value, item.label))}</AdminSelect></FieldRow></>}
+              {formTab === "kurikulum" && <><FieldRow label="Tahun Kurikulum"><input className={inputClass} type="text" inputMode="numeric" pattern="[0-9]*" maxLength={4} value={form.tahun_kurikulum ?? ""} onChange={(e) => setField("tahun_kurikulum", e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="2024" required /></FieldRow><FieldRow label="Nama Kurikulum"><input className={inputClass} value={form.nama_kurikulum ?? ""} onChange={(e) => setField("nama_kurikulum", e.target.value)} placeholder="Kurikulum 2024" required /></FieldRow><FieldRow label="Status Kurikulum"><AdminSelect value={form.status ?? "inactive"} onChange={(v) => setField("status", v)}>{statusOptions.map((item) => option(item.value, item.label))}</AdminSelect></FieldRow></>}
               {formTab === "semester" && <FieldRow label="Semester"><input className={inputClass} type="number" min="1" value={form.semester ?? ""} onChange={(e) => setField("semester", e.target.value)} required /></FieldRow>}
               {formTab === "kelas" && <FieldRow label="Kelas/Rombel"><input className={inputClass} value={form.kelas ?? ""} onChange={(e) => setField("kelas", e.target.value)} placeholder="A" required /></FieldRow>}
-              {formTab === "mata-kuliah" && <><FieldRow label="Kurikulum">{!activeKurikulum && warningBox("Aktifkan kurikulum terlebih dahulu sebelum menambahkan mata kuliah.")}<AdminSelect value={form.id_kurikulum ?? ""} onChange={(v) => setField("id_kurikulum", v)} required><option value="">Pilih kurikulum</option>{kurikulum.map((i) => option(i.id, `${i.nama_kurikulum} (${i.tahun_kurikulum})${formatActiveSuffix(i.status)}`))}</AdminSelect></FieldRow><FieldRow label="Semester">{!semester.length && warningBox("Tambahkan master semester terlebih dahulu sebelum menambahkan mata kuliah.")}<AdminSelect value={form.id_semester ?? ""} onChange={(v) => setField("id_semester", v)} required><option value="">Pilih semester</option>{semester.map((i) => option(i.id, `Semester ${i.semester}`))}</AdminSelect></FieldRow><FieldRow label="Kode MK"><input className={inputClass} value={form.kode_mk ?? ""} onChange={(e) => setField("kode_mk", e.target.value)} required /></FieldRow><FieldRow label="Nama MK"><input className={inputClass} value={form.nama_mk ?? ""} onChange={(e) => setField("nama_mk", e.target.value)} required /></FieldRow><FieldRow label="SKS"><input className={inputClass} type="number" min="1" value={form.sks ?? ""} onChange={(e) => setField("sks", e.target.value)} required /></FieldRow><FieldRow label="Tipe"><AdminSelect value={form.tipe ?? "praktikum"} onChange={(v) => setField("tipe", v)}>{tipeOptions.map((v) => option(v, v))}</AdminSelect></FieldRow></>}
+              {formTab === "mata-kuliah" && <><FieldRow label="Kurikulum">{!activeKurikulum && warningBox("Aktifkan kurikulum terlebih dahulu sebelum menambahkan mata kuliah.")}<AdminSelect value={form.id_kurikulum ?? ""} onChange={(v) => setField("id_kurikulum", v)} required><option value="">Pilih kurikulum</option>{kurikulum.map((i) => option(i.id, `${i.nama_kurikulum} (${i.tahun_kurikulum})${formatActiveSuffix(i.status)}`))}</AdminSelect></FieldRow><FieldRow label="Semester">{!semester.length && warningBox("Tambahkan master semester terlebih dahulu sebelum menambahkan mata kuliah.")}<AdminSelect value={form.id_semester ?? ""} onChange={(v) => setField("id_semester", v)} required><option value="">Pilih semester</option>{semester.map((i) => option(i.id, `Semester ${i.semester}`))}</AdminSelect></FieldRow><FieldRow label="Kode MK"><input className={inputClass} value={form.kode_mk ?? ""} onChange={(e) => setField("kode_mk", e.target.value)} required /></FieldRow><FieldRow label="Nama MK"><input className={inputClass} value={form.nama_mk ?? ""} onChange={(e) => setField("nama_mk", e.target.value)} required /></FieldRow><FieldRow label="SKS"><input className={inputClass} type="number" min="1" value={form.sks ?? ""} onChange={(e) => setField("sks", e.target.value)} required /></FieldRow><FieldRow label="Tipe"><AdminSelect value={form.tipe ?? "Praktikum"} onChange={(v) => setField("tipe", v)}>{tipeOptions.map((v) => option(v, v))}</AdminSelect></FieldRow></>}
               {formTab === "kelas-mahasiswa" && (
                 <>
                   {isKelasMahasiswaDetail ? (
@@ -1469,7 +1460,7 @@ export default function AdminAcademicNativePage() {
                   <dt className="text-gray-500">Jobsheet Rencana</dt><dd>{detail.jumlah_jobsheet_rencana ?? detail.jumlahJobsheetRencana ?? 1}</dd>
                   <dt className="text-gray-500">Jobsheet Dibuat</dt><dd>{detail.jumlah_jobsheet_dibuat ?? detail.jumlahJobsheetDibuat ?? 0}</dd>
                   <dt className="text-gray-500">Jobsheet Publish</dt><dd>{detail.jumlah_jobsheet_publish ?? detail.jumlahJobsheetPublish ?? 0}</dd>
-                  <dt className="text-gray-500">Dosen Pengampu</dt><dd>{detailPengampu.map((item) => `${item.nama_dosen ?? item.fullname ?? item.id_dosen} (${item.peran})`).join(", ") || "-"}</dd>
+                  <dt className="text-gray-500">Dosen</dt><dd>{detailPengampu.map((item) => item.nama_dosen ?? item.fullname ?? item.id_dosen).join(", ") || "-"}</dd>
                 </dl>
               </AdminPanel>
               <div>
@@ -1722,7 +1713,7 @@ export default function AdminAcademicNativePage() {
                   ))}
                 </AdminTable>
               ) : (
-                <EmptyState title="Belum ada mahasiswa di kelas ini." action={<AdminButton onClick={() => openModal("kelas-mahasiswa")}><Plus size={16} />Assign Mahasiswa</AdminButton>} />
+                <EmptyState title="Belum ada mahasiswa di kelas ini." />
               )}
             </div>
           </AdminPanel>
@@ -1926,10 +1917,10 @@ export default function AdminAcademicNativePage() {
         >
           <form id="native-academic-form" className="space-y-4" onSubmit={submitForm}>
             {formTab === "tahun" && renderTahunSemesterFields()}
-            {formTab === "kurikulum" && <><FieldRow label="Tahun Kurikulum"><input className={inputClass} value={form.tahun_kurikulum ?? ""} onChange={(e) => setField("tahun_kurikulum", e.target.value)} placeholder="2024" required /></FieldRow><FieldRow label="Nama Kurikulum"><input className={inputClass} value={form.nama_kurikulum ?? ""} onChange={(e) => setField("nama_kurikulum", e.target.value)} placeholder="Kurikulum 2024" required /></FieldRow><FieldRow label="Status Kurikulum"><AdminSelect value={form.status ?? "inactive"} onChange={(v) => setField("status", v)}>{statusOptions.map((item) => option(item.value, item.label))}</AdminSelect></FieldRow></>}
+            {formTab === "kurikulum" && <><FieldRow label="Tahun Kurikulum"><input className={inputClass} type="text" inputMode="numeric" pattern="[0-9]*" maxLength={4} value={form.tahun_kurikulum ?? ""} onChange={(e) => setField("tahun_kurikulum", e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="2024" required /></FieldRow><FieldRow label="Nama Kurikulum"><input className={inputClass} value={form.nama_kurikulum ?? ""} onChange={(e) => setField("nama_kurikulum", e.target.value)} placeholder="Kurikulum 2024" required /></FieldRow><FieldRow label="Status Kurikulum"><AdminSelect value={form.status ?? "inactive"} onChange={(v) => setField("status", v)}>{statusOptions.map((item) => option(item.value, item.label))}</AdminSelect></FieldRow></>}
             {formTab === "semester" && <FieldRow label="Semester"><input className={inputClass} type="number" min="1" value={form.semester ?? ""} onChange={(e) => setField("semester", e.target.value)} required /></FieldRow>}
             {formTab === "kelas" && <FieldRow label="Kelas/Rombel"><input className={inputClass} value={form.kelas ?? ""} onChange={(e) => setField("kelas", e.target.value)} placeholder="A" required /></FieldRow>}
-            {formTab === "mata-kuliah" && <><FieldRow label="Kurikulum">{!activeKurikulum && warningBox("Aktifkan kurikulum terlebih dahulu sebelum menambahkan mata kuliah.")}<AdminSelect value={form.id_kurikulum ?? ""} onChange={(v) => setField("id_kurikulum", v)} required><option value="">Pilih kurikulum</option>{kurikulum.map((i) => option(i.id, `${i.nama_kurikulum} (${i.tahun_kurikulum})${formatActiveSuffix(i.status)}`))}</AdminSelect></FieldRow><FieldRow label="Semester">{!semester.length && warningBox("Tambahkan master semester terlebih dahulu sebelum menambahkan mata kuliah.")}<AdminSelect value={form.id_semester ?? ""} onChange={(v) => setField("id_semester", v)} required><option value="">Pilih semester</option>{semester.map((i) => option(i.id, `Semester ${i.semester}`))}</AdminSelect></FieldRow><FieldRow label="Kode MK"><input className={inputClass} value={form.kode_mk ?? ""} onChange={(e) => setField("kode_mk", e.target.value)} required /></FieldRow><FieldRow label="Nama MK"><input className={inputClass} value={form.nama_mk ?? ""} onChange={(e) => setField("nama_mk", e.target.value)} required /></FieldRow><FieldRow label="SKS"><input className={inputClass} type="number" min="1" value={form.sks ?? ""} onChange={(e) => setField("sks", e.target.value)} required /></FieldRow><FieldRow label="Tipe"><AdminSelect value={form.tipe ?? "praktikum"} onChange={(v) => setField("tipe", v)}>{tipeOptions.map((v) => option(v, v))}</AdminSelect></FieldRow></>}
+            {formTab === "mata-kuliah" && <><FieldRow label="Kurikulum">{!activeKurikulum && warningBox("Aktifkan kurikulum terlebih dahulu sebelum menambahkan mata kuliah.")}<AdminSelect value={form.id_kurikulum ?? ""} onChange={(v) => setField("id_kurikulum", v)} required><option value="">Pilih kurikulum</option>{kurikulum.map((i) => option(i.id, `${i.nama_kurikulum} (${i.tahun_kurikulum})${formatActiveSuffix(i.status)}`))}</AdminSelect></FieldRow><FieldRow label="Semester">{!semester.length && warningBox("Tambahkan master semester terlebih dahulu sebelum menambahkan mata kuliah.")}<AdminSelect value={form.id_semester ?? ""} onChange={(v) => setField("id_semester", v)} required><option value="">Pilih semester</option>{semester.map((i) => option(i.id, `Semester ${i.semester}`))}</AdminSelect></FieldRow><FieldRow label="Kode MK"><input className={inputClass} value={form.kode_mk ?? ""} onChange={(e) => setField("kode_mk", e.target.value)} required /></FieldRow><FieldRow label="Nama MK"><input className={inputClass} value={form.nama_mk ?? ""} onChange={(e) => setField("nama_mk", e.target.value)} required /></FieldRow><FieldRow label="SKS"><input className={inputClass} type="number" min="1" value={form.sks ?? ""} onChange={(e) => setField("sks", e.target.value)} required /></FieldRow><FieldRow label="Tipe"><AdminSelect value={form.tipe ?? "Praktikum"} onChange={(v) => setField("tipe", v)}>{tipeOptions.map((v) => option(v, v))}</AdminSelect></FieldRow></>}
             {formTab === "kelas-mahasiswa" && (
               <>
                 {isKelasMahasiswaDetail ? (
@@ -2063,7 +2054,7 @@ export default function AdminAcademicNativePage() {
                 <dt className="text-gray-500">Jobsheet Rencana</dt><dd>{detail.jumlah_jobsheet_rencana ?? detail.jumlahJobsheetRencana ?? 1}</dd>
                 <dt className="text-gray-500">Jobsheet Dibuat</dt><dd>{detail.jumlah_jobsheet_dibuat ?? detail.jumlahJobsheetDibuat ?? 0}</dd>
                 <dt className="text-gray-500">Jobsheet Publish</dt><dd>{detail.jumlah_jobsheet_publish ?? detail.jumlahJobsheetPublish ?? 0}</dd>
-                <dt className="text-gray-500">Dosen Pengampu</dt><dd>{detailPengampu.map((item) => `${item.nama_dosen ?? item.fullname ?? item.id_dosen} (${item.peran})`).join(", ") || "-"}</dd>
+                <dt className="text-gray-500">Dosen</dt><dd>{detailPengampu.map((item) => item.nama_dosen ?? item.fullname ?? item.id_dosen).join(", ") || "-"}</dd>
               </dl>
             </AdminPanel>
             <div>

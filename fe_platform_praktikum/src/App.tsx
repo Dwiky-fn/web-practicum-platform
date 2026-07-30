@@ -28,10 +28,10 @@ import LecturerClassDetailPage from "./features/lecturer/pages/LecturerClassDeta
 import LecturerJobsheetManagePage from "./features/lecturer/pages/LecturerJobsheetManagePage"
 import LecturerJobsheetEditorPage from "./features/lecturer/pages/LecturerJobsheetEditorPage"
 import LecturerJobsheetDetailPage from "./features/lecturer/pages/LecturerJobsheetDetailPage"
-import LecturerMonitoringPage from "./features/lecturer/pages/LecturerMonitoringPage"
 import LecturerStudentWorkpagePage from "./features/lecturer/pages/LecturerStudentWorkpagePage"
 import LecturerReviewPage from "./features/lecturer/pages/LecturerReviewPage"
 import UserGuidePage from "./features/documentation/UserGuidePage"
+import NotificationsPage from "./features/notification/NotificationsPage"
 import ToastContainer from "./components/toast/ToastContainer"
 
 function LegacyClassMonitoringRedirect() {
@@ -86,6 +86,7 @@ function AppContent() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/dashboard" element={requireUser(<DashboardPage />)} />
       <Route path="/settings" element={requireUser(<SettingsPage />)} />
+      <Route path="/notifications" element={requireUser(<NotificationsPage />)} />
       <Route path="/panduan" element={requireUser(<UserGuidePage />)} />
       <Route
         path="/mata-kuliah"
@@ -154,11 +155,35 @@ function AppContent() {
         element={byRole({ dosen: <LecturerJobsheetManagePage /> })}
       />
       <Route
+        path="/mata-kuliah/:mataKuliahId/create"
+        element={byRole({ dosen: <LecturerJobsheetEditorPage /> })}
+      />
+      <Route
         path="/mata-kuliah/:mataKuliahId/jobsheets/create"
         element={byRole({ dosen: <LecturerJobsheetEditorPage /> })}
       />
       <Route
+        path="/mata-kuliah/:mataKuliahId/:jobsheetId/edit"
+        element={byRole({ dosen: <LecturerJobsheetEditorPage /> })}
+      />
+      <Route
         path="/mata-kuliah/:mataKuliahId/jobsheets/:jobsheetId/edit"
+        element={byRole({ dosen: <LecturerJobsheetEditorPage /> })}
+      />
+      <Route
+        path="/lecturer/mata-kuliah/:mataKuliahId/jobsheets/create"
+        element={byRole({ dosen: <LecturerJobsheetEditorPage /> })}
+      />
+      <Route
+        path="/lecturer/mata-kuliah/:mataKuliahId/jobsheets/:jobsheetId/edit"
+        element={byRole({ dosen: <LecturerJobsheetEditorPage /> })}
+      />
+      <Route
+        path="/lecturer/kelas-praktikum/:kelasPraktikumId/jobsheets/create"
+        element={byRole({ dosen: <LecturerJobsheetEditorPage /> })}
+      />
+      <Route
+        path="/lecturer/kelas-praktikum/:kelasPraktikumId/jobsheets/:jobsheetId/edit"
         element={byRole({ dosen: <LecturerJobsheetEditorPage /> })}
       />
       <Route
@@ -171,7 +196,7 @@ function AppContent() {
       />
       <Route
         path="/monitoring"
-        element={byRole({ dosen: <LecturerMonitoringPage /> })}
+        element={<Navigate to="/dashboard" replace />}
       />
       <Route
         path="/lecturer/kelas-praktikum/:kelasPraktikumId/jobsheets/:jobsheetId/monitoring"

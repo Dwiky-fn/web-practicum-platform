@@ -80,7 +80,7 @@ export default function TaskPage() {
       <div>
         <h1 className="text-2xl font-semibold">Tugas</h1>
         <p className="text-gray-600 mt-1">
-          Laporan Praktikum {jobsheet.title}
+          Jobsheet Praktikum {jobsheet.title}
         </p>
       </div>
 
@@ -171,7 +171,7 @@ export default function TaskPage() {
               Jobsheet Berhasil di-Submit!
             </h2>
             <p className="text-sm text-gray-500">
-              Laporan Anda telah berhasil dikirim.
+              Jobsheet Anda telah berhasil dikirim.
             </p>
             <button
               type="button"

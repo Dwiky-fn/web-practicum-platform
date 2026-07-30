@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import {
+  ArrowRight,
+  BookOpen,
+  Clock,
+  FileCheck,
+  GraduationCap,
+  Layers,
+  Sparkles,
+  Users,
+} from "lucide-react"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
 import LecturerLayout from "../components/LecturerLayout"
@@ -7,57 +17,46 @@ import {
   LecturerButton,
   LecturerEmptyState,
   LecturerModal,
-  LecturerPanel,
+  LecturerTable,
   NativeSelect,
-  PageHeader,
-  StatCard,
 } from "../components/LecturerUI"
 import {
-  buildLecturerJobsheetSummaries,
   getLecturerClassDetail,
   getLecturerCourseGroups,
   getLecturerSubmissionMatrix,
-  getSubmissionReviewStatus,
   isSubmittedSubmission,
   type LecturerCourseGroup,
-  type LecturerJobsheetSummary,
   type LecturerSubmissionMatrixItem,
 } from "../service"
+import type { AdminStudent, ClassJobsheet } from "../../../services/admin/types"
 import { formatDeadlineLocal } from "../utils/deadline"
+
+interface ClassProgressItem {
+  classId: string
+  kelasPraktikumId: string
+  className: string
+  totalJobsheets: number
+  publishedJobsheetCount: number
+  students: AdminStudent[]
+  jobsheets: ClassJobsheet[]
+  submissionMatrix: LecturerSubmissionMatrixItem[]
+}
 
 export default function LecturerDashboardPage() {
   const navigate = useNavigate()
   const { user } = useCurrentUser()
   const [loading, setLoading] = useState(true)
+  const [classLoading, setClassLoading] = useState(false)
   const [error, setError] = useState("")
   const [courseGroups, setCourseGroups] = useState<LecturerCourseGroup[]>([])
   const [courseId, setCourseId] = useState("")
-  const [classId, setClassId] = useState("")
-  const [showProgressDetail, setShowProgressDetail] = useState(false)
-  const [jobsheets, setJobsheets] = useState<LecturerJobsheetSummary[]>([])
-  const [matrix, setMatrix] = useState<LecturerSubmissionMatrixItem[]>([])
-  const [studentCount, setStudentCount] = useState(0)
+  const [classList, setClassList] = useState<ClassProgressItem[]>([])
+  const [selectedClassModal, setSelectedClassModal] = useState<ClassProgressItem | null>(null)
 
-  const selectedCourse = courseGroups.find((item) => item.id === courseId) ?? null
-  const selectedClass = selectedCourse?.classes.find((item) => item.id === classId) ?? null
-  const selectedScope = useMemo(
-    () => ({
-      mataKuliahId: selectedCourse?.mataKuliahId || selectedCourse?.id,
-      kelasPraktikumId: selectedClass?.kelasPraktikumId || selectedClass?.id_kelas_praktikum,
-    }),
-    [
-      selectedClass?.id_kelas_praktikum,
-      selectedClass?.kelasPraktikumId,
-      selectedCourse?.id,
-      selectedCourse?.mataKuliahId,
-    ],
+  const selectedCourse = useMemo(
+    () => courseGroups.find((item) => item.id === courseId) ?? null,
+    [courseGroups, courseId],
   )
-  const selectedClassDetailPath =
-    selectedCourse && selectedClass
-      ? `/kelas-praktikum/${selectedCourse.id}/${selectedClass.id}?tab=evaluation${
-          selectedScope.mataKuliahId ? `&mataKuliahId=${selectedScope.mataKuliahId}` : ""
-        }${selectedScope.kelasPraktikumId ? `&kelasPraktikumId=${selectedScope.kelasPraktikumId}` : ""}`
-      : ""
 
   useEffect(() => {
     async function loadCourses() {
@@ -67,12 +66,11 @@ export default function LecturerDashboardPage() {
       setError("")
 
       try {
-        const groups = await getLecturerCourseGroups()
+        const groups = await getLecturerCourseGroups({ scope: "active" })
         setCourseGroups(groups)
 
         if (groups.length > 0) {
           setCourseId((current) => current || groups[0].id)
-          setClassId((current) => current || groups[0].classes[0]?.id || "")
         }
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Gagal memuat dashboard dosen.")
@@ -85,91 +83,108 @@ export default function LecturerDashboardPage() {
   }, [user])
 
   useEffect(() => {
-    if (!selectedCourse) return
+    async function loadAllClassesData() {
+      if (!selectedCourse || !selectedCourse.classes.length) {
+        setClassList([])
+        return
+      }
 
-    const exists = selectedCourse.classes.some((item) => item.id === classId)
-    if (!exists) {
-      setClassId(selectedCourse.classes[0]?.id || "")
-    }
-  }, [classId, selectedCourse, selectedScope])
-
-  useEffect(() => {
-    async function loadClassData() {
-      if (!selectedCourse || !classId) return
-
-      setLoading(true)
+      setClassLoading(true)
       setError("")
-      setJobsheets([])
-      setMatrix([])
-      setStudentCount(0)
 
       try {
-        const classDetail = await getLecturerClassDetail(classId)
-        const mataKuliahId = classDetail.mataKuliahId || classDetail.id_mata_kuliah || selectedScope.mataKuliahId
-        const kelasPraktikumId = classDetail.kelasPraktikumId || classDetail.id_kelas_praktikum || selectedScope.kelasPraktikumId
-        const submissionMatrix = await getLecturerSubmissionMatrix(
-          classDetail.courseId,
-          classDetail.jobsheets,
-          classDetail.students,
-          { mataKuliahId, kelasPraktikumId },
-        )
-        const summaries = buildLecturerJobsheetSummaries(
-          classDetail.jobsheets,
-          classDetail.students,
-          submissionMatrix,
-          classDetail.name,
-          classDetail.id,
-          kelasPraktikumId,
-        ).map((item) => ({ ...item, courseId: classDetail.courseId }))
+        const classItems: ClassProgressItem[] = await Promise.all(
+          selectedCourse.classes.map(async (cls) => {
+            const classDetail = await getLecturerClassDetail(cls.id)
+            const mataKuliahId =
+              classDetail.mataKuliahId ||
+              classDetail.id_mata_kuliah ||
+              selectedCourse.mataKuliahId ||
+              selectedCourse.id
+            const kelasPraktikumId =
+              classDetail.kelasPraktikumId ||
+              classDetail.id_kelas_praktikum ||
+              cls.kelasPraktikumId ||
+              cls.id_kelas_praktikum ||
+              cls.id
 
-        setStudentCount(classDetail.students.length)
-        setMatrix(submissionMatrix)
-        setJobsheets(summaries)
+            const submissionMatrix = await getLecturerSubmissionMatrix(
+              classDetail.courseId,
+              classDetail.jobsheets,
+              classDetail.students,
+              { mataKuliahId, kelasPraktikumId },
+            )
+
+            const totalJobsheets =
+              classDetail.jumlahJobsheetRencana ||
+              classDetail.jumlah_jobsheet_rencana ||
+              (classDetail.jobsheets.length > 0 ? classDetail.jobsheets.length : 10)
+
+            const publishedCount = classDetail.jobsheets.filter(
+              (j) => j.status === "Aktif" || j.status === "Selesai",
+            ).length
+
+            return {
+              classId: cls.id,
+              kelasPraktikumId,
+              className: cls.name,
+              totalJobsheets,
+              publishedJobsheetCount: publishedCount,
+              students: classDetail.students,
+              jobsheets: classDetail.jobsheets,
+              submissionMatrix,
+            }
+          }),
+        )
+
+        classItems.sort((a, b) =>
+          a.className.localeCompare(b.className, "id-ID", { numeric: true, sensitivity: "base" }),
+        )
+
+        setClassList(classItems)
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Gagal memuat data kelas.")
+        setError(
+          loadError instanceof Error ? loadError.message : "Gagal memuat data kelas praktikum.",
+        )
       } finally {
-        setLoading(false)
+        setClassLoading(false)
       }
     }
 
-    loadClassData()
-  }, [classId, selectedCourse, selectedScope.kelasPraktikumId, selectedScope.mataKuliahId])
+    loadAllClassesData()
+  }, [selectedCourse])
 
-  const publishedJobsheets = useMemo(
-    () => jobsheets.filter((item) => item.status === "Published").sort((left, right) => left.number - right.number),
-    [jobsheets],
+  // Metrik Tambahan untuk Dashboard Cards:
+  const totalStudentsCount = useMemo(
+    () => classList.reduce((acc, cls) => acc + cls.students.length, 0),
+    [classList],
   )
-  const currentJobsheet = useMemo(() => {
-    const unfinished = publishedJobsheets.find((item) => item.total > 0 && item.submitted < item.total)
-    return unfinished ?? publishedJobsheets[publishedJobsheets.length - 1] ?? null
-  }, [publishedJobsheets])
-  const currentJobsheetMatrix = useMemo(
-    () => currentJobsheet ? matrix.filter((item) => item.jobsheet.id === currentJobsheet.id) : [],
-    [currentJobsheet, matrix],
-  )
-  const currentSubmittedCount = currentJobsheetMatrix.filter((item) => isSubmittedSubmission(item.submission)).length
-  const pendingReviewCount = matrix.filter(
-    (item) => getSubmissionReviewStatus(item.submission) === "Terkumpul",
-  ).length
-  const revisionCount = matrix.filter(
-    (item) => getSubmissionReviewStatus(item.submission) === "Revisi",
-  ).length
-  const upcomingDeadline = publishedJobsheets
-    .filter((item) => item.deadline && item.deadline !== "-" && new Date(item.deadline).getTime() >= Date.now())
-    .sort((left, right) => new Date(left.deadline).getTime() - new Date(right.deadline).getTime())[0] ?? null
 
-  const latestTasks = useMemo(
-    () =>
-      matrix
-        .filter((item) => isSubmittedSubmission(item.submission))
-        .sort((left, right) => {
-          const leftTime = new Date(left.submission?.updatedAt ?? 0).getTime()
-          const rightTime = new Date(right.submission?.updatedAt ?? 0).getTime()
-          return rightTime - leftTime
-        })
-        .slice(0, 5),
-    [matrix],
-  )
+  const pendingReviewSubmissions = useMemo(() => {
+    return classList.flatMap((cls) =>
+      cls.submissionMatrix
+        .filter(
+          (item) =>
+            item.submission &&
+            (item.submission.status === "REVIEWING" || item.submission.status === "REVISION"),
+        )
+        .map((item) => ({ ...item, classId: cls.classId, className: cls.className })),
+    )
+  }, [classList])
+
+  const totalPendingReviews = pendingReviewSubmissions.length
+
+  const upcomingDeadlineJob = useMemo(() => {
+    const allJobsheetsWithDeadline = classList
+      .flatMap((cls) => cls.jobsheets.map((j) => ({ ...j, className: cls.className })))
+      .filter(
+        (j) => j.deadline && j.deadline !== "-" && new Date(j.deadline).getTime() >= Date.now(),
+      )
+      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
+
+    if (allJobsheetsWithDeadline.length === 0) return null
+    return allJobsheetsWithDeadline[0]
+  }, [classList])
 
   if (loading && !courseGroups.length) {
     return <TopProgressBar />
@@ -177,13 +192,10 @@ export default function LecturerDashboardPage() {
 
   return (
     <LecturerLayout>
-      <PageHeader
-        title="Dashboard Dosen"
-        subtitle="Pantau progres praktikum, validasi laporan, dan aktivitas kelas."
-      />
+
 
       {error && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
           {error}
         </div>
       )}
@@ -192,301 +204,336 @@ export default function LecturerDashboardPage() {
         <LecturerEmptyState title="Belum ada kelas yang diampu pada semester aktif." />
       ) : (
         <>
-          <LecturerPanel className="mb-6 p-4">
-            <div className="grid gap-3 md:grid-cols-3">
-              <NativeSelect
-                label="Mata kuliah"
-                value={courseId}
-                onChange={(value) => {
-                  const nextCourse = courseGroups.find((item) => item.id === value)
-                  setCourseId(value)
-                  setClassId(nextCourse?.classes[0]?.id || "")
-                }}
-                className="w-full"
-              >
-                {courseGroups.map((item) => (
-                  <option key={item.id} value={item.id}>{item.name}</option>
-                ))}
-              </NativeSelect>
-              <NativeSelect label="Kelas Praktikum" value={classId} onChange={(value) => {
-                setClassId(value)
-              }} className="w-full">
-                {(selectedCourse?.classes ?? []).map((item) => (
-                  <option key={item.id} value={item.id}>{item.name}</option>
-                ))}
-              </NativeSelect>
+          {/* Header Panel Filter: Pilih Mata Kuliah */}
+          <div className="mb-6 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-800 p-6 text-white shadow-lg">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-200">
+                  <Sparkles size={16} className="text-yellow-400" />
+                  Mata Kuliah Aktif
+                </div>
+                <h2 className="text-xl font-bold text-white">
+                  {selectedCourse?.name ?? "Pilih Mata Kuliah"}
+                </h2>
+                <p className="text-xs text-blue-200">
+                  Periode Semester: {selectedCourse?.period ?? "Aktif"}
+                </p>
+              </div>
+
+              <div className="w-full md:w-80">
+                <NativeSelect
+                  label="Pilih Mata Kuliah Diampu"
+                  labelClassName="text-blue-100 font-bold"
+                  value={courseId}
+                  onChange={(value) => setCourseId(value)}
+                  className="w-full text-gray-900"
+                >
+                  {courseGroups.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </div>
             </div>
-          </LecturerPanel>
+          </div>
 
-          <section className="mb-6 grid gap-4 lg:grid-cols-3">
-            <LecturerPanel className="p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-semibold text-gray-900">Progres Pembelajaran</h2>
-                  <div className="mt-4 space-y-2 text-sm text-gray-700">
-                    <p>Total Jobsheet: <span className="font-semibold">{publishedJobsheets.length}</span></p>
-                    <p>
-                      Progres Saat Ini:{" "}
-                      <span className="font-semibold">
-                        {currentJobsheet ? `Jobsheet ${currentJobsheet.number} dari ${publishedJobsheets.length}` : "Belum ada jobsheet publish"}
-                      </span>
-                    </p>
-                    <p>
-                      Mahasiswa Sudah Submit:{" "}
-                      <span className="font-semibold">{currentSubmittedCount} dari {studentCount || selectedClass?.studentCount || 0}</span>
-                    </p>
+          {/* Grid Cards Metrik Ringkasan Relevan dengan Quick Action */}
+          <section className="mb-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Card 1: Kelas Diampu */}
+            <div className="group flex flex-col justify-between rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/90 via-white to-blue-50/30 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-blue-700">
+                    Kelas Diampu
+                  </span>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700 transition-transform group-hover:scale-110">
+                    <BookOpen size={20} />
                   </div>
                 </div>
-                <LecturerButton variant="secondary" onClick={() => setShowProgressDetail(true)}>
-                  Detail
-                </LecturerButton>
+                <p className="mt-3 text-3xl font-extrabold text-gray-900">{classList.length} Kelas</p>
+                <p className="mt-1 text-xs text-gray-500 truncate">
+                  {classList.length ? `Kelas: ${classList.map((c) => c.className).join(", ")}` : "Belum ada kelas"}
+                </p>
               </div>
-            </LecturerPanel>
-            <StatCard label="Menunggu Review" value={`${pendingReviewCount} Submission`} />
-            <LecturerPanel className="p-5">
-              <h2 className="text-base font-semibold text-gray-900">Deadline Mendatang</h2>
-              {upcomingDeadline ? (
-                <div className="mt-4 space-y-1 text-sm text-gray-700">
-                  <p className="font-semibold">Jobsheet {upcomingDeadline.number}: {upcomingDeadline.title}</p>
-                  <p>{formatDeadlineLocal(upcomingDeadline.deadline)}</p>
-                </div>
-              ) : (
-                <p className="mt-4 text-sm text-gray-500">Tidak ada deadline mendatang.</p>
-              )}
-            </LecturerPanel>
-          </section>
+              <button
+                type="button"
+                onClick={() => navigate(`/mata-kuliah/${selectedCourse?.id}/jobsheets`)}
+                className="mt-4 flex items-center justify-between border-t border-blue-100/80 pt-3 text-xs font-bold text-blue-600 transition-colors group-hover:text-blue-800"
+              >
+                <span>Kelola Jobsheet</span>
+                <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+              </button>
+            </div>
 
-          <section className="grid gap-6 lg:grid-cols-[1fr_320px]">
-            <LecturerPanel className="p-5">
-              <div className="mb-4 flex items-center justify-between border-b border-gray-200 pb-3">
-                <h2 className="text-lg font-semibold text-gray-900">Submission Terbaru Kelas Praktikum</h2>
-                {selectedCourse && selectedClass && (
-                  <LecturerButton
-                    variant="ghost"
-                    onClick={() => navigate(selectedClassDetailPath)}
-                  >
-                    Lihat Semua
-                  </LecturerButton>
-                )}
-              </div>
-
-              {!latestTasks.length ? (
-                <p className="text-sm text-gray-500">Belum ada submission untuk filter yang dipilih.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[560px] text-sm">
-                    <thead className="text-left text-gray-600">
-                      <tr>
-                        <th className="py-2">Mahasiswa</th>
-                        <th className="py-2">Jobsheet</th>
-                        <th className="py-2">Status</th>
-                        <th className="py-2">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {latestTasks.map((item) => {
-                        const jobsheet = jobsheets.find((current) => current.id === item.jobsheet.id)
-
-                        return (
-                          <tr key={`${item.student.id}-${item.jobsheet.id}`}>
-                            <td className="py-3">{item.student.fullname}</td>
-                            <td className="py-3">{jobsheet?.title ?? `Jobsheet ${jobsheet?.number ?? "-"}`}</td>
-                            <td className="py-3">{getSubmissionReviewStatus(item.submission)}</td>
-                            <td className="py-3">
-                              {selectedCourse && selectedClass && (
-                                <button
-                                  type="button"
-                                  className="font-semibold text-blue-700 hover:text-blue-900"
-                                  onClick={() =>
-                                    {
-                                      const params = new URLSearchParams({
-                                        courseId: selectedCourse.id,
-                                        classId: selectedClass.id,
-                                        jobsheetId: item.jobsheet.id,
-                                      })
-                                      if (selectedScope.mataKuliahId) params.set("mataKuliahId", selectedScope.mataKuliahId)
-                                      if (selectedScope.kelasPraktikumId) params.set("kelasPraktikumId", selectedScope.kelasPraktikumId)
-                                      navigate(`/reviews/${item.student.id}?${params.toString()}`)
-                                    }
-                                  }
-                                >
-                                  Review
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </LecturerPanel>
-
-            <LecturerPanel className="p-5">
-                  <h2 className="mb-4 border-b border-gray-200 pb-3 text-lg font-semibold text-gray-900">
-                Informasi Kelas Praktikum
-              </h2>
-              <div className="space-y-3">
-                {selectedClass && (
-                  <div className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-600">
-                    <p className="font-medium text-gray-800">{selectedClass.name}</p>
-                    <p>ID kelas praktikum: {selectedScope.kelasPraktikumId ?? "-"}</p>
-                    <p>Total mahasiswa: {studentCount || selectedClass.studentCount || 0}</p>
-                    <p>Total jobsheet publish: {publishedJobsheets.length}</p>
-                    <p>Submission revisi: {revisionCount}</p>
+            {/* Card 2: Mahasiswa Aktif */}
+            <div className="group flex flex-col justify-between rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/30 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                    Mahasiswa Aktif
+                  </span>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 transition-transform group-hover:scale-110">
+                    <Users size={20} />
                   </div>
-                )}
+                </div>
+                <p className="mt-3 text-3xl font-extrabold text-gray-900">{totalStudentsCount} Orang</p>
+                <p className="mt-1 text-xs text-gray-500">Terdaftar di seluruh kelas mata kuliah ini</p>
               </div>
-            </LecturerPanel>
+              <button
+                type="button"
+                onClick={() => navigate("/mata-kuliah")}
+                className="mt-4 flex items-center justify-between border-t border-emerald-100/80 pt-3 text-xs font-bold text-emerald-600 transition-colors group-hover:text-emerald-800"
+              >
+                <span>Lihat Mata Kuliah</span>
+                <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+              </button>
+            </div>
+
+            {/* Card 3: Menunggu Evaluasi */}
+            <div className="group flex flex-col justify-between rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50/90 via-white to-amber-50/30 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-700">
+                    Menunggu Evaluasi
+                  </span>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700 transition-transform group-hover:scale-110">
+                    <FileCheck size={20} />
+                  </div>
+                </div>
+                <p className="mt-3 text-3xl font-extrabold text-gray-900">{totalPendingReviews} Jobsheet</p>
+                <p className="mt-1 text-xs text-gray-500">Submission mahasiswa butuh penilaian</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (pendingReviewSubmissions.length > 0 && selectedCourse) {
+                    const first = pendingReviewSubmissions[0]
+                    const params = new URLSearchParams({
+                      courseId: selectedCourse.id,
+                      classId: first.classId,
+                      jobsheetId: first.jobsheet.id,
+                    })
+                    navigate(`/reviews/${first.student.id}?${params.toString()}`)
+                  } else {
+                    navigate("/mata-kuliah")
+                  }
+                }}
+                className="mt-4 flex items-center justify-between border-t border-amber-100/80 pt-3 text-xs font-bold text-amber-600 transition-colors group-hover:text-amber-800"
+              >
+                <span>Mulai Review</span>
+                <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+              </button>
+            </div>
+
+            {/* Card 4: Deadline Terdekat */}
+            <div className="group flex flex-col justify-between rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50/90 via-white to-purple-50/30 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-purple-700">
+                    Deadline Terdekat
+                  </span>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-700 transition-transform group-hover:scale-110">
+                    <Clock size={20} />
+                  </div>
+                </div>
+                <p className="mt-3 text-base font-bold text-gray-900 truncate">
+                  {upcomingDeadlineJob
+                    ? `Jobsheet ${upcomingDeadlineJob.sequence || upcomingDeadlineJob.urutan || 1}`
+                    : "Tidak Ada Deadline"}
+                </p>
+                <p className="mt-1 text-xs font-medium text-purple-700 truncate">
+                  {upcomingDeadlineJob ? formatDeadlineLocal(upcomingDeadlineJob.deadline) : "Semua jobsheet aman"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate(`/mata-kuliah/${selectedCourse?.id}/jobsheets`)}
+                className="mt-4 flex items-center justify-between border-t border-purple-100/80 pt-3 text-xs font-bold text-purple-600 transition-colors group-hover:text-purple-800"
+              >
+                <span>Atur Jadwal</span>
+                <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+              </button>
+            </div>
           </section>
 
-          <section className="mt-6 grid gap-6 lg:grid-cols-2">
-            <LecturerPanel className="p-5">
-              <h2 className="mb-4 border-b border-gray-200 pb-3 text-lg font-semibold">Perlu Tindakan</h2>
-              <ul className="space-y-2 text-sm text-gray-700">
-                <li>{pendingReviewCount} laporan menunggu review dosen</li>
-                <li>{revisionCount} laporan sedang dalam status revisi</li>
-                <li>{matrix.filter((item) => !item.submission || item.submission.status === "DRAFT").length} laporan belum mulai</li>
-              </ul>
-            </LecturerPanel>
+          {/* Table Utama: Progres Pembelajaran Kelas */}
+          <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
+            <div className="mb-5 flex flex-col gap-1 border-b border-gray-100 pb-4">
+              <h2 className="text-lg font-bold text-gray-900">Progres Pembelajaran Kelas</h2>
+              <p className="text-xs text-gray-500">
+                Tabel pencapaian jobsheet terbit (aktif/selesai) per kelas dibandingkan total rencana jobsheet 1 semester pada mata kuliah <strong className="text-gray-800">{selectedCourse?.name}</strong>.
+              </p>
+            </div>
 
-            <LecturerPanel className="p-5">
-              <h2 className="mb-4 border-b border-gray-200 pb-3 text-lg font-semibold">Jobsheet Kelas Praktikum</h2>
-              <div className="space-y-3 text-sm">
-                {publishedJobsheets.length ? (
-                  publishedJobsheets
-                    .map((item) => (
-                      <div key={item.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3">
-                        <span className="truncate">{item.title || `Jobsheet ${item.number}`}</span>
-                        <span>{formatDeadlineLocal(item.deadline)}</span>
-                        <span>{item.submitted}/{item.total}</span>
-                      </div>
-                    ))
-                ) : (
-                  <p className="text-sm text-gray-500">Belum ada jobsheet aktif pada kelas ini.</p>
-                )}
-              </div>
-            </LecturerPanel>
-          </section>
+            {classLoading ? (
+              <p className="py-8 text-center text-sm text-gray-500">Memuat data progres kelas...</p>
+            ) : !classList.length ? (
+              <LecturerEmptyState title="Belum ada kelas praktikum untuk mata kuliah ini." />
+            ) : (
+              <LecturerTable headers={["No.", "Nama Kelas Praktikum", "Progres Pembelajaran Kelas", "Aksi Evaluasi"]}>
+                {classList.map((item, index) => {
+                  const percentage = Math.min(
+                    100,
+                    Math.round((item.publishedJobsheetCount / item.totalJobsheets) * 100),
+                  )
+
+                  return (
+                    <tr key={item.classId} className="hover:bg-blue-50/30 transition-colors">
+                      <td className="px-4 py-3.5 text-center text-sm font-medium text-gray-600">
+                        {index + 1}
+                      </td>
+                      <td className="px-4 py-3.5 text-center text-sm font-bold text-gray-900">
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-1 text-blue-800 border border-blue-200">
+                          <Layers size={14} /> Kelas {item.className}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <div className="flex flex-col items-center gap-1.5">
+                          <span className="text-sm font-bold text-blue-700">
+                            {item.publishedJobsheetCount}/{item.totalJobsheets} Jobsheet ({percentage}%)
+                          </span>
+                          <div className="h-2 w-36 overflow-hidden rounded-full bg-gray-100 border border-gray-200">
+                            <div
+                              className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-300"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <LecturerButton
+                          variant="secondary"
+                          onClick={() => setSelectedClassModal(item)}
+                        >
+                          Detail
+                        </LecturerButton>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </LecturerTable>
+            )}
+          </div>
         </>
       )}
-      {showProgressDetail && (
+
+      {/* Modal Detail Progres Kelas & Daftar Mahasiswa */}
+      {selectedClassModal && (
         <LecturerModal
-          title="Detail Progres Pembelajaran"
-          onClose={() => setShowProgressDetail(false)}
-          footer={<LecturerButton onClick={() => setShowProgressDetail(false)}>Tutup</LecturerButton>}
+          title={`Detail Progres Pembelajaran — Kelas ${selectedClassModal.className}`}
+          onClose={() => setSelectedClassModal(null)}
+          footer={
+            <LecturerButton onClick={() => setSelectedClassModal(null)}>Tutup Modal</LecturerButton>
+          }
+          size="lg"
         >
-          <div className="space-y-5">
-            <div className="grid gap-3 text-sm md:grid-cols-2">
-              <p>Mata Kuliah: <span className="font-semibold">{selectedCourse?.name ?? "-"}</span></p>
-              <p>Kelas: <span className="font-semibold">{selectedClass?.name ?? "-"}</span></p>
-              <p>Tahun Semester: <span className="font-semibold">{selectedCourse?.period ?? "-"}</span></p>
-              <p>Total Mahasiswa: <span className="font-semibold">{studentCount || selectedClass?.studentCount || 0}</span></p>
-              <p>Total Jobsheet: <span className="font-semibold">{publishedJobsheets.length}</span></p>
-              <p>Jobsheet Berjalan: <span className="font-semibold">{currentJobsheet ? `Jobsheet ${currentJobsheet.number} - ${currentJobsheet.title}` : "-"}</span></p>
-              <p>Mahasiswa Sudah Submit: <span className="font-semibold">{currentSubmittedCount} dari {studentCount || selectedClass?.studentCount || 0}</span></p>
+          <div className="space-y-6">
+            {/* Kartu Informasi Kelas */}
+            <div className="rounded-xl border border-blue-100 bg-gradient-to-r from-blue-50/80 via-white to-blue-50/40 p-4 text-sm text-gray-700 shadow-sm">
+              <h3 className="mb-3 text-base font-bold text-gray-900 flex items-center gap-2">
+                <GraduationCap size={18} className="text-blue-600" /> Informasi Detail Kelas
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg bg-white p-3 border border-gray-100">
+                  <span className="block text-xs font-semibold text-gray-400 uppercase">Mata Kuliah</span>
+                  <span className="font-bold text-gray-900">{selectedCourse?.name ?? "-"}</span>
+                </div>
+                <div className="rounded-lg bg-white p-3 border border-gray-100">
+                  <span className="block text-xs font-semibold text-gray-400 uppercase">Nama Kelas / Rombel</span>
+                  <span className="font-bold text-gray-900">Kelas {selectedClassModal.className}</span>
+                </div>
+                <div className="rounded-lg bg-white p-3 border border-gray-100">
+                  <span className="block text-xs font-semibold text-gray-400 uppercase">Jumlah Mahasiswa Aktif</span>
+                  <span className="font-bold text-gray-900">{selectedClassModal.students.length} Orang</span>
+                </div>
+                <div className="rounded-lg bg-white p-3 border border-gray-100">
+                  <span className="block text-xs font-semibold text-gray-400 uppercase">Pencapaian Perkuliahan Kelas</span>
+                  <span className="font-bold text-blue-700">
+                    {selectedClassModal.publishedJobsheetCount}/{selectedClassModal.totalJobsheets} Jobsheet Terbit
+                  </span>
+                </div>
+              </div>
             </div>
 
+            {/* Tabel Daftar Mahasiswa */}
             <div>
-              <h3 className="mb-2 text-sm font-semibold text-gray-900">Informasi Mahasiswa</h3>
-              <div className="max-h-52 overflow-auto rounded-md border border-gray-200">
-                <table className="w-full min-w-[640px] text-sm">
-                  <thead className="bg-gray-50 text-left text-gray-600">
-                    <tr>
-                      <th className="px-3 py-2">NIM</th>
-                      <th className="px-3 py-2">Nama Mahasiswa</th>
-                      <th className="px-3 py-2">Progres Keseluruhan</th>
-                      <th className="px-3 py-2">Jobsheet Terakhir</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {(selectedClass ? matrix : []).reduce<Array<{ id: string; nim: string; fullname: string; submitted: number; latest: string }>>((rows, item) => {
-                      const current = rows.find((row) => row.id === item.student.id)
-                      const submitted = isSubmittedSubmission(item.submission) ? 1 : 0
-                      const jobsheetName = item.submission ? (jobsheets.find((jobsheet) => jobsheet.id === item.jobsheet.id)?.title ?? item.jobsheet.title) : ""
-                      if (current) {
-                        current.submitted += submitted
-                        if (jobsheetName) current.latest = jobsheetName
-                        return rows
-                      }
-                      rows.push({
-                        id: item.student.id,
-                        nim: item.student.nim,
-                        fullname: item.student.fullname,
-                        submitted,
-                        latest: jobsheetName || "Belum Memulai",
-                      })
-                      return rows
-                    }, []).map((student) => (
-                      <tr key={student.id}>
-                        <td className="px-3 py-2 font-mono">{student.nim}</td>
-                        <td className="px-3 py-2">{student.fullname}</td>
-                        <td className="px-3 py-2">{student.submitted} dari {publishedJobsheets.length} jobsheet</td>
-                        <td className="px-3 py-2">{student.latest}</td>
+              <div className="mb-3 border-b border-gray-100 pb-2">
+                <h3 className="text-base font-bold text-gray-900">Daftar Mahasiswa & Progres Individual</h3>
+                <p className="text-xs text-gray-500">
+                  Progres mahasiswa dihitung dari total jobsheet yang telah dikumpulkan/disubmit dibandingkan total rencana jobsheet 1 semester ({selectedClassModal.totalJobsheets} Jobsheet).
+                </p>
+              </div>
+
+              {!selectedClassModal.students.length ? (
+                <p className="py-6 text-center text-sm text-gray-500">
+                  Belum ada mahasiswa terdaftar di kelas ini.
+                </p>
+              ) : (
+                <LecturerTable headers={["No.", "Nama & NIM Mahasiswa", "Jobsheet Diselesaikan", "Aksi Evaluasi"]}>
+                  {selectedClassModal.students.map((student, idx) => {
+                    const studentSubmissions = selectedClassModal.submissionMatrix.filter(
+                      (m) => m.student.id === student.id && isSubmittedSubmission(m.submission),
+                    )
+                    const completedCount = studentSubmissions.length
+                    const studentPct = Math.min(
+                      100,
+                      Math.round((completedCount / selectedClassModal.totalJobsheets) * 100),
+                    )
+
+                    return (
+                      <tr key={student.id} className="hover:bg-gray-50/80 transition-colors">
+                        <td className="px-4 py-3 text-center text-sm font-medium text-gray-600">
+                          {idx + 1}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
+                              {student.fullname[0]?.toUpperCase()}
+                            </span>
+                            <div>
+                              <span className="font-semibold text-gray-900">{student.fullname}</span>
+                              {student.nim && (
+                                <span className="ml-2 text-xs font-mono text-gray-500">({student.nim})</span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-sm font-bold text-blue-700">
+                              {completedCount}/{selectedClassModal.totalJobsheets} Jobsheet ({studentPct}%)
+                            </span>
+                            <div className="h-1.5 w-28 overflow-hidden rounded-full bg-gray-100 border border-gray-200">
+                              <div
+                                className="h-full bg-emerald-500 transition-all duration-300"
+                                style={{ width: `${studentPct}%` }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <LecturerButton
+                            variant="ghost"
+                            onClick={() => {
+                              const latestJob =
+                                selectedClassModal.jobsheets[selectedClassModal.jobsheets.length - 1]
+                              const params = new URLSearchParams({
+                                courseId: selectedCourse?.id || "",
+                                classId: selectedClassModal.classId,
+                              })
+                              if (latestJob) params.set("jobsheetId", latestJob.id)
+                              navigate(`/reviews/${student.id}?${params.toString()}`)
+                            }}
+                          >
+                            Detail Evaluasi
+                          </LecturerButton>
+                        </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="mb-2 text-sm font-semibold text-gray-900">Tabel Progres Jobsheet</h3>
-              <div className="overflow-auto rounded-md border border-gray-200">
-                <table className="w-full min-w-[560px] text-sm">
-                  <thead className="bg-gray-50 text-left text-gray-600">
-                    <tr>
-                      <th className="px-3 py-2">Nama Jobsheet</th>
-                      <th className="px-3 py-2">Status</th>
-                      <th className="px-3 py-2">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {publishedJobsheets.map((jobsheet) => {
-                      const related = matrix.filter((item) => item.jobsheet.id === jobsheet.id)
-                      const waitingReview = related.filter((item) => getSubmissionReviewStatus(item.submission) === "Terkumpul")
-                      const statusLabel = waitingReview.length
-                        ? "Menunggu Review"
-                        : related.some((item) => getSubmissionReviewStatus(item.submission) === "Dinilai")
-                          ? "Sudah Direview"
-                          : related.some((item) => isSubmittedSubmission(item.submission))
-                            ? "Sudah Dikumpulkan"
-                            : related.some((item) => item.submission)
-                              ? "Sedang Dikerjakan"
-                              : "Belum Dimulai"
-
-                      return (
-                        <tr key={jobsheet.id}>
-                          <td className="px-3 py-2">{jobsheet.title}</td>
-                          <td className="px-3 py-2">{statusLabel}</td>
-                          <td className="px-3 py-2">
-                            <LecturerButton
-                              variant="ghost"
-                              disabled={!waitingReview.length || !selectedCourse || !selectedClass}
-                              onClick={() => {
-                                const target = waitingReview[0]
-                                if (!target || !selectedCourse || !selectedClass) return
-                                const params = new URLSearchParams({
-                                  courseId: selectedCourse.id,
-                                  classId: selectedClass.id,
-                                  jobsheetId: jobsheet.id,
-                                  from: "dashboard-progress",
-                                })
-                                if (selectedScope.mataKuliahId) params.set("mataKuliahId", selectedScope.mataKuliahId)
-                                if (selectedScope.kelasPraktikumId) params.set("kelasPraktikumId", selectedScope.kelasPraktikumId)
-                                navigate(`/reviews/${target.student.id}?${params.toString()}`)
-                              }}
-                            >
-                              Review
-                            </LecturerButton>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                    )
+                  })}
+                </LecturerTable>
+              )}
             </div>
           </div>
         </LecturerModal>

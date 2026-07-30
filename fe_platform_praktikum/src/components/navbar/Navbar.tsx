@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { getNotifications } from "../../services/notification/service";
+import { useNavigate, useLocation } from "react-router-dom";
+import { getNotifications, markNotificationsAsRead } from "../../services/notification/service";
 import { useCurrentUser } from "../../services/user/useCurrentUser";
 import type { Notification } from "../../services/notification/types";
 import logo from "../../assets/logopolnep.jpg";
@@ -12,15 +12,14 @@ import DesktopNavbar from "./DesktopNavbar";
 const studentNavItems = [
   { to: "/dashboard", label: "Dashboard" },
   { to: "/mata-kuliah", label: "Mata Kuliah" },
-  { to: "/panduan", label: "Buku Panduan" },
 ]
 
 const lecturerNavItems = [
   { to: "/dashboard", label: "Dashboard" },
   { to: "/mata-kuliah", label: "Mata Kuliah" },
-  { to: "/monitoring", label: "Monitoring" },
-  { to: "/panduan", label: "Buku Panduan" },
 ]
+
+
 
 interface NavbarProps {
   navItems?: Array<{
@@ -35,6 +34,7 @@ export default function Navbar({
   mobileEnabled = true,
 }: NavbarProps) {
   const { user, setUser } = useCurrentUser();
+  const location = useLocation();
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -45,8 +45,19 @@ export default function Navbar({
   const navigate = useNavigate();
 
   const resolvedNavItems = navItems ?? (
-    user?.role === "DOSEN" ? lecturerNavItems : studentNavItems
+    user?.role === "DOSEN"
+      ? lecturerNavItems
+      : user?.role === "ADMIN"
+      ? []
+      : studentNavItems
   );
+
+  // Otomatis menutup semua popup menu (profile dropdown, notif, mobile sidebar) saat halaman/rute berpindah
+  useEffect(() => {
+    setProfileOpen(false);
+    setNotifOpen(false);
+    setMobileOpen(false);
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     if (!user) return;
@@ -60,10 +71,20 @@ export default function Navbar({
     fetchNotifications();
   }, [user]);
 
-  const handleMarkAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(n => ({ ...n, isRead: true}))
+  const handleMarkAllAsRead = async () => {
+    if (!user) return
+    setNotifications((prev) =>
+      prev.map((n) => ({ ...n, isRead: true }))
     )
+    await markNotificationsAsRead(user.id)
+  }
+
+  const handleMarkItemAsRead = async (id: string) => {
+    if (!user) return
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+    )
+    await markNotificationsAsRead(user.id)
   }
 
   const handleLogout = () => {
@@ -74,6 +95,20 @@ export default function Navbar({
     setProfileOpen(false)
     setMobileOpen(false)
     navigate("/")
+  }
+
+  const handleSettings = () => {
+    setProfileOpen(false)
+    setNotifOpen(false)
+    setMobileOpen(false)
+    navigate('/settings')
+  }
+
+  const handleGuide = () => {
+    setProfileOpen(false)
+    setNotifOpen(false)
+    setMobileOpen(false)
+    navigate('/panduan')
   }
 
   return (
@@ -117,13 +152,13 @@ export default function Navbar({
           setProfileOpen(false)
         }}
         onToggleProfile={() => {
-          if (window.innerWidth >= 768) {
-            setProfileOpen(!profileOpen)
-            setNotifOpen(false)
-          }
+          setProfileOpen(!profileOpen)
+          setNotifOpen(false)
         }}
         onMarkAllNotif={handleMarkAllAsRead}
-        onSettings={() => navigate('/settings')}
+        onMarkItemRead={handleMarkItemAsRead}
+        onGuide={handleGuide}
+        onSettings={handleSettings}
         onLogout={handleLogout}
       />
     </>

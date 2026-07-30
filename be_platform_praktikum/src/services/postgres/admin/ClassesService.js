@@ -375,15 +375,7 @@ class ClassesService {
     const nextPlan = hasPlanUpdate
       ? normalizeJobsheetPlan(payload.jumlahJobsheetRencana || payload.jumlah_jobsheet_rencana)
       : null;
-    if (nextPlan !== null) {
-      const created = await this._pool.query(
-        'SELECT COUNT(*)::int AS total FROM jobsheet_classes WHERE id_kelas_praktikum = $1',
-        [id],
-      );
-      if (nextPlan < created.rows[0].total) {
-        throw createClientError('Jumlah jobsheet rencana tidak boleh lebih kecil dari jumlah jobsheet yang sudah dibuat.', 400);
-      }
-    }
+
 
     let targetStatus = 'open';
     const norm = normalizeStatus(status);
@@ -454,6 +446,17 @@ class ClassesService {
 
   async deleteClass(id) {
     return this._academicDataService.deleteKelasPraktikumSafely(id);
+  }
+
+  async updateClassPlan(id, planCount) {
+    const plan = Math.max(1, parseInt(planCount, 10) || 1);
+    await this._pool.query(
+      `UPDATE kelas_praktikum
+       SET jumlah_jobsheet_rencana = $2
+       WHERE id = $1`,
+      [id, plan],
+    );
+    return { success: true, plan };
   }
 
   async ensureClassUnique({ id, courseId, name, academicPeriodId }, client = this._pool) {

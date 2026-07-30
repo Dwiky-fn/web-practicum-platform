@@ -42,7 +42,6 @@ export default function SubmissionValidationCard({
   savingDraft = false,
   readOnly = false,
 }: Props) {
-
   const [isDeclared, setIsDeclared] = useState(false)
 
   /* VALIDATION */
@@ -100,14 +99,12 @@ export default function SubmissionValidationCard({
 
   return (
     <div className="bg-white border rounded-xl shadow-sm p-6 space-y-5">
-
       <h3 className="font-semibold text-gray-800">
-        Validasi Laporan
+        Validasi Jobsheet
       </h3>
 
       {/* AUTO CHECKLIST */}
       <div className="space-y-3">
-
         <ValidationItem
           label="Semua percobaan sudah dikerjakan"
           valid={experimentValid}
@@ -128,12 +125,10 @@ export default function SubmissionValidationCard({
           }
           valid={conclusionValid}
         />
-
       </div>
 
       {/* DECLARATION */}
       <div className="border-t pt-4 space-y-3">
-
         <label className="flex items-start gap-3 text-sm text-gray-700">
           <input
             type="checkbox"
@@ -143,10 +138,9 @@ export default function SubmissionValidationCard({
             className="mt-1"
           />
           <span>
-            Saya menyatakan bahwa laporan ini merupakan hasil pekerjaan saya sendiri
+            Saya menyatakan bahwa jobsheet ini merupakan hasil pekerjaan saya sendiri
           </span>
         </label>
-
       </div>
 
       {/* STATUS TEXT */}
@@ -157,7 +151,7 @@ export default function SubmissionValidationCard({
           </p>
         ) : isAllValid ? (
           <p className="text-sm text-green-600 font-medium">
-            Laporan siap dikirim
+            Jobsheet siap dikirim
           </p>
         ) : (
           <p className="text-sm text-red-500">
@@ -188,10 +182,9 @@ export default function SubmissionValidationCard({
             }
           `}
         >
-          {submitting ? "Mengirim..." : "Submit Laporan"}
+          {submitting ? "Mengirim..." : "Submit Jobsheet"}
         </button>
       </div>
-
     </div>
   )
 }

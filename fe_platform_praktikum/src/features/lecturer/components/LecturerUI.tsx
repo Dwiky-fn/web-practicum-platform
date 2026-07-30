@@ -67,16 +67,22 @@ export function NativeSelect({
   children,
   label,
   className = "",
+  labelClassName = "text-gray-500",
 }: {
   value: string
   onChange: (value: string) => void
   children: React.ReactNode
-  label: string
+  label?: string
   className?: string
+  labelClassName?: string
 }) {
   return (
     <label className={`block min-w-0 ${className}`}>
-      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</span>
+      {label && (
+        <span className={`mb-1 block text-xs font-semibold uppercase tracking-wide ${labelClassName}`}>
+          {label}
+        </span>
+      )}
       <div className="relative">
         <select
           value={value}

@@ -20,6 +20,21 @@ class NotificationsHandler {
       return next(error);
     }
   }
+
+  async markNotificationsAsReadHandler(req, res, next) {
+    try {
+      const { userId } = req.params;
+
+      await this._service.markAsRead(userId);
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'Notifikasi berhasil ditandai sebagai dibaca',
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
 }
 
 module.exports = NotificationsHandler;

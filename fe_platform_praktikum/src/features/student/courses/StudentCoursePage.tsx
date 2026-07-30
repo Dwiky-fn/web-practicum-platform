@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, Sparkles, BookOpen } from "lucide-react";
 import { useCurrentUser } from "../../../services/user/useCurrentUser";
 import { getCoursesByStudentId } from "../../../services/course/service";
 import { useNavigate } from "react-router-dom";
@@ -9,6 +9,7 @@ import Navbar from "../../../components/navbar/Navbar";
 import CourseCardSkeleton from "../../../components/loading/CourseSkeleton";
 import CourseCard from "../../../components/CourseCard";
 import TopProgressBar from "../../../components/loading/TopProgressBar";
+import ScrollToTopButton from "../../../components/ScrollToTopButton";
 
 export default function StudentCoursePage() {
   const { user } = useCurrentUser();
@@ -60,42 +61,40 @@ export default function StudentCoursePage() {
       <Navbar />
       <TopProgressBar />
 
-      <main className="max-w-7xl mx-auto px-10 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-8 space-y-6">
         {error && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
             {error}
           </div>
         )}
 
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-          {/* Left */}
-          <div>
-            <h1 className="text-2xl font-semibold">
-              Mata Kuliah Saya
-            </h1>
-            <p className="text-gray-500 text-sm mt-1">
-              {courses.length} Mata Kuliah Terdaftar
-            </p>
-          </div>
+        {/* Hero Banner Panel */}
+        <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-800 p-6 text-white shadow-lg">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-200">
+                <Sparkles size={16} className="text-yellow-400" />
+                Mata Kuliah Praktikum Mahasiswa
+              </div>
+              <h1 className="mt-1 text-2xl font-bold text-white flex items-center gap-2">
+                Mata Kuliah Saya
+              </h1>
+              <p className="text-xs text-blue-200 mt-0.5">
+                Total {courses.length} mata kuliah praktikum terdaftar pada semester aktif.
+              </p>
+            </div>
 
-          {/* Right - Search */}
-          <div className="relative w-full md:w-80">
-            <input
-              type="search"
-              value={keyword}
-              placeholder="Cari mata kuliah..."
-              className="w-full border border-gray-200 rounded-lg px-4 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onChange={(e) => setKeyword(e.target.value)}
-            />
-
-            <button
-              type="button"
-              aria-label="Cari mata kuliah"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600 active:text-blue-600 transition"
-            >
-              <Search size={18} />
-            </button>
+            {/* Search Input inside Banner */}
+            <div className="relative w-full md:w-80">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                value={keyword}
+                placeholder="Cari mata kuliah..."
+                className="w-full rounded-xl border border-white/20 bg-white/10 py-2 pl-9 pr-4 text-xs font-medium text-white placeholder-blue-200 backdrop-blur-md focus:border-white focus:outline-none"
+                onChange={(e) => setKeyword(e.target.value)}
+              />
+            </div>
           </div>
         </div>
 
@@ -107,12 +106,14 @@ export default function StudentCoursePage() {
             ))}
           </div>
         ) : courses.length === 0 ? (
-          <div className="bg-white rounded-2xl p-6 shadow-sm text-gray-500">
-            Belum ada mata kuliah.
+          <div className="rounded-2xl border border-gray-200/80 bg-white p-12 text-center text-gray-500 shadow-sm">
+            <BookOpen className="mx-auto h-12 w-12 text-gray-300 mb-2" />
+            <p className="text-sm font-bold text-gray-700">Belum ada mata kuliah yang terdaftar.</p>
           </div>
         ) : filteredCourses.length === 0 ? (
-          <div className="bg-white rounded-2xl p-6 shadow-sm text-gray-500">
-            Mata kuliah tidak ditemukan.
+          <div className="rounded-2xl border border-gray-200/80 bg-white p-12 text-center text-gray-500 shadow-sm">
+            <Search className="mx-auto h-12 w-12 text-gray-300 mb-2" />
+            <p className="text-sm font-bold text-gray-700">Mata kuliah tidak ditemukan.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -126,6 +127,8 @@ export default function StudentCoursePage() {
           </div>
         )}
       </main>
+
+      <ScrollToTopButton />
     </div>
   )
 }

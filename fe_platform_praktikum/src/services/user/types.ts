@@ -7,6 +7,8 @@ export interface StudentProfile {
   angkatan: number;
   semester: number;
   status: string;
+  kelas?: string;
+  nama_kelas?: string;
 }
 
 export interface LecturerProfile {
@@ -48,36 +50,45 @@ export interface UserResponse {
   full_name?: string
   email: string
   role: Role
-  is_active: boolean
-  created_at: string
+  is_active?: boolean
+  isActive?: boolean
+  created_at?: string
+  createdAt?: string
   avatar_url?: string
-  nim?: string
-  nip?: string
-  program_studi?: string
-  jurusan?: string
-  angkatan?: number
-  semester?: number
-  status?: string
-  student_status?: string
-  no_telepon?: string
-  tempat_lahir?: string
-  tanggal_lahir?: string
-  kota?: string
+  avatarUrl?: string
+  nim?: string;
+  nip?: string;
+  program_studi?: string;
+  programStudi?: string;
+  jurusan?: string;
+  angkatan?: number;
+  semester?: number;
+  status?: string;
+  student_status?: string;
+  lp_no_telepon?: string;
+  lp_tempat_lahir?: string;
+  lp_tanggal_lahir?: string;
+  lp_kota?: string;
+  no_telepon?: string;
+  tempat_lahir?: string;
+  tanggal_lahir?: string;
+  kota?: string;
+  kelas?: string;
 }
 
 export interface UpdateUserPayload {
-  isActive?: boolean
-  avatarUrl?: string
-  personalData?: Partial<PersonalData>
-}
-
-export interface UpdateEmailPayload {
-  email: string
-  currentPassword: string
+  fullname?: string;
+  full_name?: string;
+  avatarUrl?: string;
+  no_telepon?: string;
+  tempat_lahir?: string;
+  tanggal_lahir?: string;
+  kota?: string;
+  personalData?: Partial<PersonalData>;
 }
 
 export interface UpdatePasswordPayload {
-  currentPassword: string
-  newPassword: string
-  confirmPassword: string
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword?: string;
 }

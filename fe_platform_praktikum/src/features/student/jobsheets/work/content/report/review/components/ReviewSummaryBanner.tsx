@@ -19,7 +19,7 @@ export default function ReviewSummaryBanner({ feedbacks, onClickItem }: Props) {
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 text-amber-800 text-sm shadow-xs">
         <ShieldCheck size={18} className="text-amber-600 shrink-0" />
         <div>
-          <span className="font-semibold">Review Berlangsung:</span> Laporan sedang diperiksa oleh Dosen. Feedback akan muncul setelah dipublikasikan.
+          <span className="font-semibold">Review Berlangsung:</span> Jobsheet sedang diperiksa oleh Dosen. Feedback akan muncul setelah dipublikasikan.
         </div>
       </div>
     )
@@ -29,10 +29,10 @@ export default function ReviewSummaryBanner({ feedbacks, onClickItem }: Props) {
     <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div>
         <h4 className="font-semibold text-gray-800 text-sm md:text-base">
-          Ringkasan Review Laporan
+          Ringkasan Review Jobsheet
         </h4>
         <p className="text-xs text-gray-500 mt-1">
-          Dosen telah mempublikasikan review untuk laporan praktikum Anda. Klik salah satu kategori untuk menuju detailnya.
+          Dosen telah mempublikasikan review untuk jobsheet praktikum Anda. Klik salah satu kategori untuk menuju detailnya.
         </p>
       </div>
 

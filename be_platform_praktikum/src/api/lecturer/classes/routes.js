@@ -30,6 +30,13 @@ const routes = (handler) => {
     handler.getClassByIdHandler,
   );
 
+  router.patch(
+    '/lecturer/kelas-praktikum/:id/plan',
+    requireAuth,
+    requireRoles('DOSEN'),
+    handler.updateClassPlanHandler,
+  );
+
   return router;
 };
 

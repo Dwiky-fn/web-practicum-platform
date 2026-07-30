@@ -24,7 +24,6 @@ import {
   deleteAdminUser,
   getAdminSemesters,
   getAdminUsers,
-  getAdminDepartments,
 } from "../../../services/admin/service"
 import { toast } from "../../../components/toast/toastStore"
 import type {
@@ -32,7 +31,6 @@ import type {
   AdminLecturer,
   AdminStudent,
   UserRoleTab,
-  Department,
 } from "../../../services/admin/types"
 import {
   getActiveSemester,
@@ -162,10 +160,6 @@ export default function AdminUsersPage() {
     )
   }
 
-  // Department & Study Program states
-  const [departments, setDepartments] = useState<Department[]>([])
-  const [selectedDeptId, setSelectedDeptId] = useState("dept-3")
-  const [selectedProdiId, setSelectedProdiId] = useState("prodi-8")
 
   // Drag & Drop Import File states & ref
   const [isDraggingFile, setIsDraggingFile] = useState(false)
@@ -321,21 +315,7 @@ export default function AdminUsersPage() {
   }, [])
 
   useEffect(() => {
-    async function fetchDepartments() {
-      try {
-        const data = await getAdminDepartments()
-        setDepartments(data)
-      } catch {
-        toast.error("Gagal memuat data jurusan dan program studi.")
-      }
-    }
-    fetchDepartments()
-  }, [])
-
-  useEffect(() => {
     if (!modal) {
-      setSelectedDeptId("dept-3")
-      setSelectedProdiId("prodi-8")
       setImportFile(null)
       setIsDraggingFile(false)
       setImportFileError("")
@@ -366,7 +346,6 @@ export default function AdminUsersPage() {
           angkatan: Number(form.get("angkatan") || 0),
           semester: Number(form.get("semester") || 0),
           status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
-          studyProgramId: selectedProdiId,
           isTransferStudent: form.get("isTransferStudent") === "on",
           transferOriginSemester: Number(form.get("transferOriginSemester") || 0) || undefined,
           transferReason: String(form.get("transferReason") || ""),
@@ -687,45 +666,7 @@ export default function AdminUsersPage() {
                   </FieldRow>
                 </div>
               </div>
-              <FieldRow label="Jurusan">
-                <select
-                  className={inputClass}
-                  value={selectedDeptId}
-                  onChange={(e) => {
-                    setSelectedDeptId(e.target.value)
-                    setSelectedProdiId("")
-                  }}
-                  required
-                >
-                  <option value="" disabled>Pilih Jurusan</option>
-                  {departments.map((dept) => (
-                    <option key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </option>
-                  ))}
-                </select>
-              </FieldRow>
-              <FieldRow label="Program Studi">
-                <select
-                  className={inputClass}
-                  value={selectedProdiId}
-                  onChange={(e) => setSelectedProdiId(e.target.value)}
-                  disabled={!selectedDeptId}
-                  required
-                >
-                  <option value="" disabled>
-                    Pilih Program Studi
-                  </option>
-                  {(
-                    departments.find((d) => d.id === selectedDeptId)
-                      ?.studyPrograms || []
-                  ).map((prodi) => (
-                    <option key={prodi.id} value={prodi.id}>
-                      {prodi.name}
-                    </option>
-                  ))}
-                </select>
-              </FieldRow>
+
             </>
           )}
           <FieldRow label="Email">

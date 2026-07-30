@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
-import { ExternalLink, RefreshCw, User, MapPin, Activity, Settings } from "lucide-react"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
+import { User, MapPin, Activity } from "lucide-react"
 import type { JSONContent } from "@tiptap/react"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
 import { toast } from "../../../components/toast/toastStore"
@@ -266,7 +266,6 @@ export default function LecturerStudentWorkpagePage() {
   const remedialId = params.get("remedialId")
   const [data, setData] = useState<WorkpageResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
   const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null)
   const [liveStatus, setLiveStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("disconnected")
   const [studentOnline, setStudentOnline] = useState(false)
@@ -279,8 +278,7 @@ export default function LecturerStudentWorkpagePage() {
   monitoringParams.set("tab", "monitoring")
   const monitoringPath = `/jobsheets/${jobsheetId}?${monitoringParams.toString()}`
 
-  const loadData = useCallback(async (silent = false) => {
-    if (!silent) setRefreshing(true)
+  const loadData = useCallback(async (_silent = false) => {
     try {
       const next = await getStudentMonitoringWorkpage(kelasPraktikumId, jobsheetId, studentId, attemptType, remedialId)
       setData(next)
@@ -289,7 +287,6 @@ export default function LecturerStudentWorkpagePage() {
       toast.error(error instanceof Error ? error.message : "Gagal memuat pengerjaan mahasiswa.")
     } finally {
       setLoading(false)
-      setRefreshing(false)
     }
   }, [attemptType, jobsheetId, kelasPraktikumId, remedialId, studentId])
 
@@ -517,24 +514,7 @@ export default function LecturerStudentWorkpagePage() {
   reviewParams.set("submissionId", workData.submission.id ?? "")
   reviewParams.set("jobsheetId", jobsheetId)
   reviewParams.set("kelasPraktikumId", kelasPraktikumId)
-  reviewParams.set("classId", params.get("classId") || kelasPraktikumId)
-  reviewParams.set("courseId", params.get("courseId") || "monitoring")
-  reviewParams.set("attemptType", workData.attemptScope.attemptType)
-  if (workData.submission.attemptNo) reviewParams.set("attemptNo", String(workData.submission.attemptNo))
-  if (workData.attemptScope.remedialId) reviewParams.set("remedialId", workData.attemptScope.remedialId)
-  reviewParams.set("from", "monitor")
-  const reviewPath = workData.submission.id ? `/reviews/${workData.student.studentId}?${reviewParams.toString()}` : ""
   const currentLocation = workData.progress.currentLocation
-
-  function handleAttemptChange(value: string) {
-    const nextParams = new URLSearchParams(location.search)
-    const selected = workData.attempts.find((attempt) => `${attempt.attemptType}:${attempt.remedialId ?? ""}` === value)
-    if (!selected) return
-    nextParams.set("attemptType", selected.attemptType)
-    if (selected.remedialId) nextParams.set("remedialId", selected.remedialId)
-    else nextParams.delete("remedialId")
-    navigate(`${basePath}?${nextParams.toString()}`)
-  }
 
   function renderMainContent() {
     if (route.section === "theory") {
@@ -653,7 +633,7 @@ export default function LecturerStudentWorkpagePage() {
             </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-2">
           {/* Card 1: Mahasiswa */}
           <div className="flex flex-col justify-between p-2 bg-white rounded border border-gray-200 shadow-xs">
             <div className="flex items-center justify-between">
@@ -712,71 +692,6 @@ export default function LecturerStudentWorkpagePage() {
             </div>
             <div className="mt-1.5 text-[9px] font-semibold text-gray-400">
               Sesi: {data.attemptScope.label}
-            </div>
-          </div>
-
-          {/* Card 4: Aksi & Sesi */}
-          <div className="flex flex-col justify-between p-2 bg-white rounded border border-gray-200 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Aksi & Sesi</span>
-              <Settings className="h-3.5 w-3.5 text-purple-500" />
-            </div>
-            <div className="mt-1 space-y-1.5">
-              {data.attempts.length > 1 ? (
-                <select
-                  value={`${data.attemptScope.attemptType}:${data.attemptScope.remedialId ?? ""}`}
-                  onChange={(event) => handleAttemptChange(event.target.value)}
-                  className="w-full h-6 rounded border border-gray-200 bg-white px-1.5 py-0 text-[10px] font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  {data.attempts.map((attempt) => (
-                    <option key={`${attempt.attemptType}:${attempt.remedialId ?? ""}`} value={`${attempt.attemptType}:${attempt.remedialId ?? ""}`}>
-                      {attempt.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="w-full h-6 flex items-center justify-center rounded bg-gray-50 border border-gray-100 text-[10px] font-semibold text-gray-500 px-1.5">
-                  {data.attemptScope.label}
-                </div>
-              )}
-              <div className="grid grid-cols-3 gap-0.5">
-                <button
-                  type="button"
-                  onClick={() => loadData()}
-                  title="Refresh Data"
-                  className="inline-flex h-6 items-center justify-center gap-0.5 rounded border border-gray-200 bg-white text-[10px] font-bold text-gray-700 hover:bg-gray-50 cursor-pointer"
-                >
-                  <RefreshCw className={`h-2.5 w-2.5 ${refreshing ? "animate-spin" : ""}`} />
-                  <span className="sr-only lg:not-sr-only">Refresh</span>
-                </button>
-                {reviewPath ? (
-                  <Link
-                    to={reviewPath}
-                    title="Buka Review"
-                    className="inline-flex h-6 items-center justify-center gap-0.5 rounded bg-blue-600 text-[10px] font-bold text-white hover:bg-blue-700 cursor-pointer text-center"
-                  >
-                    <ExternalLink className="h-2.5 w-2.5" />
-                    <span className="sr-only lg:not-sr-only">Review</span>
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    title="Belum ada pengerjaan."
-                    className="inline-flex h-6 cursor-not-allowed items-center justify-center gap-0.5 rounded bg-gray-50 text-[10px] font-bold text-gray-400 border border-gray-200"
-                  >
-                    <ExternalLink className="h-2.5 w-2.5" />
-                    <span className="sr-only lg:not-sr-only">Review</span>
-                  </button>
-                )}
-                <Link
-                  to={monitoringPath}
-                  title="Kembali ke Monitoring Mahasiswa"
-                  className="inline-flex h-6 items-center justify-center gap-0.5 rounded border border-gray-200 bg-white text-[10px] font-bold text-gray-700 hover:bg-gray-50 cursor-pointer text-center"
-                >
-                  <span className="sr-only lg:not-sr-only">Kembali</span>
-                </Link>
-              </div>
             </div>
           </div>
         </div>

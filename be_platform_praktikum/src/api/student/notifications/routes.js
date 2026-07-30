@@ -6,8 +6,14 @@ const routes = (handler) => {
 
   router.get(
     '/users/:userId/notifications',
-    requireSelfOrRoles('ADMIN'),
+    requireSelfOrRoles('ADMIN', 'DOSEN', 'MAHASISWA'),
     handler.getNotificationsHandler,
+  );
+
+  router.patch(
+    '/users/:userId/notifications/read',
+    requireSelfOrRoles('ADMIN', 'DOSEN', 'MAHASISWA'),
+    handler.markNotificationsAsReadHandler,
   );
 
   return router;

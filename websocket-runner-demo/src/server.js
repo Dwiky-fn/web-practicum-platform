@@ -11,6 +11,10 @@ const PORT = process.env.PORT || 4000;
 
 wss.on('connection', handleSocketConnection);
 
+app.get("/", (req, res) => {
+  res.send("Code Runner Service Running");
+});
+
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

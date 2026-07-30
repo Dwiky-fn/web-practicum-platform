@@ -12,7 +12,7 @@ import {
   RefreshCw,
   Save,
   X,
-  UserCheck
+  UserCheck,
 } from "lucide-react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import StudentProfileModal from "../components/StudentProfileModal"
@@ -751,8 +751,7 @@ export default function LecturerJobsheetDetailPage() {
       </button>
 
       <PageHeader
-        title={jobsheet ? `Detail Jobsheet ${jobsheet.title}` : "Detail Jobsheet"}
-        subtitle={jobsheet ? `${jobsheet.programmingLanguageDisplayName} - Status: ${jobsheet.status}` : undefined}
+        title={jobsheet ? jobsheet.title : "Detail Jobsheet"}
       />
 
       {error && (
@@ -1014,7 +1013,7 @@ export default function LecturerJobsheetDetailPage() {
                 {!sortedAndFilteredProgressStudents.length ? (
                   <LecturerEmptyState title="Tidak ada mahasiswa yang cocok dengan filter saat ini." />
                 ) : (
-                  <LecturerTable headers={["Nama Mahasiswa", "NIM", "Status", "Posisi Terakhir", "Kemajuan", "Progres", "Aktivitas Terakhir", "Aksi"]}>
+                  <LecturerTable headers={["Nama Mahasiswa", "NIM", "Status", "Posisi Terakhir", "Kemajuan", "Aktivitas Terakhir", "Aksi"]}>
                     {sortedAndFilteredProgressStudents.map((student) => (
                       <tr key={student.student_id}>
                         <td className="px-4 py-3">
@@ -1065,12 +1064,6 @@ export default function LecturerJobsheetDetailPage() {
                             </div>
                             <span className="text-xs font-bold text-gray-600">{Math.round(student.progress_percentage)}%</span>
                           </div>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className="font-semibold text-gray-800">
-                            {formatNumber(student.progress_score)}
-                          </span>
-                          <span className="ml-1 text-xs text-gray-500">/ 100</span>
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-600" title={student.last_activity_at ? formatAcademicDateTime(student.last_activity_at) : "-"}>
                           {formatRelativeTime(student.last_activity_at)}
@@ -1366,7 +1359,7 @@ export default function LecturerJobsheetDetailPage() {
               ) : studentDetail ? (
                 <>
                   {/* Summary Block */}
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-blue-50/50 border border-blue-100 p-4 rounded-xl">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-blue-50/50 border border-blue-100 p-4 rounded-xl">
                     <div className="text-center md:text-left">
                       <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</span>
                       <div className="mt-1">
@@ -1377,12 +1370,6 @@ export default function LecturerJobsheetDetailPage() {
                       <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Kemajuan</span>
                       <span className="block mt-1 font-bold text-gray-800 text-lg">
                         {Math.round(studentDetail.progress.progress_percentage)}%
-                      </span>
-                    </div>
-                    <div className="text-center md:text-left">
-                      <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Progres</span>
-                      <span className="block mt-1 font-bold text-gray-800 text-lg">
-                        {formatNumber(studentDetail.progressScore?.progressScore)} / 100
                       </span>
                     </div>
                     <div className="text-center md:text-left">

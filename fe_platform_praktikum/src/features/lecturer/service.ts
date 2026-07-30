@@ -214,8 +214,21 @@ export function isSubmittedSubmission(submission: JobsheetSubmission | null) {
 }
 
 export async function getLecturerCourseGroups(options: { scope?: "active" | "history" } = {}): Promise<LecturerCourseGroup[]> {
-  const response = await apiFetch(`/lecturer/kelas-praktikum${options.scope === "history" ? "?scope=history" : ""}`)
-  const lecturerClasses = response.data.classes as AcademicClass[]
+  const scope = options.scope || "active"
+  const response = await apiFetch(`/lecturer/kelas-praktikum?scope=${scope}`)
+  let lecturerClasses = (response.data.classes || []) as AcademicClass[]
+
+  if (scope === "active") {
+    lecturerClasses = lecturerClasses.filter((c) => {
+      const st = String(c.tahun_semester_status || (c as any).tahunSemesterStatus || "active").toLowerCase()
+      return st === "active" || st === "aktif"
+    })
+  } else if (scope === "history") {
+    lecturerClasses = lecturerClasses.filter((c) => {
+      const st = String(c.tahun_semester_status || (c as any).tahunSemesterStatus || "").toLowerCase()
+      return st !== "active" && st !== "aktif"
+    })
+  }
 
   const detailedClasses = await Promise.all(
     lecturerClasses.map(async (classItem) => {

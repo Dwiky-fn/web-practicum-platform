@@ -45,18 +45,15 @@ function resolveStudentMonitoringStatus(context = {}) {
     };
   }
 
-  const hasProgressOrActivity = Boolean(
-    context.firstOpenedAt
-    || context.lastActivityAt
-    || context.lastActivity
-    || context.latestActivityLogAt
-    || context.currentExperimentId
+  const hasRealProgressOrPosition = Boolean(
+    context.currentExperimentId
     || context.currentInstructionId
     || Number(context.progressPercentage || 0) > 0
-    || Number(context.completedSteps || 0) > 0,
+    || Number(context.completedSteps || 0) > 0
+    || (Array.isArray(context.completedItems) && context.completedItems.length > 0),
   );
 
-  if (hasProgressOrActivity) {
+  if (hasRealProgressOrPosition) {
     return {
       status: 'in_progress',
       label: 'Mengerjakan',
@@ -635,7 +632,7 @@ class StudentJobsheetProgressService {
         } else {
           currentPositionTitle = 'Detail';
         }
-      } else if (student.first_opened_at || student.last_activity_at || student.last_activity || student.latest_activity_log_at) {
+      } else if (monitoringStatus.status === 'in_progress') {
         currentPositionTitle = 'Aktivitas tersimpan';
       }
 
@@ -802,16 +799,20 @@ class StudentJobsheetProgressService {
     });
 
     // 4. Fetch activity logs
-    const logsRes = await this._pool.query(
-      `SELECT experiment_id, instruction_id, activity_type, metadata, created_at
-       FROM student_jobsheet_activity_logs
-       WHERE student_id = $1
-         AND jobsheet_id = $2
-         AND activity_type NOT IN ('workspace_opened', 'workspace_closed')
-       ORDER BY created_at DESC
-       LIMIT 30`,
-      [studentId, jobsheetId],
-    );
+    const isNotStarted = progressInfo.status === 'not_started' || Number(progressInfo.progress_percentage || 0) === 0;
+    const logsRes = isNotStarted
+      ? { rows: [] }
+      : await this._pool.query(
+        `SELECT experiment_id, instruction_id, activity_type, metadata, created_at
+         FROM student_jobsheet_activity_logs
+         WHERE student_id = $1
+           AND jobsheet_id = $2
+           AND COALESCE(remedial_id, '') = COALESCE($3, '')
+           AND activity_type NOT IN ('workspace_opened', 'workspace_closed')
+         ORDER BY created_at DESC
+         LIMIT 30`,
+        [studentId, jobsheetId, progressInfo.remedial_id || ''],
+      );
 
     const logs = logsRes.rows.map((log) => {
       let description = `Aktivitas: ${log.activity_type}`;

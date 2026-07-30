@@ -4,4 +4,6 @@ export interface Notification {
   title: string
   message: string
   isRead: boolean
+  target_url?: string
+  targetUrl?: string
 }

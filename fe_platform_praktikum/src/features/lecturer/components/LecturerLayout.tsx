@@ -8,7 +8,6 @@ const LecturerLayoutContext = createContext(false)
 const lecturerNavItems = [
   { to: "/dashboard", label: "Dashboard" },
   { to: "/mata-kuliah", label: "Mata Kuliah" },
-  { to: "/monitoring", label: "Monitoring" },
 ]
 
 export default function LecturerLayout({ children }: { children: React.ReactNode }) {

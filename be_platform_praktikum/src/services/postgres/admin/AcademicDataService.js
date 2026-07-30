@@ -591,11 +591,16 @@ class AcademicDataService {
     if (filters.semester_parity === 'genap' || filters.semester_parity === 'even') {
       where += ' AND MOD(s.semester, 2) = 0';
     }
+    if (filters.study_program_id || filters.studyProgramId) {
+      params.push(filters.study_program_id || filters.studyProgramId);
+      where += ` AND mk.study_program_id = $${params.length}`;
+    }
     const result = await this._pool.query(`
-      SELECT mk.*, k.nama_kurikulum, s.semester
+      SELECT mk.*, k.nama_kurikulum, s.semester, sp.name AS nama_prodi
       FROM mata_kuliah mk
       JOIN kurikulum k ON k.id = mk.id_kurikulum
       JOIN semester s ON s.id = mk.id_semester
+      LEFT JOIN study_programs sp ON sp.id = mk.study_program_id
       ${where}
       ORDER BY s.semester ASC, mk.nama_mk ASC
     `, params);
@@ -605,14 +610,15 @@ class AcademicDataService {
   async createMataKuliah(payload) {
     const client = await this._pool.connect();
     const id = payload.id || createId('mkb');
+    const studyProgramId = payload.study_program_id || payload.studyProgramId || 'prodi-8';
     try {
       await client.query('BEGIN');
       await this._ensureExists(client, 'kurikulum', payload.id_kurikulum, 'KURIKULUM_NOT_FOUND');
       await this._ensureExists(client, 'semester', payload.id_semester, 'MASTER_SEMESTER_NOT_FOUND');
       await client.query(
-        `INSERT INTO mata_kuliah (id, kode_mk, nama_mk, sks, tipe, id_kurikulum, id_semester)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [id, payload.kode_mk, payload.nama_mk, Number(payload.sks), normalizeCourseType(payload.tipe), payload.id_kurikulum, payload.id_semester],
+        `INSERT INTO mata_kuliah (id, kode_mk, nama_mk, sks, tipe, id_kurikulum, id_semester, study_program_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [id, payload.kode_mk, payload.nama_mk, Number(payload.sks), normalizeCourseType(payload.tipe), payload.id_kurikulum, payload.id_semester, studyProgramId],
       );
       await client.query('COMMIT');
       return (await this.getMataKuliah()).find((item) => item.id === id);

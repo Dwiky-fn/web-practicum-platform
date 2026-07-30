@@ -12,17 +12,17 @@ export default function SummaryCard({
   icon,
 }: SummaryCardProps) {
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm flex items-center justify-between">
-      <div>
-        <p className="text-sm text-gray-500">{title}</p>
-        <p className="text-2xl font-semibold mt-2">{value}</p>
+    <div className="group flex flex-col justify-between rounded-2xl border border-blue-100/80 bg-gradient-to-br from-blue-50/80 via-white to-blue-50/20 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold uppercase tracking-wider text-blue-700">{title}</span>
+        {icon && (
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700 transition-transform group-hover:scale-110">
+            {icon}
+          </div>
+        )}
       </div>
 
-      {icon && (
-        <div className="text-blue-600">
-          {icon}
-        </div>
-      )}
+      <p className="mt-3 text-3xl font-extrabold text-gray-900">{value}</p>
     </div>
   );
 }

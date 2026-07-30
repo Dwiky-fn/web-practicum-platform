@@ -393,6 +393,13 @@ class MonitoringService {
          ORDER BY id DESC
          LIMIT 1
        ) sr ON true
+       LEFT JOIN LATERAL (
+         SELECT 1 AS has_activity_log
+         FROM student_jobsheet_activity_logs
+         WHERE student_id = km.id_mahasiswa
+           AND jobsheet_id = $2
+         LIMIT 1
+       ) sjal ON true
        WHERE kp.id = $1
        ORDER BY u.fullname ASC`,
       params,
@@ -462,7 +469,17 @@ class MonitoringService {
     if (student.submission_status === 'SUBMITTED') {
       return student.is_auto_submitted ? 'Dikumpulkan Otomatis' : 'Dikumpulkan Manual';
     }
-    if (student.first_opened_at || student.last_activity_at || student.last_activity) return 'Sedang Mengerjakan';
+    const hasRealProgressOrPosition = Boolean(
+      student.current_experiment_id ||
+      student.current_instruction_id ||
+      student.module_id ||
+      (student.progress_percentage != null && Number(student.progress_percentage) > 0) ||
+      (student.progress != null && Number(student.progress) > 0) ||
+      (Array.isArray(student.completed_items) && student.completed_items.length > 0)
+    );
+    if (hasRealProgressOrPosition) {
+      return 'Sedang Mengerjakan';
+    }
     return 'Belum Memulai';
   }
 
@@ -754,8 +771,9 @@ class MonitoringService {
         elsewhere: 'Berada di Lokasi Lain',
       };
       return {
-        ...this._publicStudent(student, labelMap[rawStatus]),
+        ...this._publicStudent(student),
         locationStatus: rawStatus,
+        locationStatusLabel: labelMap[rawStatus],
         progressScore: student.calculated_progress_score != null ? Number(student.calculated_progress_score) : null,
         submissionId: student.submission_id || null,
         submissionStatus: student.submission_status || null,

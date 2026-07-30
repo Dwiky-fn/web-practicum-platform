@@ -474,7 +474,6 @@ export default function AdminClassDetailPage() {
               ) : (
                 <EmptyState
                   title="Belum ada mahasiswa di kelas ini"
-                  action={<AdminButton onClick={openAssignModal}><Plus size={16} />Assign Mahasiswa</AdminButton>}
                 />
               )}
             </div>
@@ -526,7 +525,7 @@ export default function AdminClassDetailPage() {
                 </dl>
               </section>
               <section className="border-b border-gray-200 py-5">
-                <h2 className="text-lg font-semibold text-gray-900">Dosen Pengampu</h2>
+                <h2 className="text-lg font-semibold text-gray-900">Dosen</h2>
                 <FieldRow label="Pilih Dosen">
                   <select
                     className={`${inputClass} max-w-sm`}

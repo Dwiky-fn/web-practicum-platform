@@ -347,9 +347,7 @@ class LecturerJobsheetsService {
       [kelasPraktikumId],
     );
     if (!kelas.rows.length) throw new Error('KELAS_PRAKTIKUM_NOT_FOUND');
-    const plan = Number(kelas.rows[0].jumlah_jobsheet_rencana || 1);
     if (!Number.isInteger(sequence) || sequence < 1) throw new Error('JOBSHEET_SEQUENCE_INVALID');
-    if (sequence > plan) throw new Error('JOBSHEET_SEQUENCE_EXCEEDS_PLAN');
 
     const duplicate = await client.query(
       `SELECT 1

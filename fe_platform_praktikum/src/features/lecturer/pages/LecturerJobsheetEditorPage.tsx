@@ -550,16 +550,7 @@ export default function LecturerJobsheetEditorPage() {
                 placeholder="Masukkan judul jobsheet"
               />
             </FieldRow>
-            <FieldRow label="Urutan Jobsheet">
-              <input
-                className={inputClass}
-                type="number"
-                min="1"
-                value={jobsheetSequence}
-                onChange={(event) => setJobsheetSequence(event.target.value)}
-                placeholder="1"
-              />
-            </FieldRow>
+
             <FieldRow label="Deskripsi Singkat">
               <input
                 className={inputClass}

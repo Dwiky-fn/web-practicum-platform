@@ -14,9 +14,9 @@ export const mapUserResponse = (data: UserResponse): User => {
     fullname: data.fullname ?? data.full_name ?? "",
     email: data.email,
     role: data.role,
-    isActive: data.is_active,
-    createdAt: data.created_at,
-    avatarUrl: data.avatar_url,
+    isActive: data.is_active ?? data.isActive ?? true,
+    createdAt: data.created_at ?? data.createdAt ?? "",
+    avatarUrl: data.avatar_url ?? data.avatarUrl,
     personalData: {
       no_telepon: data.no_telepon ?? emptyPersonalData.no_telepon,
       tempat_lahir: data.tempat_lahir ?? emptyPersonalData.tempat_lahir,
@@ -33,6 +33,7 @@ export const mapUserResponse = (data: UserResponse): User => {
       angkatan: data.angkatan ?? 0,
       semester: data.semester ?? 0,
       status: data.student_status ?? data.status ?? "",
+      kelas: data.kelas,
     }
   }
 

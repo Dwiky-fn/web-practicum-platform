@@ -72,7 +72,7 @@ export default function MobileSidebar({
             <button
               key={item.to}
               onClick={() => goTo(item.to)}
-              className="text-left hover:text-blue-600 active:text-blue-600"
+              className="text-left hover:text-blue-600 active:text-blue-600 font-semibold text-gray-700"
             >
               {item.label}
             </button>
@@ -80,7 +80,7 @@ export default function MobileSidebar({
 
           <button
             onClick={() => goTo("/notifications")}
-            className="flex items-center justify-between text-left hover:text-blue-600 active:text-blue-600"
+            className="flex items-center justify-between text-left hover:text-blue-600 active:text-blue-600 font-semibold text-gray-700"
           >
             <span>Notifikasi</span>
 
@@ -92,8 +92,15 @@ export default function MobileSidebar({
           </button>
 
           <button
+            onClick={() => goTo("/panduan")}
+            className="text-left hover:text-blue-600 active:text-blue-600 font-semibold text-gray-700"
+          >
+            Panduan
+          </button>
+
+          <button
             onClick={() => goTo("/settings")}
-            className="text-left hover:text-blue-600 active:text-blue-600"
+            className="text-left hover:text-blue-600 active:text-blue-600 font-semibold text-gray-700"
           >
             Pengaturan
           </button>
@@ -103,7 +110,7 @@ export default function MobileSidebar({
         {/* Footer */}
         <button
           onClick={onLogout}
-          className="text-left text-red-500 hover:text-red-900 active:text-red-900 pt-6"
+          className="text-left text-red-500 hover:text-red-900 active:text-red-900 pt-6 font-semibold"
         >
           Keluar
         </button>

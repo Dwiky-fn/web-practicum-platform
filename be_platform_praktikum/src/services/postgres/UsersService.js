@@ -499,6 +499,15 @@ class UsersService {
         sp.semester,
         sp.status,
         sp.status AS student_status,
+        (
+          SELECT k.kelas
+          FROM kelas_mhs km
+          JOIN kelas_semester ks ON ks.id = km.id_kelas_semester
+          JOIN kelas k ON k.id = ks.id_kelas
+          JOIN tahun_semester ts ON ts.id = ks.id_tahun_semester
+          WHERE km.id_mahasiswa = u.id AND km.status = 'active' AND ts.status = 'active'
+          LIMIT 1
+        ) AS kelas,
         u.avatar_url,
         sp.no_telepon,
         sp.tempat_lahir,
@@ -509,12 +518,21 @@ class UsersService {
         lp.no_telepon AS lp_no_telepon,
         lp.tempat_lahir AS lp_tempat_lahir,
         TO_CHAR(lp.tanggal_lahir, 'YYYY-MM-DD') AS lp_tanggal_lahir,
-        lp.kota AS lp_kota
+        lp.kota AS lp_kota,
+        -- Admin Profile
+        ap.nip AS ap_nip,
+        ap.no_telepon AS ap_no_telepon,
+        ap.tempat_lahir AS ap_tempat_lahir,
+        TO_CHAR(ap.tanggal_lahir, 'YYYY-MM-DD') AS ap_tanggal_lahir,
+        ap.kota AS ap_kota,
+        COALESCE(ap.program_studi, 'D3 Teknik Informatika') AS ap_program_studi,
+        COALESCE(ap.jurusan, 'Teknik Elektro') AS ap_jurusan
       FROM users u
       LEFT JOIN student_profiles sp ON sp.user_id = u.id
       LEFT JOIN study_programs prog ON prog.id = sp.study_program_id
       LEFT JOIN departments dept ON dept.id = prog.department_id
       LEFT JOIN lecturer_profiles lp ON lp.user_id = u.id
+      LEFT JOIN admin_profiles ap ON ap.user_id = u.id
       WHERE u.id = $1`,
       [userId],
     );
@@ -531,6 +549,14 @@ class UsersService {
       row.tempat_lahir = row.lp_tempat_lahir;
       row.tanggal_lahir = row.lp_tanggal_lahir;
       row.kota = row.lp_kota;
+    } else if (row.role === 'ADMIN') {
+      row.nip = row.ap_nip || row.nip || null;
+      row.no_telepon = row.ap_no_telepon;
+      row.tempat_lahir = row.ap_tempat_lahir;
+      row.tanggal_lahir = row.ap_tanggal_lahir;
+      row.kota = row.ap_kota;
+      row.program_studi = row.ap_program_studi;
+      row.jurusan = row.ap_jurusan;
     }
 
     return row;
@@ -595,6 +621,26 @@ class UsersService {
             tanggal_lahir = COALESCE($4, tanggal_lahir),
             kota = COALESCE($5, kota)
            WHERE user_id = $1`,
+          [
+            userId,
+            personalData.no_telepon ?? null,
+            personalData.tempat_lahir ?? null,
+            personalData.tanggal_lahir || null,
+            personalData.kota ?? null,
+          ],
+        );
+      }
+
+      if (role === 'ADMIN') {
+        await client.query(
+          `INSERT INTO admin_profiles (user_id, no_telepon, tempat_lahir, tanggal_lahir, kota)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (user_id) DO UPDATE SET
+            no_telepon = COALESCE(EXCLUDED.no_telepon, admin_profiles.no_telepon),
+            tempat_lahir = COALESCE(EXCLUDED.tempat_lahir, admin_profiles.tempat_lahir),
+            tanggal_lahir = COALESCE(EXCLUDED.tanggal_lahir, admin_profiles.tanggal_lahir),
+            kota = COALESCE(EXCLUDED.kota, admin_profiles.kota),
+            updated_at = CURRENT_TIMESTAMP`,
           [
             userId,
             personalData.no_telepon ?? null,

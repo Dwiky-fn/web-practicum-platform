@@ -2,6 +2,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { PersonalData } from "../../../services/user/types";
 import { formatDateOnlyForInput } from "../../../shared/utils/dateOnly";
+import { IdCard, Save } from "lucide-react";
 
 interface Props {
   data: PersonalData;
@@ -39,82 +40,83 @@ export default function PersonalDataSection({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow p-8">
-      <h2 className="text-xl font-semibold mb-6">
-        Data Pribadi
+    <form onSubmit={handleSubmit} className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
+      <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3 mb-6 flex items-center gap-2">
+        <IdCard size={18} className="text-blue-700" /> Informasi Data Pribadi
       </h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
             Nomor Telepon
           </label>
           <input
-            className="w-full border rounded-lg px-4 py-2"
+            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-xs font-medium text-gray-900 focus:border-blue-500 focus:outline-none"
             value={form.no_telepon}
             onChange={(event) => handleChange("no_telepon", event.target.value)}
+            placeholder="08xxxxxxxxxx"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
             Tempat Lahir
           </label>
           <input
-            className="w-full border rounded-lg px-4 py-2"
+            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-xs font-medium text-gray-900 focus:border-blue-500 focus:outline-none"
             value={form.tempat_lahir}
             onChange={(event) => handleChange("tempat_lahir", event.target.value)}
+            placeholder="Kota Tempat Lahir"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
             Tanggal Lahir
           </label>
           <input
             type="date"
-            className="w-full border rounded-lg px-4 py-2"
+            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-xs font-medium text-gray-900 focus:border-blue-500 focus:outline-none"
             value={form.tanggal_lahir}
             onChange={(event) => handleChange("tanggal_lahir", event.target.value)}
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Kota
+          <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
+            Kota Domisili
           </label>
           <input
-            className="w-full border rounded-lg px-4 py-2"
+            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-xs font-medium text-gray-900 focus:border-blue-500 focus:outline-none"
             value={form.kota}
             onChange={(event) => handleChange("kota", event.target.value)}
+            placeholder="Kota Tempat Tinggal"
           />
         </div>
-
       </div>
 
-      <div className="mt-6 flex items-center justify-end gap-4">
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() =>
-              setForm({
-                ...data,
-                tanggal_lahir: formatDateOnlyForInput(data.tanggal_lahir),
-              })
-            }
-            className="px-4 py-2 rounded-lg border text-gray-700 hover:bg-gray-50"
-          >
-            Reset
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300"
-          >
-            {saving ? "Menyimpan..." : "Simpan Data"}
-          </button>
-        </div>
+      <div className="mt-8 border-t border-gray-100 pt-4 flex items-center justify-end gap-3">
+        <button
+          type="button"
+          onClick={() =>
+            setForm({
+              ...data,
+              tanggal_lahir: formatDateOnlyForInput(data.tanggal_lahir),
+            })
+          }
+          className="rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors"
+        >
+          Reset Perubahan
+        </button>
+        <button
+          type="submit"
+          disabled={saving}
+          className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-800 transition-colors disabled:opacity-50"
+        >
+          <Save size={15} />
+          <span>{saving ? "Menyimpan..." : "Simpan Data Pribadi"}</span>
+        </button>
       </div>
     </form>
-  )
+  );
 }

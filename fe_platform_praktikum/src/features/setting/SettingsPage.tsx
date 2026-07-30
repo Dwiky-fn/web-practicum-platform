@@ -16,6 +16,7 @@ import PersonalDataSection from "./components/PersonalDataSection";
 import AccountSection from "./components/AccountSection";
 import TopProgressBar from "../../components/loading/TopProgressBar";
 import AdminLayout from "../admin/components/AdminLayout";
+import LecturerLayout from "../lecturer/components/LecturerLayout";
 import { toast } from "../../components/toast/toastStore";
 import type { User } from "../../services/user/types";
 
@@ -192,42 +193,40 @@ export default function SettingsPage() {
   };
 
   const settingsContent = (
-    <>
-      <SettingsLayout
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-      >
-        {activeTab === "Profil" && (
-          <ProfileSection
-            role={user.role}
-            avatarUrl={user.avatarUrl}
-            data={profileData}
-            saving={profileSaving}
-            onUploadAvatar={handleUploadAvatar}
-          />
-        )}
+    <SettingsLayout
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+    >
+      {activeTab === "Profil" && (
+        <ProfileSection
+          role={user.role}
+          avatarUrl={user.avatarUrl}
+          data={profileData}
+          saving={profileSaving}
+          onUploadAvatar={handleUploadAvatar}
+        />
+      )}
 
-        {activeTab === "Data Pribadi" && (
-          <PersonalDataSection
-            data={user.personalData}
-            saving={profileSaving}
-            onSave={handleSavePersonalData}
-          />
-        )}
+      {activeTab === "Data Pribadi" && (
+        <PersonalDataSection
+          data={user.personalData}
+          saving={profileSaving}
+          onSave={handleSavePersonalData}
+        />
+      )}
 
-        {activeTab === "Akun" && (
-          <AccountSection
-            email={user.email}
-            emailSaving={emailSaving}
-            passwordSaving={passwordSaving}
-            onRequestEmailChange={handleRequestEmailChange}
-            onSendEmailOtp={handleSendEmailOtp}
-            onVerifyEmailChange={handleVerifyEmailChange}
-            onChangePassword={handleChangePassword}
-          />
-        )}
-      </SettingsLayout>
-    </>
+      {activeTab === "Akun" && (
+        <AccountSection
+          email={user.email}
+          emailSaving={emailSaving}
+          passwordSaving={passwordSaving}
+          onRequestEmailChange={handleRequestEmailChange}
+          onSendEmailOtp={handleSendEmailOtp}
+          onVerifyEmailChange={handleVerifyEmailChange}
+          onChangePassword={handleChangePassword}
+        />
+      )}
+    </SettingsLayout>
   );
 
   if (isAdmin) {
@@ -241,9 +240,9 @@ export default function SettingsPage() {
 
   if (user.role === "DOSEN") {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <LecturerLayout>
         {settingsContent}
-      </div>
+      </LecturerLayout>
     );
   }
 
@@ -251,7 +250,9 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <TopProgressBar />
-      {settingsContent}
+      <main className="max-w-7xl mx-auto px-6 lg:px-10 py-8">
+        {settingsContent}
+      </main>
     </div>
   );
 }

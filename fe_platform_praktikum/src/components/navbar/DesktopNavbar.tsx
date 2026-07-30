@@ -24,7 +24,9 @@ interface DesktopNavbarProps {
   onToggleProfile: () => void
   onOpenMobile: () => void
   onMarkAllNotif: () => void
+  onMarkItemRead?: (id: string) => void
 
+  onGuide?: () => void
   onSettings: () => void
   onLogout: () => void
 }
@@ -43,6 +45,8 @@ export default function DesktopNavbar({
   onToggleProfile,
   onOpenMobile,
   onMarkAllNotif,
+  onMarkItemRead,
+  onGuide,
   onSettings,
   onLogout,
 }: DesktopNavbarProps) {
@@ -128,12 +132,14 @@ export default function DesktopNavbar({
           open={notifOpen}
           onToggle={onToggleNotif}
           onMarkAll={onMarkAllNotif}
+          onMarkItemRead={onMarkItemRead}
         />
 
         <ProfileMenu
           user={user}
           open={profileOpen}
           onToggle={onToggleProfile}
+          onGuide={onGuide}
           onSettings={onSettings}
           onLogout={onLogout}
         />

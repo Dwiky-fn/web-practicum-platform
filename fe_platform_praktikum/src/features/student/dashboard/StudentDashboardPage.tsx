@@ -15,7 +15,6 @@ import CourseCard from "../../../components/CourseCard";
 import Navbar from "../../../components/navbar/Navbar";
 import SummaryCard from "../../../components/dashboard/SummaryCard";
 import UpcomingTaskSection from "./components/UpcomingTaskSection";
-import ActivitySection from "./components/ActivitySection";
 import WelcomeSection from "./components/WelcomeSection";
 import CourseCardSkeleton from "../../../components/loading/CourseSkeleton";
 import SummaryCardSkeleton from "../../../components/dashboard/loading/SummarySkeleton";
@@ -27,7 +26,7 @@ export default function StudentDashboardPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [jobsheets, setJobsheets] = useState<Jobsheet[]>([]);
   const [submissions, setSubmissions] = useState<JobsheetSubmission[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [_activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -120,20 +119,20 @@ export default function StudentDashboardPage() {
       <Navbar />
       <TopProgressBar />
 
-      <main className="max-w-7xl mx-auto px-10 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-8 space-y-6">
         {error && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
             {error}
           </div>
         )}
 
-        {/* Welcome */}
-        <section className="mb-8">
+        {/* Welcome Banner */}
+        <section>
           <WelcomeSection user={user} />
         </section>
 
-        {/* Summary */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Summary Cards */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {loading ? (
             <>
               <SummaryCardSkeleton />
@@ -163,24 +162,11 @@ export default function StudentDashboardPage() {
           )}
         </section>
 
-        {/* Recent Activity */}
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold mb-4">
-            Apa yang Baru Hari Ini
-          </h2>
-
-          <ActivitySection
-            activities={activities}
-            loading={loading}
-          />
-        </section>
-
         {/* Mata Kuliah & Upcoming Task */}
-        <section className="grid grid-cols-1 lg:grid-cols-5 gap-8 mb-8">
-
+        <section className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           {/* Mata Kuliah */}
           <div className="lg:col-span-3">
-            <h2 className="text-lg font-semibold mb-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">
               Mata Kuliah Aktif
             </h2>
 
@@ -204,8 +190,8 @@ export default function StudentDashboardPage() {
 
           {/* Upcoming Task */}
           <div className="lg:col-span-2">
-            <h2 className="text-lg font-semibold mb-4">
-              Praktikum sedang berlangsung
+            <h2 className="text-lg font-bold text-gray-900 mb-4">
+              Praktikum Sedang Berlangsung
             </h2>
 
             <UpcomingTaskSection
@@ -214,7 +200,6 @@ export default function StudentDashboardPage() {
               loading={loading}
             />
           </div>
-
         </section>
       </main>
     </div>

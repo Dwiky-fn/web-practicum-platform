@@ -12,11 +12,17 @@ async function runMigrate() {
   console.log(`[Migrate] Target Connection URL: ${maskedUrl}`);
   console.log('[Migrate] Connecting and executing database migrations...');
 
+  const isInternal = databaseUrl.includes('railway.internal');
+  const isProduction = process.env.NODE_ENV === 'production';
+  const ssl = (isProduction && !isInternal && !databaseUrl.includes('localhost') && !databaseUrl.includes('127.0.0.1'))
+    ? { rejectUnauthorized: false }
+    : false;
+
   try {
     await runner({
       databaseUrl: {
         connectionString: databaseUrl,
-        ssl: process.env.NODE_ENV === 'production' && !databaseUrl.includes('localhost') && !databaseUrl.includes('127.0.0.1') ? { rejectUnauthorized: false } : false,
+        ssl,
       },
       dir: 'migrations',
       direction: 'up',

@@ -17,6 +17,20 @@ export const CustomOrderedList = OrderedList.extend({
           }
         },
       },
+      start: {
+        default: 1,
+        parseHTML: (element) => {
+          const val = element.getAttribute("start")
+          return val ? parseInt(val, 10) : 1
+        },
+        renderHTML: (attributes) => {
+          const val = Number(attributes.start || 1)
+          if (!val || val === 1) return {}
+          return {
+            start: val,
+          }
+        },
+      },
     }
   },
 })

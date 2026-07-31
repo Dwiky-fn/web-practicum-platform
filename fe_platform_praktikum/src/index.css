@@ -201,16 +201,19 @@
   white-space: pre;
 }
 
-/* Rich Text Editor styling overrides to prevent sticky/fixed behavior */
+/* Rich Text Editor styling overrides for floating sticky toolbar per editor instance */
 .rich-editor-wrapper {
   display: flex;
   flex-direction: column;
   gap: 10px;
   width: 100%;
+  position: relative;
 }
 
 .rich-editor-toolbar {
-  position: static !important;
+  position: sticky !important;
+  top: 12px;
+  z-index: 30;
   display: flex;
   flex-wrap: wrap;
   align-items: center;

@@ -440,7 +440,10 @@ export default function AdminAcademicNativePage() {
   }, [semester, currentSemesterType])
 
   const loadData = useCallback(async () => {
-    setLoading(true)
+    setTahunSemester((prev) => {
+      if (prev.length === 0) setLoading(true)
+      return prev
+    })
     setError("")
     try {
       const [

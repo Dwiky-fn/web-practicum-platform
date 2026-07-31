@@ -40,8 +40,8 @@ export const mapUserResponse = (data: UserResponse): User => {
   if (data.role === "DOSEN") {
     user.lecturerProfile = {
       nip: data.nip ?? "",
-      programStudi: data.program_studi ?? "",
-      jurusan: data.jurusan ?? "",
+      programStudi: data.program_studi || "Teknik Informatika",
+      jurusan: data.jurusan || "Teknologi Informasi",
     }
   }
 

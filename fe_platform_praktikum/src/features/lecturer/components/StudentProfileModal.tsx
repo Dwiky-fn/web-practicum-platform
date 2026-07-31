@@ -30,6 +30,8 @@ export default function StudentProfileModal({ studentId, onClose, isInline = fal
     email: "",
     angkatan: "",
     semester: "",
+    programStudi: "",
+    jurusan: "",
     status: "Aktif" as "Aktif" | "Nonaktif" | "Cuti"
   })
 
@@ -69,6 +71,8 @@ export default function StudentProfileModal({ studentId, onClose, isInline = fal
       email: profile.email,
       angkatan: isStudent ? String(profile.studentProfile?.angkatan || "") : "",
       semester: isStudent ? String(profile.studentProfile?.semester || "") : "",
+      programStudi: (isStudent ? profile.studentProfile?.programStudi : profile.lecturerProfile?.programStudi) || "Teknik Informatika",
+      jurusan: (isStudent ? profile.studentProfile?.jurusan : profile.lecturerProfile?.jurusan) || "Teknologi Informasi",
       status: (profile.studentProfile?.status || (profile.isActive ? "Aktif" : "Nonaktif")) as "Aktif" | "Nonaktif" | "Cuti"
     })
     setIsEditing(true)
@@ -92,11 +96,15 @@ export default function StudentProfileModal({ studentId, onClose, isInline = fal
         email: userForm.email,
         angkatan: Number(userForm.angkatan || 0),
         semester: Number(userForm.semester || 0),
+        programStudi: userForm.programStudi,
+        jurusan: userForm.jurusan,
         status: userForm.status,
       } : {
         nip: userForm.identifier,
         fullname: userForm.fullname,
         email: userForm.email,
+        programStudi: userForm.programStudi,
+        jurusan: userForm.jurusan,
         status: userForm.status,
       })
 
@@ -112,11 +120,15 @@ export default function StudentProfileModal({ studentId, onClose, isInline = fal
             nim: (updated as AdminStudent).nim,
             angkatan: (updated as AdminStudent).angkatan,
             semester: (updated as AdminStudent).semester,
+            programStudi: (updated as AdminStudent).programStudi || userForm.programStudi,
+            jurusan: (updated as AdminStudent).jurusan || userForm.jurusan,
             status: updated.status,
           } : prev.studentProfile,
           lecturerProfile: !isStudent ? {
             ...prev.lecturerProfile!,
             nip: (updated as AdminLecturer).nip,
+            programStudi: (updated as AdminLecturer).programStudi || userForm.programStudi,
+            jurusan: (updated as AdminLecturer).jurusan || userForm.jurusan,
           } : prev.lecturerProfile
         }
       })
@@ -303,20 +315,46 @@ export default function StudentProfileModal({ studentId, onClose, isInline = fal
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="flex items-start gap-2.5">
             <GraduationCap className="text-blue-600 mt-0.5 shrink-0" size={18} />
-            <div>
+            <div className="w-full">
               <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Program Studi</span>
-              <span className="text-sm font-semibold text-gray-800">
-                {isStudent ? profile.studentProfile?.programStudi : profile.lecturerProfile?.programStudi || "Teknik Informatika"}
-              </span>
+              {isEditing ? (
+                <input
+                  type="text"
+                  required
+                  className={`${inputClass} text-sm mt-1 h-9 w-full max-w-[280px]`}
+                  value={userForm.programStudi}
+                  onChange={(e) => setUserForm((prev) => ({ ...prev, programStudi: e.target.value }))}
+                  placeholder="Program Studi"
+                />
+              ) : (
+                <span className="text-sm font-semibold text-gray-800">
+                  {isStudent
+                    ? (profile.studentProfile?.programStudi || "Teknik Informatika")
+                    : (profile.lecturerProfile?.programStudi || "Teknik Informatika")}
+                </span>
+              )}
             </div>
           </div>
           <div className="flex items-start gap-2.5">
             <BookOpen className="text-blue-600 mt-0.5 shrink-0" size={18} />
-            <div>
+            <div className="w-full">
               <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Jurusan</span>
-              <span className="text-sm font-semibold text-gray-800">
-                {isStudent ? profile.studentProfile?.jurusan : profile.lecturerProfile?.jurusan || "Teknologi Informasi"}
-              </span>
+              {isEditing ? (
+                <input
+                  type="text"
+                  required
+                  className={`${inputClass} text-sm mt-1 h-9 w-full max-w-[280px]`}
+                  value={userForm.jurusan}
+                  onChange={(e) => setUserForm((prev) => ({ ...prev, jurusan: e.target.value }))}
+                  placeholder="Jurusan"
+                />
+              ) : (
+                <span className="text-sm font-semibold text-gray-800">
+                  {isStudent
+                    ? (profile.studentProfile?.jurusan || "Teknologi Informasi")
+                    : (profile.lecturerProfile?.jurusan || "Teknologi Informasi")}
+                </span>
+              )}
             </div>
           </div>
           {isStudent && (

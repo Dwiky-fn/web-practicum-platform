@@ -39,12 +39,30 @@ const kelasPayloadSchema = Joi.object({
   kelas: Joi.string().trim().required(),
 });
 
+function normalizeCourseType(val) {
+  if (!val) return 'praktikum';
+  const str = String(val).toLowerCase().trim();
+  if (str === 'teori' || str === 't') return 'teori';
+  if (str === 'praktikum' || str === 'p') return 'praktikum';
+  if (str.includes('teori') && (str.includes('praktik') || str.includes('prak') || str.includes('&') || str.includes('dan') || str.includes('_') || str.includes('-'))) return 'teori_praktikum';
+  if (str.includes('teori')) return 'teori';
+  if (str.includes('praktik') || str.includes('prak')) return 'praktikum';
+  return 'praktikum';
+}
+
+const courseTypeSchema = Joi.string()
+  .custom((value) => normalizeCourseType(value))
+  .default('praktikum');
+
+const updateCourseTypeSchema = Joi.string()
+  .custom((value) => normalizeCourseType(value));
+
 const mataKuliahPayloadSchema = Joi.object({
   id: Joi.string().allow('', null),
   kode_mk: Joi.string().trim().required(),
   nama_mk: Joi.string().trim().required(),
   sks: Joi.number().integer().min(1).max(8).required(),
-  tipe: Joi.string().valid('teori', 'praktikum', 'teori_praktikum').default('praktikum'),
+  tipe: courseTypeSchema,
   id_kurikulum: idSchema,
   id_semester: idSchema,
 });
@@ -53,7 +71,7 @@ const updateMataKuliahPayloadSchema = Joi.object({
   kode_mk: Joi.string().trim(),
   nama_mk: Joi.string().trim(),
   sks: Joi.number().integer().min(1).max(8),
-  tipe: Joi.string().valid('teori', 'praktikum', 'teori_praktikum'),
+  tipe: updateCourseTypeSchema,
   id_kurikulum: Joi.string().trim(),
   id_semester: Joi.string().trim(),
 }).min(1);

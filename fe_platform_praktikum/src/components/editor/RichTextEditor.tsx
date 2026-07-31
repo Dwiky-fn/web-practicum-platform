@@ -1,12 +1,12 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCurrentUser } from "../../services/user/useCurrentUser";
 import { getEditorExtensions, type EditorRole, type EditorMode } from "./utils/editorExtensions";
 import type { JSONContent } from "@tiptap/react";
 import EditorToolbar from "./EditorToolbar";
 import { toEditorRole } from "./utils/toEditorRole";
-import { AlignLeft, AlignCenter, AlignRight, Trash2 } from "lucide-react";
+import { AlignLeft, AlignCenter, AlignRight, Trash2, X } from "lucide-react";
 import { toast } from "../../components/toast/toastStore";
 
 interface Props {
@@ -35,6 +35,8 @@ export default function RichTextEditor({
   const resolvedRole: EditorRole = role ?? toEditorRole(user?.role);
   const mode: EditorMode = "editor";
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [altModalOpen, setAltModalOpen] = useState(false);
+  const [altInput, setAltInput] = useState("");
 
   const handleImageUpload = async (file: File, pos?: number) => {
     const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
@@ -280,10 +282,8 @@ export default function RichTextEditor({
                 type="button"
                 onClick={() => {
                   const currentAlt = editor.getAttributes("image").alt || "";
-                  const newAlt = prompt("Masukkan Teks Alternatif Gambar:", currentAlt);
-                  if (newAlt !== null) {
-                    editor.chain().focus().updateAttributes("image", { alt: newAlt }).run();
-                  }
+                  setAltInput(currentAlt);
+                  setAltModalOpen(true);
                 }}
                 className="px-2 py-1 text-xs rounded hover:bg-gray-100 text-gray-700 font-medium"
                 title="Ubah Teks Alternatif"
@@ -304,6 +304,66 @@ export default function RichTextEditor({
         )}
         <EditorContent editor={editor} />
       </div>
+
+      {altModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl border border-gray-100 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900">Teks Alternatif Gambar (Alt)</h3>
+              <button
+                type="button"
+                onClick={() => setAltModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 rounded-md p-1"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                Masukkan Teks Alternatif:
+              </label>
+              <input
+                type="text"
+                autoFocus
+                className="w-full h-10 px-3 text-sm rounded-lg border border-gray-300 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                value={altInput}
+                onChange={(e) => setAltInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (editor) {
+                      editor.chain().focus().updateAttributes("image", { alt: altInput }).run();
+                    }
+                    setAltModalOpen(false);
+                  }
+                }}
+                placeholder="Deskripsi singkat gambar..."
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setAltModalOpen(false)}
+                className="px-3.5 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (editor) {
+                    editor.chain().focus().updateAttributes("image", { alt: altInput }).run();
+                  }
+                  setAltModalOpen(false);
+                }}
+                className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition"
+              >
+                Simpan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

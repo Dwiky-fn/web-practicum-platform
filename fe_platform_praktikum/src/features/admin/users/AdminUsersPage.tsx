@@ -1,4 +1,4 @@
-import { ChevronDown, FileUp, Plus, Trash2, UserCheck, UserX } from "lucide-react"
+import { FileUp, Plus, Trash2, UserCheck, UserPlus, UserX } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import * as XLSX from "xlsx"
@@ -37,7 +37,8 @@ import {
   getStudentSemesterOptions,
 } from "../academic/semesterOptions"
 
-type ModalMode = "add" | "import" | "menu" | null
+type ModalMode = "add" | null
+type AddTabMode = "single" | "import"
 type ConfirmAction = "activate" | "deactivate" | "delete"
 
 const currentYear = new Date().getFullYear()
@@ -66,6 +67,7 @@ export default function AdminUsersPage() {
   }, [keyword, semester, role])
 
   const [modal, setModal] = useState<ModalMode>(null)
+  const [addTab, setAddTab] = useState<AddTabMode>("single")
   const [semesters, setSemesters] = useState<AcademicSemester[]>([])
   const [students, setStudents] = useState<AdminStudent[]>([])
   const [lecturers, setLecturers] = useState<AdminLecturer[]>([])
@@ -340,15 +342,12 @@ export default function AdminUsersPage() {
       setError("")
       if (isStudent) {
         await createAdminStudent({
-          nim: String(form.get("identifier") || ""),
-          fullname: String(form.get("fullname") || ""),
-          email: String(form.get("email") || ""),
+          nim: String(form.get("identifier") || "").trim(),
+          fullname: String(form.get("fullname") || "").trim(),
+          email: String(form.get("email") || "").trim(),
           angkatan: Number(form.get("angkatan") || 0),
           semester: Number(form.get("semester") || 0),
           status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
-          isTransferStudent: form.get("isTransferStudent") === "on",
-          transferOriginSemester: Number(form.get("transferOriginSemester") || 0) || undefined,
-          transferReason: String(form.get("transferReason") || ""),
         })
         toast.success("Mahasiswa dan akun login berhasil ditambahkan.")
       } else {
@@ -498,28 +497,117 @@ export default function AdminUsersPage() {
   }
 
   const renderAddModal = () => {
-    if (!modal || modal === "menu") return null
+  const renderAddModal = () => {
+    if (!modal) return null
 
-    const title = modal === "import"
-      ? `Import ${isStudent ? "Mahasiswa" : "Dosen"}`
-      : isStudent
-        ? "Tambah Mahasiswa dan Buat Akun Login"
-        : "Tambah Dosen"
+    const title = isStudent
+      ? "Tambah Mahasiswa dan Buat Akun Login"
+      : "Tambah Dosen"
 
-    if (modal === "import") {
-      return (
-        <AdminModal
-          title={title}
-          onClose={() => setModal(null)}
-          footer={
-            <>
-              <AdminButton variant="secondary" onClick={() => setModal(null)} disabled={submitting}>Batal</AdminButton>
-              <AdminButton type="submit" form="admin-import-form" disabled={submitting || !importFile || !!importFileError}>
-                {submitting ? "Mengimport..." : "Import"}
+    const isSingleTab = addTab === "single"
+
+    return (
+      <AdminModal
+        title={title}
+        onClose={closeUserModal}
+        footer={
+          <>
+            <AdminButton variant="secondary" onClick={closeUserModal} disabled={submitting}>
+              Batal
+            </AdminButton>
+            {isSingleTab ? (
+              <AdminButton type="submit" form="admin-user-form" disabled={submitting}>
+                {submitting ? "Menyimpan..." : isStudent ? "Tambah Mahasiswa dan Akun" : "Tambah Dosen"}
               </AdminButton>
-            </>
-          }
-        >
+            ) : (
+              <AdminButton type="submit" form="admin-import-form" disabled={submitting || !importFile || !!importFileError}>
+                {submitting ? "Mengimport..." : "Import File"}
+              </AdminButton>
+            )}
+          </>
+        }
+      >
+        {/* Tab Switcher */}
+        <div className="flex border-b border-gray-200 mb-5">
+          <button
+            type="button"
+            onClick={() => setAddTab("single")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition cursor-pointer ${
+              addTab === "single"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <UserPlus size={16} />
+            <span>Tambah Satu</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAddTab("import")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition cursor-pointer ${
+              addTab === "import"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <FileUp size={16} />
+            <span>Import Banyak (File)</span>
+          </button>
+        </div>
+
+        {isSingleTab ? (
+          <form id="admin-user-form" className="space-y-4" onSubmit={handleAddSubmit}>
+            {isStudent && (
+              <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                Data ini membuat profil mahasiswa sekaligus akun login mahasiswa. Posisi semester dan rombel berjalan tetap diatur melalui menu Kelas Mahasiswa.
+              </div>
+            )}
+            <FieldRow label={isStudent ? "NIM" : "NIP"}>
+              <input
+                name="identifier"
+                className={inputClass}
+                placeholder={isStudent ? "Masukkan NIM" : "Masukkan NIP"}
+                required
+              />
+            </FieldRow>
+            <FieldRow label="Nama Lengkap">
+              <input name="fullname" className={inputClass} placeholder="Masukkan nama lengkap" required />
+            </FieldRow>
+            {isStudent && (
+              <>
+                <FieldRow label="Angkatan">
+                  <select name="angkatan" className={inputClass} defaultValue="" required>
+                    <option value="" disabled>Pilih angkatan</option>
+                    {angkatanOptions.map((year) => (
+                      <option key={year} value={String(year)}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </FieldRow>
+                <FieldRow label="Semester">
+                  <select name="semester" className={inputClass} required>
+                    <option value="" disabled>Pilih semester</option>
+                    {studentSemesterOptions.map((option) => (
+                      <option key={option}>{option}</option>
+                    ))}
+                  </select>
+                </FieldRow>
+              </>
+            )}
+            <FieldRow label="Email (Opsional)">
+              <input name="email" className={inputClass} type="email" placeholder="Masukkan email (opsional)" />
+            </FieldRow>
+            <FieldRow label="Status">
+              <select name="status" className={inputClass} required>
+                <option value="" disabled>Pilih status</option>
+                <option>Aktif</option>
+                <option>Nonaktif</option>
+                <option>Cuti</option>
+              </select>
+            </FieldRow>
+          </form>
+        ) : (
           <form id="admin-import-form" className="space-y-5" onSubmit={handleImportSubmit}>
             <div>
               <p className="text-sm font-medium text-gray-700 mb-2">Upload File Import</p>
@@ -530,10 +618,11 @@ export default function AdminUsersPage() {
                 onDragLeave={handleDragLeave}
                 onDrop={handleDropImportFile}
                 onClick={() => fileInputRef.current?.click()}
-                className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition cursor-pointer ${isDraggingFile
+                className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition cursor-pointer ${
+                  isDraggingFile
                     ? "border-blue-500 bg-blue-50"
                     : "border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400"
-                  }`}
+                }`}
               >
                 <input
                   ref={fileInputRef}
@@ -587,100 +676,13 @@ export default function AdminUsersPage() {
             </div>
 
             <div className="rounded-md bg-blue-50 p-4 text-sm text-blue-900">
-              <p className="font-semibold">Catatan:</p>
-              <p>
-                Format: {isStudent ? "NIM, Nama, Angkatan, Semester, Email, Program Studi (Opsional), Jurusan (Opsional)" : "NIP, Nama, Email"}
+              <p className="font-semibold">Catatan Format File:</p>
+              <p className="mt-1">
+                Format kolom: {isStudent ? "NIM, Nama, Angkatan, Semester, Email, Program Studi (Opsional), Jurusan (Opsional)" : "NIP, Nama, Email"}
               </p>
             </div>
           </form>
-        </AdminModal>
-      )
-    }
-
-    return (
-      <AdminModal
-        title={title}
-        onClose={closeUserModal}
-        footer={
-          <>
-            <AdminButton variant="secondary" onClick={closeUserModal} disabled={submitting}>Batal</AdminButton>
-            <AdminButton type="submit" form="admin-user-form" disabled={submitting}>
-              {submitting ? "Menyimpan..." : isStudent ? "Tambah Mahasiswa dan Akun" : "Tambah Dosen"}
-            </AdminButton>
-          </>
-        }
-      >
-        <form id="admin-user-form" className="space-y-4" onSubmit={handleAddSubmit}>
-          {isStudent && (
-            <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-              Data ini membuat profil mahasiswa sekaligus akun login mahasiswa. Posisi semester dan rombel berjalan tetap diatur melalui menu Kelas Mahasiswa.
-            </div>
-          )}
-          <FieldRow label={isStudent ? "NIM" : "NIP"}>
-            <input
-              name="identifier"
-              className={inputClass}
-              placeholder={isStudent ? "Masukkan NIM" : "Masukkan NIP"}
-              required
-            />
-          </FieldRow>
-          <FieldRow label="Nama Lengkap">
-            <input name="fullname" className={inputClass} placeholder="Masukkan nama lengkap" required />
-          </FieldRow>
-          {isStudent && (
-            <>
-              <FieldRow label="Angkatan">
-                <select name="angkatan" className={inputClass} defaultValue="" required>
-                  <option value="" disabled>Pilih angkatan</option>
-                  {angkatanOptions.map((year) => (
-                    <option key={year} value={String(year)}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
-              </FieldRow>
-              <FieldRow label="Semester">
-                <select name="semester" className={inputClass} required>
-                  <option value="" disabled>Pilih semester</option>
-                  {studentSemesterOptions.map((option) => (
-                    <option key={option}>{option}</option>
-                  ))}
-                </select>
-              </FieldRow>
-              <div className="rounded-md border border-gray-200 p-3">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                  <input type="checkbox" name="isTransferStudent" />
-                  Mahasiswa pindahan
-                </label>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <FieldRow label="Semester Asal Pindahan">
-                    <select name="transferOriginSemester" className={inputClass} defaultValue="">
-                      <option value="">Pilih semester asal</option>
-                      {studentSemesterOptions.map((option) => (
-                        <option key={option}>{option}</option>
-                      ))}
-                    </select>
-                  </FieldRow>
-                  <FieldRow label="Catatan Pindahan">
-                    <input name="transferReason" className={inputClass} placeholder="Opsional" />
-                  </FieldRow>
-                </div>
-              </div>
-
-            </>
-          )}
-          <FieldRow label="Email">
-            <input name="email" className={inputClass} type="email" placeholder="Masukkan email" required />
-          </FieldRow>
-          <FieldRow label="Status">
-            <select name="status" className={inputClass} required>
-              <option value="" disabled>Pilih status</option>
-              <option>Aktif</option>
-              <option>Nonaktif</option>
-              <option>Cuti</option>
-            </select>
-          </FieldRow>
-        </form>
+        )}
       </AdminModal>
     )
   }
@@ -705,31 +707,10 @@ export default function AdminUsersPage() {
               onChange={setKeyword}
               placeholder={isStudent ? "Cari NIM / Nama" : "Cari NIP / Nama"}
             />
-            <div className="relative">
-              <AdminButton onClick={() => setModal(modal === "menu" ? null : "menu")}>
-                <Plus size={16} />
-                {isStudent ? "Tambah Mahasiswa dan Akun" : "Tambah Dosen"}
-                <ChevronDown size={16} />
-              </AdminButton>
-              {modal === "menu" && (
-                <div className="absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
-                  <button
-                    type="button"
-                    className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-blue-50"
-                    onClick={() => setModal("add")}
-                  >
-                    Tambah Satu
-                  </button>
-                  <button
-                    type="button"
-                    className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-blue-50"
-                    onClick={() => setModal("import")}
-                  >
-                    Import Banyak
-                  </button>
-                </div>
-              )}
-            </div>
+            <AdminButton onClick={() => { setAddTab("single"); setModal("add"); }}>
+              <Plus size={16} />
+              {isStudent ? "Tambah Mahasiswa dan Akun" : "Tambah Dosen"}
+            </AdminButton>
           </>
         }
       />

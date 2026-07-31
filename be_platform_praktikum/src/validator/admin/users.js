@@ -4,7 +4,7 @@ const statusSchema = Joi.string().valid('Aktif', 'Nonaktif', 'Cuti', 'AKTIF', 'N
 const baseUserPayloadSchema = Joi.object({
   id: Joi.string().allow('', null),
   fullname: Joi.string().trim().min(2).max(150).required(),
-  email: Joi.string().email().required(),
+  email: Joi.string().email().allow('', null),
   password: Joi.string().min(6).allow('', null),
   status: statusSchema.default('Aktif'),
   programStudi: Joi.string().trim().allow('', null),

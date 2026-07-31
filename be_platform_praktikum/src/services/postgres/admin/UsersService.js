@@ -115,13 +115,17 @@ class AdminUsersService {
 
     try {
       await client.query('BEGIN');
+      const finalEmail = (payload.email && payload.email.trim() !== '')
+        ? payload.email.trim()
+        : `${(payload.nim || payload.nip || id)}@student.polnep.ac.id`;
+
       await client.query(
         `INSERT INTO users (id, fullname, email, password, role, is_active)
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [
           id,
           payload.fullname,
-          payload.email,
+          finalEmail,
           password,
           normalizedRole,
           normalizeStatus(payload.status) === 'AKTIF',

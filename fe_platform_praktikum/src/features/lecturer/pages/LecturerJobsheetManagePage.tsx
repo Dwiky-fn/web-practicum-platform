@@ -393,12 +393,6 @@ export default function LecturerJobsheetManagePage() {
       {!dataset?.jobsheets.length ? (
         <LecturerEmptyState
           title="Belum ada jobsheet praktikum untuk mata kuliah ini."
-          action={
-            <LecturerButton onClick={() => navigate(`${jobsheetBasePath}/create`)}>
-              <Plus size={16} />
-              Tambah Jobsheet
-            </LecturerButton>
-          }
         />
       ) : (
         <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">

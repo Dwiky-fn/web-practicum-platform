@@ -14,7 +14,7 @@ export const IndentExtension = Extension.create({
 
   addOptions() {
     return {
-      types: ["paragraph", "heading", "listItem"],
+      types: ["paragraph", "heading", "listItem", "image", "customImage"],
       minLevel: 0,
       maxLevel: 8,
       step: 24, // px per level

@@ -196,34 +196,22 @@ export default function EditorToolbar({ editor, role, layout = "horizontal", onI
     return () => document.removeEventListener("click", handleOutsideClick)
   }, [])
 
-  // Format Painter: apply copied marks on selection change
+  // Format Painter: apply copied marks on mouseup (when user finishes selecting target text)
   useEffect(() => {
     if (!copiedMarks || !editor) return
 
-    const handleSelectionUpdate = () => {
+    const applyCopiedMarks = () => {
       const { from, to } = editor.state.selection
       if (from !== to) {
         let chain = editor.chain().focus()
         if (copiedMarks.bold) chain = chain.setBold()
-        else chain = chain.unsetBold()
-
         if (copiedMarks.italic) chain = chain.setItalic()
-        else chain = chain.unsetItalic()
-
         if (copiedMarks.strike) chain = chain.setStrike()
-        else chain = chain.unsetStrike()
-
+        if (copiedMarks.code) chain = chain.setCode()
         if (copiedMarks.highlight) chain = chain.setHighlight()
-        else chain = chain.unsetHighlight()
-
         if (copiedMarks.subscript) chain = chain.setSubscript()
-        else chain = chain.unsetSubscript()
-
         if (copiedMarks.superscript) chain = chain.setSuperscript()
-        else chain = chain.unsetSuperscript()
-
         if (copiedMarks.fontSize) chain = chain.setFontSize(copiedMarks.fontSize)
-        else chain = chain.unsetFontSize()
 
         chain.run()
         setCopiedMarks(null)
@@ -231,28 +219,32 @@ export default function EditorToolbar({ editor, role, layout = "horizontal", onI
       }
     }
 
-    editor.on("selectionUpdate", handleSelectionUpdate)
-    return () => {
-      editor.off("selectionUpdate", handleSelectionUpdate)
+    const dom = editor.view?.dom
+    if (dom) {
+      dom.addEventListener("mouseup", applyCopiedMarks)
+      return () => {
+        dom.removeEventListener("mouseup", applyCopiedMarks)
+      }
     }
   }, [copiedMarks, editor])
 
   const handleCopyFormat = () => {
     if (copiedMarks) {
       setCopiedMarks(null)
+      toast.info("Salin format dibatalkan.")
     } else {
       const marks = {
-        bold: state.isBold,
-        italic: state.isItalic,
-        strike: state.isStrike,
-        code: state.isCode,
-        highlight: state.isHighlight,
-        subscript: state.isSubscript,
-        superscript: state.isSuperscript,
-        fontSize: state.fontSize,
+        bold: editor.isActive("bold"),
+        italic: editor.isActive("italic"),
+        strike: editor.isActive("strike"),
+        code: editor.isActive("code"),
+        highlight: editor.isActive("highlight"),
+        subscript: editor.isActive("subscript"),
+        superscript: editor.isActive("superscript"),
+        fontSize: editor.getAttributes("textStyle").fontSize || "",
       }
       setCopiedMarks(marks)
-      toast.info("Format disalin. Blok/pilih teks target untuk menerapkan format.")
+      toast.info("Format disalin. Blok/pilih teks tujuan untuk menerapkan.")
     }
   }
 
@@ -534,19 +526,22 @@ export default function EditorToolbar({ editor, role, layout = "horizontal", onI
             onClick={() => editor.chain().focus().toggleBulletList().run()}
           />
 
-          {/* Numbered List with Dropdown */}
+          {/* Numbered List with Dropdown & Start Number */}
           <div className="relative">
             <ToolbarButton
               icon={<ListOrdered size={16} />}
-              label="Numbered List (Pilih Gaya)"
+              label="Numbered List (Pilih Gaya & Nomor Awal)"
               active={state.isOrderedList}
               onClick={() => toggleMenu("numbering")}
               showChevron
             />
             {activeMenu === "numbering" && (
               <div 
-                className={`editor-toolbar-dropdown absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-1.5 flex flex-col gap-1 min-w-[170px] ${sideDropdownPosition}`}
+                className={`editor-toolbar-dropdown absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-2 flex flex-col gap-1.5 min-w-[190px] ${sideDropdownPosition}`}
               >
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1">
+                  Gaya Penomoran
+                </span>
                 {NUMBERING_OPTIONS.map((option) => (
                   <button
                     key={option.value}
@@ -559,7 +554,7 @@ export default function EditorToolbar({ editor, role, layout = "horizontal", onI
                       }
                       setActiveMenu(null)
                     }}
-                    className={`flex items-center justify-between px-3 py-1.5 text-xs rounded-md hover:bg-gray-100 w-full text-left transition ${
+                    className={`flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md hover:bg-gray-100 w-full text-left transition ${
                       state.isOrderedList && state.listStyleType === option.value
                         ? "text-blue-600 bg-blue-50/50 font-semibold"
                         : "text-gray-700"
@@ -569,6 +564,32 @@ export default function EditorToolbar({ editor, role, layout = "horizontal", onI
                     <span className="font-mono text-[10px] text-gray-400">{option.preview}</span>
                   </button>
                 ))}
+
+                <div className="h-px bg-gray-100 my-1" />
+
+                <div className="flex flex-col gap-1 px-1">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    Mulai dari Nomor
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={999}
+                      className="w-16 h-7 text-xs border border-gray-300 rounded px-2 text-center outline-none focus:border-blue-500 font-semibold"
+                      value={editor.getAttributes("orderedList").start || 1}
+                      onChange={(e) => {
+                        const val = Math.max(1, parseInt(e.target.value) || 1)
+                        if (state.isOrderedList) {
+                          editor.chain().focus().updateAttributes("orderedList", { start: val }).run()
+                        } else {
+                          editor.chain().focus().toggleOrderedList().updateAttributes("orderedList", { start: val }).run()
+                        }
+                      }}
+                    />
+                    <span className="text-xs text-gray-500">Nomor awal</span>
+                  </div>
+                </div>
               </div>
             )}
           </div>

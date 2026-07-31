@@ -1889,17 +1889,11 @@ export default function AdminAcademicNativePage() {
 
         <AdminPanel>
           <div className="p-4">
-            {loading ? (
-              <p className="text-sm text-gray-500">Memuat data akademik...</p>
-            ) : (
-              <>
-                {renderTable()}
-                {(() => {
-                  const totalItems = activeTab === "kelas-mahasiswa" ? groupedKelasMahasiswa.length : filtered.length
-                  return renderPagination(page, Math.ceil(totalItems / limit), setPage, totalItems)
-                })()}
-              </>
-            )}
+            {renderTable()}
+            {(() => {
+              const totalItems = activeTab === "kelas-mahasiswa" ? groupedKelasMahasiswa.length : filtered.length
+              return renderPagination(page, Math.ceil(totalItems / limit), setPage, totalItems)
+            })()}
           </div>
         </AdminPanel>
       </div>

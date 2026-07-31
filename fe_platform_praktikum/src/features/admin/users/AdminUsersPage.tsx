@@ -720,9 +720,7 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {loading ? (
-        <EmptyState title="Memuat data pengguna..." />
-      ) : isStudent ? (
+      {isStudent ? (
         students.length ? (
           <>
             <AdminTable headers={selectedIds.length > 0 ? ["", "NIM", "Nama", "Semester", "Status", "Aksi"] : ["NIM", "Nama", "Semester", "Status", "Aksi"]}>

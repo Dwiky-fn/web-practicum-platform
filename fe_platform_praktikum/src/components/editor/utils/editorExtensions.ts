@@ -8,10 +8,14 @@ import TableCell from "@tiptap/extension-table-cell"
 import TableHeader from "@tiptap/extension-table-header"
 import TableRow from "@tiptap/extension-table-row"
 import TextAlign from "@tiptap/extension-text-align"
+import { TextStyle } from "@tiptap/extension-text-style"
 import Typography from "@tiptap/extension-typography"
 import StarterKit from "@tiptap/starter-kit"
 import { CodeBlockWithLineNumber } from "../CodeBlockWithLineNumber"
 import { CustomImage } from "./CustomImage"
+import { FontSizeExtension } from "./fontSizeExtension"
+import { IndentExtension } from "./indentExtension"
+import { CustomOrderedList } from "./customOrderedList"
 
 export type EditorRole = "DOSEN" | "MAHASISWA"
 export type EditorMode = "editor" | "viewer-theory" | "viewer-default"
@@ -26,7 +30,12 @@ export function getEditorExtensions(
   const base = [
     StarterKit.configure({
       codeBlock: false,
+      orderedList: false,
     }),
+    CustomOrderedList,
+    TextStyle,
+    FontSizeExtension,
+    IndentExtension,
     Highlight,
     HorizontalRule,
     Subscript,

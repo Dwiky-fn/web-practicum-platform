@@ -87,6 +87,7 @@ function AppContent() {
       <Route path="/dashboard" element={requireUser(<DashboardPage />)} />
       <Route path="/settings" element={requireUser(<SettingsPage />)} />
       <Route path="/notifications" element={requireUser(<NotificationsPage />)} />
+      <Route path="/notifikasi" element={<Navigate to="/notifications" replace />} />
       <Route path="/panduan" element={requireUser(<UserGuidePage />)} />
       <Route
         path="/mata-kuliah"

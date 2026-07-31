@@ -23,9 +23,15 @@ export default function NotificationsPage() {
     async function loadNotifs() {
       if (!user) return
       setLoading(true)
-      const data = await getNotifications(user.id)
-      setNotifications(data)
-      setLoading(false)
+      try {
+        const data = await getNotifications(user.id)
+        setNotifications(Array.isArray(data) ? data : [])
+      } catch (err) {
+        console.error("Gagal memuat notifikasi:", err)
+        setNotifications([])
+      } finally {
+        setLoading(false)
+      }
     }
 
     loadNotifs()

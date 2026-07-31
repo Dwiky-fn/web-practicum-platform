@@ -641,7 +641,7 @@ export default function EditorToolbar({ editor, role, layout = "horizontal", onI
                   className="grid grid-cols-8 gap-0.5 p-1 bg-gray-50 border border-gray-200 rounded"
                   onMouseLeave={() => setHoveredGrid(null)}
                 >
-                  {Array.from({ length: 8 }).map((_, rIdx) => {
+                  {Array.from({ length: 8 }).flatMap((_, rIdx) => {
                     const r = rIdx + 1
                     return Array.from({ length: 8 }).map((_, cIdx) => {
                       const c = cIdx + 1
@@ -665,7 +665,7 @@ export default function EditorToolbar({ editor, role, layout = "horizontal", onI
                             }`}
                         />
                       )
-                    })}
+                    })
                   })}
                 </div>
               </div>

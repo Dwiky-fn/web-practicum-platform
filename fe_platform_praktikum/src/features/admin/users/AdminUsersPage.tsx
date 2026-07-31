@@ -76,7 +76,6 @@ export default function AdminUsersPage() {
     action: ConfirmAction
     user: AdminStudent | AdminLecturer
   } | null>(null)
-  const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [actionLoading, setActionLoading] = useState("")
   const [error, setError] = useState("")
@@ -118,8 +117,8 @@ export default function AdminUsersPage() {
                   type="button"
                   onClick={() => onPageChange(p)}
                   className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold transition cursor-pointer ${currentPage === p
-                      ? "bg-blue-600 text-white shadow-sm shadow-blue-100"
-                      : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-100"
+                    : "border border-gray-200 text-gray-600 hover:bg-gray-50"
                     }`}
                 >
                   {p}
@@ -278,7 +277,6 @@ export default function AdminUsersPage() {
   const studentSemesterOptions = getStudentSemesterOptions(activeSemester?.term)
 
   const fetchUsers = useCallback(async () => {
-    setLoading(true)
     setError("")
 
     try {
@@ -294,8 +292,6 @@ export default function AdminUsersPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal mengambil data pengguna")
-    } finally {
-      setLoading(false)
     }
   }, [isStudent, keyword, role, semester])
 
@@ -531,11 +527,10 @@ export default function AdminUsersPage() {
           <button
             type="button"
             onClick={() => setAddTab("single")}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition cursor-pointer ${
-              addTab === "single"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition cursor-pointer ${addTab === "single"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
           >
             <UserPlus size={16} />
             <span>Tambah Satu</span>
@@ -543,11 +538,10 @@ export default function AdminUsersPage() {
           <button
             type="button"
             onClick={() => setAddTab("import")}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition cursor-pointer ${
-              addTab === "import"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition cursor-pointer ${addTab === "import"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
           >
             <FileUp size={16} />
             <span>Import Banyak (File)</span>
@@ -617,11 +611,10 @@ export default function AdminUsersPage() {
                 onDragLeave={handleDragLeave}
                 onDrop={handleDropImportFile}
                 onClick={() => fileInputRef.current?.click()}
-                className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition cursor-pointer ${
-                  isDraggingFile
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400"
-                }`}
+                className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition cursor-pointer ${isDraggingFile
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400"
+                  }`}
               >
                 <input
                   ref={fileInputRef}

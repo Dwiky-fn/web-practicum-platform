@@ -4,22 +4,27 @@ import type { Notification } from "./types"
 export async function getNotifications(userId: string): Promise<Notification[]> {
   try {
     const res = await apiFetch(`/users/${userId}/notifications`)
+    const rawList = res?.data?.notifications || res?.notifications || res?.data || (Array.isArray(res) ? res : [])
 
-    return res.data.notifications.map((notification: {
+    if (!Array.isArray(rawList)) return []
+
+    return rawList.map((notification: {
       id: string
-      student_id: string
+      student_id?: string
+      userId?: string
       title: string
       message: string
       target_url?: string
       targetUrl?: string
-      is_read: boolean
+      is_read?: boolean
+      isRead?: boolean
     }) => ({
-      id: notification.id,
-      userId: notification.student_id,
-      title: notification.title,
-      message: notification.message,
+      id: String(notification.id),
+      userId: notification.student_id || notification.userId || userId,
+      title: notification.title || "Notifikasi",
+      message: notification.message || "",
       targetUrl: notification.target_url || notification.targetUrl,
-      isRead: notification.is_read,
+      isRead: Boolean(notification.is_read ?? notification.isRead),
     }))
   } catch {
     return []

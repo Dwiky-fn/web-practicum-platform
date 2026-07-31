@@ -126,7 +126,7 @@ export default function NotificationBell({
             type="button"
             onClick={() => {
               onToggle()
-              navigate("/notifikasi")
+              navigate("/notifications")
             }}
             className="text-xs font-bold text-blue-700 hover:text-blue-900 transition-colors"
           >

@@ -76,7 +76,6 @@ export default function AdminUsersPage() {
     action: ConfirmAction
     user: AdminStudent | AdminLecturer
   } | null>(null)
-  const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [actionLoading, setActionLoading] = useState("")
   const [error, setError] = useState("")
@@ -278,7 +277,6 @@ export default function AdminUsersPage() {
   const studentSemesterOptions = getStudentSemesterOptions(activeSemester?.term)
 
   const fetchUsers = useCallback(async () => {
-    setLoading(true)
     setError("")
 
     try {
@@ -294,8 +292,6 @@ export default function AdminUsersPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal mengambil data pengguna")
-    } finally {
-      setLoading(false)
     }
   }, [isStudent, keyword, role, semester])
 

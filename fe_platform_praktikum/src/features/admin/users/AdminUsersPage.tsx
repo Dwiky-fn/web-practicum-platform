@@ -76,6 +76,7 @@ export default function AdminUsersPage() {
     action: ConfirmAction
     user: AdminStudent | AdminLecturer
   } | null>(null)
+  const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [actionLoading, setActionLoading] = useState("")
   const [error, setError] = useState("")

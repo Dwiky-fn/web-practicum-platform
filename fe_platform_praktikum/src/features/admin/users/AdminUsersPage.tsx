@@ -340,15 +340,12 @@ export default function AdminUsersPage() {
       setError("")
       if (isStudent) {
         await createAdminStudent({
-          nim: String(form.get("identifier") || ""),
-          fullname: String(form.get("fullname") || ""),
-          email: String(form.get("email") || ""),
+          nim: String(form.get("identifier") || "").trim(),
+          fullname: String(form.get("fullname") || "").trim(),
+          email: String(form.get("email") || "").trim(),
           angkatan: Number(form.get("angkatan") || 0),
           semester: Number(form.get("semester") || 0),
           status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
-          isTransferStudent: form.get("isTransferStudent") === "on",
-          transferOriginSemester: Number(form.get("transferOriginSemester") || 0) || undefined,
-          transferReason: String(form.get("transferReason") || ""),
         })
         toast.success("Mahasiswa dan akun login berhasil ditambahkan.")
       } else {
@@ -647,30 +644,10 @@ export default function AdminUsersPage() {
                   ))}
                 </select>
               </FieldRow>
-              <div className="rounded-md border border-gray-200 p-3">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                  <input type="checkbox" name="isTransferStudent" />
-                  Mahasiswa pindahan
-                </label>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <FieldRow label="Semester Asal Pindahan">
-                    <select name="transferOriginSemester" className={inputClass} defaultValue="">
-                      <option value="">Pilih semester asal</option>
-                      {studentSemesterOptions.map((option) => (
-                        <option key={option}>{option}</option>
-                      ))}
-                    </select>
-                  </FieldRow>
-                  <FieldRow label="Catatan Pindahan">
-                    <input name="transferReason" className={inputClass} placeholder="Opsional" />
-                  </FieldRow>
-                </div>
-              </div>
-
             </>
           )}
-          <FieldRow label="Email">
-            <input name="email" className={inputClass} type="email" placeholder="Masukkan email" required />
+          <FieldRow label="Email (Opsional)">
+            <input name="email" className={inputClass} type="email" placeholder="Masukkan email (opsional)" />
           </FieldRow>
           <FieldRow label="Status">
             <select name="status" className={inputClass} required>

@@ -742,15 +742,16 @@ class ClassesService {
       await client.query(
         `
         INSERT INTO jobsheet_classes (
-          id, jobsheet_id, id_kelas_praktikum, is_active, deadline,
+          id, jobsheet_id, id_kelas_praktikum, class_id, is_active, deadline,
           title, description, goal, content, status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         `,
         [
           newJobsheetClassId,
           newJobsheetId,
           targetClassId,
+          targetClassId || newJobsheetClassId,
           jobsheetClass.is_active,
           jobsheetClass.deadline,
           jobsheetClass.title,

@@ -271,7 +271,8 @@
 .ProseMirror table,
 .rich-text-renderer table {
   border-collapse: collapse !important;
-  width: 100% !important;
+  table-layout: fixed !important;
+  width: 100%;
   margin: 16px 0 !important;
 }
 
@@ -286,11 +287,31 @@
   border: 1px solid #dbe3ef !important;
   padding: 8px 10px !important;
   vertical-align: top !important;
+  position: relative !important;
+  box-sizing: border-box !important;
 }
 
 .ProseMirror .selectedCell {
   background: rgba(37, 99, 235, 0.12) !important;
   border: 1px double #2563eb !important;
+}
+
+/* TipTap Table Column Resizing Controls */
+.ProseMirror .column-resize-handle {
+  position: absolute !important;
+  right: -2px !important;
+  top: 0 !important;
+  bottom: -2px !important;
+  width: 4px !important;
+  background-color: #2563eb !important;
+  pointer-events: none !important;
+  z-index: 20 !important;
+  opacity: 0.8;
+}
+
+.ProseMirror.resize-cursor,
+.ProseMirror.resize-cursor * {
+  cursor: col-resize !important;
 }
 
 

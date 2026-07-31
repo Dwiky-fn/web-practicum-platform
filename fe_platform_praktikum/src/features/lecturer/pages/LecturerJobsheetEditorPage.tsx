@@ -767,9 +767,12 @@ export default function LecturerJobsheetEditorPage() {
                           max="100"
                           step="0.01"
                           className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
-                          value={item.rubric ?? 0}
+                          value={item.rubric === 0 || item.rubric === null || item.rubric === undefined ? "" : item.rubric}
+                          placeholder="0"
+                          onFocus={(event) => event.target.select()}
                           onChange={(event) => {
-                            const val = normalizeRubric(event.target.value)
+                            const raw = event.target.value
+                            const val = raw === "" ? 0 : normalizeRubric(raw)
                             setExperiments((current) =>
                               current.map((entry, currentIndex) =>
                                 currentIndex === index ? { ...entry, rubric: val } : entry,
@@ -925,9 +928,12 @@ export default function LecturerJobsheetEditorPage() {
                           max="100"
                           step="0.01"
                           className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
-                          value={item.rubric ?? 0}
+                          value={item.rubric === 0 || item.rubric === null || item.rubric === undefined ? "" : item.rubric}
+                          placeholder="0"
+                          onFocus={(event) => event.target.select()}
                           onChange={(event) => {
-                            const val = normalizeRubric(event.target.value)
+                            const raw = event.target.value
+                            const val = raw === "" ? 0 : normalizeRubric(raw)
                             setExercises((current) =>
                               current.map((entry, currentIndex) =>
                                 currentIndex === index ? { ...entry, rubric: val } : entry,

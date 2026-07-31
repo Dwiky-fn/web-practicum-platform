@@ -48,6 +48,23 @@ export const CustomImage = Image.extend({
         parseHTML: element => element.getAttribute('data-alignment') || 'center',
         renderHTML: attributes => ({ 'data-alignment': attributes.alignment }),
       },
+      indentLevel: {
+        default: 0,
+        parseHTML: element => {
+          const val = element.getAttribute('data-indent-level');
+          if (val) return parseInt(val, 10);
+          const ml = element.style.marginLeft || element.style.paddingLeft;
+          return ml ? Math.round(parseInt(ml, 10) / 24) : 0;
+        },
+        renderHTML: attributes => {
+          const level = attributes.indentLevel || 0;
+          if (level <= 0) return {};
+          return {
+            'data-indent-level': level,
+            style: `padding-left: ${level * 24}px;`,
+          };
+        },
+      },
     };
   },
 
@@ -203,8 +220,11 @@ function ResizableImageNode({ node, updateAttributes, editor }: any) {
     }
   };
 
+  const indentLevel = node.attrs.indentLevel || 0;
+  const paddingLeft = indentLevel > 0 ? `${indentLevel * 24}px` : undefined;
+
   return (
-    <NodeViewWrapper className="jobsheet-rich-image-wrapper select-none" style={{ display: 'block', width: '100%', margin: '12px 0' }}>
+    <NodeViewWrapper className="jobsheet-rich-image-wrapper select-none" style={{ display: 'block', width: '100%', margin: '12px 0', paddingLeft }}>
       <div
         ref={containerRef}
         style={containerStyle}

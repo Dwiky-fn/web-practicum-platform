@@ -219,10 +219,12 @@ export default function EditorToolbar({ editor, role, layout = "horizontal", onI
       }
     }
 
-    const editorElement = editor.options.element
-    editorElement.addEventListener("mouseup", applyCopiedMarks)
-    return () => {
-      editorElement.removeEventListener("mouseup", applyCopiedMarks)
+    const dom = editor.view?.dom
+    if (dom) {
+      dom.addEventListener("mouseup", applyCopiedMarks)
+      return () => {
+        dom.removeEventListener("mouseup", applyCopiedMarks)
+      }
     }
   }, [copiedMarks, editor])
 

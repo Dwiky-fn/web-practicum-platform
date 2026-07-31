@@ -175,7 +175,6 @@ export function AdminActionCell({
 
 export function EmptyState({
   title,
-  action,
 }: {
   title: string
   action?: React.ReactNode
@@ -183,7 +182,6 @@ export function EmptyState({
   return (
     <div className="flex min-h-90 flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white px-6 text-center">
       <p className="text-lg font-medium text-gray-700">{title}</p>
-      {action && <div className="mt-4">{action}</div>}
     </div>
   )
 }

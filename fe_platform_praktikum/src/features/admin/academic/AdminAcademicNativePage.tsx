@@ -1093,7 +1093,7 @@ export default function AdminAcademicNativePage() {
   }
 
   function renderKelasMahasiswa() {
-    if (!groupedKelasMahasiswa.length) return <EmptyState title={emptyLabel("kelas-mahasiswa")} action={<AdminButton onClick={() => openModal("kelas-mahasiswa")}><Plus size={16} />Tambah Kelas Mahasiswa</AdminButton>} />
+    if (!groupedKelasMahasiswa.length) return <EmptyState title={emptyLabel("kelas-mahasiswa")} />
     const displayedData = groupedKelasMahasiswa.slice((page - 1) * limit, page * limit)
     return (
       <AdminTable headers={["Nama Kelas", "Jumlah Mahasiswa", "Aksi"]}>
@@ -1158,7 +1158,7 @@ export default function AdminAcademicNativePage() {
   }
 
   function renderKelasPraktikum(items: KelasPraktikum[] = filtered as KelasPraktikum[], isDetailView = false) {
-    if (!items.length) return <EmptyState title="Belum ada kelas praktikum untuk tahun semester ini." action={<AdminButton onClick={() => openModal("kelas-praktikum")}><Plus size={16} />Tambah Kelas Praktikum</AdminButton>} />
+    if (!items.length) return <EmptyState title="Belum ada kelas praktikum untuk tahun semester ini." />
     const headers = isDetailView
       ? ["Nama Kelas", "Jobsheet", "Pengampu", "Aksi"]
       : ["Nama Kelas", "Tahun Semester", "Mata Kuliah", "Semester", "Kelas", "Jobsheet", "Pengampu", "Aksi"]
@@ -1188,7 +1188,7 @@ export default function AdminAcademicNativePage() {
 
   function renderTable() {
     if (activeTab === "kelas-mahasiswa") return renderKelasMahasiswa()
-    if (!filtered.length) return <EmptyState title={emptyLabel(activeTab)} action={<AdminButton onClick={() => openModal(activeTab)}><Plus size={16} />{activeTabMeta.addLabel}</AdminButton>} />
+    if (!filtered.length) return <EmptyState title={emptyLabel(activeTab)} />
 
     const displayedData = filtered.slice((page - 1) * limit, page * limit)
 
@@ -1806,7 +1806,7 @@ export default function AdminAcademicNativePage() {
               </div>
               <div className="p-4">
                 {groupedKelasMahasiswa.length ? renderKelasMahasiswa() : (
-                  <EmptyState title="Belum ada kelas mahasiswa untuk tahun semester ini." action={<AdminButton onClick={() => openModal("kelas-mahasiswa")}><Plus size={16} />Tambah Kelas Mahasiswa</AdminButton>} />
+                  <EmptyState title="Belum ada kelas mahasiswa untuk tahun semester ini." />
                 )}
               </div>
             </AdminPanel>

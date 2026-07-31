@@ -828,10 +828,7 @@ export default function AdminUsersPage() {
             {renderPagination(page, Math.ceil(students.length / limit), setPage, students.length)}
           </>
         ) : (
-          <EmptyState
-            title="Belum ada data mahasiswa"
-            action={<AdminButton onClick={() => setModal("add")}><Plus size={16} />Tambah Mahasiswa dan Akun</AdminButton>}
-          />
+          <EmptyState title="Belum ada data mahasiswa" />
         )
       ) : lecturers.length ? (
         <>
@@ -918,10 +915,7 @@ export default function AdminUsersPage() {
           {renderPagination(page, Math.ceil(lecturers.length / limit), setPage, lecturers.length)}
         </>
       ) : (
-        <EmptyState
-          title="Belum ada data dosen"
-          action={<AdminButton onClick={() => setModal("add")}><Plus size={16} />Tambah Dosen</AdminButton>}
-        />
+        <EmptyState title="Belum ada data dosen" />
       )}
 
       {renderAddModal()}

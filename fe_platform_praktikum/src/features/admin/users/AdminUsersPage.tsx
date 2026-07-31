@@ -497,7 +497,6 @@ export default function AdminUsersPage() {
   }
 
   const renderAddModal = () => {
-  const renderAddModal = () => {
     if (!modal) return null
 
     const title = isStudent

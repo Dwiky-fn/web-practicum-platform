@@ -1,6 +1,7 @@
 const pool = require('../postgres');
 const { randomUUID } = require('crypto');
 const http = require('http');
+const https = require('https');
 
 function parseTemplateFiles(templateCode, defaultFileName) {
   if (!templateCode) {
@@ -174,9 +175,12 @@ function httpPost(url, headers, body) {
         : '[AI Queue] AI service timeout dinonaktifkan'
     );
 
+    const isHttps = parsedUrl.protocol === 'https:';
+    const client = isHttps ? https : http;
+
     const options = {
       hostname: parsedUrl.hostname,
-      port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+      port: parsedUrl.port || (isHttps ? 443 : 80),
       path: parsedUrl.pathname + parsedUrl.search,
       method: 'POST',
       headers: {
@@ -189,7 +193,7 @@ function httpPost(url, headers, body) {
       options.timeout = timeoutMs;
     }
 
-    const req = http.request(options, (res) => {
+    const req = client.request(options, (res) => {
       let responseBody = '';
       res.setEncoding('utf8');
       res.on('data', (chunk) => {

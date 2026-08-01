@@ -337,6 +337,61 @@ function normalizeEvaluationResult(result) {
   };
 }
 
+function coerceFeedbackText(value) {
+  if (value === null || value === undefined) return '';
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => coerceFeedbackText(item))
+      .filter(Boolean)
+      .join('\n');
+  }
+  if (typeof value === 'object') {
+    return Object.entries(value)
+      .map(([key, item]) => {
+        const text = coerceFeedbackText(item);
+        return text ? `${key}: ${text}` : '';
+      })
+      .filter(Boolean)
+      .join('\n');
+  }
+  return String(value);
+}
+
+function normalizeFeedbackTextFields(feedback) {
+  if (!feedback || typeof feedback !== 'object') return feedback;
+
+  const textFields = [
+    'summary',
+    'instructionCompliance',
+    'codeEvaluation',
+    'outputEvaluation',
+    'testCaseEvaluation',
+    'errorEvaluation',
+    'analysisEvaluation',
+    'overallUnderstanding',
+    'consistencyEvaluation',
+    'conclusionEvaluation',
+  ];
+
+  textFields.forEach((field) => {
+    if (Object.prototype.hasOwnProperty.call(feedback, field)) {
+      feedback[field] = coerceFeedbackText(feedback[field]);
+    }
+  });
+
+  return feedback;
+}
+
+function normalizeModelOutputShape(result) {
+  if (!result || typeof result !== 'object') return result;
+
+  normalizeFeedbackTextFields(result.experimentFeedback);
+  normalizeFeedbackTextFields(result.exerciseFeedback);
+  normalizeFeedbackTextFields(result.jobsheetFeedback);
+
+  return result;
+}
+
 function parseAndValidate(rawOutput, payload) {
   let parsed;
 
@@ -355,6 +410,8 @@ function parseAndValidate(rawOutput, payload) {
       ],
     };
   }
+
+  parsed = normalizeModelOutputShape(parsed);
 
   const { error, value } = validateEvaluationResult(parsed);
 

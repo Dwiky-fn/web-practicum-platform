@@ -7,7 +7,7 @@ import type { ReviewFeedback } from "../../../../services/reviewFeedbackService"
 import type { SelectedLineRange } from "./CodeReviewBlock"
 
 interface Props {
-  experiments: Array<{ id: string; title: string }>
+  experiments?: Array<{ id: string; title: string }>
   exercises?: Array<{ id: string; title: string }>
   feedbacks: ReviewFeedback[]
   activeFeedbackId: string | null
@@ -20,8 +20,8 @@ interface Props {
   onPublishFeedback: (id: string) => Promise<any>
   onPublishMultipleFeedbacks: (ids: string[]) => Promise<void>
 
-  activeExperimentId: string | null
-  onSetActiveExperimentId: (id: string | null) => void
+  activeExperimentId?: string | null
+  onSetActiveExperimentId?: (id: string | null) => void
   score: string
   saving: boolean
   onSaveReview: (decision: "ACCEPTED") => void
@@ -39,8 +39,6 @@ interface Props {
 }
 
 export default function ReviewSidePanel({
-  experiments,
-  exercises = [],
   feedbacks,
   activeFeedbackId,
   onSelectFeedback,
@@ -50,8 +48,6 @@ export default function ReviewSidePanel({
   onUpdateFeedback,
   onDeleteFeedback,
 
-  activeExperimentId,
-  onSetActiveExperimentId,
   score,
   saving,
   onSaveReview,
@@ -238,7 +234,6 @@ export default function ReviewSidePanel({
       <div className="flex bg-gray-50 border-b border-gray-200 text-[11px] font-bold select-none">
         {(
           [
-            { id: "percobaan", label: "Percobaan / Latihan" },
             { id: "komentar_kode", label: "Komentar Kode" },
             { id: "jobsheet", label: "Jobsheet" },
           ] as const

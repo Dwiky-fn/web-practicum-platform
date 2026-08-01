@@ -271,6 +271,9 @@ export default function ReviewSidePanel({
     (f) => f.scope === "code" && f.experimentId === activeExperimentId
   )
 
+  // Get ALL code feedbacks (for Komentar Kode tab without filter)
+  const allCodeFeedbacks = feedbacks.filter((f) => f.scope === "code")
+
   const renderSourceBadge = (source: string) => {
     switch (source) {
       case "ai":
@@ -324,7 +327,7 @@ export default function ReviewSidePanel({
       {/* Main Content Area */}
       <div className="flex-grow p-4 overflow-y-auto space-y-4">
         {/* Experiment/Exercise selector */}
-        {(activeTab === "percobaan" || activeTab === "komentar_kode") && (
+        {activeTab === "percobaan" && (
           <label className="block text-xs font-semibold text-gray-700">
             Pilih Percobaan / Latihan
             <select
@@ -460,149 +463,139 @@ export default function ReviewSidePanel({
         {/* ════ TAB 2: KOMENTAR KODE ════ */}
         {activeTab === "komentar_kode" && (
           <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h5 className="font-bold text-xs text-gray-700 flex items-center gap-1">
+                  <MessageSquare size={12} className="text-blue-500" />
+                  Komentar Kode
+                  {allCodeFeedbacks.length > 0 && (
+                    <span className="ml-1 bg-blue-100 text-blue-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                      {allCodeFeedbacks.length}
+                    </span>
+                  )}
+                </h5>
+              </div>
 
-            {activeExperimentId ? (
-              <>
-                {/* ── Komentar Kode (Contextual Feedback) list ── */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h5 className="font-bold text-xs text-gray-700 flex items-center gap-1">
-                      <MessageSquare size={12} className="text-blue-500" />
-                      Komentar Kode
-                      {currentExpCodeFeedbacks.length > 0 && (
-                        <span className="ml-1 bg-blue-100 text-blue-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                          {currentExpCodeFeedbacks.length}
-                        </span>
-                      )}
-                    </h5>
+              {/* Inline comment creator (shown when a line range is selected or editing) */}
+              {(selectedLineRange || isEditingCode) && !readOnly && (
+                <div className="p-3 bg-blue-50/40 border border-blue-100 rounded-xl">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-bold text-xs text-blue-900 font-sans uppercase tracking-wide">
+                      {isEditingCode ? "Edit Komentar Kode" : "Komentar Kode Baru"}
+                    </h4>
+                    <button
+                      onClick={() => {
+                        onClearSelection()
+                        onSelectFeedback(null)
+                        setIsEditingCode(false)
+                        setInlineComment("")
+                      }}
+                      className="text-[10px] text-gray-500 hover:text-red-600 font-semibold"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                  <div className="text-[11px] text-gray-600 space-y-1">
+                    <p>
+                      <span className="font-semibold">File:</span>{" "}
+                      {selectedLineRange?.fileName || activeFeedback?.fileName}
+                    </p>
+                    <p>
+                      <span className="font-semibold">Baris:</span>{" "}
+                      {selectedLineRange
+                        ? `${selectedLineRange.startLine}-${selectedLineRange.endLine}`
+                        : `${activeFeedback?.startLine}-${activeFeedback?.endLine}`}
+                    </p>
+                    {selectedLineRange?.selectedCode && (
+                      <pre className="mt-1 bg-white p-2 rounded border border-gray-100 text-[10px] text-gray-800 overflow-x-auto whitespace-pre-wrap max-h-20">
+                        {selectedLineRange.selectedCode}
+                      </pre>
+                    )}
                   </div>
 
-                  {/* Inline comment creator (shown when a line range is selected or editing) */}
-                  {(selectedLineRange || isEditingCode) && !readOnly && (
-                    <div className="p-3 bg-blue-50/40 border border-blue-100 rounded-xl">
-                      <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-bold text-xs text-blue-900 font-sans uppercase tracking-wide">
-                          {isEditingCode ? "Edit Komentar Kode" : "Komentar Kode Baru"}
-                        </h4>
-                        <button
-                          onClick={() => {
-                            onClearSelection()
-                            onSelectFeedback(null)
-                            setIsEditingCode(false)
-                            setInlineComment("")
-                          }}
-                          className="text-[10px] text-gray-500 hover:text-red-600 font-semibold"
-                        >
-                          Batal
-                        </button>
-                      </div>
-                      <div className="text-[11px] text-gray-600 space-y-1">
-                        <p>
-                          <span className="font-semibold">File:</span>{" "}
-                          {selectedLineRange?.fileName || activeFeedback?.fileName}
-                        </p>
-                        <p>
-                          <span className="font-semibold">Baris:</span>{" "}
-                          {selectedLineRange
-                            ? `${selectedLineRange.startLine}-${selectedLineRange.endLine}`
-                            : `${activeFeedback?.startLine}-${activeFeedback?.endLine}`}
-                        </p>
-                        {selectedLineRange?.selectedCode && (
-                          <pre className="mt-1 bg-white p-2 rounded border border-gray-100 text-[10px] text-gray-800 overflow-x-auto whitespace-pre-wrap max-h-20">
-                            {selectedLineRange.selectedCode}
-                          </pre>
-                        )}
-                      </div>
-
-                      <form onSubmit={handleSaveInlineComment} className="mt-3 space-y-2">
-                        <textarea
-                          id="inline-comment-textarea"
-                          value={inlineComment}
-                          onChange={(e) => setInlineComment(e.target.value)}
-                          placeholder="Masukkan catatan feedback pada baris kode ini..."
-                          rows={3}
-                          className="w-full text-xs p-2 rounded-lg border border-gray-300 focus:border-blue-500 outline-none"
-                          required
-                        />
-                        <div className="flex justify-end">
-                          <button
-                            type="submit"
-                            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1 px-3 rounded text-[11px]"
-                          >
-                            Simpan
-                          </button>
-                        </div>
-                      </form>
+                  <form onSubmit={handleSaveInlineComment} className="mt-3 space-y-2">
+                    <textarea
+                      id="inline-comment-textarea"
+                      value={inlineComment}
+                      onChange={(e) => setInlineComment(e.target.value)}
+                      placeholder="Masukkan catatan feedback pada baris kode ini..."
+                      rows={3}
+                      className="w-full text-xs p-2 rounded-lg border border-gray-300 focus:border-blue-500 outline-none"
+                      required
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1 px-3 rounded text-[11px]"
+                      >
+                        Simpan
+                      </button>
                     </div>
-                  )}
-
-                  {/* Code comments list for this experiment */}
-                  {currentExpCodeFeedbacks.length === 0 && !selectedLineRange && !isEditingCode ? (
-                    <div className="text-center py-5 text-gray-400 italic text-[11px] bg-gray-50 rounded-xl border border-gray-100">
-                      <p>Belum ada komentar kode.</p>
-                      <p className="mt-1 text-[10px] text-gray-400">Sorot baris di blok kode untuk memberikan feedback.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {currentExpCodeFeedbacks.map((fb) => (
-                        <div
-                          key={fb.id}
-                          onClick={() => onSelectFeedback(fb.id)}
-                          className={`p-3 border rounded-lg text-xs transition relative group cursor-pointer ${
-                            activeFeedbackId === fb.id
-                              ? "bg-yellow-50/50 border-yellow-400 ring-1 ring-yellow-200"
-                              : "bg-white border-gray-200 hover:bg-gray-50/70"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-1.5">
-                            <div className="flex gap-1.5">
-                              {renderSourceBadge(fb.source)}
-                            </div>
-                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              {!readOnly && (
-                                <>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      onSelectFeedback(fb.id)
-                                      setIsEditingCode(true)
-                                      setInlineComment(fb.content)
-                                    }}
-                                    className="text-gray-400 hover:text-blue-500"
-                                    title="Edit komentar"
-                                  >
-                                    <Pencil size={12} />
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setDeletingFeedbackId(fb.id)
-                                    }}
-                                    className="text-gray-400 hover:text-red-500"
-                                    title="Hapus komentar"
-                                  >
-                                    <Trash2 size={12} />
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="text-gray-500 text-[10px] mb-1 font-sans">
-                            {getStepLabel(fb.codeBlockId) ? `${getStepLabel(fb.codeBlockId)} · ` : ""}{fb.fileName} · Baris {fb.startLine}-{fb.endLine}
-                          </div>
-                          <p className="text-gray-700 leading-snug">{fb.content}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  </form>
                 </div>
-              </>
-            ) : (
-              <div className="text-center py-8 text-gray-400 italic text-[11px] bg-gray-50 rounded-xl border border-gray-100">
-                Pilih percobaan di atas untuk melihat komentar kode.
-              </div>
-            )}
+              )}
+
+              {/* Code comments list for all experiments */}
+              {allCodeFeedbacks.length === 0 && !selectedLineRange && !isEditingCode ? (
+                <div className="text-center py-5 text-gray-400 italic text-[11px] bg-gray-50 rounded-xl border border-gray-100">
+                  <p>Belum ada komentar kode.</p>
+                  <p className="mt-1 text-[10px] text-gray-400">Sorot baris di blok kode untuk memberikan feedback.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {allCodeFeedbacks.map((fb) => (
+                    <div
+                      key={fb.id}
+                      onClick={() => onSelectFeedback(fb.id)}
+                      className={`p-3 border rounded-lg text-xs transition relative group cursor-pointer ${
+                        activeFeedbackId === fb.id
+                          ? "bg-yellow-50/50 border-yellow-400 ring-1 ring-yellow-200"
+                          : "bg-white border-gray-200 hover:bg-gray-50/70"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex gap-1.5">
+                          {renderSourceBadge(fb.source)}
+                        </div>
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {!readOnly && (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onSelectFeedback(fb.id)
+                                  setIsEditingCode(true)
+                                  setInlineComment(fb.content)
+                                }}
+                                className="text-gray-400 hover:text-blue-500"
+                                title="Edit komentar"
+                              >
+                                <Pencil size={12} />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setDeletingFeedbackId(fb.id)
+                                }}
+                                className="text-gray-400 hover:text-red-500"
+                                title="Hapus komentar"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="text-gray-500 text-[10px] mb-1 font-sans">
+                        {getStepLabel(fb.codeBlockId) ? `${getStepLabel(fb.codeBlockId)} · ` : ""}{fb.fileName} · Baris {fb.startLine}-{fb.endLine}
+                      </div>
+                      <p className="text-gray-700 leading-snug">{fb.content}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

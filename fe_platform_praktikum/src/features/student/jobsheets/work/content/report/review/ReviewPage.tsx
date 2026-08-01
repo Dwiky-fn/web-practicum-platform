@@ -1,18 +1,16 @@
-import { useParams, useSearchParams } from "react-router-dom"
+import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { useEffect, useMemo, useState } from "react"
+import { ArrowLeft } from "lucide-react"
 import { getJobsheetById } from "../../../../../../../services/jobsheet/service"
 import { getSubmissionByJobsheetId } from "../../../../../../../services/submission/service"
 import type { Jobsheet } from "../../../../../../../services/jobsheet/types"
 import type { JobsheetSubmission } from "../../../../../../../services/submission/types"
-import ReportHeader from "../components/ReportHeader"
 import StudentIdentityCard from "../components/StudentIdentityCard"
 import TopProgressBar from "../../../../../../../components/loading/TopProgressBar"
 import ConclusionEditor from "../components/ConclusionEditor"
 import { useCurrentUser } from "../../../../../../../services/user/useCurrentUser"
 import Navbar from "../../../../../../../components/navbar/Navbar"
 import ScrollToTopButton from "../../../../../../../components/ScrollToTopButton"
-import ReviewSummaryBanner from "./components/ReviewSummaryBanner"
-import StudentReviewPanel from "./components/StudentReviewPanel"
 import ExperimentReviewCard from "../../../../../../lecturer/components/review/ExperimentReviewCard"
 import JobsheetFeedbackCard from "../../../../../../lecturer/components/review/JobsheetFeedbackCard"
 import {
@@ -24,6 +22,7 @@ import { academicJobsheetSubPath, type AcademicScope } from "../../../../../../.
 const emptyDoc = { type: "doc" as const, content: [] }
 
 export default function ReviewPage() {
+  const navigate = useNavigate()
   const { courseId, mataKuliahId: routeMataKuliahId, jobsheetId } = useParams<{
     courseId?: string
     mataKuliahId?: string
@@ -51,7 +50,6 @@ export default function ReviewPage() {
 
   const [feedbacks, setFeedbacks] = useState<ReviewFeedback[]>([])
   const [activeFeedbackId, setActiveFeedbackId] = useState<string | null>(null)
-  const [isPanelOpen, setIsPanelOpen] = useState(true)
   const [expandedExperiments, setExpandedExperiments] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
@@ -118,39 +116,6 @@ export default function ReviewPage() {
     }
   }
 
-  const handleBannerClick = (scope: "code" | "experiment" | "jobsheet") => {
-    if (scope === "code") {
-      setIsPanelOpen(true)
-      const firstCodeFb = feedbacks.find(f => f.scope === "code" && (f.status === "published" || f.status === "resolved"))
-      if (firstCodeFb && firstCodeFb.experimentId) {
-        setExpandedExperiments(prev => ({ ...prev, [firstCodeFb.experimentId!]: true }))
-        setTimeout(() => {
-          const isExercise = jobsheet?.exercises.some(e => e.id === firstCodeFb.experimentId)
-          const elementId = isExercise ? `exercise-card-${firstCodeFb.experimentId}` : `experiment-card-${firstCodeFb.experimentId}`
-          scrollToElement(elementId)
-        }, 150)
-      }
-    } else if (scope === "experiment") {
-      const firstExpFb = feedbacks.find(f => f.scope === "experiment" && (f.status === "published" || f.status === "resolved"))
-      if (firstExpFb && firstExpFb.experimentId) {
-        setExpandedExperiments(prev => ({ ...prev, [firstExpFb.experimentId!]: true }))
-        setTimeout(() => {
-          const isExercise = jobsheet?.exercises.some(e => e.id === firstExpFb.experimentId)
-          const elementId = isExercise ? `exercise-card-${firstExpFb.experimentId}` : `experiment-card-${firstExpFb.experimentId}`
-          scrollToElement(elementId)
-        }, 100)
-      } else if (jobsheet?.experiments.length) {
-        const firstId = jobsheet.experiments[0].id
-        setExpandedExperiments(prev => ({ ...prev, [firstId]: true }))
-        setTimeout(() => {
-          scrollToElement(`experiment-card-${firstId}`)
-        }, 100)
-      }
-    } else if (scope === "jobsheet") {
-      scrollToElement("jobsheet-feedback")
-    }
-  }
-
   const handleSelectFeedback = (id: string | null) => {
     setActiveFeedbackId(id)
     if (id) {
@@ -184,165 +149,121 @@ export default function ReviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 font-sans">
       <Navbar />
 
-      <ReportHeader
-        title={jobsheet.title}
-        backTo={taskPath}
-      />
+      <div className="px-6 py-8 max-w-5xl mx-auto space-y-6">
+        {/* Top Header & Back Button */}
+        <div className="flex items-center justify-between border-b border-gray-200 pb-4">
+          <button
+            type="button"
+            onClick={() => navigate(taskPath)}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-blue-600 transition cursor-pointer"
+          >
+            <ArrowLeft size={18} />
+            <span>Kembali</span>
+          </button>
+          <span className="text-sm font-bold text-gray-800">{jobsheet.title}</span>
+        </div>
 
-      <div className="px-6 py-8 lg:px-16 max-w-7xl mx-auto space-y-6">
-        {/* Summary Banner / Hero Review Card */}
-        <ReviewSummaryBanner
-          feedbacks={feedbacks}
-          review={submission.review}
-          onClickItem={handleBannerClick}
+        {/* Information & Score Card */}
+        <StudentIdentityCard jobsheet={jobsheet} submission={submission} />
+
+        {/* Collapsible Experiments */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-800 flex items-center justify-between">
+            <span>Percobaan Pengerjaan</span>
+            <span className="text-xs font-normal text-gray-500">
+              {experimentReports.length} Percobaan Tersedia
+            </span>
+          </h3>
+          {!experimentReports.length ? (
+            <p className="text-sm text-gray-500 bg-white border border-gray-200 rounded-xl p-5 text-center italic">
+              Tidak ada percobaan pada jobsheet ini.
+            </p>
+          ) : (
+            experimentReports.map(({ experiment, steps }) => (
+              <div key={experiment.id} id={`experiment-card-${experiment.id}`} className="w-full max-w-full overflow-hidden">
+                <ExperimentReviewCard
+                  submissionId={submission.id}
+                  experiment={experiment}
+                  steps={steps}
+                  feedbacks={feedbacks}
+                  readOnly={true}
+                  activeFeedbackId={activeFeedbackId}
+                  onSelectFeedback={handleSelectFeedback}
+                  isExpandedByDefault={!!expandedExperiments[experiment.id]}
+                  isStudent={true}
+                />
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Collapsible Latihan */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-800 flex items-center justify-between">
+            <span>Latihan Pengerjaan</span>
+            <span className="text-xs font-normal text-gray-500">
+              {exerciseReports.length} Latihan Tersedia
+            </span>
+          </h3>
+          {!exerciseReports.length ? (
+            <p className="text-sm text-gray-500 bg-white border border-gray-200 rounded-xl p-5 text-center italic">
+              Tidak ada latihan pada jobsheet ini.
+            </p>
+          ) : (
+            exerciseReports.map(({ exercise, report }) => {
+              const exerciseSteps = report
+                ? [
+                    {
+                      files: report.files ?? {},
+                      output: report.output || "",
+                      analysis: report.analysis ?? emptyDoc,
+                    },
+                  ]
+                : []
+              return (
+                <div key={exercise.id} id={`exercise-card-${exercise.id}`} className="w-full max-w-full overflow-hidden">
+                  <ExperimentReviewCard
+                    submissionId={submission.id}
+                    experiment={{
+                      id: exercise.id,
+                      title: exercise.title,
+                      order: exercise.order,
+                      instructionContent: exercise.instructionContent,
+                    }}
+                    steps={exerciseSteps}
+                    feedbacks={feedbacks}
+                    readOnly={true}
+                    activeFeedbackId={activeFeedbackId}
+                    onSelectFeedback={handleSelectFeedback}
+                    isExpandedByDefault={!!expandedExperiments[exercise.id]}
+                    type="exercise"
+                    isStudent={true}
+                  />
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {/* Conclusion */}
+        <ConclusionEditor
+          jobsheet={jobsheet}
+          submission={submission}
+          readOnly={true}
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 items-start">
-          <div className="space-y-6">
-            <StudentIdentityCard jobsheet={jobsheet} submission={submission} />
-
-            {/* AI Review Assistant Panel (Read-only for Student) */}
-            {submission && submission.aiEvaluationStatus && submission.aiEvaluationStatus !== "none" && (
-              <div className="p-5 border border-blue-100 bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/30 rounded-xl shadow-xs font-sans space-y-3">
-                <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                  <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                    <span className="text-xl">🤖</span> AI Review Assistant
-                  </h2>
-                </div>
-                <div className="bg-white/80 rounded-xl p-4 border border-gray-100 space-y-2 shadow-2xs">
-                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status Review AI</div>
-                  {submission.aiEvaluationStatus === "completed" ? (
-                    <div className="text-xs text-emerald-700 font-bold flex items-center gap-1.5">
-                      <span>✅</span> Review AI Selesai
-                    </div>
-                  ) : submission.aiEvaluationStatus === "processing" || submission.aiEvaluationStatus === "queued" ? (
-                    <div className="text-xs text-blue-700 font-bold flex items-center gap-1.5">
-                      <span className="animate-spin text-blue-600">⏳</span> Sedang Diproses AI
-                    </div>
-                  ) : (
-                    <div className="text-xs text-gray-600 font-medium">Status: {submission.aiEvaluationStatus}</div>
-                  )}
-                </div>
-                <p className="text-xs text-gray-600 leading-relaxed">
-                  Draft nilai & feedback dari AI telah dimasukkan ke panel penilaian di sebelah kanan.
-                </p>
-              </div>
-            )}
-
-            {/* Collapsible Experiments */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-bold text-gray-800 flex items-center justify-between">
-                <span>Percobaan Pengerjaan</span>
-                <span className="text-xs font-normal text-gray-500">
-                  {experimentReports.length} Percobaan Tersedia
-                </span>
-              </h3>
-              {!experimentReports.length ? (
-                <p className="text-sm text-gray-500 bg-white border border-gray-200 rounded-xl p-5 text-center italic">
-                  Tidak ada percobaan pada jobsheet ini.
-                </p>
-              ) : (
-                experimentReports.map(({ experiment, steps }) => (
-                  <div key={experiment.id} id={`experiment-card-${experiment.id}`}>
-                    <ExperimentReviewCard
-                      submissionId={submission.id}
-                      experiment={experiment}
-                      steps={steps}
-                      feedbacks={feedbacks}
-                      readOnly={true}
-                      activeFeedbackId={activeFeedbackId}
-                      onSelectFeedback={handleSelectFeedback}
-                      isExpandedByDefault={!!expandedExperiments[experiment.id]}
-                      isStudent={true}
-                    />
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Collapsible Latihan */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-bold text-gray-800 flex items-center justify-between">
-                <span>Latihan Pengerjaan</span>
-                <span className="text-xs font-normal text-gray-500">
-                  {exerciseReports.length} Latihan Tersedia
-                </span>
-              </h3>
-              {!exerciseReports.length ? (
-                <p className="text-sm text-gray-500 bg-white border border-gray-200 rounded-xl p-5 text-center italic">
-                  Tidak ada latihan pada jobsheet ini.
-                </p>
-              ) : (
-                exerciseReports.map(({ exercise, report }) => {
-                  const exerciseSteps = report
-                    ? [
-                        {
-                          files: report.files ?? {},
-                          output: report.output || "",
-                          analysis: report.analysis ?? emptyDoc,
-                        },
-                      ]
-                    : []
-                  return (
-                    <div key={exercise.id} id={`exercise-card-${exercise.id}`}>
-                      <ExperimentReviewCard
-                        submissionId={submission.id}
-                        experiment={{
-                          id: exercise.id,
-                          title: exercise.title,
-                          order: exercise.order,
-                          instructionContent: exercise.instructionContent,
-                        }}
-                        steps={exerciseSteps}
-                        feedbacks={feedbacks}
-                        readOnly={true}
-                        activeFeedbackId={activeFeedbackId}
-                        onSelectFeedback={handleSelectFeedback}
-                        isExpandedByDefault={!!expandedExperiments[exercise.id]}
-                        type="exercise"
-                        isStudent={true}
-                      />
-                    </div>
-                  )
-                })
-              )}
-            </div>
-
-            {/* Conclusion */}
-            <ConclusionEditor
-              jobsheet={jobsheet}
-              submission={submission}
-              readOnly={true}
-            />
-
-            {/* Overall Jobsheet Feedback */}
-            <div id="jobsheet-feedback">
-              <JobsheetFeedbackCard
-                feedbacks={feedbacks}
-                readOnly={true}
-                activeFeedbackId={activeFeedbackId}
-                onSelectFeedback={handleSelectFeedback}
-                lecturerFeedback={submission.review?.lecturerFeedback}
-              />
-            </div>
-          </div>
-
-          {/* Student review side panel */}
-          <div className="sticky top-6">
-            <StudentReviewPanel
-              feedbacks={feedbacks}
-              submission={submission}
-              activeFeedbackId={activeFeedbackId}
-              onSelectFeedback={handleSelectFeedback}
-              isOpen={isPanelOpen}
-              onClose={() => setIsPanelOpen(false)}
-              experiments={jobsheet.experiments}
-              exercises={jobsheet.exercises}
-            />
-          </div>
+        {/* Overall Jobsheet Feedback */}
+        <div id="jobsheet-feedback">
+          <JobsheetFeedbackCard
+            feedbacks={feedbacks}
+            readOnly={true}
+            activeFeedbackId={activeFeedbackId}
+            onSelectFeedback={handleSelectFeedback}
+            lecturerFeedback={submission.review?.lecturerFeedback}
+          />
         </div>
       </div>
       <ScrollToTopButton />

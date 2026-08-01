@@ -303,11 +303,11 @@ export default function ExperimentReviewCard({
           )}
 
           {/* Experiment Feedback Section */}
-          {isStudent && (visibleFeedbacks.length > 0 || (!readOnly && onOpenFeedbackEditor)) && (
-            <div className="border-t border-gray-100 pt-5 space-y-4">
+          {isStudent && (
+            <div className="border-t border-gray-100 pt-5 space-y-4 font-sans">
               <div className="flex justify-between items-center">
-                <h4 className="font-semibold text-gray-800 text-sm">
-                  {type === "exercise" ? "Feedback Latihan" : "Feedback Percobaan"}
+                <h4 className="font-bold text-gray-800 text-sm">
+                  {type === "exercise" ? "Feedback & Evaluasi Latihan" : "Feedback & Evaluasi Percobaan"}
                 </h4>
                 {!readOnly && onOpenFeedbackEditor && (
                   <button
@@ -318,6 +318,25 @@ export default function ExperimentReviewCard({
                   </button>
                 )}
               </div>
+
+              {/* Section evaluation score / feedback if present */}
+              {evaluation && (evaluation.feedback || evaluation.score) && (
+                <div className="p-4 border border-blue-100 bg-blue-50/40 rounded-xl space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-blue-900 uppercase tracking-wider">Catatan Dosen Bagian Ini</span>
+                    {evaluation.score && (
+                      <span className="text-xs font-bold text-blue-700 bg-white px-2.5 py-0.5 rounded border border-blue-100">
+                        Nilai: {evaluation.score}
+                      </span>
+                    )}
+                  </div>
+                  {evaluation.feedback && (
+                    <p className="text-xs text-gray-800 leading-relaxed whitespace-pre-line">
+                      {evaluation.feedback}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {visibleFeedbacks.length > 0 ? (
                 <div className="grid gap-4 md:grid-cols-2">
@@ -338,7 +357,6 @@ export default function ExperimentReviewCard({
                             DRAFT
                           </span>
                         )}
-
                       </div>
 
                       <p className="text-sm text-gray-700 leading-relaxed mb-3">
@@ -382,8 +400,8 @@ export default function ExperimentReviewCard({
                   ))}
                 </div>
               ) : (
-                readOnly && (
-                  <p className="text-xs text-gray-400 italic">Belum ada feedback untuk percobaan ini.</p>
+                readOnly && !evaluation?.feedback && (
+                  <p className="text-xs text-gray-400 italic">Belum ada feedback khusus untuk {type === "exercise" ? "latihan" : "percobaan"} ini.</p>
                 )
               )}
             </div>

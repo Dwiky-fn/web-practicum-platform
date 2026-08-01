@@ -23,10 +23,12 @@ export default function StudentIdentityCard({ jobsheet, submission }: Props) {
     return "Menunggu Review"
   }
 
+  const finalScore = submission?.review?.finalScore ?? submission?.score
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs font-sans">
       <div className="bg-gray-50/80 px-6 py-3.5 border-b border-gray-200/80 font-bold text-gray-800 text-sm md:text-base">
-        Identitas Mahasiswa
+        Informasi & Penilaian Praktikum
       </div>
 
       <div className="p-6 text-sm">
@@ -42,6 +44,11 @@ export default function StudentIdentityCard({ jobsheet, submission }: Props) {
 
           {submission && (
             <>
+              <dt className="text-gray-500 font-medium">Nilai</dt>
+              <dd className="text-gray-900 font-bold text-base text-blue-700">
+                {finalScore !== undefined && finalScore !== null ? finalScore : "-"}
+              </dd>
+
               <dt className="text-gray-500 font-medium">Status</dt>
               <dd className="text-gray-900 font-medium">{getStatusLabel()}</dd>
 

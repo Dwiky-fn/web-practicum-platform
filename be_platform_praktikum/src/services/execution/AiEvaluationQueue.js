@@ -262,8 +262,28 @@ class AiEvaluationQueue {
     this._queue = [];
     this._activeSubmissionIds = new Set();
     this._queuedSubmissionIds = new Set();
+    this._currentSteps = new Map();
     this._processing = false;
     this._cleanHangingJobs();
+  }
+
+  getJobInfo(submissionId) {
+    if (this._activeSubmissionIds.has(submissionId)) {
+      return {
+        status: 'processing',
+        position: 0,
+        currentStep: this._currentSteps.get(submissionId) || 'Menganalisis pengerjaan...',
+      };
+    }
+    const pos = this._queue.indexOf(submissionId);
+    if (pos !== -1) {
+      return {
+        status: 'queued',
+        position: pos + 1,
+        currentStep: null,
+      };
+    }
+    return null;
   }
 
   async _cleanHangingJobs() {
@@ -512,6 +532,7 @@ class AiEvaluationQueue {
 
   async _evaluateSubmissionJobInternal(submissionId) {
     console.log(`[AI Queue] Memulai evaluasi untuk submission ${submissionId}`);
+    this._currentSteps.set(submissionId, 'Memulai analisis pengerjaan...');
 
     // Update status di DB menjadi processing
     await pool.query(
@@ -526,6 +547,7 @@ class AiEvaluationQueue {
     );
 
     // Ambil submission, jobsheet, dan data kelas
+    this._currentSteps.set(submissionId, 'Mengambil data pengerjaan & modul dari database...');
     console.log(`[AI Queue] [${submissionId}] Mengambil data submission dan jobsheet dari database...`);
     const submissionRes = await pool.query(
       `SELECT ts.*, j.title as jobsheet_title, j.description as jobsheet_description,
@@ -610,6 +632,10 @@ class AiEvaluationQueue {
     const aiServiceUrl = (process.env.AI_EVALUATOR_SERVICE_URL || 'http://localhost:5000').replace(/\/+$/, '');
     const aiServiceKey = process.env.AI_SERVICE_API_KEY || '';
 
+    this._currentSteps.set(
+      submissionId,
+      `Menyusun payload evaluasi untuk ${experiments.length} Percobaan & ${exercises.length} Latihan...`
+    );
     console.log(`[AI Queue] [${submissionId}] Menyusun payload untuk ${experiments.length} percobaan...`);
     const payloadExperiments = [];
     for (const exp of experiments) {
@@ -785,6 +811,7 @@ class AiEvaluationQueue {
     const payloadString = JSON.stringify(payload);
     const payloadBytes = Buffer.byteLength(payloadString);
 
+    this._currentSteps.set(submissionId, 'Mengirim data pengerjaan ke Evaluator AI Service...');
     console.log(`[AI Service Log] ==================== MEMULAI REQUEST EVALUASI AI ====================`);
     console.log(`[AI Service Log] Submission ID  : ${submissionId}`);
     console.log(`[AI Service Log] Target Endpoint: ${aiServiceUrl}/api/evaluations`);

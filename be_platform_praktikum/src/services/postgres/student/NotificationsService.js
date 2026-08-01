@@ -43,35 +43,68 @@ class NotificationsService {
 
   async _getStudentNotifications(studentId) {
     const query = `
-      SELECT DISTINCT
-        CONCAT('j-', j.id) AS id,
-        km.id_mahasiswa AS student_id,
-        'Jobsheet Baru Tersedia' AS title,
-        CONCAT('Jobsheet "', j.title, '" telah dipublish untuk mata kuliah ', mk.nama_mk, '.') AS message,
-        CONCAT('/mata-kuliah/', mk.id, '/jobsheets/', j.id, '?mataKuliahId=', mk.id, '&kelasPraktikumId=', kp.id) AS target_url,
-        false AS is_read
-      FROM kelas_mhs km
-      JOIN kelas_praktikum kp
-        ON kp.id_tahun_semester = km.id_tahun_semester
-       AND kp.id_semester = km.id_semester
-       AND kp.id_kelas = km.id_kelas
-      JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
-      JOIN jobsheet_classes jc
-        ON jc.id_kelas_praktikum = kp.id
-       AND jc.is_active = true
-      JOIN jobsheets j
-        ON j.id = jc.jobsheet_id
-       AND j.id_mata_kuliah = kp.id_mata_kuliah
-      LEFT JOIN student_progress sp
-        ON sp.student_id = km.id_mahasiswa
-       AND sp.id_kelas_praktikum = kp.id
-       AND sp.jobsheet_id = j.id
-      WHERE km.id_mahasiswa = $1
-        AND LOWER(COALESCE(km.status, 'active')) = 'active'
-        AND LOWER(COALESCE(kp.status, 'open')) IN ('open', 'active')
-        AND j.status = 'PUBLISHED'
-        AND COALESCE(sp.progress, 0) < 100
-      ORDER BY id ASC
+      SELECT *
+      FROM (
+        SELECT DISTINCT
+          CONCAT('review-', ts.id, '-', sr.id) AS id,
+          ts.student_id,
+          CASE
+            WHEN sr.decision = 'ACCEPTED' THEN 'Review Jobsheet Selesai'
+            WHEN sr.decision = 'REVISION' THEN 'Revisi Jobsheet Diperlukan'
+            ELSE 'Review Jobsheet Diperbarui'
+          END AS title,
+          CASE
+            WHEN sr.decision = 'ACCEPTED'
+              THEN CONCAT('Review jobsheet "', j.title, '" telah dipublish. Nilai akhir Anda: ', COALESCE(sr.final_score::text, '-'), '.')
+            WHEN sr.decision = 'REVISION'
+              THEN CONCAT('Review jobsheet "', j.title, '" telah dipublish dan membutuhkan revisi.')
+            ELSE CONCAT('Review jobsheet "', j.title, '" telah diperbarui.')
+          END AS message,
+          CONCAT('/mata-kuliah/', mk.id, '/jobsheets/', j.id, '/review?mataKuliahId=', mk.id, '&kelasPraktikumId=', kp.id, '&submissionId=', ts.id) AS target_url,
+          false AS is_read,
+          COALESCE(ts.submitted_at, CURRENT_TIMESTAMP) AS sort_at
+        FROM task_submissions ts
+        JOIN submission_reviews sr ON sr.submission_id = ts.id
+        JOIN jobsheets j ON j.id = ts.jobsheet_id
+        JOIN kelas_praktikum kp ON kp.id = ts.id_kelas_praktikum
+        JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
+        WHERE ts.student_id = $1
+          AND sr.decision IS NOT NULL
+          AND sr.decision <> 'PENDING'
+
+        UNION ALL
+
+        SELECT DISTINCT
+          CONCAT('j-', j.id) AS id,
+          km.id_mahasiswa AS student_id,
+          'Jobsheet Baru Tersedia' AS title,
+          CONCAT('Jobsheet "', j.title, '" telah dipublish untuk mata kuliah ', mk.nama_mk, '.') AS message,
+          CONCAT('/mata-kuliah/', mk.id, '/jobsheets/', j.id, '?mataKuliahId=', mk.id, '&kelasPraktikumId=', kp.id) AS target_url,
+          false AS is_read,
+          CURRENT_TIMESTAMP AS sort_at
+        FROM kelas_mhs km
+        JOIN kelas_praktikum kp
+          ON kp.id_tahun_semester = km.id_tahun_semester
+         AND kp.id_semester = km.id_semester
+         AND kp.id_kelas = km.id_kelas
+        JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
+        JOIN jobsheet_classes jc
+          ON jc.id_kelas_praktikum = kp.id
+         AND jc.is_active = true
+        JOIN jobsheets j
+          ON j.id = jc.jobsheet_id
+         AND j.id_mata_kuliah = kp.id_mata_kuliah
+        LEFT JOIN student_progress sp
+          ON sp.student_id = km.id_mahasiswa
+         AND sp.id_kelas_praktikum = kp.id
+         AND sp.jobsheet_id = j.id
+        WHERE km.id_mahasiswa = $1
+          AND LOWER(COALESCE(km.status, 'active')) = 'active'
+          AND LOWER(COALESCE(kp.status, 'open')) IN ('open', 'active')
+          AND j.status = 'PUBLISHED'
+          AND COALESCE(sp.progress, 0) < 100
+      ) notifications
+      ORDER BY sort_at DESC, id ASC
       LIMIT 10
     `;
     try {

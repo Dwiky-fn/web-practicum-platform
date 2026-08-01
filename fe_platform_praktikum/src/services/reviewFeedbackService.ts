@@ -35,20 +35,28 @@ export interface ReviewFeedback {
 }
 
 export const getFeedbacks = async (submissionId: string): Promise<ReviewFeedback[]> => {
-  const isStudent = window.location.pathname.includes("/student/");
-  if (isStudent) {
-    const res = await apiFetch(`/student/submissions/${submissionId}/review`);
-    if (res.data?.review?.feedback_details) {
-      return res.data.review.feedback_details;
+  const isLecturer = window.location.pathname.startsWith("/reviews") || window.location.pathname.startsWith("/lecturer");
+  if (!isLecturer) {
+    try {
+      const res = await apiFetch(`/student/submissions/${submissionId}/review`);
+      if (res.data?.review?.feedback_details) {
+        return res.data.review.feedback_details;
+      }
+      return [];
+    } catch {
+      // Fallback
     }
-    return [];
-  } else {
+  }
+
+  try {
     const res = await apiFetch(`/submissions/${submissionId}/feedbacks`);
     if (res.data?.feedbacks) {
       return res.data.feedbacks;
     }
-    return [];
+  } catch (err) {
+    console.warn("Failed to fetch feedbacks:", err);
   }
+  return [];
 };
 
 export const createFeedback = async (payload: Omit<ReviewFeedback, "id" | "createdAt" | "updatedAt">): Promise<ReviewFeedback> => {

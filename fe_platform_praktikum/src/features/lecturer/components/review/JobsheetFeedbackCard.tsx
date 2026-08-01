@@ -7,6 +7,7 @@ interface Props {
   activeFeedbackId?: string | null
   onSelectFeedback?: (feedbackId: string) => void
   onOpenJobsheetEditor?: () => void
+  lecturerFeedback?: string
 }
 
 export default function JobsheetFeedbackCard({
@@ -15,6 +16,7 @@ export default function JobsheetFeedbackCard({
   activeFeedbackId = null,
   onSelectFeedback,
   onOpenJobsheetEditor,
+  lecturerFeedback,
 }: Props) {
   // Filter jobsheet-level feedbacks
   const jobsheetFeedbacks = feedbacks.filter((f) => f.scope === "jobsheet")
@@ -23,6 +25,8 @@ export default function JobsheetFeedbackCard({
   const visibleFeedbacks = readOnly
     ? jobsheetFeedbacks.filter((f) => f.status === "published" || f.status === "resolved")
     : jobsheetFeedbacks
+
+  const hasLecturerNote = Boolean(lecturerFeedback && lecturerFeedback.trim().length > 0)
 
   const renderSourceBadge = (source: string) => {
     switch (source) {
@@ -73,6 +77,18 @@ export default function JobsheetFeedbackCard({
 
       {/* Body */}
       <div className="p-5 space-y-4">
+        {hasLecturerNote && (
+          <div className="p-4 border rounded-xl shadow-xs bg-blue-50/40 border-blue-200">
+            <div className="flex items-center gap-2 mb-2">
+              {renderSourceBadge("lecturer")}
+              <span className="text-xs font-semibold text-blue-900">Catatan Ringkas Dosen</span>
+            </div>
+            <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-line font-medium">
+              {lecturerFeedback}
+            </p>
+          </div>
+        )}
+
         {visibleFeedbacks.length > 0 ? (
           <div className="space-y-4">
             {visibleFeedbacks.map((fb) => (
@@ -142,11 +158,11 @@ export default function JobsheetFeedbackCard({
               </div>
             ))}
           </div>
-        ) : (
+        ) : !hasLecturerNote ? (
           <p className="text-sm text-gray-400 italic text-center py-4">
             Belum ada feedback keseluruhan untuk laporan ini.
           </p>
-        )}
+        ) : null}
       </div>
     </div>
   )

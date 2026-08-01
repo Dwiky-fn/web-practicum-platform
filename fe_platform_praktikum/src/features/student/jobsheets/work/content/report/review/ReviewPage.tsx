@@ -33,11 +33,12 @@ export default function ReviewPage() {
   const classId = searchParams.get("classId") || undefined
   const mataKuliahId = routeMataKuliahId || searchParams.get("mataKuliahId") || undefined
   const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined
+  const submissionIdQuery = searchParams.get("submissionId") || undefined
   const effectiveCourseId = mataKuliahId || courseId
   const { user } = useCurrentUser()
-  const academicScope: AcademicScope = useMemo(
-    () => ({ classId, mataKuliahId, kelasPraktikumId }),
-    [classId, mataKuliahId, kelasPraktikumId],
+  const academicScope: AcademicScope & { submissionId?: string } = useMemo(
+    () => ({ classId, mataKuliahId, kelasPraktikumId, submissionId: submissionIdQuery }),
+    [classId, mataKuliahId, kelasPraktikumId, submissionIdQuery],
   )
   const taskPath = jobsheetId && effectiveCourseId
     ? academicJobsheetSubPath(effectiveCourseId, jobsheetId, "works/task", academicScope)
@@ -192,9 +193,10 @@ export default function ReviewPage() {
       />
 
       <div className="px-6 py-8 lg:px-16 max-w-7xl mx-auto space-y-6">
-        {/* Summary Banner */}
+        {/* Summary Banner / Hero Review Card */}
         <ReviewSummaryBanner
           feedbacks={feedbacks}
+          review={submission.review}
           onClickItem={handleBannerClick}
         />
 
@@ -204,7 +206,12 @@ export default function ReviewPage() {
 
             {/* Collapsible Experiments */}
             <div className="space-y-4">
-              <h3 className="text-lg font-bold text-gray-800">Percobaan</h3>
+              <h3 className="text-lg font-bold text-gray-800 flex items-center justify-between">
+                <span>Percobaan</span>
+                <span className="text-xs font-normal text-gray-500">
+                  {experimentReports.length} Percobaan Tersedia
+                </span>
+              </h3>
               {!experimentReports.length ? (
                 <p className="text-sm text-gray-500 bg-white border border-gray-200 rounded-xl p-5 text-center italic">
                   Tidak ada percobaan pada jobsheet ini.
@@ -230,7 +237,12 @@ export default function ReviewPage() {
 
             {/* Collapsible Latihan */}
             <div className="space-y-4">
-              <h3 className="text-lg font-bold text-gray-800">Latihan</h3>
+              <h3 className="text-lg font-bold text-gray-800 flex items-center justify-between">
+                <span>Latihan</span>
+                <span className="text-xs font-normal text-gray-500">
+                  {exerciseReports.length} Latihan Tersedia
+                </span>
+              </h3>
               {!exerciseReports.length ? (
                 <p className="text-sm text-gray-500 bg-white border border-gray-200 rounded-xl p-5 text-center italic">
                   Tidak ada latihan pada jobsheet ini.
@@ -285,6 +297,7 @@ export default function ReviewPage() {
                 readOnly={true}
                 activeFeedbackId={activeFeedbackId}
                 onSelectFeedback={handleSelectFeedback}
+                lecturerFeedback={submission.review?.lecturerFeedback}
               />
             </div>
           </div>

@@ -115,6 +115,8 @@ export function mapSubmission(data: RawSubmission): JobsheetSubmission {
     createdAt: data.created_at,
     updatedAt: timestamp,
     aiEvaluationStatus: data.ai_evaluation_status ?? "none",
+    aiEvaluationQueuePosition: (data as any).ai_evaluation_queue_position ?? undefined,
+    aiEvaluationCurrentStep: (data as any).ai_evaluation_current_step ?? undefined,
     aiEvaluationError: data.ai_evaluation_error ?? undefined,
     aiEvaluationStartedAt: data.ai_evaluation_started_at ?? undefined,
     aiEvaluationFinishedAt: data.ai_evaluation_finished_at ?? undefined,

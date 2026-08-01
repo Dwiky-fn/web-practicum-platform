@@ -931,49 +931,68 @@ class LecturerJobsheetsService {
       [jobsheetId, kelasPraktikumId],
     );
 
-    return result.rows.map((row) => ({
-      student: {
-        id: row.student_id,
-        fullname: row.fullname,
-        nim: row.nim || '-',
-        email: row.email || '',
-      },
-      submission: row.submission_id
-        ? {
-          id: row.submission_id,
-          jobsheet_id: row.jobsheet_id,
-          student_id: row.student_id,
-          status: row.submission_status,
-          report_html: row.report_html,
-          attempt_no: row.attempt_no,
-          attempt_type: row.attempt_type,
-          attempt_label: row.attempt_label,
-          remedial_id: row.remedial_id,
-          submission_source: row.submission_source,
-          id_kelas_praktikum: row.id_kelas_praktikum,
-          id_kelas_mhs: row.id_kelas_mhs,
-          is_auto_submitted: row.is_auto_submitted,
-          calculated_progress_score: row.calculated_progress_score,
-          score_breakdown: row.score_breakdown,
-          ai_evaluation_status: row.ai_evaluation_status,
-          ai_evaluation_error: row.ai_evaluation_error,
-          ai_evaluation_started_at: row.ai_evaluation_started_at,
-          ai_evaluation_finished_at: row.ai_evaluation_finished_at,
-          submitted_at: row.submitted_at,
-          updated_at: row.submitted_at,
-          score: row.ai_score,
-          review: row.decision
-            ? {
-              ai_score: row.ai_score,
-              final_score: row.final_score,
-              feedback: row.feedback,
-              decision: row.decision,
-              ai_feedback: row.ai_feedback || {},
-            }
-            : null,
+    const AiEvaluationQueue = require('../../execution/AiEvaluationQueue');
+
+    return result.rows.map((row) => {
+      let aiStatus = row.ai_evaluation_status;
+      let queuePos = undefined;
+      let currentStep = undefined;
+
+      if (row.submission_id) {
+        const info = AiEvaluationQueue.getJobInfo(row.submission_id);
+        if (info) {
+          aiStatus = info.status;
+          queuePos = info.position;
+          currentStep = info.currentStep;
         }
-        : null,
-    }));
+      }
+
+      return {
+        student: {
+          id: row.student_id,
+          fullname: row.fullname,
+          nim: row.nim || '-',
+          email: row.email || '',
+        },
+        submission: row.submission_id
+          ? {
+            id: row.submission_id,
+            jobsheet_id: row.jobsheet_id,
+            student_id: row.student_id,
+            status: row.submission_status,
+            report_html: row.report_html,
+            attempt_no: row.attempt_no,
+            attempt_type: row.attempt_type,
+            attempt_label: row.attempt_label,
+            remedial_id: row.remedial_id,
+            submission_source: row.submission_source,
+            id_kelas_praktikum: row.id_kelas_praktikum,
+            id_kelas_mhs: row.id_kelas_mhs,
+            is_auto_submitted: row.is_auto_submitted,
+            calculated_progress_score: row.calculated_progress_score,
+            score_breakdown: row.score_breakdown,
+            ai_evaluation_status: aiStatus,
+            ai_evaluation_queue_position: queuePos,
+            ai_evaluation_current_step: currentStep,
+            ai_evaluation_error: row.ai_evaluation_error,
+            ai_evaluation_started_at: row.ai_evaluation_started_at,
+            ai_evaluation_finished_at: row.ai_evaluation_finished_at,
+            submitted_at: row.submitted_at,
+            updated_at: row.submitted_at,
+            score: row.ai_score,
+            review: row.decision
+              ? {
+                ai_score: row.ai_score,
+                final_score: row.final_score,
+                feedback: row.feedback,
+                decision: row.decision,
+                ai_feedback: row.ai_feedback || {},
+              }
+              : null,
+          }
+          : null,
+      };
+    });
   }
 
   async deleteJobsheetByMataKuliah(mataKuliahId, jobsheetId, lecturerId) {

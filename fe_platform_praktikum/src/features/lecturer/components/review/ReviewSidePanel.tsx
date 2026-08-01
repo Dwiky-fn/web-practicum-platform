@@ -7,7 +7,7 @@ import type { ReviewFeedback } from "../../../../services/reviewFeedbackService"
 import type { SelectedLineRange } from "./CodeReviewBlock"
 
 interface Props {
-  experiments: Array<{ id: string; title: string }>
+  experiments?: Array<{ id: string; title: string }>
   exercises?: Array<{ id: string; title: string }>
   feedbacks: ReviewFeedback[]
   activeFeedbackId: string | null
@@ -20,13 +20,13 @@ interface Props {
   onPublishFeedback: (id: string) => Promise<any>
   onPublishMultipleFeedbacks: (ids: string[]) => Promise<void>
 
-  activeExperimentId: string | null
-  onSetActiveExperimentId: (id: string | null) => void
+  activeExperimentId?: string | null
+  onSetActiveExperimentId?: (id: string | null) => void
   score: string
   saving: boolean
   onSaveReview: (decision: "ACCEPTED") => void
-  activeTab: "percobaan" | "komentar_kode" | "jobsheet"
-  onTabChange: (tab: "percobaan" | "komentar_kode" | "jobsheet") => void
+  activeTab: "komentar_kode" | "jobsheet"
+  onTabChange: (tab: "komentar_kode" | "jobsheet") => void
   submissionId: string
   readOnly?: boolean
   aiScore?: number
@@ -39,8 +39,6 @@ interface Props {
 }
 
 export default function ReviewSidePanel({
-  experiments,
-  exercises = [],
   feedbacks,
   activeFeedbackId,
   onSelectFeedback,
@@ -50,8 +48,6 @@ export default function ReviewSidePanel({
   onUpdateFeedback,
   onDeleteFeedback,
 
-  activeExperimentId,
-  onSetActiveExperimentId,
   score,
   saving,
   onSaveReview,
@@ -69,12 +65,6 @@ export default function ReviewSidePanel({
   // ── Delete comment confirm state ──
   const [deletingFeedbackId, setDeletingFeedbackId] = useState<string | null>(null)
   const confirmDeleteRef = useRef<HTMLDivElement | null>(null)
-
-  // ── Experiment-level feedback local state (controlled per blur save) ──
-  const [expContent, setExpContent] = useState("")
-  const [expStrengths, setExpStrengths] = useState("")
-  const [expIssues, setExpIssues] = useState("")
-  const [expSuggestions, setExpSuggestions] = useState("")
 
   // ── Jobsheet-level feedback local state ──
   const [jobContent, setJobContent] = useState("")
@@ -122,34 +112,11 @@ export default function ReviewSidePanel({
       if (activeFeedback.scope === "code") {
         onTabChange("komentar_kode")
         // Only switch tab, don't enter edit mode automatically
-      } else if (activeFeedback.scope === "experiment") {
-        onTabChange("percobaan")
-        onSetActiveExperimentId(activeFeedback.experimentId ?? null)
       } else if (activeFeedback.scope === "jobsheet") {
         onTabChange("jobsheet")
       }
     }
   }, [activeFeedbackId])
-
-  // ── Load experiment feedback when active experiment changes ──
-  useEffect(() => {
-    if (activeExperimentId && activeTab === "percobaan") {
-      const existing = feedbacks.find(
-        (f) => f.experimentId === activeExperimentId && f.scope === "experiment"
-      )
-      if (existing) {
-        setExpContent(existing.content)
-        setExpStrengths(existing.strengths?.join(", ") ?? "")
-        setExpIssues(existing.issues?.join(", ") ?? "")
-        setExpSuggestions(existing.suggestions?.join(", ") ?? "")
-      } else {
-        setExpContent("")
-        setExpStrengths("")
-        setExpIssues("")
-        setExpSuggestions("")
-      }
-    }
-  }, [activeExperimentId, activeTab, feedbacks])
 
   // ── Load jobsheet feedback when jobsheet tab becomes active ──
   useEffect(() => {
@@ -168,37 +135,6 @@ export default function ReviewSidePanel({
       }
     }
   }, [activeTab, feedbacks])
-
-  // ── Auto-save experiment feedback on blur ──
-  const handleExpBlur = async () => {
-    if (!activeExperimentId || !expContent.trim() || readOnly) return
-    const existing = feedbacks.find(
-      (f) =>
-        f.experimentId === activeExperimentId &&
-        f.scope === "experiment" &&
-        (f.source === "lecturer" || f.source === "ai_edited_by_lecturer")
-    )
-    const payload = {
-      submissionId,
-      experimentId: activeExperimentId,
-      scope: "experiment" as const,
-      content: expContent.trim(),
-      strengths: parseList(expStrengths),
-      issues: parseList(expIssues),
-      suggestions: parseList(expSuggestions),
-      source: existing?.source === "ai" ? ("ai_edited_by_lecturer" as const) : ("lecturer" as const),
-      status: "published" as const,
-    }
-    try {
-      if (existing) {
-        await onUpdateFeedback(existing.id, payload)
-      } else {
-        await onCreateFeedback(payload)
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menyimpan feedback percobaan.")
-    }
-  }
 
   // ── Auto-save jobsheet feedback on blur ──
   const handleJobBlur = async () => {
@@ -298,7 +234,6 @@ export default function ReviewSidePanel({
       <div className="flex bg-gray-50 border-b border-gray-200 text-[11px] font-bold select-none">
         {(
           [
-            { id: "percobaan", label: "Percobaan / Latihan" },
             { id: "komentar_kode", label: "Komentar Kode" },
             { id: "jobsheet", label: "Jobsheet" },
           ] as const
@@ -321,141 +256,7 @@ export default function ReviewSidePanel({
 
       {/* Main Content Area */}
       <div className="flex-grow p-4 overflow-y-auto space-y-4">
-        {/* Experiment/Exercise selector */}
-        {activeTab === "percobaan" && (
-          <label className="block text-xs font-semibold text-gray-700">
-            Pilih Percobaan / Latihan
-            <select
-              value={activeExperimentId || ""}
-              onChange={(e) => onSetActiveExperimentId(e.target.value || null)}
-              className="mt-1 h-9 w-full rounded-md border border-gray-300 bg-white px-2 text-xs"
-            >
-              <option value="">-- Pilih Percobaan / Latihan --</option>
-              <optgroup label="Percobaan">
-                {experiments.map((e, idx) => (
-                  <option key={e.id} value={e.id}>
-                    Percobaan {idx + 1}: {e.title}
-                  </option>
-                ))}
-              </optgroup>
-              {exercises.length > 0 && (
-                <optgroup label="Latihan">
-                  {exercises.map((e, idx) => (
-                    <option key={e.id} value={e.id}>
-                      Latihan {idx + 1}: {e.title}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </label>
-        )}
-
-        {/* ════ TAB 1: PERCOBAAN / LATIHAN ════ */}
-        {/* ════ TAB 1: PERCOBAAN / LATIHAN ════ */}
-        {activeTab === "percobaan" && (
-          <div className="space-y-4">
-
-            {activeExperimentId ? (
-              <>
-                {/* ── Feedback Latihan / Percobaan form ── */}
-                {readOnly ? (
-                  <div className="space-y-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                    <h5 className="font-bold text-xs text-gray-700 uppercase">Feedback Percobaan / Latihan</h5>
-                    {expContent ? (
-                      <p className="text-xs text-gray-800 whitespace-pre-wrap leading-relaxed">{expContent}</p>
-                    ) : (
-                      <p className="text-xs text-gray-400 italic">Belum ada feedback yang disimpan.</p>
-                    )}
-                    {expStrengths && (
-                      <div className="text-xs">
-                        <span className="font-bold text-green-700">Kelebihan:</span>
-                        <ul className="list-disc pl-4 mt-0.5 text-gray-600 space-y-0.5">
-                          {parseList(expStrengths).map((s, i) => <li key={i}>{s}</li>)}
-                        </ul>
-                      </div>
-                    )}
-                    {expIssues && (
-                      <div className="text-xs">
-                        <span className="font-bold text-red-700">Kekurangan:</span>
-                        <ul className="list-disc pl-4 mt-0.5 text-gray-600 space-y-0.5">
-                          {parseList(expIssues).map((iss, i) => <li key={i}>{iss}</li>)}
-                        </ul>
-                      </div>
-                    )}
-                    {expSuggestions && (
-                      <div className="text-xs">
-                        <span className="font-bold text-blue-700">Saran:</span>
-                        <ul className="list-disc pl-4 mt-0.5 text-gray-600 space-y-0.5">
-                          {parseList(expSuggestions).map((sg, i) => <li key={i}>{sg}</li>)}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-3 border border-gray-200 rounded-xl p-3 bg-gray-50/50">
-                    <h5 className="font-bold text-xs text-gray-700 uppercase tracking-wider">Feedback Percobaan / Latihan</h5>
-
-                    <label className="block text-xs font-medium text-gray-700">
-                      Ringkasan / Evaluasi Utama
-                      <textarea
-                        value={expContent}
-                        onChange={(e) => setExpContent(e.target.value)}
-                        onBlur={handleExpBlur}
-                        placeholder="Tulis ringkasan feedback utama untuk percobaan ini..."
-                        rows={3}
-                        className="mt-1 w-full p-2 text-xs rounded-lg border border-gray-300 outline-none focus:border-blue-500"
-                      />
-                    </label>
-
-                    <label className="block text-xs font-medium text-gray-700">
-                      Kelebihan (pisahkan dengan koma)
-                      <input
-                        value={expStrengths}
-                        onChange={(e) => setExpStrengths(e.target.value)}
-                        onBlur={handleExpBlur}
-                        placeholder="Contoh: Logika runut, Output presisi"
-                        className="mt-1 h-8 w-full rounded-md border border-gray-300 px-2 text-xs"
-                      />
-                    </label>
-
-                    <label className="block text-xs font-medium text-gray-700">
-                      Kekurangan (pisahkan dengan koma)
-                      <input
-                        value={expIssues}
-                        onChange={(e) => setExpIssues(e.target.value)}
-                        onBlur={handleExpBlur}
-                        placeholder="Contoh: Analisis minim, Variabel tidak konsisten"
-                        className="mt-1 h-8 w-full rounded-md border border-gray-300 px-2 text-xs"
-                      />
-                    </label>
-
-                    <label className="block text-xs font-medium text-gray-700">
-                      Saran / Catatan (pisahkan dengan koma)
-                      <input
-                        value={expSuggestions}
-                        onChange={(e) => setExpSuggestions(e.target.value)}
-                        onBlur={handleExpBlur}
-                        placeholder="Contoh: Tingkatkan kerapian indentasi, Pelajari optimalisasi logic"
-                        className="mt-1 h-8 w-full rounded-md border border-gray-300 px-2 text-xs"
-                      />
-                    </label>
-
-                    <p className="text-[10px] text-gray-400 italic">
-                      💡 Disimpan otomatis saat Anda berpindah field.
-                    </p>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-8 text-gray-400 italic text-[11px] bg-gray-50 rounded-xl border border-gray-100">
-                Pilih percobaan di atas untuk mulai memberikan feedback per percobaan.
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ════ TAB 2: KOMENTAR KODE ════ */}
+        {/* ════ TAB 1: KOMENTAR KODE ════ */}
         {activeTab === "komentar_kode" && (
           <div className="space-y-4">
             <div className="space-y-2">

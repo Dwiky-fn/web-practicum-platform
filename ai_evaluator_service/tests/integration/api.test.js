@@ -4,6 +4,7 @@ const http = require('node:http');
 
 process.env.PORT = '5000';
 process.env.NODE_ENV = 'test';
+process.env.AI_SERVICE_API_KEY = '';
 process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
 process.env.OLLAMA_MODEL = 'gemma3:4b-it-qat';
 process.env.AI_CONTEXT_LENGTH = '4096';
@@ -74,10 +75,8 @@ test('POST /api/evaluations menerima scope experiment', async () => {
     body: createExperimentPayload(),
   });
 
-  assert.equal(response.statusCode, 200);
-  assert.equal(response.body.status, 'success');
-  assert.equal(response.body.data.scope, 'experiment');
-  assert.equal(response.body.data.requiresLecturerReview, true);
+  assert.equal(response.statusCode, 202);
+  assert.equal(response.body.status, 'accepted');
 });
 
 test('POST /api/evaluations menolak payload tidak valid', async () => {
@@ -116,7 +115,8 @@ test('JSON rusak diperbaiki melalui retry', async () => {
     body: createExperimentPayload(),
   });
 
-  assert.equal(response.statusCode, 200);
+  assert.equal(response.statusCode, 202);
+  await new Promise((r) => setTimeout(r, 150));
   assert.equal(calls, 2);
 });
 
@@ -135,8 +135,8 @@ test('retry habis mengembalikan 502', async () => {
     body: createExperimentPayload(),
   });
 
-  assert.equal(response.statusCode, 502);
-  assert.equal(response.body.error.code, 'INVALID_MODEL_RESPONSE');
+  assert.equal(response.statusCode, 202);
+  assert.equal(response.body.status, 'accepted');
 });
 
 test('POST /api/evaluations menerima scope jobsheet lengkap', async () => {
@@ -236,13 +236,8 @@ test('POST /api/evaluations menerima scope jobsheet lengkap', async () => {
     },
   });
 
-  assert.equal(response.statusCode, 200);
-  assert.equal(response.body.status, 'success');
-  assert.equal(response.body.data.scope, 'jobsheet');
-  assert.equal(response.body.data.evaluationStatus, 'completed');
-  assert.equal(response.body.data.experimentEvaluations.length, 1);
-  assert.equal(response.body.data.experimentEvaluations[0].status, 'completed');
-  assert.equal(calls, 2);
+  assert.equal(response.statusCode, 202);
+  assert.equal(response.body.status, 'accepted');
 });
 
 

@@ -801,8 +801,8 @@ export default function LecturerReviewPage() {
             </div>
           )}
 
-          <div className="grid gap-6 lg:grid-cols-[1fr_380px] items-start">
-            <div className="space-y-6">
+          <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_380px] items-start">
+            <div className="min-w-0 space-y-6">
               {/* Identitas Mahasiswa Panel */}
               <LecturerPanel className="p-5">
                 <h2 className="mb-4 text-lg font-semibold border-b border-gray-100 pb-2">Identitas Mahasiswa</h2>

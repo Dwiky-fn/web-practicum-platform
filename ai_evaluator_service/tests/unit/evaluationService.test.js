@@ -120,3 +120,63 @@ test('parseAndValidate menghitung ulang dan mengoverride totalScoreRecommendatio
   assert.equal(value.totalScoreRecommendation, 80); // Should be recalculated to 80 (sum of rubricScores)
 });
 
+test('parseAndValidate menormalisasi field feedback teks yang dikembalikan sebagai array', () => {
+  const customPayload = {
+    scope: 'experiment',
+    requestId: 'request-1',
+    submissionId: 'submission-1',
+    experiment: {
+      id: 'experiment-1',
+      files: [
+        {
+          id: 'file-1',
+          path: 'main.py',
+          content: 'a = 1\nprint(a)',
+        },
+      ],
+    },
+    rubric: {
+      criteria: [
+        {
+          id: 'correctness',
+          maxScore: 10,
+        },
+      ],
+    },
+  };
+
+  const modelOutput = JSON.stringify({
+    scope: 'experiment',
+    submissionId: 'submission-1',
+    experimentId: 'experiment-1',
+    codeFeedbacks: [],
+    experimentFeedback: {
+      summary: 'Baik',
+      instructionCompliance: 'Sesuai',
+      codeEvaluation: 'Baik',
+      outputEvaluation: 'Sesuai',
+      testCaseEvaluation: [],
+      errorEvaluation: ['Tidak ada error runtime.'],
+      analysisEvaluation: 'Cukup',
+      strengths: [],
+      issues: [],
+      suggestions: [],
+    },
+    rubricScores: [
+      {
+        criterionId: 'correctness',
+        score: 8,
+        maxScore: 10,
+        reason: 'Program berjalan.',
+      },
+    ],
+    source: 'ai',
+    status: 'draft',
+    requiresLecturerReview: true,
+  });
+
+  const { valid, value } = parseAndValidate(modelOutput, customPayload);
+  assert.equal(valid, true);
+  assert.equal(value.experimentFeedback.testCaseEvaluation, '');
+  assert.equal(value.experimentFeedback.errorEvaluation, 'Tidak ada error runtime.');
+});

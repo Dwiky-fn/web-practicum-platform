@@ -126,7 +126,7 @@ export default function ExperimentReviewCard({
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm transition-all duration-200">
+    <div className="min-w-0 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm transition-all duration-200">
       {/* Card Header (Accordion Control) */}
       <div
         onClick={() => setIsExpanded(!isExpanded)}
@@ -162,14 +162,16 @@ export default function ExperimentReviewCard({
 
       {/* Card Content */}
       {isExpanded && (
-        <div className="p-5 space-y-6">
+        <div className="min-w-0 p-5 space-y-6">
           {/* Instructions */}
           {experiment.instructionContent && (
-            <div className="bg-blue-50/40 border border-blue-100/50 rounded-xl p-4 text-sm">
+            <div className="min-w-0 overflow-hidden bg-blue-50/40 border border-blue-100/50 rounded-xl p-4 text-sm">
               <h4 className="font-semibold text-blue-900 mb-2 text-xs uppercase tracking-wide">
                 Instruksi Kerja
               </h4>
-              <RichTextViewer content={experiment.instructionContent} role="MAHASISWA" mode="viewer-default" />
+              <div className="min-w-0 overflow-x-auto">
+                <RichTextViewer content={experiment.instructionContent} role="MAHASISWA" mode="viewer-default" />
+              </div>
             </div>
           )}
 

@@ -29,6 +29,7 @@ import {
   isValidAcademicDateInput,
   isValidAcademicTimeInput,
 } from "../../../shared/utils/formatAcademicDateTime"
+import { formatTemplateCodeForDisplay } from "../../../shared/utils/codeTemplateUtils"
 import { formatNumber, formatScore as centralFormatScore } from "../../../shared/utils/formatScore"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
@@ -814,8 +815,8 @@ export default function LecturerJobsheetDetailPage() {
                             <RichTextViewer content={item.instructionContent ?? { type: "doc", content: [] }} role="DOSEN" mode="viewer-default" />
                           </div>
                           {item.defaultTemplateCode && (
-                            <pre className="mt-3 overflow-x-auto rounded-md bg-white p-4 text-xs text-gray-800">
-                              <code>{item.defaultTemplateCode}</code>
+                            <pre className="mt-3 overflow-x-auto rounded-md bg-white p-4 text-xs text-gray-800 font-mono">
+                              <code>{formatTemplateCodeForDisplay(item.defaultTemplateCode)}</code>
                             </pre>
                           )}
                         </div>
@@ -842,8 +843,8 @@ export default function LecturerJobsheetDetailPage() {
                             <RichTextViewer content={item.instructionContent ?? { type: "doc", content: [] }} role="DOSEN" mode="viewer-default" />
                           </div>
                           {item.defaultTemplateCode && (
-                            <pre className="mt-3 overflow-x-auto rounded-md bg-white p-4 text-xs text-gray-800">
-                              <code>{item.defaultTemplateCode}</code>
+                            <pre className="mt-3 overflow-x-auto rounded-md bg-white p-4 text-xs text-gray-800 font-mono">
+                              <code>{formatTemplateCodeForDisplay(item.defaultTemplateCode)}</code>
                             </pre>
                           )}
                         </div>

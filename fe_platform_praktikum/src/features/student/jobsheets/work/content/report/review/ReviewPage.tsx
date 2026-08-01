@@ -109,6 +109,41 @@ export default function ReviewPage() {
     }))
   }, [jobsheet, submission])
 
+  const sectionEvaluations = useMemo(() => {
+    if (!jobsheet || !submission) return {}
+
+    const result: Record<string, { score: string; feedback: string }> = {}
+
+    const existing = submission.review?.aiFeedback?.sectionEvaluations
+    if (Array.isArray(existing) && existing.length) {
+      existing.forEach((item: any) => {
+        if (item.type && item.sectionId) {
+          result[`${item.type}:${item.sectionId}`] = {
+            score: item.score != null ? String(item.score) : "",
+            feedback: item.feedback || item.aiFeedback || "",
+          }
+        }
+      })
+    } else {
+      const aiResults = Array.isArray(submission.review?.aiFeedback?.experimentResults)
+        ? submission.review?.aiFeedback?.experimentResults
+        : []
+      aiResults.forEach((item: any) => {
+        if (item.experimentId) {
+          const scores = Array.isArray(item.rubricScores) ? item.rubricScores : []
+          const score = scores.reduce((sum: number, r: any) => sum + Number(r.score || 0), 0)
+          const feedback = item.summary || scores.map((r: any) => r.reason).filter(Boolean).join("\n")
+          result[`experiment:${item.experimentId}`] = {
+            score: String(score),
+            feedback,
+          }
+        }
+      })
+    }
+
+    return result
+  }, [jobsheet, submission])
+
   const scrollToElement = (id: string) => {
     const el = document.getElementById(id)
     if (el) {
@@ -194,6 +229,8 @@ export default function ReviewPage() {
                   onSelectFeedback={handleSelectFeedback}
                   isExpandedByDefault={!!expandedExperiments[experiment.id]}
                   isStudent={true}
+                  rubric={Number(experiment.rubric || 0)}
+                  evaluation={sectionEvaluations[`experiment:${experiment.id}`]}
                 />
               </div>
             ))
@@ -241,6 +278,8 @@ export default function ReviewPage() {
                     isExpandedByDefault={!!expandedExperiments[exercise.id]}
                     type="exercise"
                     isStudent={true}
+                    rubric={Number(exercise.rubric || 0)}
+                    evaluation={sectionEvaluations[`exercise:${exercise.id}`]}
                   />
                 </div>
               )

@@ -321,19 +321,22 @@ export default function ExperimentReviewCard({
 
               {/* Section evaluation score / feedback if present */}
               {evaluation && (evaluation.feedback || evaluation.score) && (
-                <div className="p-4 border border-blue-100 bg-blue-50/40 rounded-xl space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-blue-900 uppercase tracking-wider">Catatan Dosen Bagian Ini</span>
+                <div className="p-4 border border-blue-200/80 bg-blue-50/50 rounded-xl space-y-2.5">
+                  <div className="flex items-center justify-between border-b border-blue-100/80 pb-2">
+                    <span className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <User size={13} className="text-blue-700" />
+                      Evaluasi Dosen Bagian Ini
+                    </span>
                     {evaluation.score && (
-                      <span className="text-xs font-bold text-blue-700 bg-white px-2.5 py-0.5 rounded border border-blue-100">
-                        Nilai: {evaluation.score}
+                      <span className="text-xs font-bold text-blue-800 bg-white px-3 py-1 rounded-md border border-blue-200 shadow-2xs">
+                        Nilai Bagian: {evaluation.score} {rubric > 0 ? `/ ${rubric}` : ""}
                       </span>
                     )}
                   </div>
                   {evaluation.feedback && (
-                    <p className="text-xs text-gray-800 leading-relaxed whitespace-pre-line">
+                    <div className="text-xs text-gray-800 leading-relaxed whitespace-pre-line font-medium pt-1">
                       {evaluation.feedback}
-                    </p>
+                    </div>
                   )}
                 </div>
               )}

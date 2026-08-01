@@ -1,6 +1,7 @@
 import React, { useState } from "react"
 import { MessageSquare, Plus, Sparkles, User, FileEdit, CornerDownRight, Pencil } from "lucide-react"
 import type { ReviewFeedback } from "../../../../services/reviewFeedbackService"
+import { cleanFileCode } from "../../../../shared/utils/codeTemplateUtils"
 
 export interface SelectedLineRange {
   experimentId: string
@@ -39,7 +40,8 @@ export default function CodeReviewBlock({
   selectedLineRange,
   onClearSelection,
 }: Props) {
-  const lines = code.split("\n")
+  const displayCode = cleanFileCode(code)
+  const lines = displayCode.split("\n")
   const [dragStart, setDragStart] = useState<number | null>(null)
   const [openCommentLine, setOpenCommentLine] = useState<number | null>(null)
 

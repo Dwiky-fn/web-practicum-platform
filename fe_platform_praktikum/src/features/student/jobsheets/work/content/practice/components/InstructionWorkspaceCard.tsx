@@ -5,6 +5,7 @@ import CodeEditorPanel from "../../../../../../../components/code-editor/CodeEdi
 import AnalysisEditor from "./workSpace/AnalysisEditor"
 import { ExecutionClient } from "../../../../../../../services/execution/executionClient"
 import type { connectLiveWorkspaceSocket } from "../../../../../../../services/liveWorkspaceSocket"
+import { parseFilesOrTemplate } from "../../../../../../../shared/utils/codeTemplateUtils"
 
 const LIVE_WORKSPACE_DEBUG = import.meta.env.DEV && import.meta.env.VITE_LIVE_WORKSPACE_DEBUG === "true"
 
@@ -66,9 +67,6 @@ function getFileExtension(language: string): string {
   return getDefaultFileName(language).split(".").pop() || "txt"
 }
 
-function hasFiles(files?: Record<string, string>): files is Record<string, string> {
-  return !!files && Object.keys(files).length > 0
-}
 
 function formatRunTime(milliseconds: number): string {
   return `${(milliseconds / 1000).toFixed(3)} detik`
@@ -214,7 +212,7 @@ export default function InstructionWorkspaceCard({
 
         return [
           index,
-          hasFiles(savedFiles) ? savedFiles : { [defaultFileName]: templateCode || "" },
+          parseFilesOrTemplate(savedFiles, templateCode, language),
         ]
       })
     )
@@ -241,7 +239,7 @@ export default function InstructionWorkspaceCard({
     setSaveStatus("")
     setSaveError("")
     hasHydratedInitialStateRef.current = true
-  }, [initialSteps, templateCode, defaultFileName, totalSteps])
+  }, [initialSteps, templateCode, defaultFileName, totalSteps, language])
 
   useEffect(() => {
     if (!readOnly || !hasHydratedInitialStateRef.current) return
@@ -252,7 +250,7 @@ export default function InstructionWorkspaceCard({
 
         return [
           index,
-          hasFiles(savedFiles) ? savedFiles : { [defaultFileName]: templateCode || "" },
+          parseFilesOrTemplate(savedFiles, templateCode, language),
         ]
       })
     )
@@ -270,7 +268,7 @@ export default function InstructionWorkspaceCard({
     setCodeMap(nextCodeMap)
     setAnalysisMap(nextAnalysisMap)
     setOutputMap(nextOutputMap)
-  }, [defaultFileName, initialSteps, readOnly, templateCode, totalSteps])
+  }, [defaultFileName, initialSteps, readOnly, templateCode, totalSteps, language])
 
   useEffect(() => {
     const currentFiles = codeMap[activeIndex] || {}

@@ -8,6 +8,7 @@ import { getJobsheetById } from "../../../services/jobsheet/service"
 import type { Exercise, Experiment, Jobsheet } from "../../../services/jobsheet/types"
 import AdminLayout from "../components/AdminLayout"
 import { AdminPanel, EmptyState } from "../components/AdminUI"
+import { formatTemplateCodeForDisplay } from "../../../shared/utils/codeTemplateUtils"
 
 const emptyDoc: JSONContent = { type: "doc", content: [] }
 
@@ -90,7 +91,7 @@ function PracticeItem({
 
       <div className="mt-4">
         <RichContentBlock content={item.instructionContent} />
-        <CodeBlock code={item.defaultTemplateCode} language={language} />
+        <CodeBlock code={formatTemplateCodeForDisplay(item.defaultTemplateCode)} language={language} />
       </div>
     </div>
   )

@@ -782,18 +782,34 @@ class AiEvaluationQueue {
       headers['X-AI-Service-Key'] = aiServiceKey;
     }
 
-    console.log(`[AI Queue] [${submissionId}] Mengirim POST request ke AI Evaluator Service di: ${aiServiceUrl}/api/evaluations`);
+    const payloadString = JSON.stringify(payload);
+    const payloadBytes = Buffer.byteLength(payloadString);
 
-    const response = await httpPost(`${aiServiceUrl}/api/evaluations`, headers, JSON.stringify(payload));
+    console.log(`[AI Service Log] ==================== MEMULAI REQUEST EVALUASI AI ====================`);
+    console.log(`[AI Service Log] Submission ID  : ${submissionId}`);
+    console.log(`[AI Service Log] Target Endpoint: ${aiServiceUrl}/api/evaluations`);
+    console.log(`[AI Service Log] Protocol       : ${aiServiceUrl.startsWith('https') ? 'HTTPS (TLS/SSL Encrypted)' : 'HTTP'}`);
+    console.log(`[AI Service Log] Header Auth    : ${aiServiceKey ? 'Terpasang (API Key Hidden)' : 'Tanpa API Key'}`);
+    console.log(`[AI Service Log] Ukuran Payload : ${(payloadBytes / 1024).toFixed(2)} KB (${payloadBytes} bytes)`);
+    console.log(`[AI Service Log] Detail Content : ${payload.experiments.length} Percobaan (${payloadExperiments.reduce((acc, curr) => acc + curr.files.length, 0)} file kode), ${payload.exercises.length} Latihan (${payloadExercises.reduce((acc, curr) => acc + curr.files.length, 0)} file kode)`);
+    console.log(`[AI Service Log] Bahasa Program : ${sub.programming_language}`);
+    console.log(`[AI Service Log] Mengirim request ke AI Evaluator Service...`);
 
-    console.log(`[AI Queue] [${submissionId}] AI Service merespon dengan status HTTP ${response.status}`);
+    const startTime = Date.now();
+    const response = await httpPost(`${aiServiceUrl}/api/evaluations`, headers, payloadString);
+    const durationMs = Date.now() - startTime;
+
+    console.log(`[AI Service Log] AI Service merespon dalam ${durationMs}ms dengan status HTTP ${response.status}`);
 
     if (!response.ok) {
       let text = await response.text();
+      console.error(`[AI Service Log] [ERROR] Request ke AI Service Gagal! Status: HTTP ${response.status}`);
+      console.error(`[AI Service Log] [ERROR] Durasi Request: ${durationMs}ms`);
       if (text.includes('<html') || text.includes('<!DOCTYPE')) {
+        console.error(`[AI Service Log] [ERROR] Respons dari server berupa HTML page (kemungkinan error web server/Cloudflare/Nginx)`);
         text = `HTTP ${response.status} Error (HTML Response)`;
-      } else if (text.length > 200) {
-        text = text.slice(0, 200) + '...';
+      } else {
+        console.error(`[AI Service Log] [ERROR] Raw Response Body: ${text.slice(0, 500)}`);
       }
       throw new Error(`AI Evaluator Service HTTP ${response.status}: ${text}`);
     }
@@ -802,16 +818,21 @@ class AiEvaluationQueue {
     try {
       responseData = await response.json();
     } catch (e) {
+      console.error(`[AI Service Log] [ERROR] Gagal parse JSON dari respons AI Service:`, e.message);
       throw new Error('Gagal mengurai respons JSON dari AI Evaluator Service');
     }
 
     if (responseData.status !== 'success' || !responseData.data) {
+      console.error(`[AI Service Log] [ERROR] AI Service mengembalikan status non-success: ${responseData.status}`);
       throw new Error(`AI Evaluator Service mengembalikan status ${responseData.status}`);
     }
 
     const result = responseData.data;
-    console.log(`[AI Queue] [${submissionId}] Response data AI Service valid. Status evaluasi: ${result.evaluationStatus}`);
-    console.log(`[AI Queue] [${submissionId}] Menyimpan feedback AI`);
+    console.log(`[AI Service Log] [SUCCESS] Respons JSON valid dari AI Service!`);
+    console.log(`[AI Service Log] [SUCCESS] Status Evaluasi: ${result.evaluationStatus}`);
+    console.log(`[AI Service Log] [SUCCESS] Rekomendasi Nilai AI: ${result.finalGradeRecommendation ?? result.totalScoreRecommendation ?? 0}/100`);
+    console.log(`[AI Service Log] [SUCCESS] Evaluasi Percobaan: ${result.experimentEvaluations?.length || 0} item, Evaluasi Latihan: ${result.exerciseEvaluations?.length || 0} item`);
+    console.log(`[AI Service Log] Menyimpan hasil evaluasi ke database...`);
 
     // Extract experiment evaluations from the unified response, grouping them by real experiment ID
     const comments = [];

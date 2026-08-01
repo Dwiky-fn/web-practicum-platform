@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { MessageSquare, Plus, X } from "lucide-react"
+import { MessageSquare, Plus } from "lucide-react"
 import type { ReviewFeedback } from "../../../../services/reviewFeedbackService"
 
 export interface SelectedLineRange {
@@ -41,7 +41,6 @@ export default function CodeReviewBlock({
 }: Props) {
   const lines = code.split("\n")
   const [dragStart, setDragStart] = useState<number | null>(null)
-  const [commentLine, setCommentLine] = useState<number | null>(null)
 
   // Filter feedbacks belonging to this specific file and code block
   const fileFeedbacks = feedbacks.filter(
@@ -256,14 +255,14 @@ export default function CodeReviewBlock({
       </div>
 
       {/* Render comments outside the dark code box */}
-      {codeFeedbacks.length > 0 && (
+      {fileFeedbacks.length > 0 && (
         <div className="border-t border-gray-200 bg-amber-50/50 p-3 space-y-2 font-sans">
           <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
             <MessageSquare size={14} className="text-amber-600 fill-current" />
             <span>Komentar Kode ({fileName})</span>
           </div>
           <div className="space-y-1.5">
-            {codeFeedbacks.map((fb) => (
+            {fileFeedbacks.map((fb: ReviewFeedback) => (
               <div
                 key={fb.id}
                 onClick={() => onSelectFeedback?.(fb.id)}

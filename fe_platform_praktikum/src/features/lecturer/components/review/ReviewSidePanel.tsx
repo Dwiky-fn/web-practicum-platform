@@ -266,11 +266,6 @@ export default function ReviewSidePanel({
     }
   }
 
-  // Get code feedbacks for currently selected experiment
-  const currentExpCodeFeedbacks = feedbacks.filter(
-    (f) => f.scope === "code" && f.experimentId === activeExperimentId
-  )
-
   // Get ALL code feedbacks (for Komentar Kode tab without filter)
   const allCodeFeedbacks = feedbacks.filter((f) => f.scope === "code")
 

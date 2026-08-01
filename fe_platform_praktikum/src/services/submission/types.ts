@@ -46,6 +46,8 @@ export interface JobsheetSubmission {
   calculatedProgressScore?: number | null
   scoreBreakdown?: ScoreBreakdown | null
   aiEvaluationStatus?: string
+  aiEvaluationQueuePosition?: number
+  aiEvaluationCurrentStep?: string
   aiEvaluationError?: string
   aiEvaluationStartedAt?: string
   aiEvaluationFinishedAt?: string

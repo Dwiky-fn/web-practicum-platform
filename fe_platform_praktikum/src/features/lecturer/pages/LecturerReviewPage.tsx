@@ -271,7 +271,32 @@ export default function LecturerReviewPage() {
   const [activeFeedbackId, setActiveFeedbackId] = useState<string | null>(null)
   const [selectedLineRange, setSelectedLineRange] = useState<SelectedLineRange | null>(null)
   const [activeExperimentId, setActiveExperimentId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<"percobaan" | "komentar_kode" | "jobsheet">("percobaan")
+  const [activeTab, setActiveTab] = useState<"komentar_kode" | "jobsheet">("komentar_kode")
+
+  // ── Polling AI evaluation status when queued or processing ──
+  useEffect(() => {
+    if (!submission) return
+    const status = submission.aiEvaluationStatus
+    if (status !== "queued" && status !== "processing") return
+
+    const interval = setInterval(async () => {
+      try {
+        if (!studentId || !courseId || !jobsheetId) return
+        const updated = await getLecturerSubmission(courseId, jobsheetId, studentId, nativeScope)
+        if (updated) {
+          setSubmission(updated)
+          if (updated.aiEvaluationStatus === "completed" || updated.aiEvaluationStatus === "partially_failed") {
+            const newFeedbacks = await getFeedbacks(updated.id)
+            setFeedbacks(newFeedbacks)
+          }
+        }
+      } catch (e) {
+        console.error("Polling AI status error:", e)
+      }
+    }, 2500)
+
+    return () => clearInterval(interval)
+  }, [submission?.aiEvaluationStatus, courseId, jobsheetId, studentId])
   const [isEditingReview, setIsEditingReview] = useState(false)
   const [triggeringAi, setTriggeringAi] = useState(false)
   const [deletingAiFeedback, setDeletingAiFeedback] = useState(false)
@@ -818,15 +843,21 @@ export default function LecturerReviewPage() {
                       {submission.aiEvaluationStatus === "queued" && (
                         <div className="space-y-2">
                           <div className="flex justify-between items-center text-sm">
-                            <span className="text-amber-600 font-medium flex items-center gap-2">
-                              <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
-                              Dalam Antrean...
+                            <span className="text-amber-600 font-semibold flex items-center gap-2">
+                              <span className="relative flex h-2.5 w-2.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                              </span>
+                              Dalam Antrean AI {submission.aiEvaluationQueuePosition ? `(Urutan ke-${submission.aiEvaluationQueuePosition})` : ""}
                             </span>
-                            <span className="text-xs text-gray-400">Menunggu antrean server</span>
+                            <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md font-medium border border-amber-200">
+                              {submission.aiEvaluationQueuePosition ? `Urutan ke-${submission.aiEvaluationQueuePosition}` : "Menunggu Antrean"}
+                            </span>
                           </div>
-                          <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                            <div className="bg-amber-500 h-full rounded-full animate-pulse" style={{ width: "30%" }}></div>
+                          <div className="w-full bg-amber-100/60 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-amber-500 h-full rounded-full animate-pulse" style={{ width: "40%" }}></div>
                           </div>
+                          <p className="text-[11px] text-gray-500 italic">Antrean server AI sedang berjalan. Halaman akan memperbarui otomatis.</p>
                         </div>
                       )}
 
@@ -834,17 +865,22 @@ export default function LecturerReviewPage() {
                         <div className="space-y-2">
                           <div className="flex justify-between items-center text-sm">
                             <span className="text-blue-600 font-semibold flex items-center gap-2">
-                              <svg className="animate-spin h-3.5 w-3.5 text-blue-600" fill="none" viewBox="0 0 24 24">
+                              <svg className="animate-spin h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                               </svg>
-                              Sedang Menganalisis Pengerjaan...
+                              Sedang Mengevaluasi Pengerjaan...
+                            </span>
+                            <span className="text-[10px] text-blue-700 bg-blue-50 font-bold px-2 py-0.5 rounded-full border border-blue-100 animate-pulse">
+                              PROSES AI
                             </span>
                           </div>
-                          <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                            <div className="bg-blue-600 h-full rounded-full animate-pulse" style={{ width: "70%" }}></div>
+                          <div className="w-full bg-blue-100 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-blue-600 h-full rounded-full animate-pulse" style={{ width: "75%" }}></div>
                           </div>
-                          <p className="text-[11px] text-gray-400 italic">Mencakup analisis kode program, output, dan analisis mahasiswa.</p>
+                          <p className="text-[11px] text-blue-800 font-medium bg-blue-50/60 p-2 rounded-lg border border-blue-100/60">
+                            ⚡ {submission.aiEvaluationCurrentStep || "Menganalisis kebenaran kode program, output, dan analisis mahasiswa..."}
+                          </p>
                         </div>
                       )}
 
@@ -973,7 +1009,7 @@ export default function LecturerReviewPage() {
                       onOpenFeedbackEditor={(expId) => {
                         if (isReadOnly) return
                         setActiveExperimentId(expId)
-                        setActiveTab("percobaan")
+                        setActiveTab("komentar_kode")
                       }}
                       isExpandedByDefault={true}
                     />
@@ -1034,7 +1070,7 @@ export default function LecturerReviewPage() {
                         onOpenFeedbackEditor={(exeId) => {
                           if (isReadOnly) return
                           setActiveExperimentId(exeId)
-                          setActiveTab("percobaan")
+                          setActiveTab("komentar_kode")
                         }}
                         isExpandedByDefault={true}
                         type="exercise"

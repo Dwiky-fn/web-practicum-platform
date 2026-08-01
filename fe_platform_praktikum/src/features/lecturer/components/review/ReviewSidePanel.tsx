@@ -25,8 +25,8 @@ interface Props {
   score: string
   saving: boolean
   onSaveReview: (decision: "ACCEPTED") => void
-  activeTab: "percobaan" | "komentar_kode" | "jobsheet"
-  onTabChange: (tab: "percobaan" | "komentar_kode" | "jobsheet") => void
+  activeTab: "komentar_kode" | "jobsheet"
+  onTabChange: (tab: "komentar_kode" | "jobsheet") => void
   submissionId: string
   readOnly?: boolean
   aiScore?: number
@@ -69,12 +69,6 @@ export default function ReviewSidePanel({
   // ── Delete comment confirm state ──
   const [deletingFeedbackId, setDeletingFeedbackId] = useState<string | null>(null)
   const confirmDeleteRef = useRef<HTMLDivElement | null>(null)
-
-  // ── Experiment-level feedback local state (controlled per blur save) ──
-  const [expContent, setExpContent] = useState("")
-  const [expStrengths, setExpStrengths] = useState("")
-  const [expIssues, setExpIssues] = useState("")
-  const [expSuggestions, setExpSuggestions] = useState("")
 
   // ── Jobsheet-level feedback local state ──
   const [jobContent, setJobContent] = useState("")
@@ -122,34 +116,11 @@ export default function ReviewSidePanel({
       if (activeFeedback.scope === "code") {
         onTabChange("komentar_kode")
         // Only switch tab, don't enter edit mode automatically
-      } else if (activeFeedback.scope === "experiment") {
-        onTabChange("percobaan")
-        onSetActiveExperimentId(activeFeedback.experimentId ?? null)
       } else if (activeFeedback.scope === "jobsheet") {
         onTabChange("jobsheet")
       }
     }
   }, [activeFeedbackId])
-
-  // ── Load experiment feedback when active experiment changes ──
-  useEffect(() => {
-    if (activeExperimentId && activeTab === "percobaan") {
-      const existing = feedbacks.find(
-        (f) => f.experimentId === activeExperimentId && f.scope === "experiment"
-      )
-      if (existing) {
-        setExpContent(existing.content)
-        setExpStrengths(existing.strengths?.join(", ") ?? "")
-        setExpIssues(existing.issues?.join(", ") ?? "")
-        setExpSuggestions(existing.suggestions?.join(", ") ?? "")
-      } else {
-        setExpContent("")
-        setExpStrengths("")
-        setExpIssues("")
-        setExpSuggestions("")
-      }
-    }
-  }, [activeExperimentId, activeTab, feedbacks])
 
   // ── Load jobsheet feedback when jobsheet tab becomes active ──
   useEffect(() => {
@@ -168,37 +139,6 @@ export default function ReviewSidePanel({
       }
     }
   }, [activeTab, feedbacks])
-
-  // ── Auto-save experiment feedback on blur ──
-  const handleExpBlur = async () => {
-    if (!activeExperimentId || !expContent.trim() || readOnly) return
-    const existing = feedbacks.find(
-      (f) =>
-        f.experimentId === activeExperimentId &&
-        f.scope === "experiment" &&
-        (f.source === "lecturer" || f.source === "ai_edited_by_lecturer")
-    )
-    const payload = {
-      submissionId,
-      experimentId: activeExperimentId,
-      scope: "experiment" as const,
-      content: expContent.trim(),
-      strengths: parseList(expStrengths),
-      issues: parseList(expIssues),
-      suggestions: parseList(expSuggestions),
-      source: existing?.source === "ai" ? ("ai_edited_by_lecturer" as const) : ("lecturer" as const),
-      status: "published" as const,
-    }
-    try {
-      if (existing) {
-        await onUpdateFeedback(existing.id, payload)
-      } else {
-        await onCreateFeedback(payload)
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menyimpan feedback percobaan.")
-    }
-  }
 
   // ── Auto-save jobsheet feedback on blur ──
   const handleJobBlur = async () => {

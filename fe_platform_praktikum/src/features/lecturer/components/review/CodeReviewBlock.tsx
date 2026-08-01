@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { MessageSquare, Plus } from "lucide-react"
+import { MessageSquare, Plus, Sparkles, User, FileEdit, CornerDownRight } from "lucide-react"
 import type { ReviewFeedback } from "../../../../services/reviewFeedbackService"
 
 export interface SelectedLineRange {
@@ -256,25 +256,64 @@ export default function CodeReviewBlock({
 
       {/* Render comments outside the dark code box */}
       {fileFeedbacks.length > 0 && (
-        <div className="border-t border-gray-200 bg-amber-50/50 p-3 space-y-2 font-sans">
-          <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-            <MessageSquare size={14} className="text-amber-600 fill-current" />
-            <span>Komentar Kode ({fileName})</span>
+        <div className="border-t border-slate-200 bg-slate-50/80 p-3.5 space-y-2.5 font-sans rounded-b-xl">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider">
+              <MessageSquare size={13} className="text-indigo-600 fill-indigo-100" />
+              <span>Komentar Kode ({fileName})</span>
+            </div>
+            <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-full">
+              {fileFeedbacks.length} Catatan
+            </span>
           </div>
-          <div className="space-y-1.5">
-            {fileFeedbacks.map((fb: ReviewFeedback) => (
-              <div
-                key={fb.id}
-                onClick={() => onSelectFeedback?.(fb.id)}
-                className="bg-white border border-amber-200 rounded-lg p-2.5 text-xs shadow-sm hover:border-amber-400 transition cursor-pointer"
-              >
-                <div className="flex items-center justify-between text-[11px] font-semibold text-amber-800 mb-1">
-                  <span>Baris {fb.startLine}{fb.endLine !== fb.startLine ? `-${fb.endLine}` : ""}</span>
-                  <span className="text-[10px] text-gray-500 font-normal">{fb.createdBy?.name || "Dosen"}</span>
+
+          <div className="space-y-2">
+            {fileFeedbacks.map((fb: ReviewFeedback) => {
+              const isAi = fb.source === "ai"
+              const isAiEdited = fb.source === "ai_edited_by_lecturer"
+              const isActive = activeFeedbackId === fb.id
+
+              return (
+                <div
+                  key={fb.id}
+                  onClick={() => onSelectFeedback?.(fb.id)}
+                  className={`bg-white border rounded-xl p-3 text-xs shadow-xs transition-all cursor-pointer relative ${
+                    isActive
+                      ? "border-indigo-400 ring-2 ring-indigo-400/20 bg-indigo-50/10"
+                      : "border-slate-200/80 hover:border-indigo-300 hover:shadow-sm"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 bg-indigo-100/80 text-indigo-800 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border border-indigo-200/60">
+                        <CornerDownRight size={10} className="text-indigo-600" />
+                        Baris {fb.startLine}{fb.endLine !== fb.startLine ? `-${fb.endLine}` : ""}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      {isAi ? (
+                        <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-purple-200/60">
+                          <Sparkles size={9} /> AI Review
+                        </span>
+                      ) : isAiEdited ? (
+                        <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-indigo-200/60">
+                          <FileEdit size={9} /> AI (Diedit Dosen)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200/60">
+                          <User size={9} /> {fb.createdBy?.name || "Dosen"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="text-slate-700 leading-relaxed font-sans text-xs whitespace-pre-wrap">
+                    {fb.content}
+                  </p>
                 </div>
-                <p className="text-gray-700 leading-snug">{fb.content}</p>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}

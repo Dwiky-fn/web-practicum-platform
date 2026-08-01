@@ -50,21 +50,59 @@ async function evaluationController(req, res, next) {
   }
 
   try {
+    // === DEBUG: Log payload yang masuk untuk diagnosis ===
+    console.log('[AI Service] Incoming payload keys:', req.body && typeof req.body === 'object' ? Object.keys(req.body) : 'NOT_OBJECT');
+    console.log('[AI Service] Payload scope:', req.body?.scope);
+    console.log('[AI Service] Payload schemaVersion:', req.body?.schemaVersion);
+    console.log('[AI Service] Payload submissionId:', req.body?.submissionId || req.body?.submission?.id);
+    console.log('[AI Service] Payload options keys:', req.body?.options ? Object.keys(req.body.options) : 'NO_OPTIONS');
+    if (req.body?.experiments) {
+      console.log('[AI Service] experiments count:', req.body.experiments.length);
+      if (req.body.experiments[0]) {
+        console.log('[AI Service] experiments[0] keys:', Object.keys(req.body.experiments[0]));
+        console.log('[AI Service] experiments[0].id:', req.body.experiments[0].id);
+        console.log('[AI Service] experiments[0].title:', req.body.experiments[0].title);
+        console.log('[AI Service] experiments[0].files count:', req.body.experiments[0].files?.length);
+      }
+    }
+    if (req.body?.exercises) {
+      console.log('[AI Service] exercises count:', req.body.exercises.length);
+    }
+    if (req.body?.context) {
+      console.log('[AI Service] context keys:', Object.keys(req.body.context));
+      console.log('[AI Service] context.programmingLanguage:', req.body.context?.programmingLanguage);
+    }
+    if (req.body?.submission) {
+      console.log('[AI Service] submission keys:', Object.keys(req.body.submission));
+      console.log('[AI Service] submission.source:', req.body.submission?.source);
+      console.log('[AI Service] submission.attemptType:', req.body.submission?.attemptType);
+    }
+    if (req.body?.jobsheet) {
+      console.log('[AI Service] jobsheet keys:', Object.keys(req.body.jobsheet));
+    }
+
     const { error, value } = validateEvaluationRequest(req.body);
 
     if (error) {
       if (submissionId) activeEvaluations.delete(submissionId);
-      if (process.env.AI_EVALUATOR_DEBUG_PAYLOAD === 'true') {
-        console.warn('[AI Service] Payload validation failed', {
-          rootKeys: req.body && typeof req.body === 'object' ? Object.keys(req.body) : [],
-          schemaVersion: req.body?.schemaVersion || null,
-          scope: req.body?.scope || null,
-          details: error.details.map((detail) => ({
-            message: detail.message.replace(/"/g, ''),
-            path: detail.path.join('.'),
-            type: detail.type,
-          })),
-        });
+
+      // === DEBUG: Log validation error details ===
+      console.error('[AI Service] ❌ VALIDATION FAILED!');
+      console.error('[AI Service] Error details:', JSON.stringify(error.details.map((d) => ({
+        message: d.message,
+        path: d.path.join('.'),
+        type: d.type,
+      })), null, 2));
+
+      // Log deeper nested "details" from Joi.alternatives
+      if (error.details[0]?.context?.details) {
+        for (const alt of error.details[0].context.details) {
+          console.error('[AI Service] Alternative match error:', JSON.stringify(alt.details?.map((dd) => ({
+            message: dd.message,
+            path: dd.path?.join('.'),
+            type: dd.type,
+          })), null, 2));
+        }
       }
 
       return res.status(400).json({

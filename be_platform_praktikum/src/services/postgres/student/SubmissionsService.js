@@ -101,7 +101,7 @@ class SubmissionsService {
   _mapSubmissionRow(row) {
     if (!row) return null;
 
-    return {
+    const submission = {
       ...row,
       report: row.report || null,
       review: row.review || undefined,
@@ -110,6 +110,15 @@ class SubmissionsService {
         ? Number(row.calculated_progress_score)
         : null,
     };
+
+    const jobInfo = AiEvaluationQueue.getJobInfo(submission.id);
+    if (jobInfo) {
+      submission.ai_evaluation_status = jobInfo.status;
+      submission.ai_evaluation_queue_position = jobInfo.position;
+      submission.ai_evaluation_current_step = jobInfo.currentStep || undefined;
+    }
+
+    return submission;
   }
 
   _buildSubmissionSelect() {
@@ -130,6 +139,10 @@ class SubmissionsService {
         ts.is_auto_submitted,
         ts.calculated_progress_score,
         ts.score_breakdown,
+        ts.ai_evaluation_status,
+        ts.ai_evaluation_error,
+        to_char(ts.ai_evaluation_started_at, 'YYYY-MM-DD HH24:MI:SS') AS ai_evaluation_started_at,
+        to_char(ts.ai_evaluation_finished_at, 'YYYY-MM-DD HH24:MI:SS') AS ai_evaluation_finished_at,
         to_char(ts.submitted_at, 'YYYY-MM-DD HH24:MI:SS') AS submitted_at,
         NULLIF(ts.report_html, '')::json AS report,
         sr.ai_score AS score,

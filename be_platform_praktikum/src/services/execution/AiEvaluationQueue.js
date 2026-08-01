@@ -943,13 +943,13 @@ class AiEvaluationQueue {
 
     // 3. Ambil daftar percobaan & latihan untuk pemetaan title
     const expRes = await pool.query(
-      `SELECT id, title, order_number as order FROM experiments WHERE jobsheet_id = $1`,
+      `SELECT id, title FROM experiments WHERE jobsheet_id = $1 ORDER BY id ASC`,
       [jobsheetId]
     );
     const experiments = expRes.rows;
 
     const exeRes = await pool.query(
-      `SELECT id, title, order_number as order FROM exercises WHERE jobsheet_id = $1`,
+      `SELECT id, title FROM exercises WHERE jobsheet_id = $1 ORDER BY id ASC`,
       [jobsheetId]
     );
     const exercises = exeRes.rows;

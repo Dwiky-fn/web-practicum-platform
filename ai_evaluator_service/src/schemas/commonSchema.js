@@ -156,7 +156,8 @@ const experimentResultSummarySchema = Joi.object({
 const evaluationOptionsSchema = Joi.object({
   language: Joi.string().trim().min(1).max(20).default('id-ID'),
   includeScoreRecommendation: Joi.boolean().default(true),
-}).default({
+  webhookUrl: Joi.string().trim().allow('', null).optional(),
+}).unknown(true).default({
   language: 'id-ID',
   includeScoreRecommendation: true,
 });

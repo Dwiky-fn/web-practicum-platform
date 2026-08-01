@@ -306,6 +306,7 @@ export default function ReviewPage() {
           <div className="sticky top-6">
             <StudentReviewPanel
               feedbacks={feedbacks}
+              submission={submission}
               activeFeedbackId={activeFeedbackId}
               onSelectFeedback={handleSelectFeedback}
               isOpen={isPanelOpen}

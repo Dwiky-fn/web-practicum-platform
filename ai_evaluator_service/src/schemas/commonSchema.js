@@ -1,109 +1,64 @@
 const Joi = require('joi');
 
-const idSchema = Joi.string().trim().min(1).max(200).required();
-const titleSchema = Joi.string().trim().min(1).max(500).required();
-const textSchema = Joi.string().allow('').max(100000);
-const programmingLanguageSchema = Joi.string()
-  .valid('java', 'python')
-  .required();
+const idSchema = Joi.string().trim().min(1).max(500).allow(null, '').optional();
+const titleSchema = Joi.string().trim().min(1).max(1000).allow('', null).optional().default('Untitled');
+const textSchema = Joi.string().allow('', null).max(200000);
+const programmingLanguageSchema = Joi.string().trim().min(1).max(50).default('java');
 
 const sourceFileSchema = Joi.object({
-  id: idSchema.messages({
-    'any.required': 'ID file wajib diisi',
-    'string.empty': 'ID file tidak boleh kosong',
-  }),
-  path: Joi.string()
-    .trim()
-    .min(1)
-    .max(1000)
-    .custom((value, helpers) => {
-      if (value.includes('\0')) {
-        return helpers.error('filePath.invalid');
-      }
-      return value;
-    })
-    .required()
-    .messages({
-      'any.required': 'Path file wajib diisi',
-      'string.empty': 'Path file tidak boleh kosong',
-      'filePath.invalid': 'Path file mengandung karakter tidak valid',
-    }),
-  language: Joi.string().valid('java', 'python').optional(),
-  content: Joi.string().allow('').max(1000000).required().messages({
-    'any.required': 'Isi file wajib dikirim',
-    'string.max': 'Isi file terlalu besar',
-  }),
-});
+  id: Joi.string().trim().min(1).max(500).allow(null, '').optional().default('file-1'),
+  path: Joi.string().trim().min(1).max(2000).required(),
+  language: Joi.string().allow('', null).optional(),
+  content: Joi.string().allow('').max(2000000).default(''),
+}).unknown(true);
 
 const testCaseSchema = Joi.object({
-  id: idSchema,
+  id: Joi.string().trim().min(1).max(500).allow(null, '').optional(),
   name: Joi.string().trim().allow('').max(500).default(''),
   input: textSchema.default(''),
   expectedOutput: textSchema.default(''),
   actualOutput: textSchema.default(''),
-  status: Joi.string()
-    .valid('passed', 'failed', 'error', 'skipped', 'not_run')
-    .required(),
-});
+  status: Joi.string().allow('', null).default('not_run'),
+}).unknown(true);
 
 const executionSchema = Joi.object({
-  status: Joi.string()
-    .valid(
-      'success',
-      'compiler_error',
-      'runtime_error',
-      'timeout',
-      'failed',
-      'not_run',
-      'unknown',
-      'not_available',
-    )
-    .required(),
+  status: Joi.string().allow('', null).default('not_available'),
   stdin: textSchema.default(''),
   stdout: textSchema.default(''),
   stderr: textSchema.default(''),
   expectedOutput: textSchema.default(''),
   exitCode: Joi.number().integer().allow(null).optional(),
-  durationMs: Joi.number().min(0).allow(null).optional(),
+  durationMs: Joi.number().allow(null).optional(),
   testCases: Joi.array().items(testCaseSchema).max(200).default([]),
-});
+}).unknown(true);
 
 const rubricCriterionSchema = Joi.object({
-  id: idSchema,
-  name: Joi.string().trim().min(1).max(500).required(),
+  id: Joi.string().trim().min(1).max(500).allow(null, '').optional(),
+  name: Joi.string().trim().min(1).max(500).allow('', null).default('Rubrik'),
   description: Joi.string().allow('').max(10000).default(''),
-  maxScore: Joi.number().greater(0).required(),
-});
+  maxScore: Joi.number().default(100),
+}).unknown(true);
 
 const rubricSchema = Joi.object({
   criteria: Joi.array().items(rubricCriterionSchema).max(100).default([]),
-}).default({ criteria: [] });
+}).unknown(true).default({ criteria: [] });
 
 const rubricScoreSummarySchema = Joi.object({
   criterionId: idSchema,
-  score: Joi.number().min(0).required(),
-  maxScore: Joi.number().greater(0).required(),
+  score: Joi.number().min(0).default(0),
+  maxScore: Joi.number().default(100),
   reason: Joi.string().allow('').max(10000).default(''),
-})
-  .custom((value, helpers) => {
-    if (value.score > value.maxScore) {
-      return helpers.error('rubric.scoreExceeded');
-    }
-    return value;
-  })
-  .messages({
-    'rubric.scoreExceeded': 'Score tidak boleh melebihi maxScore',
-  });
+}).unknown(true);
 
 const jobsheetSchema = Joi.object({
-  id: idSchema,
-  title: titleSchema,
+  id: Joi.string().trim().min(1).max(500).allow(null, '').optional(),
+  title: Joi.string().trim().min(1).max(1000).allow('', null).default('Jobsheet'),
   description: Joi.string().allow('').max(50000).default(''),
   objectives: Joi.array()
     .items(Joi.string().trim().min(1).max(5000))
     .max(100)
     .default([]),
-}).required();
+}).unknown(true).default({ id: 'jobsheet-1', title: 'Jobsheet' });
 
 const instructionSchema = Joi.alternatives()
   .try(
@@ -111,24 +66,24 @@ const instructionSchema = Joi.alternatives()
     Joi.array().items(Joi.any()).max(1000),
     Joi.object().unknown(true),
   )
-  .required();
+  .default('');
 
 const experimentSchema = Joi.object({
-  id: idSchema,
-  experimentId: Joi.string().trim().min(1).max(200).optional(),
+  id: Joi.string().trim().min(1).max(500).allow(null, '').optional(),
+  experimentId: Joi.string().trim().min(1).max(500).allow(null, '').optional(),
   step: Joi.number().integer().min(1).optional(),
-  title: titleSchema,
+  title: Joi.string().trim().min(1).max(1000).allow('', null).default('Percobaan'),
   objective: Joi.string().allow('').max(50000).default(''),
   instruction: instructionSchema,
   language: programmingLanguageSchema,
-  files: Joi.array().items(sourceFileSchema).max(100).required(),
+  files: Joi.array().items(sourceFileSchema).max(100).default([]),
   templateFiles: Joi.array().items(sourceFileSchema).max(100).default([]),
   hasStudentCode: Joi.boolean().optional(),
   execution: executionSchema.allow(null).optional(),
   studentAnalysis: Joi.string().allow('').max(100000).default(''),
   studentConclusion: Joi.string().allow('').max(100000).default(''),
   rubric: rubricSchema.optional(),
-});
+}).unknown(true);
 
 
 const experimentResultSummarySchema = Joi.object({

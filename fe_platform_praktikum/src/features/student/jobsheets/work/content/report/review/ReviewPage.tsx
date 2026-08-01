@@ -202,12 +202,40 @@ export default function ReviewPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 items-start">
           <div className="space-y-6">
-            <StudentIdentityCard jobsheet={jobsheet} />
+            <StudentIdentityCard jobsheet={jobsheet} submission={submission} />
+
+            {/* AI Review Assistant Panel (Read-only for Student) */}
+            {submission && submission.aiEvaluationStatus && submission.aiEvaluationStatus !== "none" && (
+              <div className="p-5 border border-blue-100 bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/30 rounded-xl shadow-xs font-sans space-y-3">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                  <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    <span className="text-xl">🤖</span> AI Review Assistant
+                  </h2>
+                </div>
+                <div className="bg-white/80 rounded-xl p-4 border border-gray-100 space-y-2 shadow-2xs">
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status Review AI</div>
+                  {submission.aiEvaluationStatus === "completed" ? (
+                    <div className="text-xs text-emerald-700 font-bold flex items-center gap-1.5">
+                      <span>✅</span> Review AI Selesai
+                    </div>
+                  ) : submission.aiEvaluationStatus === "processing" || submission.aiEvaluationStatus === "queued" ? (
+                    <div className="text-xs text-blue-700 font-bold flex items-center gap-1.5">
+                      <span className="animate-spin text-blue-600">⏳</span> Sedang Diproses AI
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-600 font-medium">Status: {submission.aiEvaluationStatus}</div>
+                  )}
+                </div>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  Draft nilai & feedback dari AI telah dimasukkan ke panel penilaian di sebelah kanan.
+                </p>
+              </div>
+            )}
 
             {/* Collapsible Experiments */}
             <div className="space-y-4">
               <h3 className="text-lg font-bold text-gray-800 flex items-center justify-between">
-                <span>Percobaan</span>
+                <span>Percobaan Pengerjaan</span>
                 <span className="text-xs font-normal text-gray-500">
                   {experimentReports.length} Percobaan Tersedia
                 </span>
@@ -238,7 +266,7 @@ export default function ReviewPage() {
             {/* Collapsible Latihan */}
             <div className="space-y-4">
               <h3 className="text-lg font-bold text-gray-800 flex items-center justify-between">
-                <span>Latihan</span>
+                <span>Latihan Pengerjaan</span>
                 <span className="text-xs font-normal text-gray-500">
                   {exerciseReports.length} Latihan Tersedia
                 </span>

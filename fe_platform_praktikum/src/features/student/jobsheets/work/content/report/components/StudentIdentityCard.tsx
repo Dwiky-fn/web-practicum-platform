@@ -1,53 +1,77 @@
 import type { Jobsheet } from "../../../../../../../services/jobsheet/types"
+import type { JobsheetSubmission } from "../../../../../../../services/submission/types"
 import { useCurrentUser } from "../../../../../../../services/user/useCurrentUser"
-import { formatAcademicDate } from "../../../../../../../shared/utils/formatAcademicDateTime"
+import { formatAcademicDateTime } from "../../../../../../../shared/utils/formatAcademicDateTime"
 
 interface Props {
   jobsheet: Jobsheet
+  submission?: JobsheetSubmission | null
 }
 
-export default function StudentIdentityCard({ jobsheet }: Props) {
+export default function StudentIdentityCard({ jobsheet, submission }: Props) {
   const { user, loading } = useCurrentUser()
 
-  const today = formatAcademicDate(new Date())
+  const getStatusLabel = () => {
+    if (!submission?.review?.decision) {
+      if (submission?.status === "ACCEPTED") return "Sudah Dinilai"
+      if (submission?.status === "SUBMITTED") return "Sudah Dikumpulkan"
+      if (submission?.status === "REVISION") return "Perlu Revisi"
+      return "Pengerjaan"
+    }
+    if (submission.review.decision === "ACCEPTED") return "Diterima (Dinilai)"
+    if (submission.review.decision === "REVISION") return "Perlu Revisi"
+    return "Menunggu Review"
+  }
 
   return (
-    <div className="bg-white border rounded-xl overflow-hidden">
-
-      <div className="bg-gray-100 px-6 py-3 border-b font-semibold text-gray-800">
+    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs font-sans">
+      <div className="bg-gray-50/80 px-6 py-3.5 border-b border-gray-200/80 font-bold text-gray-800 text-sm md:text-base">
         Identitas Mahasiswa
       </div>
 
-      <div className="px-6 py-4 text-sm space-y-3">
+      <div className="p-6 text-sm">
+        <dl className="grid gap-3 md:grid-cols-[160px_1fr] items-center">
+          <dt className="text-gray-500 font-medium">Nama</dt>
+          <dd className="text-gray-900 font-semibold">{loading ? "Loading..." : user?.fullname || "-"}</dd>
 
-        <div className="flex">
-          <span className="w-32 text-gray-500">Nama</span>
-          <span className="text-gray-800 font-medium">
-            : {loading ? "Loading..." : user?.fullname || "-"}
-          </span>
-        </div>
+          <dt className="text-gray-500 font-medium">NIM</dt>
+          <dd className="text-gray-900 font-semibold">{loading ? "Loading..." : user?.studentProfile?.nim || "-"}</dd>
 
-        <div className="flex">
-          <span className="w-32 text-gray-500">NIM</span>
-          <span className="text-gray-800 font-medium">
-            : {loading ? "Loading..." : user?.studentProfile?.nim || "-"}
-          </span>
-        </div>
+          <dt className="text-gray-500 font-medium">Materi</dt>
+          <dd className="text-gray-900 font-medium">{jobsheet.title}</dd>
 
-        <div className="flex">
-          <span className="w-32 text-gray-500">Jobsheet</span>
-          <span className="text-gray-800 font-medium">
-            : {jobsheet.title}
-          </span>
-        </div>
+          {submission && (
+            <>
+              <dt className="text-gray-500 font-medium">Status</dt>
+              <dd className="text-gray-900 font-medium">{getStatusLabel()}</dd>
 
-        <div className="flex">
-          <span className="w-32 text-gray-500">Tanggal</span>
-          <span className="text-gray-800 font-medium">
-            : {today}
-          </span>
-        </div>
+              <dt className="text-gray-500 font-medium">Diperbarui</dt>
+              <dd className="text-gray-900 font-medium">{formatAcademicDateTime(submission.updatedAt)}</dd>
 
+              {submission.attemptLabel && (
+                <>
+                  <dt className="text-gray-500 font-medium">Attempt / Pengerjaan</dt>
+                  <dd>
+                    <span className="font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded text-xs inline-block">
+                      {submission.attemptLabel}
+                    </span>
+                  </dd>
+                </>
+              )}
+
+              {submission.isAutoSubmitted && (
+                <>
+                  <dt className="text-gray-500 font-medium">Sumber Submission</dt>
+                  <dd>
+                    <span className="font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded text-xs inline-block">
+                      Dikumpulkan otomatis setelah deadline
+                    </span>
+                  </dd>
+                </>
+              )}
+            </>
+          )}
+        </dl>
       </div>
     </div>
   )

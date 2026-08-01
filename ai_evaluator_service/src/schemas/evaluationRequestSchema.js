@@ -22,18 +22,20 @@ const baseFields = {
     attemptNo: Joi.number().integer().min(1).required(),
     remedialId: Joi.string().trim().min(1).max(200).allow(null).default(null),
     isAutoSubmitted: Joi.boolean().default(false),
-  }).optional(),
+  }).unknown(true).optional(),
   context: Joi.object({
-    kelasPraktikumId: idSchema,
+    kelasPraktikumId: Joi.string().trim().min(1).max(200).allow(null).optional(),
     idKelasMhs: Joi.string().trim().min(1).max(200).allow(null).optional(),
-    studentId: idSchema,
+    studentId: Joi.string().trim().min(1).max(200).allow(null).optional(),
     classId: Joi.string().trim().min(1).max(200).allow(null).optional(),
     programmingLanguage: Joi.string().valid('java', 'python').required(),
     courseName: Joi.string().allow('').max(500).default(''),
-  }).optional(),
+  }).unknown(true).optional(),
   jobsheet: jobsheetSchema,
   rubric: rubricSchema,
   options: evaluationOptionsSchema,
+  webhookUrl: Joi.string().trim().allow('', null).optional(),
+  callbackUrl: Joi.string().trim().allow('', null).optional(),
 };
 
 const experimentEvaluationRequestSchema = Joi.object({
@@ -41,6 +43,7 @@ const experimentEvaluationRequestSchema = Joi.object({
   ...baseFields,
   experiment: experimentSchema.required(),
 })
+  .unknown(true)
   .custom(normalizeCanonicalRequest)
   .custom(validateExperimentRequest)
   .required();
@@ -50,6 +53,7 @@ const exerciseEvaluationRequestSchema = Joi.object({
   ...baseFields,
   exercise: exerciseSchema.required(),
 })
+  .unknown(true)
   .custom(normalizeCanonicalRequest)
   .custom(validateExerciseRequest)
   .required();
@@ -68,6 +72,7 @@ const jobsheetEvaluationRequestSchema = Joi.object({
     .default([]),
   studentConclusion: Joi.string().allow('').max(100000).default(''),
 })
+  .unknown(true)
   .custom(normalizeCanonicalRequest)
   .custom(validateJobsheetRequest)
   .required();
@@ -297,7 +302,7 @@ function findDuplicateValue(items, field) {
 function validateEvaluationRequest(payload) {
   return evaluationRequestSchema.validate(payload, {
     abortEarly: false,
-    allowUnknown: false,
+    allowUnknown: true,
     stripUnknown: false,
     convert: true,
   });

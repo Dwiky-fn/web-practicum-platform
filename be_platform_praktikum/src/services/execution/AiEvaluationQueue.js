@@ -813,7 +813,7 @@ class AiEvaluationQueue {
       });
     }
 
-    const webhookUrl = process.env.LMS_WEBHOOK_URL || 'http://localhost:3000/api/internal/ai-callback';
+    const webhookUrl = process.env.LMS_WEBHOOK_URL || 'https://be.dwkyjnrdi.my.id/api/internal/ai-callback';
     payload.options = {
       ...(payload.options || {}),
       webhookUrl,

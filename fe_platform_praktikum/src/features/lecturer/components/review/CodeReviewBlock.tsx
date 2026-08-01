@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { MessageSquare, Plus, Sparkles, User, FileEdit, CornerDownRight } from "lucide-react"
+import { MessageSquare, Plus, Sparkles, User, FileEdit, CornerDownRight, Pencil } from "lucide-react"
 import type { ReviewFeedback } from "../../../../services/reviewFeedbackService"
 
 export interface SelectedLineRange {
@@ -181,7 +181,7 @@ export default function CodeReviewBlock({
           const lineNum = index + 1
           const lineFbs = getLineFeedbacks(lineNum)
           const isSelected = isLineSelected(index)
-          const isPopoverOpen = openCommentLine === lineNum || lineFbs.some((f) => f.id === activeFeedbackId)
+          const isPopoverOpen = openCommentLine === lineNum
           
           // Determine line background styling
           let bgClass = "hover:bg-gray-900/40"
@@ -219,8 +219,14 @@ export default function CodeReviewBlock({
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation()
-                        setOpenCommentLine((prev) => (prev === lineNum ? null : lineNum))
-                        onSelectFeedback?.(lineFbs[0].id)
+                        if (openCommentLine === lineNum) {
+                          setOpenCommentLine(null)
+                        } else {
+                          setOpenCommentLine(lineNum)
+                          if (lineFbs.length > 0) {
+                            onSelectFeedback?.(lineFbs[0].id)
+                          }
+                        }
                       }}
                       className={`ml-1 px-1 py-0.5 rounded transition flex items-center gap-0.5 cursor-pointer ${
                         isPopoverOpen
@@ -267,21 +273,47 @@ export default function CodeReviewBlock({
                         <CornerDownRight size={10} className="text-indigo-400" />
                         Baris {lineNum}
                       </span>
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-[10px] text-slate-400 font-semibold">
                         {lineFbs.length} Komentar Kode
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setOpenCommentLine(null)
-                      }}
-                      className="text-slate-400 hover:text-white text-xs px-1.5 py-0.5 rounded hover:bg-slate-800 font-bold"
-                      title="Tutup komentar"
-                    >
-                      ✕
-                    </button>
+
+                    <div className="flex items-center gap-2">
+                      {!readOnly && onSelectLines && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onSelectLines({
+                              experimentId,
+                              codeBlockId,
+                              fileName,
+                              startLine: lineNum,
+                              endLine: lineNum,
+                              selectedCode: line || "",
+                            })
+                            onSelectFeedback?.(null as any)
+                          }}
+                          className="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-2.5 py-1 rounded-lg text-[10px] shadow-sm transition cursor-pointer"
+                          title="Tambah komentar baru pada baris ini"
+                        >
+                          <Plus size={10} />
+                          <span>Tambah Komentar</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setOpenCommentLine(null)
+                        }}
+                        className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded hover:bg-slate-800 font-bold cursor-pointer"
+                        title="Tutup komentar (Icon X)"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -319,6 +351,20 @@ export default function CodeReviewBlock({
                                 </span>
                               )}
                             </div>
+
+                            {!readOnly && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onSelectFeedback?.(fb.id)
+                                }}
+                                className="text-slate-400 hover:text-blue-400 p-1 rounded hover:bg-slate-800 transition cursor-pointer"
+                                title="Klik icon pensil untuk mengedit komentar"
+                              >
+                                <Pencil size={12} />
+                              </button>
+                            )}
                           </div>
 
                           <p className="text-slate-200 leading-relaxed text-xs whitespace-pre-wrap font-sans">

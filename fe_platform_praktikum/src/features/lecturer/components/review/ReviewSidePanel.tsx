@@ -111,7 +111,8 @@ export default function ReviewSidePanel({
     if (activeFeedback) {
       if (activeFeedback.scope === "code") {
         onTabChange("komentar_kode")
-        // Only switch tab, don't enter edit mode automatically
+        setIsEditingCode(true)
+        setInlineComment(activeFeedback.content)
       } else if (activeFeedback.scope === "jobsheet") {
         onTabChange("jobsheet")
       }
@@ -353,7 +354,7 @@ export default function ReviewSidePanel({
                         <div className="flex gap-1.5">
                           {renderSourceBadge(fb.source)}
                         </div>
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex gap-2 items-center">
                           {!readOnly && (
                             <>
                               <button

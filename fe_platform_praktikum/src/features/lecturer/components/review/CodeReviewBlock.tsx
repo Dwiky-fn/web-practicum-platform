@@ -214,54 +214,23 @@ export default function CodeReviewBlock({
 
                 {/* Comment Indicator */}
                 {lineFbs.length > 0 && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        setCommentLine((current) => current === lineNum ? null : lineNum)
-                        onSelectFeedback?.(lineFbs[0].id)
-                      }}
-                      className="ml-1 text-yellow-500 hover:text-yellow-300 flex items-center gap-0.5"
-                      title={`${lineFbs.length} komentar pada baris ini`}
-                      aria-label={`Tampilkan ${lineFbs.length} komentar pada baris ${lineNum}`}
-                    >
-                      <MessageSquare size={10} className="fill-current" />
-                      {lineFbs.length > 1 && (
-                        <span className="text-[8px] font-bold">{lineFbs.length}</span>
-                      )}
-                    </button>
-                    {commentLine === lineNum && (
-                      <div
-                        role="dialog"
-                        aria-label={`Komentar Dosen pada baris ${lineNum}`}
-                        className="absolute left-16 top-full z-30 mt-1 w-96 max-w-[calc(100vw-6rem)] rounded-md border border-yellow-700 bg-gray-900 p-3 font-sans text-xs text-gray-100 shadow-xl"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <div className="mb-2 flex items-center justify-between border-b border-gray-700 pb-2">
-                          <div>
-                            <div className="font-semibold text-yellow-300">Komentar Dosen</div>
-                            <div className="text-[10px] text-gray-400">{fileName} · baris {lineFbs[0].startLine ?? lineNum}{(lineFbs[0].endLine ?? lineNum) !== (lineFbs[0].startLine ?? lineNum) ? `-${lineFbs[0].endLine}` : ""}</div>
-                          </div>
-                          <button type="button" onClick={() => setCommentLine(null)} className="text-gray-400 hover:text-white" aria-label="Tutup komentar">
-                            <X size={14} />
-                          </button>
-                        </div>
-                        <div className="space-y-2">
-                          {lineFbs.map((feedback) => (
-                            <div key={feedback.id} className="rounded border border-gray-700 bg-gray-950/60 p-2">
-                              <div className="mb-1 text-[10px] text-gray-400">{feedback.createdBy?.name || "Dosen"}</div>
-                              <div className="whitespace-pre-wrap">{feedback.content}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onSelectFeedback?.(lineFbs[0].id)
+                    }}
+                    className="ml-1 text-yellow-500 hover:text-yellow-300 flex items-center gap-0.5"
+                    title={`${lineFbs.length} komentar pada baris ini`}
+                    aria-label={`Tampilkan ${lineFbs.length} komentar pada baris ${lineNum}`}
+                  >
+                    <MessageSquare size={10} className="fill-current" />
+                    {lineFbs.length > 1 && (
+                      <span className="text-[8px] font-bold">{lineFbs.length}</span>
                     )}
-                  </>
+                  </button>
                 )}
               </div>
-
-              {/* Code Line Content */}
               <div className="pl-4 pr-6 py-0.5 whitespace-pre flex-grow select-text">
                 {line || " "}
               </div>
@@ -273,7 +242,6 @@ export default function CodeReviewBlock({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
-                      // Prompt parent review panel tab change & open editor
                     }}
                     className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1 px-2.5 rounded-full shadow-lg text-[10px] font-sans pointer-events-auto"
                   >
@@ -286,6 +254,31 @@ export default function CodeReviewBlock({
           )
         })}
       </div>
+
+      {/* Render comments outside the dark code box */}
+      {codeFeedbacks.length > 0 && (
+        <div className="border-t border-gray-200 bg-amber-50/50 p-3 space-y-2 font-sans">
+          <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+            <MessageSquare size={14} className="text-amber-600 fill-current" />
+            <span>Komentar Kode ({fileName})</span>
+          </div>
+          <div className="space-y-1.5">
+            {codeFeedbacks.map((fb) => (
+              <div
+                key={fb.id}
+                onClick={() => onSelectFeedback?.(fb.id)}
+                className="bg-white border border-amber-200 rounded-lg p-2.5 text-xs shadow-sm hover:border-amber-400 transition cursor-pointer"
+              >
+                <div className="flex items-center justify-between text-[11px] font-semibold text-amber-800 mb-1">
+                  <span>Baris {fb.startLine}{fb.endLine !== fb.startLine ? `-${fb.endLine}` : ""}</span>
+                  <span className="text-[10px] text-gray-500 font-normal">{fb.createdBy?.name || "Dosen"}</span>
+                </div>
+                <p className="text-gray-700 leading-snug">{fb.content}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

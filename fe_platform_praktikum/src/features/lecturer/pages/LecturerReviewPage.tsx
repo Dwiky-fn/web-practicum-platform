@@ -810,59 +810,6 @@ export default function LecturerReviewPage() {
                 </dl>
               </LecturerPanel>
 
-              <LecturerPanel className="p-5">
-                <div className="mb-4 flex items-start justify-between gap-4 border-b border-gray-100 pb-3">
-                  <div>
-                    <h2 className="text-lg font-semibold">Progres Pengerjaan</h2>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Nilai sistem berdasarkan bobot Dasar Teori, Percobaan, dan Latihan.
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-gray-900">
-                      {formatScore(progressScore)}
-                      <span className="text-sm font-semibold text-gray-500"> / 100</span>
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      Nilai final dosen: {formatScore(submission.review?.finalScore)}
-                    </div>
-                  </div>
-                </div>
-
-                {!scoreBreakdownItems.length ? (
-                  <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3 text-center font-medium">
-                    Progres belum tersedia untuk pengerjaan lama.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {scoreBreakdownItems.map((item) => (
-                      <div key={`${item.type}-${item.itemId}`} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-                        <div className="flex items-start justify-between gap-3 text-sm">
-                          <div className="min-w-0">
-                            <p className="font-semibold text-gray-800 truncate" title={item.title}>
-                              {item.title}
-                            </p>
-                            <p className="mt-0.5 text-xs text-gray-500">
-                              {scoreItemTypeLabel(item.type)}
-                              {item.totalSteps ? ` - ${item.completedSteps ?? 0}/${item.totalSteps} langkah` : ""}
-                            </p>
-                          </div>
-                          <span className="shrink-0 font-semibold text-blue-700">
-                            {formatScore(item.earnedScore)} / {formatScore(item.weight)}
-                          </span>
-                        </div>
-                        <div className="mt-2 h-1.5 rounded-full bg-white">
-                          <div
-                            className="h-1.5 rounded-full bg-blue-500"
-                            style={{ width: `${Math.min(Math.max(item.completionRatio * 100, 0), 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </LecturerPanel>
-
               {/* AI Review Assistant Panel */}
               {submission && submission.status !== "DRAFT" && (
                 <LecturerPanel className="p-5 border border-blue-100 bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/30">
@@ -1109,18 +1056,6 @@ export default function LecturerReviewPage() {
                     )
                   })
                 )}
-              </div>
-
-              {/* Kesimpulan Akhir */}
-              <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
-                <h2 className="text-lg font-bold text-gray-800 border-b border-gray-100 pb-2">Kesimpulan Akhir</h2>
-                <div className="rounded-lg bg-gray-50 p-4 text-sm border">
-                  {submission.conclusion?.content ? (
-                    <RichTextViewer content={submission.conclusion.content} role="MAHASISWA" mode="viewer-default" />
-                  ) : (
-                    <p className="text-gray-500 italic">Mahasiswa belum menulis kesimpulan akhir.</p>
-                  )}
-                </div>
               </div>
 
 

@@ -4,6 +4,22 @@ class NotificationsService {
   constructor() {
     this._pool = pool;
     this._readNotifications = new Set();
+    this._initTable();
+  }
+
+  async _initTable() {
+    try {
+      await this._pool.query(`
+        CREATE TABLE IF NOT EXISTS user_notification_reads (
+          user_id VARCHAR(255) NOT NULL,
+          notification_id VARCHAR(255) NOT NULL,
+          read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (user_id, notification_id)
+        );
+      `);
+    } catch {
+      // Graceful fallback
+    }
   }
 
   async getNotifications(userId) {
@@ -27,16 +43,41 @@ class NotificationsService {
       items = await this._getAdminNotifications(userId);
     }
 
+    let dbReadIds = new Set();
+    try {
+      const readResult = await this._pool.query(
+        'SELECT notification_id FROM user_notification_reads WHERE user_id = $1',
+        [userId],
+      );
+      dbReadIds = new Set(readResult.rows.map((row) => row.notification_id));
+    } catch {
+      // Fallback
+    }
+
     return items.map((item) => ({
       ...item,
-      is_read: this._readNotifications.has(`${userId}:${item.id}`),
+      is_read: dbReadIds.has(item.id) || this._readNotifications.has(`${userId}:${item.id}`),
     }));
   }
 
-  async markAsRead(userId) {
+  async markAsRead(userId, notificationId) {
     const items = await this.getNotifications(userId);
-    for (const item of items) {
-      this._readNotifications.add(`${userId}:${item.id}`);
+    const targetIds = notificationId
+      ? [notificationId]
+      : items.map((item) => item.id);
+
+    for (const id of targetIds) {
+      this._readNotifications.add(`${userId}:${id}`);
+      try {
+        await this._pool.query(
+          `INSERT INTO user_notification_reads (user_id, notification_id)
+           VALUES ($1, $2)
+           ON CONFLICT (user_id, notification_id) DO NOTHING`,
+          [userId, id],
+        );
+      } catch {
+        // Ignore DB insert error
+      }
     }
     return true;
   }

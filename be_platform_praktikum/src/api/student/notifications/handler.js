@@ -24,8 +24,9 @@ class NotificationsHandler {
   async markNotificationsAsReadHandler(req, res, next) {
     try {
       const { userId } = req.params;
+      const { notificationId } = req.body || {};
 
-      await this._service.markAsRead(userId);
+      await this._service.markAsRead(userId, notificationId);
 
       return res.status(200).json({
         status: 'success',

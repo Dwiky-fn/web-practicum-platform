@@ -913,10 +913,24 @@ class AiEvaluationQueue {
 
     // 2. Ambil data submission, lecturer_id, dan jobsheet_id
     const subRes = await pool.query(
-      `SELECT ts.id, ts.jobsheet_id, j.course_id, c.lecturer_id
+      `SELECT
+         ts.id,
+         ts.jobsheet_id,
+         COALESCE(p.id_dosen, fallback_pengampu.id_dosen, 'dosen-1') AS lecturer_id
        FROM task_submissions ts
        JOIN jobsheets j ON j.id = ts.jobsheet_id
-       JOIN courses c ON c.id = j.course_id
+       LEFT JOIN pengampu p
+         ON p.id_kelas_praktikum = ts.id_kelas_praktikum
+        AND p.peran = 'utama'
+       LEFT JOIN LATERAL (
+         SELECT pengampu.id_dosen
+         FROM pengampu
+         JOIN kelas_praktikum kp ON kp.id = pengampu.id_kelas_praktikum
+         WHERE kp.id_mata_kuliah = j.id_mata_kuliah
+           AND pengampu.peran = 'utama'
+         ORDER BY pengampu.id ASC
+         LIMIT 1
+       ) fallback_pengampu ON true
        WHERE ts.id = $1 LIMIT 1`,
       [submissionId]
     );

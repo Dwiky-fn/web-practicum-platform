@@ -91,22 +91,25 @@ test('POST /api/evaluations menolak payload tidak valid', async () => {
 });
 
 test('JSON rusak diperbaiki melalui retry', async () => {
-  let calls = 0;
+  let ollamaCalls = 0;
 
-  global.fetch = async () => {
-    calls += 1;
-    return {
-      ok: true,
-      status: 200,
-      async json() {
-        return {
-          response:
-            calls === 1
-              ? '{"scope":'
-              : JSON.stringify(createExperimentResult()),
-        };
-      },
-    };
+  global.fetch = async (url) => {
+    if (typeof url === 'string' && url.includes('/api/generate')) {
+      ollamaCalls += 1;
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return {
+            response:
+              ollamaCalls === 1
+                ? '{"scope":'
+                : JSON.stringify(createExperimentResult()),
+          };
+        },
+      };
+    }
+    return { ok: true, status: 200, async json() { return {}; } };
   };
 
   const response = await request({
@@ -116,8 +119,8 @@ test('JSON rusak diperbaiki melalui retry', async () => {
   });
 
   assert.equal(response.statusCode, 202);
-  await new Promise((r) => setTimeout(r, 150));
-  assert.equal(calls, 2);
+  await new Promise((r) => setTimeout(r, 200));
+  assert.equal(ollamaCalls, 2);
 });
 
 test('retry habis mengembalikan 502', async () => {

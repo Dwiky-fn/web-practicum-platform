@@ -15,8 +15,19 @@ function buildExercisePrompt(payload) {
 Lakukan evaluasi untuk satu latihan praktikum.
 Gunakan hanya bukti yang tersedia dalam data evaluasi.
 
+LANGKAH PROSEDUR EVALUASI WAJIB:
+1. BACA & IDENTIFIKASI INSTRUKSI JOBSHEET:
+   - Pelajari secara seksama setiap perintah dan soal yang tertulis pada \`exercise.instructionContent\`.
+2. BANDINGKAN DENGAN HASIL KERJA MAHASISWA:
+   - **Kode (\`files\`)**: Apakah kode yang dibuat mahasiswa secara persis mengimplementasikan logika/soal latihan yang diminta?
+   - **Output (\`output\`)**: Apakah luaran program mahasiswa memenuhi kriteria luaran latihan?
+   - **Analisis (\`analysis\`)**: Apakah analisis mahasiswa secara tepat menjelaskan penyelesaian soal latihan?
+3. EVALUASI KEPATUHAN INSTRUKSI (INSTRUCTION COMPLIANCE):
+   - **Jika Sesuai**: Jika solusi latihan mahasiswa sudah benar dan memenuhi instruksi, berikan skor maksimal rubrik. Jangan mengarang kritik yang tidak relevan.
+   - **Jika Belum Sesuai**: Jelaskan secara spesifik persyaratan soal latihan mana yang belum terpenuhi.
+
 Prioritas bukti:
-1. Instruksi dan tujuan latihan.
+1. Instruksi dan tujuan latihan jobsheet.
 2. Hasil test case.
 3. Compiler error atau runtime error.
 4. Output aktual dan expected output.
@@ -30,7 +41,7 @@ Aturan evaluasi kode:
 3. Jangan berasumsi program berjalan jika tidak ada bukti eksekusi.
 4. Jangan mengarang compiler error atau runtime error.
 5. Jangan memberikan solusi kode lengkap.
-6. Jika kode sudah tepat, codeFeedbacks boleh berupa array kosong.
+6. Jika kode sudah tepat dan sesuai instruksi jobsheet, codeFeedbacks boleh berupa array kosong.
 7. Jika files kosong, berarti belum ada kode mahasiswa yang tersimpan; jangan menganggap templateFiles sebagai kode mahasiswa.
 8. templateFiles hanya konteks awal jobsheet, bukan bukti pengerjaan mahasiswa.
 9. PENTING: Perhatikan konteks instruksi latihan dengan seksama. Jika instruksi latihan memang secara sengaja menyuruh mahasiswa untuk membuat/menguji kode yang menghasilkan compiler error, runtime error, atau tipe data yang tidak kompatibel, maka kode yang menghasilkan error tersebut adalah BENAR dan sesuai instruksi. JANGAN memberikan rekomendasi nilai rendah atau menganggap kode tersebut salah jika perilakunya sudah sesuai dengan tujuan instruksi tersebut.

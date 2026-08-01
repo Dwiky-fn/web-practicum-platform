@@ -49,7 +49,7 @@ export default function NotificationsPage() {
       setNotifications((prev) =>
         prev.map((item) => (item.id === notif.id ? { ...item, isRead: true } : item)),
       )
-      await markNotificationsAsRead(user.id)
+      await markNotificationsAsRead(user.id, notif.id)
     }
 
     if (notif.targetUrl || notif.target_url) {

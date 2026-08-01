@@ -4,8 +4,48 @@ import { useBackNavigation } from "../../../shared/utils/backNavigation";
 const emptyDoc = { type: "doc" as const, content: [] }
 import { ArrowLeft, Eye, Edit } from "lucide-react"
 import { formatAcademicDateTime } from "../../../shared/utils/formatAcademicDateTime"
-import { formatNumber } from "../../../shared/utils/formatScore"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
+import type { Jobsheet } from "../../../services/jobsheet/types"
+import type { JobsheetSubmission } from "../../../services/submission/types"
+import { useCurrentUser } from "../../../services/user/useCurrentUser"
+import LecturerLayout from "../components/LecturerLayout"
+import { LecturerButton, LecturerModal, LecturerPanel, PageHeader } from "../components/LecturerUI"
+import {
+  getLecturerClassDetail,
+  getLecturerJobsheetById,
+  getLecturerSubmission,
+  saveLecturerSubmissionReview,
+  getSubmissionReviewStatus,
+  triggerAiReview,
+  retryAiReview,
+  deleteAiFeedback,
+} from "../service"
+import { apiFetch } from "../../../services/api"
+import {
+  getFeedbacks,
+  createFeedback,
+  updateFeedback,
+  deleteFeedback,
+  publishFeedback,
+  publishMultipleFeedbacks,
+} from "../../../services/reviewFeedbackService"
+import type { ReviewFeedback } from "../../../services/reviewFeedbackService"
+import type { SelectedLineRange } from "../components/review/CodeReviewBlock"
+import ExperimentReviewCard from "../components/review/ExperimentReviewCard"
+import ReviewSidePanel from "../components/review/ReviewSidePanel"
+import { toast } from "../../../components/toast/toastStore"
+
+function isAiDerivedFeedback(item: ReviewFeedback) {
+  return item.source === "ai" || item.source === "ai_edited_by_lecturer"
+}
+
+function hasAiFeedbackPayload(aiFeedback: any) {
+  return Boolean(
+    aiFeedback &&
+      typeof aiFeedback === "object" &&
+      Object.keys(aiFeedback).length > 0,
+  )
+}
 
 async function removeAiDerivedFeedbacks(submissionId: string) {
   const current = await getFeedbacks(submissionId)

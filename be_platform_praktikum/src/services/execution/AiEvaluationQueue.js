@@ -803,6 +803,12 @@ class AiEvaluationQueue {
       });
     }
 
+    const webhookUrl = process.env.LMS_WEBHOOK_URL || 'http://localhost:3000/api/internal/ai-callback';
+    payload.options = {
+      ...(payload.options || {}),
+      webhookUrl,
+    };
+
     const headers = { 'Content-Type': 'application/json' };
     if (aiServiceKey) {
       headers['X-AI-Service-Key'] = aiServiceKey;
@@ -815,6 +821,7 @@ class AiEvaluationQueue {
     console.log(`[AI Service Log] ==================== MEMULAI REQUEST EVALUASI AI ====================`);
     console.log(`[AI Service Log] Submission ID  : ${submissionId}`);
     console.log(`[AI Service Log] Target Endpoint: ${aiServiceUrl}/api/evaluations`);
+    console.log(`[AI Service Log] Webhook Target : ${webhookUrl}`);
     console.log(`[AI Service Log] Protocol       : ${aiServiceUrl.startsWith('https') ? 'HTTPS (TLS/SSL Encrypted)' : 'HTTP'}`);
     console.log(`[AI Service Log] Header Auth    : ${aiServiceKey ? 'Terpasang (API Key Hidden)' : 'Tanpa API Key'}`);
     console.log(`[AI Service Log] Ukuran Payload : ${(payloadBytes / 1024).toFixed(2)} KB (${payloadBytes} bytes)`);
@@ -849,19 +856,81 @@ class AiEvaluationQueue {
       throw new Error('Gagal mengurai respons JSON dari AI Evaluator Service');
     }
 
-    if (responseData.status !== 'success' || !responseData.data) {
+    // ── CASE 1: HTTP 202 Accepted (Background Job Async) ──
+    if (response.status === 202 || responseData.status === 'accepted') {
+      console.log(`[AI Service Log] [ACCEPTED] AI Service telah menerima tugas (HTTP ${response.status}). Evaluasi diproses di background.`);
+      console.log(`[AI Service Log] [ACCEPTED] Respons AI Service:`, responseData);
+      this._currentSteps.set(submissionId, 'Tugas diterima oleh AI Service. Sedang menganalisis pengerjaan di background...');
+      return; // Selesai dari antrean HTTP lokal, DB tetap status 'processing' menunggu Webhook callback!
+    }
+
+    // ── CASE 2: HTTP 200 OK langsung (Synchronous Fallback) ──
+    if (responseData.status === 'success' && responseData.data) {
+      await this.processAndSaveAiResult(submissionId, responseData);
+    } else {
       console.error(`[AI Service Log] [ERROR] AI Service mengembalikan status non-success: ${responseData.status}`);
       throw new Error(`AI Evaluator Service mengembalikan status ${responseData.status}`);
     }
+  }
 
-    const result = responseData.data;
-    console.log(`[AI Service Log] [SUCCESS] Respons JSON valid dari AI Service!`);
-    console.log(`[AI Service Log] [SUCCESS] Status Evaluasi: ${result.evaluationStatus}`);
-    console.log(`[AI Service Log] [SUCCESS] Rekomendasi Nilai AI: ${result.finalGradeRecommendation ?? result.totalScoreRecommendation ?? 0}/100`);
-    console.log(`[AI Service Log] [SUCCESS] Evaluasi Percobaan: ${result.experimentEvaluations?.length || 0} item, Evaluasi Latihan: ${result.exerciseEvaluations?.length || 0} item`);
-    console.log(`[AI Service Log] Menyimpan hasil evaluasi ke database...`);
+  /**
+   * Memproses dan menyimpan hasil evaluasi AI (dikirim via Webhook Callback atau Sync) ke PostgreSQL.
+   */
+  async processAndSaveAiResult(submissionId, payloadData) {
+    console.log(`[AI Queue] [${submissionId}] Memproses dan menyimpan hasil evaluasi AI ke database...`);
 
-    // Extract experiment evaluations from the unified response, grouping them by real experiment ID
+    // 1. Cek jika evaluasi dilaporkan gagal oleh AI Service
+    if (payloadData.status === 'failed' || payloadData.error) {
+      const errorMsg = payloadData.error || 'Evaluasi AI gagal di background';
+      console.error(`[AI Queue] [${submissionId}] Evaluasi gagal: ${errorMsg}`);
+      
+      await pool.query(
+        `UPDATE task_submissions 
+         SET ai_evaluation_status = 'failed', 
+             ai_evaluation_error = $2,
+             ai_evaluation_finished_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [submissionId, errorMsg]
+      );
+      this._currentSteps.delete(submissionId);
+      return;
+    }
+
+    const result = payloadData.data || payloadData;
+    if (!result) {
+      throw new Error('Payload data evaluasi AI tidak ditemukan');
+    }
+
+    // 2. Ambil data submission, lecturer_id, dan jobsheet_id
+    const subRes = await pool.query(
+      `SELECT ts.id, ts.jobsheet_id, j.course_id, c.lecturer_id
+       FROM task_submissions ts
+       JOIN jobsheets j ON j.id = ts.jobsheet_id
+       JOIN courses c ON c.id = j.course_id
+       WHERE ts.id = $1 LIMIT 1`,
+      [submissionId]
+    );
+
+    if (subRes.rows.length === 0) {
+      throw new Error(`Submission dengan ID ${submissionId} tidak ditemukan`);
+    }
+
+    const { jobsheet_id: jobsheetId, lecturer_id: lecturerId } = subRes.rows[0];
+
+    // 3. Ambil daftar percobaan & latihan untuk pemetaan title
+    const expRes = await pool.query(
+      `SELECT id, title, order_number as order FROM experiments WHERE jobsheet_id = $1`,
+      [jobsheetId]
+    );
+    const experiments = expRes.rows;
+
+    const exeRes = await pool.query(
+      `SELECT id, title, order_number as order FROM exercises WHERE jobsheet_id = $1`,
+      [jobsheetId]
+    );
+    const exercises = exeRes.rows;
+
+    // 4. Ekstrak evaluasi percobaan & latihan
     const comments = [];
     const experimentResultsMap = new Map();
     let overallSuccess = true;
@@ -952,7 +1021,7 @@ class AiEvaluationQueue {
       if (exeEval.status === 'completed') {
         const feedback = exeEval.feedback || {};
         experimentResultsForDb.push({
-          experimentId: exeEval.exerciseId, // Alias exerciseId as experimentId
+          experimentId: exeEval.exerciseId,
           title: exeTitle,
           summary: feedback.summary || '',
           strengths: feedback.strengths || [],
@@ -963,7 +1032,7 @@ class AiEvaluationQueue {
 
         (exeEval.codeFeedbacks || []).forEach((fb) => {
           comments.push({
-            experimentId: exeEval.exerciseId, // Alias exerciseId as experimentId
+            experimentId: exeEval.exerciseId,
             step: 1,
             comment: `[${fb.filePath} L${fb.startLine}-${fb.endLine}] [${fb.category}] [Severity: ${fb.severity}] ${fb.message} Saran: ${fb.suggestion}`
           });
@@ -971,7 +1040,7 @@ class AiEvaluationQueue {
       } else {
         overallSuccess = false;
         experimentResultsForDb.push({
-          experimentId: exeEval.exerciseId, // Alias exerciseId as experimentId
+          experimentId: exeEval.exerciseId,
           title: exeTitle,
           status: 'failed',
           error: exeEval.error || 'Gagal mengevaluasi latihan'
@@ -1000,7 +1069,7 @@ class AiEvaluationQueue {
       .forEach(e => {
         (e.codeFeedbacks || []).forEach(fb => {
           mergedCodeFeedbacks.push({
-            experimentId: e.exerciseId, // Alias exerciseId as experimentId
+            experimentId: e.exerciseId,
             step: 1,
             ...fb
           });
@@ -1008,7 +1077,7 @@ class AiEvaluationQueue {
       });
 
     const experimentsNeedingAttention = [];
-    if (result.jobsheetFeedback.experimentsNeedingAttention) {
+    if (result.jobsheetFeedback?.experimentsNeedingAttention) {
       const seen = new Set();
       result.jobsheetFeedback.experimentsNeedingAttention.forEach((item) => {
         const [realExpId, stepStr] = String(item.experimentId || '').split(':');
@@ -1023,10 +1092,10 @@ class AiEvaluationQueue {
         }
       });
     }
-    if (result.jobsheetFeedback.exercisesNeedingAttention) {
+    if (result.jobsheetFeedback?.exercisesNeedingAttention) {
       result.jobsheetFeedback.exercisesNeedingAttention.forEach((item) => {
         experimentsNeedingAttention.push({
-          experimentId: item.exerciseId, // Alias exerciseId as experimentId
+          experimentId: item.exerciseId,
           reason: item.reason
         });
       });
@@ -1064,9 +1133,9 @@ class AiEvaluationQueue {
       ?? result.totalScoreRecommendation
       ?? 0
     )));
-    console.log(`[AI Queue] [${submissionId}] Nilai akhir rekomendasi AI: ${totalScore}/100. Total poin: ${aiFeedback.scoreSummary.totalScoreRecommendation}/${aiFeedback.scoreSummary.totalMaxScore}. Menyimpan ke submission_reviews...`);
 
-    // Simpan ke database submission_reviews sebagai draft AI dan update status menggunakan Transaksi
+    console.log(`[AI Queue] [${submissionId}] Nilai akhir rekomendasi AI: ${totalScore}/100. Menyimpan ke submission_reviews...`);
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -1098,7 +1167,6 @@ class AiEvaluationQueue {
         );
       }
 
-      // Set status di DB ke completed / partially_failed
       const finalStatus = result.evaluationStatus || (overallSuccess ? 'completed' : 'partially_failed');
       console.log(`[AI Queue] [${submissionId}] Mengupdate ai_evaluation_status di task_submissions menjadi '${finalStatus}'...`);
       await client.query(
@@ -1112,8 +1180,8 @@ class AiEvaluationQueue {
       );
 
       await client.query('COMMIT');
-      console.log(`[AI Queue] [${submissionId}] Feedback AI berhasil disimpan`);
-      console.log(`[AI Queue] [${submissionId}] Evaluasi submission selesai dengan status: ${finalStatus}`);
+      this._currentSteps.delete(submissionId);
+      console.log(`[AI Queue] [${submissionId}] Feedback AI berhasil disimpan via Webhook / Sync. Status: ${finalStatus}`);
     } catch (dbError) {
       await client.query('ROLLBACK');
       throw dbError;

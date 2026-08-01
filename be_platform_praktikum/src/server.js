@@ -42,12 +42,16 @@ app.use('/kelas-mahasiswa', requireAuth);
 app.use('/kelas-praktikum', requireAuth);
 app.use('/pengampu', requireAuth);
 
+const internalRoutes = require('./api/internal/aiCallback');
+
 student(app);
 users(app);
 admin(app);
 lecturer(app);
 departments(app);
 execution(server);
+
+app.use('/api/internal', internalRoutes);
 
 // test route
 app.get('/', (req, res) => {

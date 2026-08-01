@@ -638,13 +638,18 @@ class AiEvaluationQueue {
     );
     console.log(`[AI Queue] [${submissionId}] Menyusun payload untuk ${experiments.length} percobaan...`);
     const payloadExperiments = [];
-    for (const exp of experiments) {
+    for (let expIndex = 0; expIndex < experiments.length; expIndex++) {
+      const exp = experiments[expIndex];
       const expReport = report.experiments?.[exp.id] || {};
       const steps = expReport.steps || [];
       const instructions = extractInstructions(exp.instruction_content);
       const numSteps = Math.max(1, steps.length, instructions.length);
 
       for (let i = 0; i < numSteps; i++) {
+        this._currentSteps.set(
+          submissionId,
+          `Menyiapkan review Percobaan ${expIndex + 1}/${experiments.length}: ${exp.title || 'Tanpa Judul'} - Langkah ${i + 1}/${numSteps}`
+        );
         const step = steps[i] || { files: {}, output: '', analysis: { type: 'doc', content: [] } };
         const instructionText = instructions[i] || instructions[instructions.length - 1] || 'Lakukan percobaan sesuai modul.';
         const stepNumber = i + 1;
@@ -688,7 +693,12 @@ class AiEvaluationQueue {
 
     console.log(`[AI Queue] [${submissionId}] Menyusun payload untuk ${exercises.length} latihan...`);
     const payloadExercises = [];
-    for (const exe of exercises) {
+    for (let exerciseIndex = 0; exerciseIndex < exercises.length; exerciseIndex++) {
+      const exe = exercises[exerciseIndex];
+      this._currentSteps.set(
+        submissionId,
+        `Menyiapkan review Latihan ${exerciseIndex + 1}/${exercises.length}: ${exe.title || 'Tanpa Judul'}`
+      );
       const exeReport = report.exercises?.[exe.id] || {};
       const language = sub.programming_language || 'java';
       const files = toSourceFiles(exeReport.files, language);

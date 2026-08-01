@@ -188,6 +188,25 @@ function buildSectionEvaluationDrafts(jobsheet: Jobsheet, submission: JobsheetSu
   return Object.fromEntries(entries)
 }
 
+function getAiReviewCurrentStep(submission: JobsheetSubmission) {
+  if (submission.aiEvaluationCurrentStep) return submission.aiEvaluationCurrentStep
+  if (submission.aiEvaluationStatus === "queued") {
+    return submission.aiEvaluationQueuePosition
+      ? `Menunggu giliran review AI. Posisi antrean saat ini: ${submission.aiEvaluationQueuePosition}.`
+      : "Menunggu giliran review AI."
+  }
+  if (submission.aiEvaluationStatus === "processing") {
+    return "AI sedang mereview kode program, output, dan analisis mahasiswa."
+  }
+  return ""
+}
+
+function getAiReviewQueueLabel(submission: JobsheetSubmission) {
+  if (submission.aiEvaluationQueuePosition == null) return "Menunggu antrean"
+  if (submission.aiEvaluationQueuePosition <= 0) return "Sedang diproses"
+  return `Antrian ke-${submission.aiEvaluationQueuePosition}`
+}
+
 
 
 export default function LecturerReviewPage() {
@@ -842,34 +861,37 @@ export default function LecturerReviewPage() {
 
                       {submission.aiEvaluationStatus === "queued" && (
                         <div className="space-y-2">
-                          <div className="flex justify-between items-center text-sm">
+                          <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
                             <span className="text-amber-600 font-semibold flex items-center gap-2">
                               <span className="relative flex h-2.5 w-2.5">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
                               </span>
-                              Dalam Antrean AI {submission.aiEvaluationQueuePosition ? `(Urutan ke-${submission.aiEvaluationQueuePosition})` : ""}
+                              Mengantri review AI
                             </span>
                             <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md font-medium border border-amber-200">
-                              {submission.aiEvaluationQueuePosition ? `Urutan ke-${submission.aiEvaluationQueuePosition}` : "Menunggu Antrean"}
+                              {getAiReviewQueueLabel(submission)}
                             </span>
                           </div>
                           <div className="w-full bg-amber-100/60 h-1.5 rounded-full overflow-hidden">
                             <div className="bg-amber-500 h-full rounded-full animate-pulse" style={{ width: "40%" }}></div>
                           </div>
-                          <p className="text-[11px] text-gray-500 italic">Antrean server AI sedang berjalan. Halaman akan memperbarui otomatis.</p>
+                          <div className="rounded-lg border border-amber-100 bg-amber-50/60 p-2 text-[11px] leading-relaxed text-amber-800">
+                            <span className="font-semibold">Status:</span> {getAiReviewCurrentStep(submission)}
+                          </div>
+                          <p className="text-[11px] text-gray-500 italic">Halaman akan memperbarui status antrean otomatis.</p>
                         </div>
                       )}
 
                       {submission.aiEvaluationStatus === "processing" && (
                         <div className="space-y-2">
-                          <div className="flex justify-between items-center text-sm">
+                          <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
                             <span className="text-blue-600 font-semibold flex items-center gap-2">
                               <svg className="animate-spin h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                               </svg>
-                              Sedang Mengevaluasi Pengerjaan...
+                              Sedang mereview dengan AI
                             </span>
                             <span className="text-[10px] text-blue-700 bg-blue-50 font-bold px-2 py-0.5 rounded-full border border-blue-100 animate-pulse">
                               PROSES AI
@@ -879,7 +901,7 @@ export default function LecturerReviewPage() {
                             <div className="bg-blue-600 h-full rounded-full animate-pulse" style={{ width: "75%" }}></div>
                           </div>
                           <p className="text-[11px] text-blue-800 font-medium bg-blue-50/60 p-2 rounded-lg border border-blue-100/60">
-                            ⚡ {submission.aiEvaluationCurrentStep || "Menganalisis kebenaran kode program, output, dan analisis mahasiswa..."}
+                            Bagian saat ini: {getAiReviewCurrentStep(submission)}
                           </p>
                         </div>
                       )}

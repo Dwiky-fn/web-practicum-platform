@@ -1,35 +1,32 @@
 const Joi = require('joi');
-
 const {
   idSchema,
   jobsheetSchema,
   experimentSchema,
-  experimentResultSummarySchema,
   exerciseSchema,
-  exerciseResultSummarySchema,
   rubricSchema,
   evaluationOptionsSchema,
 } = require('./commonSchema');
 
 const baseFields = {
-  requestId: Joi.string().trim().min(1).max(200).optional(),
-  schemaVersion: Joi.string().valid('1.0').optional(),
-  submissionId: idSchema.optional(),
+  requestId: Joi.string().trim().min(1).max(200).allow(null, '').optional(),
+  schemaVersion: Joi.string().trim().allow(null, '').optional(),
+  submissionId: Joi.string().trim().min(1).max(500).allow(null, '').optional(),
   submission: Joi.object({
-    id: idSchema,
-    source: Joi.string().valid('manual', 'auto_deadline', 'remedial').required(),
-    attemptType: Joi.string().valid('normal', 'remedial').required(),
-    attemptNo: Joi.number().integer().min(1).required(),
-    remedialId: Joi.string().trim().min(1).max(200).allow(null).default(null),
+    id: Joi.string().trim().min(1).max(500).allow(null, '').optional(),
+    source: Joi.string().allow('', null).default('manual'),
+    attemptType: Joi.string().allow('', null).default('normal'),
+    attemptNo: Joi.number().integer().min(1).default(1),
+    remedialId: Joi.string().trim().min(1).max(200).allow(null, '').default(null),
     isAutoSubmitted: Joi.boolean().default(false),
   }).unknown(true).optional(),
   context: Joi.object({
-    kelasPraktikumId: Joi.string().trim().min(1).max(200).allow(null).optional(),
-    idKelasMhs: Joi.string().trim().min(1).max(200).allow(null).optional(),
-    studentId: Joi.string().trim().min(1).max(200).allow(null).optional(),
-    classId: Joi.string().trim().min(1).max(200).allow(null).optional(),
-    programmingLanguage: Joi.string().valid('java', 'python').required(),
-    courseName: Joi.string().allow('').max(500).default(''),
+    kelasPraktikumId: Joi.string().trim().min(1).max(500).allow(null, '').optional(),
+    idKelasMhs: Joi.string().trim().min(1).max(500).allow(null, '').optional(),
+    studentId: Joi.string().trim().min(1).max(500).allow(null, '').optional(),
+    classId: Joi.string().trim().min(1).max(500).allow(null, '').optional(),
+    programmingLanguage: Joi.string().allow('', null).default('java'),
+    courseName: Joi.string().allow('', null).max(1000).default(''),
   }).unknown(true).optional(),
   jobsheet: jobsheetSchema,
   rubric: rubricSchema,
@@ -64,13 +61,14 @@ const jobsheetEvaluationRequestSchema = Joi.object({
   experiments: Joi.array()
     .items(experimentSchema)
     .max(100)
-    .required(),
+    .optional()
+    .default([]),
   exercises: Joi.array()
     .items(exerciseSchema)
     .max(100)
     .optional()
     .default([]),
-  studentConclusion: Joi.string().allow('').max(100000).default(''),
+  studentConclusion: Joi.string().allow('', null).max(100000).default(''),
 })
   .unknown(true)
   .custom(normalizeCanonicalRequest)
@@ -99,7 +97,7 @@ function validateExperimentRequest(payload, helpers) {
     });
   }
 
-  const duplicateFileId = findDuplicateValue(payload.experiment.files, 'id');
+  const duplicateFileId = findDuplicateValue(payload.experiment?.files || [], 'id');
   if (duplicateFileId) {
     return helpers.message({
       custom: `File ID "${duplicateFileId}" digunakan lebih dari satu kali`,
@@ -107,7 +105,7 @@ function validateExperimentRequest(payload, helpers) {
   }
 
   const duplicateFilePath = findDuplicateValue(
-    payload.experiment.files,
+    payload.experiment?.files || [],
     'path',
   );
   if (duplicateFilePath) {
@@ -116,7 +114,7 @@ function validateExperimentRequest(payload, helpers) {
     });
   }
 
-  const invalidLanguageFile = payload.experiment.files.find(
+  const invalidLanguageFile = (payload.experiment?.files || []).find(
     (file) => file.language && file.language !== payload.experiment.language,
   );
   if (invalidLanguageFile) {
@@ -125,7 +123,7 @@ function validateExperimentRequest(payload, helpers) {
     });
   }
 
-  const testCases = payload.experiment.execution?.testCases || [];
+  const testCases = payload.experiment?.execution?.testCases || [];
   const duplicateTestCaseId = findDuplicateValue(testCases, 'id');
   if (duplicateTestCaseId) {
     return helpers.message({
@@ -150,7 +148,7 @@ function validateExerciseRequest(payload, helpers) {
     });
   }
 
-  const duplicateFileId = findDuplicateValue(payload.exercise.files, 'id');
+  const duplicateFileId = findDuplicateValue(payload.exercise?.files || [], 'id');
   if (duplicateFileId) {
     return helpers.message({
       custom: `File ID "${duplicateFileId}" digunakan lebih dari satu kali`,
@@ -158,7 +156,7 @@ function validateExerciseRequest(payload, helpers) {
   }
 
   const duplicateFilePath = findDuplicateValue(
-    payload.exercise.files,
+    payload.exercise?.files || [],
     'path',
   );
   if (duplicateFilePath) {
@@ -167,7 +165,7 @@ function validateExerciseRequest(payload, helpers) {
     });
   }
 
-  const invalidLanguageFile = payload.exercise.files.find(
+  const invalidLanguageFile = (payload.exercise?.files || []).find(
     (file) => file.language && file.language !== payload.exercise.language,
   );
   if (invalidLanguageFile) {
@@ -176,7 +174,7 @@ function validateExerciseRequest(payload, helpers) {
     });
   }
 
-  const testCases = payload.exercise.execution?.testCases || [];
+  const testCases = payload.exercise?.execution?.testCases || [];
   const duplicateTestCaseId = findDuplicateValue(testCases, 'id');
   if (duplicateTestCaseId) {
     return helpers.message({
@@ -288,12 +286,14 @@ function validateSubmissionContext(payload, helpers) {
 function findDuplicateValue(items, field) {
   const values = new Set();
 
-  for (const item of items) {
+  for (const item of items || []) {
     const value = item[field];
-    if (values.has(value)) {
-      return value;
+    if (value !== undefined && value !== null) {
+      if (values.has(value)) {
+        return value;
+      }
+      values.add(value);
     }
-    values.add(value);
   }
 
   return null;

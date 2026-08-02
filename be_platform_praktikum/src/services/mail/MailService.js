@@ -36,8 +36,7 @@ function validateRecipient(to) {
 class MailService {
   constructor() {
     this._transporter = nodemailer.createTransport({
-      secure: true,
-      family: 4,
+      service: 'gmail',
       auth: {
         user: process.env.MAIL_USER,
         pass: process.env.MAIL_PASS,

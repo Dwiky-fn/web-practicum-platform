@@ -34,15 +34,28 @@ import UserGuidePage from "./features/documentation/UserGuidePage"
 import NotificationsPage from "./features/notification/NotificationsPage"
 import ToastContainer from "./components/toast/ToastContainer"
 
-function LegacyClassMonitoringRedirect() {
-  const { kelasPraktikumId = "", jobsheetId = "" } = useParams()
+function JobsheetRouteRedirect() {
   const location = useLocation()
   const params = new URLSearchParams(location.search)
-  params.set("kelasPraktikumId", params.get("kelasPraktikumId") || kelasPraktikumId)
-  params.set("classId", params.get("classId") || kelasPraktikumId)
-  params.set("tab", "monitoring")
+  const courseId = params.get("mataKuliahId") || params.get("courseId")
 
-  return <Navigate to={`/jobsheets/${jobsheetId}?${params.toString()}`} replace />
+  if (courseId) {
+    return <Navigate to={`/mata-kuliah/${courseId}/jobsheets`} replace />
+  }
+
+  return <Navigate to="/mata-kuliah" replace />
+}
+
+function LegacyClassMonitoringRedirect() {
+  const location = useLocation()
+  const params = new URLSearchParams(location.search)
+  const courseId = params.get("mataKuliahId") || params.get("courseId")
+
+  if (courseId) {
+    return <Navigate to={`/mata-kuliah/${courseId}/jobsheets`} replace />
+  }
+
+  return <Navigate to="/mata-kuliah" replace />
 }
 
 function StudentWorkpageRedirect() {
@@ -193,7 +206,7 @@ function AppContent() {
       />
       <Route
         path="/jobsheets/:jobsheetId"
-        element={byRole({ dosen: <LecturerJobsheetDetailPage /> })}
+        element={byRole({ dosen: <JobsheetRouteRedirect /> })}
       />
       <Route
         path="/monitoring"

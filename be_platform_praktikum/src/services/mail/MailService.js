@@ -45,39 +45,61 @@ function validateRecipient(to) {
 class MailService {
   constructor() {
     const host = process.env.MAIL_HOST || 'smtp.gmail.com';
-    const port = parseInt(process.env.MAIL_PORT || '587', 10);
-    const secure = process.env.MAIL_SECURE !== undefined
+    const primaryPort = parseInt(process.env.MAIL_PORT || '587', 10);
+    const primarySecure = process.env.MAIL_SECURE !== undefined
       ? process.env.MAIL_SECURE === 'true'
-      : port === 465;
+      : primaryPort === 465;
 
-    const transportOptions = {
+    const fallbackPort = parseInt(
+      process.env.MAIL_FALLBACK_PORT || (primaryPort === 587 ? '465' : '587'),
+      10
+    );
+    const fallbackSecure = fallbackPort === 465;
+
+    this._primaryTransporter = nodemailer.createTransport({
       host,
-      port,
-      secure,
+      port: primaryPort,
+      secure: primarySecure,
       auth: {
         user: process.env.MAIL_USER,
         pass: process.env.MAIL_PASS,
       },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 10000,
+      family: 4,
       lookup: forceIPv4Lookup,
-    };
+    });
 
-    if (process.env.MAIL_SERVICE) {
-      transportOptions.service = process.env.MAIL_SERVICE;
+    this._fallbackTransporter = nodemailer.createTransport({
+      host,
+      port: fallbackPort,
+      secure: fallbackSecure,
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASS,
+      },
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 10000,
+      family: 4,
+      lookup: forceIPv4Lookup,
+    });
+  }
+
+  async _sendMail(mailOptions) {
+    try {
+      return await this._primaryTransporter.sendMail(mailOptions);
+    } catch (error) {
+      console.warn(
+        `[MailService] Primary SMTP transport failed (${error.message}). Trying fallback transport...`
+      );
+      return await this._fallbackTransporter.sendMail(mailOptions);
     }
-
-    const family = process.env.MAIL_FAMILY ? parseInt(process.env.MAIL_FAMILY, 10) : 4;
-    if (family) {
-      transportOptions.family = family;
-    }
-
-    this._transporter = nodemailer.createTransport(transportOptions);
   }
 
   async sendEmailChangeOtp(to, otp) {
-    await this._transporter.sendMail({
+    await this._sendMail({
       from: process.env.MAIL_FROM,
       to: validateRecipient(to),
       subject: 'Kode OTP Perubahan Email',
@@ -90,7 +112,7 @@ class MailService {
   }
 
   async sendPasswordResetOtp({ to, otp }) {
-    await this._transporter.sendMail({
+    await this._sendMail({
       from: process.env.MAIL_FROM,
       to: validateRecipient(to),
       subject: 'Kode OTP Reset Password',
@@ -103,7 +125,7 @@ class MailService {
   }
 
   async sendEmailChangedNotification(to, newEmail) {
-    await this._transporter.sendMail({
+    await this._sendMail({
       from: process.env.MAIL_FROM,
       to: validateRecipient(to),
       subject: 'Email Akun Berhasil Diubah',
@@ -117,7 +139,7 @@ class MailService {
   }
 
   async sendPasswordChangedNotification(to) {
-    await this._transporter.sendMail({
+    await this._sendMail({
       from: process.env.MAIL_FROM,
       to: validateRecipient(to),
       subject: 'Password Akun Berhasil Diubah',

@@ -97,30 +97,6 @@ function PracticeItem({
   )
 }
 
-function ReportChecklist({
-  title,
-  items,
-}: {
-  title: string
-  items: Array<{ id: string; title: string; isReported: boolean; rubric?: number }>
-}) {
-  return (
-    <div className="rounded-md border border-gray-200 bg-white p-4">
-      <p className="mb-3 text-xs font-semibold uppercase text-gray-500">{title}</p>
-      <div className="space-y-2">
-        {items.length ? items.map((item) => (
-          <label key={item.id} className="flex items-center gap-3 text-sm text-gray-700">
-            <input type="checkbox" checked={item.isReported} readOnly />
-            <span>{item.title} ({item.rubric ?? 0}%)</span>
-          </label>
-        )) : (
-          <p className="text-sm text-gray-500">Belum ada item.</p>
-        )}
-      </div>
-    </div>
-  )
-}
-
 export default function AdminJobsheetPreviewPage() {
   const navigate = useNavigate()
   const { handleBack } = useBackNavigation()

@@ -227,6 +227,7 @@ class DeadlineProcessorService {
       updated: result.rows.filter((row) => !row.inserted).length,
       touched: result.rows.length,
       scored: rowsForScoring.length,
+      submissionIds: rowsForScoring.map((row) => row.id),
     };
   }
 
@@ -239,6 +240,7 @@ class DeadlineProcessorService {
       touched: 0,
       scored: 0,
     };
+    const autoSubmittedSubmissionIds = [];
 
     try {
       await client.query('BEGIN');
@@ -257,9 +259,31 @@ class DeadlineProcessorService {
         summary.updated += result.updated;
         summary.touched += result.touched;
         summary.scored += result.scored || 0;
+
+        if (Array.isArray(result.submissionIds)) {
+          autoSubmittedSubmissionIds.push(...result.submissionIds);
+        }
       }
 
       await client.query('COMMIT');
+
+      if (autoSubmittedSubmissionIds.length > 0) {
+        const AiEvaluationQueue = require('../execution/AiEvaluationQueue');
+        for (const submissionId of autoSubmittedSubmissionIds) {
+          try {
+            await AiEvaluationQueue.addJob(submissionId);
+          } catch (enqueueErr) {
+            console.error(
+              `[DeadlineProcessor] Gagal menambahkan submission ${submissionId} ke antrean AI:`,
+              enqueueErr.message,
+            );
+          }
+        }
+      }
+
+      return summary;
+    } catch (error) {
+      await client.query('ROLLBACK');
       return summary;
     } catch (error) {
       await client.query('ROLLBACK');

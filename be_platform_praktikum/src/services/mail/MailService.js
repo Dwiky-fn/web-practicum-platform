@@ -95,7 +95,14 @@ class MailService {
   async _sendMail(mailOptions) {
     if (process.env.RESEND_API_KEY) {
       const resend = this._resend || new Resend(process.env.RESEND_API_KEY);
-      const from = mailOptions.from || process.env.MAIL_FROM || 'onboarding@resend.dev';
+      let from = process.env.RESEND_FROM || mailOptions.from || process.env.MAIL_FROM;
+      if (
+        !process.env.RESEND_FROM &&
+        (!from || /@gmail\.com|@yahoo\.com|@outlook\.com|@hotmail\.com/i.test(from))
+      ) {
+        from = 'Platform Praktikum <onboarding@resend.dev>';
+      }
+
       const { data, error } = await resend.emails.send({
         from,
         to: [mailOptions.to],

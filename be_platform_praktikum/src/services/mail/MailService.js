@@ -35,13 +35,35 @@ function validateRecipient(to) {
 
 class MailService {
   constructor() {
-    this._transporter = nodemailer.createTransport({
-      service: 'gmail',
+    const host = process.env.MAIL_HOST || 'smtp.gmail.com';
+    const port = parseInt(process.env.MAIL_PORT || '587', 10);
+    const secure = process.env.MAIL_SECURE !== undefined
+      ? process.env.MAIL_SECURE === 'true'
+      : port === 465;
+
+    const transportOptions = {
+      host,
+      port,
+      secure,
       auth: {
         user: process.env.MAIL_USER,
         pass: process.env.MAIL_PASS,
       },
-    });
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
+    };
+
+    if (process.env.MAIL_SERVICE) {
+      transportOptions.service = process.env.MAIL_SERVICE;
+    }
+
+    const family = process.env.MAIL_FAMILY ? parseInt(process.env.MAIL_FAMILY, 10) : 4;
+    if (family) {
+      transportOptions.family = family;
+    }
+
+    this._transporter = nodemailer.createTransport(transportOptions);
   }
 
   async sendEmailChangeOtp(to, otp) {

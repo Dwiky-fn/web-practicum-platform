@@ -246,27 +246,6 @@ export default function AdminJobsheetPreviewPage() {
                 )}
               </div>
             </PreviewSection>
-
-            <PreviewSection title="Tugas Praktikum" icon={<FileText size={18} />}>
-              <div className="space-y-5">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <ReportChecklist title="Percobaan untuk laporan" items={jobsheet.experiments} />
-                  <ReportChecklist title="Latihan untuk laporan" items={jobsheet.exercises} />
-                </div>
-
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase text-gray-500">Instruksi Laporan</p>
-                  <RichContentBlock content={jobsheet.task.instructionContent} />
-                </div>
-
-                {hasContent(jobsheet.task.additionalNoteContent) && (
-                  <div>
-                    <p className="mb-2 text-xs font-semibold uppercase text-gray-500">Catatan Tambahan</p>
-                    <RichContentBlock content={jobsheet.task.additionalNoteContent} />
-                  </div>
-                )}
-              </div>
-            </PreviewSection>
           </div>
         </div>
       )}

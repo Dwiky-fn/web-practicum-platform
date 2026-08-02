@@ -855,41 +855,6 @@ export default function LecturerJobsheetDetailPage() {
                   )}
                 </LecturerPanel>
 
-                <LecturerPanel className="p-5">
-                  <h2 className="mb-4 text-lg font-semibold">Tugas Praktikum</h2>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-lg border border-gray-200 p-4">
-                      <p className="mb-3 text-sm font-semibold text-gray-800">Percobaan untuk laporan</p>
-                      <div className="space-y-2 text-sm">
-                        {jobsheet.experiments.map((item) => (
-                          <label key={item.id} className="flex items-center gap-3">
-                            <input type="checkbox" checked={item.isReported} readOnly />
-                            <span>{item.title} ({item.rubric ?? 0}%)</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-gray-200 p-4">
-                      <p className="mb-3 text-sm font-semibold text-gray-800">Latihan untuk laporan</p>
-                      <div className="space-y-2 text-sm">
-                        {jobsheet.exercises.map((item) => (
-                          <label key={item.id} className="flex items-center gap-3">
-                            <input type="checkbox" checked={item.isReported} readOnly />
-                            <span>{item.title} ({item.rubric ?? 0}%)</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-5">
-                    <RichTextViewer
-                      content={jobsheet.task.instructionContent ?? { type: "doc", content: [] }}
-                      role="DOSEN"
-                      mode="viewer-default"
-                    />
-                  </div>
-                </LecturerPanel>
-
                 <LecturerButton onClick={() => {
                   const query = searchParams.toString() ? `?${searchParams.toString()}` : ""
                   navigate(`${jobsheetBasePath}/${jobsheet.id}/edit${query}`)

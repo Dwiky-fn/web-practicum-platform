@@ -7,7 +7,7 @@ const queuePath = path.join(__dirname, '..', 'src', 'services', 'execution', 'Ai
 
 test('AI retry tidak mereset review dosen yang sudah ada', () => {
   const source = fs.readFileSync(queuePath, 'utf8');
-  const clearPreviousMatch = source.match(/async _clearPreviousAiReview[\s\S]*?\n  }\n/);
+  const clearPreviousMatch = source.match(/async _clearPreviousAiReview[\s\S]*?\n\s*}/);
   const clearPreviousSource = clearPreviousMatch ? clearPreviousMatch[0] : '';
 
   assert.match(clearPreviousSource, /ai_score = NULL/);

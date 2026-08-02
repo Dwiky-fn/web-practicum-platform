@@ -284,9 +284,6 @@ class DeadlineProcessorService {
       return summary;
     } catch (error) {
       await client.query('ROLLBACK');
-      return summary;
-    } catch (error) {
-      await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();

@@ -349,6 +349,9 @@ class LecturerJobsheetsService {
     );
     if (!kelas.rows.length) throw new Error('KELAS_PRAKTIKUM_NOT_FOUND');
     if (!Number.isInteger(sequence) || sequence < 1) throw new Error('JOBSHEET_SEQUENCE_INVALID');
+    if (kelas.rows[0]?.jumlah_jobsheet_rencana && sequence > kelas.rows[0].jumlah_jobsheet_rencana) {
+      throw new Error('JOBSHEET_SEQUENCE_EXCEEDS_PLAN');
+    }
 
     const duplicate = await client.query(
       `SELECT 1

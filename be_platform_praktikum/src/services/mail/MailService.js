@@ -36,7 +36,9 @@ function validateRecipient(to) {
 class MailService {
   constructor() {
     this._transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: process.env.MAIL_HOST || 'smtp.gmail.com',
+      port: Number(process.env.MAIL_PORT) || 465,
+      secure: true,
       auth: {
         user: process.env.MAIL_USER,
         pass: process.env.MAIL_PASS,

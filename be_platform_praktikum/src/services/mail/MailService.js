@@ -1,5 +1,6 @@
 const dns = require('dns');
 const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const {
   emailChangeOtpTemplate,
 } = require('./templates/emailChangeOtpTemplate');
@@ -44,6 +45,10 @@ function validateRecipient(to) {
 
 class MailService {
   constructor() {
+    if (process.env.RESEND_API_KEY) {
+      this._resend = new Resend(process.env.RESEND_API_KEY);
+    }
+
     const host = process.env.MAIL_HOST || 'smtp.gmail.com';
     const primaryPort = parseInt(process.env.MAIL_PORT || '587', 10);
     const primarySecure = process.env.MAIL_SECURE !== undefined
@@ -89,26 +94,19 @@ class MailService {
 
   async _sendMail(mailOptions) {
     if (process.env.RESEND_API_KEY) {
+      const resend = this._resend || new Resend(process.env.RESEND_API_KEY);
       const from = mailOptions.from || process.env.MAIL_FROM || 'onboarding@resend.dev';
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        },
-        body: JSON.stringify({
-          from,
-          to: [mailOptions.to],
-          subject: mailOptions.subject,
-          html: mailOptions.html,
-        }),
+      const { data, error } = await resend.emails.send({
+        from,
+        to: [mailOptions.to],
+        subject: mailOptions.subject,
+        html: mailOptions.html,
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Resend API Error (${response.status}): ${errorText}`);
+      if (error) {
+        throw new Error(`Resend API Error: ${error.message || JSON.stringify(error)}`);
       }
-      return await response.json();
+      return data;
     }
 
     try {

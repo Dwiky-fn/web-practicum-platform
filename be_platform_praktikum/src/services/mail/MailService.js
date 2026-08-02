@@ -88,6 +88,29 @@ class MailService {
   }
 
   async _sendMail(mailOptions) {
+    if (process.env.RESEND_API_KEY) {
+      const from = mailOptions.from || process.env.MAIL_FROM || 'onboarding@resend.dev';
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        },
+        body: JSON.stringify({
+          from,
+          to: [mailOptions.to],
+          subject: mailOptions.subject,
+          html: mailOptions.html,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Resend API Error (${response.status}): ${errorText}`);
+      }
+      return await response.json();
+    }
+
     try {
       return await this._primaryTransporter.sendMail(mailOptions);
     } catch (error) {

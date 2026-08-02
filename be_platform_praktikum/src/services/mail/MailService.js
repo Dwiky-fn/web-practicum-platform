@@ -1,3 +1,4 @@
+const dns = require('dns');
 const nodemailer = require('nodemailer');
 const {
   emailChangeOtpTemplate,
@@ -13,6 +14,14 @@ const {
 } = require('./templates/passwordChangedNotificationTemplate');
 
 const APP_NAME = 'Platform Praktikum Pemrograman';
+
+function forceIPv4Lookup(hostname, options, callback) {
+  if (typeof options === 'function') {
+    callback = options;
+    options = {};
+  }
+  return dns.lookup(hostname, { ...options, family: 4 }, callback);
+}
 
 function formatChangedAt(date = new Date()) {
   return new Intl.DateTimeFormat('id-ID', {
@@ -52,6 +61,7 @@ class MailService {
       connectionTimeout: 10000,
       greetingTimeout: 10000,
       socketTimeout: 15000,
+      lookup: forceIPv4Lookup,
     };
 
     if (process.env.MAIL_SERVICE) {

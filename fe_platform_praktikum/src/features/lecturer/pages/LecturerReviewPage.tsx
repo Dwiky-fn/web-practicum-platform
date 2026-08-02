@@ -341,6 +341,13 @@ export default function LecturerReviewPage() {
 
         setJobsheet(selectedJobsheet)
         setSubmission(selectedSubmission)
+
+        const submittedStatuses = ["SUBMITTED", "REVIEWED", "ACCEPTED", "REVISION", "REVIEWING"]
+        if (!selectedSubmission || !submittedStatuses.includes(selectedSubmission.status)) {
+          setError("Mahasiswa belum mengumpulkan jobsheet ini.")
+          return
+        }
+
         setScore(String(selectedSubmission?.review?.finalScore ?? ""))
         if (selectedSubmission) {
           setSectionEvaluations(buildSectionEvaluationDrafts(selectedJobsheet, selectedSubmission))
@@ -738,11 +745,11 @@ export default function LecturerReviewPage() {
         </div>
       )}
 
-      {!jobsheet || !submission ? (
+      {!jobsheet || !submission || !["SUBMITTED", "REVIEWED", "ACCEPTED", "REVISION", "REVIEWING"].includes(submission.status) ? (
         <LecturerPanel className="p-8 text-center">
           <h2 className="text-lg font-semibold text-gray-900">Pengerjaan belum dapat direview</h2>
           <p className="mt-2 text-sm text-gray-600">
-            Mahasiswa belum mengumpulkan pengerjaan ini dan belum memiliki submission otomatis.
+            Mahasiswa belum mengumpulkan jobsheet ini. Halaman review hanya dapat diakses setelah mahasiswa mengumpulkan jobsheet.
           </p>
           <LecturerButton className="mt-5" variant="secondary" onClick={handleBack}>
             Kembali ke Monitor Mahasiswa

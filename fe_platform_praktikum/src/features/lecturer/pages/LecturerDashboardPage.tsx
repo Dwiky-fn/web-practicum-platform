@@ -515,14 +515,15 @@ export default function LecturerDashboardPage() {
                         <td className="px-4 py-3 text-center">
                           <LecturerButton
                             variant="ghost"
+                            disabled={studentSubmissions.length === 0}
+                            title={studentSubmissions.length === 0 ? "Mahasiswa belum mengumpulkan jobsheet" : undefined}
                             onClick={() => {
-                              const latestJob =
-                                selectedClassModal.jobsheets[selectedClassModal.jobsheets.length - 1]
+                              const latestSubmitted = studentSubmissions[studentSubmissions.length - 1]
                               const params = new URLSearchParams({
                                 courseId: selectedCourse?.id || "",
                                 classId: selectedClassModal.classId,
                               })
-                              if (latestJob) params.set("jobsheetId", latestJob.id)
+                              if (latestSubmitted) params.set("jobsheetId", latestSubmitted.jobsheet.id)
                               navigate(`/reviews/${student.id}?${params.toString()}`)
                             }}
                           >

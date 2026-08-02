@@ -659,7 +659,7 @@ export default function LecturerClassDetailPage() {
                           {selectedSubmission?.submission?.review?.finalScore ?? "-"}
                         </td>
                         <td className="px-4 py-3.5 text-center">
-                          {selectedSubmission ? (
+                          {selectedSubmission?.submission && ["SUBMITTED", "REVIEWED", "ACCEPTED", "REVISION", "REVIEWING"].includes(selectedSubmission.submission.status) ? (
                             <LecturerButton
                               variant="secondary"
                               onClick={() => {

@@ -1164,25 +1164,31 @@ export default function LecturerJobsheetDetailPage() {
                         </td>
                         <td className="px-4 py-3 text-center">{centralFormatScore(item.submission?.review?.finalScore)}</td>
                         <td className="px-4 py-3 text-center">
-                          <button
-                            type="button"
-                            disabled={!item.submission}
-                            className="font-semibold text-blue-700 hover:text-blue-900 disabled:text-gray-400 disabled:cursor-not-allowed"
-                            onClick={() => {
-                              if (!item.submission) return
-                              const params = new URLSearchParams({ courseId, classId, jobsheetId: jobsheet.id })
-                              if (mataKuliahId) params.set("mataKuliahId", mataKuliahId)
-                              if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
-                              if (item.submission?.id) params.set("submissionId", item.submission.id)
-                              if (item.submission?.attemptNo) params.set("attemptNo", String(item.submission.attemptNo))
-                              if (item.submission?.attemptType) params.set("attemptType", item.submission.attemptType)
-                              if (item.submission?.remedialId) params.set("remedialId", item.submission.remedialId)
-                              params.set("from", "evaluation")
-                              navigate(`/reviews/${item.student.id}?${params.toString()}`)
-                            }}
-                          >
-                            Review
-                          </button>
+                          {(() => {
+                            const isSubmitted = item.submission && ["SUBMITTED", "REVIEWED", "ACCEPTED", "REVISION", "REVIEWING"].includes(item.submission.status)
+                            return (
+                              <button
+                                type="button"
+                                disabled={!isSubmitted}
+                                title={!isSubmitted ? "Mahasiswa belum mengumpulkan jobsheet" : undefined}
+                                className="font-semibold text-blue-700 hover:text-blue-900 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                onClick={() => {
+                                  if (!isSubmitted || !item.submission) return
+                                  const params = new URLSearchParams({ courseId, classId, jobsheetId: jobsheet.id })
+                                  if (mataKuliahId) params.set("mataKuliahId", mataKuliahId)
+                                  if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
+                                  if (item.submission?.id) params.set("submissionId", item.submission.id)
+                                  if (item.submission?.attemptNo) params.set("attemptNo", String(item.submission.attemptNo))
+                                  if (item.submission?.attemptType) params.set("attemptType", item.submission.attemptType)
+                                  if (item.submission?.remedialId) params.set("remedialId", item.submission.remedialId)
+                                  params.set("from", "evaluation")
+                                  navigate(`/reviews/${item.student.id}?${params.toString()}`)
+                                }}
+                              >
+                                Review
+                              </button>
+                            )
+                          })()}
                         </td>
                       </tr>
                     ))}

@@ -11,7 +11,7 @@ class LecturerReviewsService {
   async ensureSubmissionAccess(submissionId, lecturerId, client = this._pool) {
     const result = await client.query(
       `
-      SELECT ts.id, ts.id_kelas_praktikum, tys.status AS tahun_semester_status
+      SELECT ts.id, ts.status, ts.id_kelas_praktikum, tys.status AS tahun_semester_status
       FROM task_submissions ts
       JOIN kelas_praktikum kp ON kp.id = ts.id_kelas_praktikum
       JOIN tahun_semester tys ON tys.id = kp.id_tahun_semester
@@ -27,7 +27,13 @@ class LecturerReviewsService {
       throw new Error('Anda tidak memiliki akses ke kelas praktikum ini.');
     }
 
-    return result.rows[0];
+    const row = result.rows[0];
+    const submittedStatuses = ['SUBMITTED', 'REVIEWED', 'ACCEPTED', 'REVISION', 'REVIEWING'];
+    if (!submittedStatuses.includes(row.status)) {
+      throw new Error('Mahasiswa belum mengumpulkan jobsheet.');
+    }
+
+    return row;
   }
 
   assertActiveTeachingContext(access) {

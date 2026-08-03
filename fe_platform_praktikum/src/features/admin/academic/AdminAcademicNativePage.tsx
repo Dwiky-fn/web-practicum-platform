@@ -83,7 +83,6 @@ const statusOptions: Array<{ label: string; value: AcademicStatus }> = [
 const tipeOptions: Array<{ label: string; value: string }> = [
   { label: "Praktikum", value: "praktikum" },
   { label: "Teori", value: "teori" },
-  { label: "Teori & Praktikum", value: "teori_praktikum" },
 ]
 
 const formatTipeLabel = (tipe: string) => {
@@ -815,9 +814,9 @@ export default function AdminAcademicNativePage() {
     if (tab === "kelas-praktikum") {
       if (!tahunSemester.length) return "Tambahkan tahun semester terlebih dahulu sebelum membuat kelas praktikum."
       if (!activeKurikulumList.length) return "Aktifkan minimal satu kurikulum terlebih dahulu sebelum membuat kelas praktikum."
-      if (!mataKuliah.length) return "Tambahkan mata kuliah terlebih dahulu sebelum membuat kelas praktikum."
+      if (!mataKuliah.length) return "Belum ada mata kuliah yang terdaftar di sistem. Silakan tambahkan mata kuliah terlebih dahulu."
       if (!kelas.length) return "Tambahkan master kelas/rombel terlebih dahulu."
-      if (!lecturers.length) return "Tambahkan dosen terlebih dahulu."
+      if (!lecturers.length) return "Belum ada dosen yang terdaftar di sistem. Silakan tambahkan user dosen terlebih dahulu."
     }
     return ""
   }
@@ -1854,22 +1853,25 @@ export default function AdminAcademicNativePage() {
           )}
 
           {localTab === "praktikum" && (
-            <AdminPanel>
-              <div className="flex flex-col gap-3 border-b border-gray-200 p-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Kelas Praktikum</h2>
-                  <p className="text-sm text-gray-500">Pembukaan mata kuliah praktikum, kelas/rombel, dan dosen pengampu untuk tahun semester ini.</p>
+            <div className="space-y-4">
+              {getPrerequisiteWarning("kelas-praktikum") && warningBox(getPrerequisiteWarning("kelas-praktikum"))}
+              <AdminPanel>
+                <div className="flex flex-col gap-3 border-b border-gray-200 p-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">Kelas Praktikum</h2>
+                    <p className="text-sm text-gray-500">Pembukaan mata kuliah praktikum, kelas/rombel, dan dosen pengampu untuk tahun semester ini.</p>
+                  </div>
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                    <AdminSearchInput value={kelasPraktikumSearch} onChange={setKelasPraktikumSearch} placeholder="Cari kelas praktikum" />
+                    <AdminButton onClick={() => openModal("kelas-praktikum")} disabled={Boolean(getPrerequisiteWarning("kelas-praktikum"))}>
+                      <Plus size={16} />
+                      Tambah Kelas Praktikum
+                    </AdminButton>
+                  </div>
                 </div>
-                <div className="flex flex-col gap-3 md:flex-row md:items-center">
-                  <AdminSearchInput value={kelasPraktikumSearch} onChange={setKelasPraktikumSearch} placeholder="Cari kelas praktikum" />
-                  <AdminButton onClick={() => openModal("kelas-praktikum")} disabled={Boolean(getPrerequisiteWarning("kelas-praktikum"))}>
-                    <Plus size={16} />
-                    Tambah Kelas Praktikum
-                  </AdminButton>
-                </div>
-              </div>
-              <div className="p-4">{renderKelasPraktikum(filteredKelasPraktikum, true)}</div>
-            </AdminPanel>
+                <div className="p-4">{renderKelasPraktikum(filteredKelasPraktikum, true)}</div>
+              </AdminPanel>
+            </div>
           )}
         </div>
         {renderModals()}

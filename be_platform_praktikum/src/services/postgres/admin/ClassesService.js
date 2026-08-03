@@ -147,9 +147,16 @@ class ClassesService {
     const params = [keyword];
     let lecturerClause = '';
     let courseClause = '';
+    const activeYearCheck = await this._pool.query(
+      "SELECT 1 FROM tahun_semester WHERE LOWER(COALESCE(status, 'inactive')) IN ('active', 'aktif') LIMIT 1",
+    );
+    const hasActiveYear = activeYearCheck.rows.length > 0;
+
     let statusClause = '';
-    let periodScopeClause = "AND LOWER(COALESCE(ts.status, 'inactive')) IN ('active', 'aktif')";
-    let classActiveScopeClause = "AND LOWER(COALESCE(kp.status, 'inactive')) IN ('open', 'active', 'aktif')";
+    let periodScopeClause = hasActiveYear
+      ? "AND LOWER(COALESCE(ts.status, 'inactive')) IN ('active', 'aktif')"
+      : "AND ts.id = (SELECT id FROM tahun_semester ORDER BY created_at DESC LIMIT 1)";
+    let classActiveScopeClause = "AND LOWER(COALESCE(kp.status, 'inactive')) IN ('open', 'active', 'aktif', 'draft')";
 
     if (filters.lecturerId) {
       params.push(filters.lecturerId);
@@ -170,7 +177,9 @@ class ClassesService {
       statusClause = `AND kp.status = $${params.length}`;
     }
     if (filters.scope === 'history' || filters.history === 'true') {
-      periodScopeClause = "AND LOWER(COALESCE(ts.status, 'inactive')) NOT IN ('active', 'aktif')";
+      periodScopeClause = hasActiveYear
+        ? "AND LOWER(COALESCE(ts.status, 'inactive')) NOT IN ('active', 'aktif')"
+        : "AND LOWER(COALESCE(ts.status, 'inactive')) IN ('archived')";
       classActiveScopeClause = '';
     } else if (filters.scope === 'all') {
       periodScopeClause = '';

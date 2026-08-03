@@ -53,8 +53,10 @@ export default function PersonalDataSection({
           <input
             className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-xs font-medium text-gray-900 focus:border-blue-500 focus:outline-none"
             value={form.no_telepon}
-            onChange={(event) => handleChange("no_telepon", event.target.value)}
+            onChange={(event) => handleChange("no_telepon", event.target.value.replace(/\D/g, ""))}
             placeholder="08xxxxxxxxxx"
+            inputMode="numeric"
+            pattern="[0-9]*"
           />
         </div>
 
@@ -76,6 +78,7 @@ export default function PersonalDataSection({
           </label>
           <input
             type="date"
+            max={new Date().toISOString().slice(0, 10)}
             className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-xs font-medium text-gray-900 focus:border-blue-500 focus:outline-none"
             value={form.tanggal_lahir}
             onChange={(event) => handleChange("tanggal_lahir", event.target.value)}

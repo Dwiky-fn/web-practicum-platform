@@ -94,7 +94,7 @@ const ID_MONTHS = [
 
 const ID_WEEKDAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"]
 const HOURS_24 = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"))
-const MINUTES_60 = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"))
+const MINUTES_60 = Array.from({ length: 12 }, (_, index) => String(index * 5).padStart(2, "0"))
 
 function academicDateKey(year: number, monthIndex: number, day: number) {
   return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`

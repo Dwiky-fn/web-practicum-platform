@@ -219,14 +219,18 @@ export async function getLecturerCourseGroups(options: { scope?: "active" | "his
   let lecturerClasses = (response.data.classes || []) as AcademicClass[]
 
   if (scope === "active") {
-    lecturerClasses = lecturerClasses.filter((c) => {
+    const activeFiltered = lecturerClasses.filter((c) => {
       const st = String(c.tahun_semester_status || (c as any).tahunSemesterStatus || "active").toLowerCase()
       return st === "active" || st === "aktif"
     })
+    // If backend returned classes (e.g. latest year fallback when no active year set), keep them
+    if (activeFiltered.length > 0 || lecturerClasses.length === 0) {
+      lecturerClasses = activeFiltered
+    }
   } else if (scope === "history") {
     lecturerClasses = lecturerClasses.filter((c) => {
       const st = String(c.tahun_semester_status || (c as any).tahunSemesterStatus || "").toLowerCase()
-      return st !== "active" && st !== "aktif"
+      return st === "archived" || st === "arsip"
     })
   }
 

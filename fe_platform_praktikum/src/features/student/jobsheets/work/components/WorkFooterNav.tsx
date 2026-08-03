@@ -64,6 +64,54 @@ export default function WorkFooterNav({
   const isTheoryItem = currentItem.type === "theory"
   const canGoNext = isFinishedSubmission || !isTheoryItem || currentCompleted
 
+  const getIncompletePracticeMessage = (): string | null => {
+    const isExperiment = location.pathname.includes("/experiment/")
+    const isExercise = location.pathname.includes("/exercise/")
+    if (!isExperiment && !isExercise) return null
+
+    const parts = location.pathname.split("?")[0].split("/")
+    const targetId = isExperiment ? parts[parts.indexOf("experiment") + 1] : parts[parts.indexOf("exercise") + 1]
+    if (!targetId) return null
+
+    const reportData = isExperiment
+      ? submission?.report?.experiments?.[targetId]
+      : submission?.report?.exercises?.[targetId]
+
+    const steps = reportData?.steps || []
+    if (!steps.length) {
+      return "Anda belum mengisi kode program, membuat output kode program, dan menulis analisis pengerjaan."
+    }
+
+    const missingParts: string[] = []
+    const hasCode = steps.some((s) => Object.values(s.files || {}).some((c) => Boolean(c && c.trim())))
+    const hasOutput = steps.some((s) => Boolean(s.output && s.output.trim()))
+    const hasAnalysis = steps.some((s) => {
+      if (!s.analysis) return false
+      if (typeof s.analysis === "string") return Boolean(s.analysis.trim())
+      const jsonStr = JSON.stringify(s.analysis)
+      return jsonStr.length > 25 && !jsonStr.includes('"text":""')
+    })
+
+    if (!hasCode) missingParts.push("kode program")
+    if (!hasOutput) missingParts.push("output kode program")
+    if (!hasAnalysis) missingParts.push("analisis pengerjaan")
+
+    if (missingParts.length > 0) {
+      return `Perhatian: Anda belum melengkapi ${missingParts.join(", ")} pada bagian ini.`
+    }
+
+    return null
+  }
+
+  const handleNextClick = (targetPath: string) => {
+    const warning = getIncompletePracticeMessage()
+    if (warning) {
+      const confirmNext = window.confirm(`${warning}\n\nApakah Anda yakin ingin tetap melanjutkan ke halaman berikutnya?`)
+      if (!confirmNext) return
+    }
+    navigate(targetPath)
+  }
+
   return (
     <>
       <footer className="hidden h-12 shrink-0 items-center justify-between border-t bg-white px-6 md:flex">
@@ -94,7 +142,7 @@ export default function WorkFooterNav({
         {nextItem && (
           <button
             disabled={!canGoNext}
-            onClick={() => navigate(nextItem.path)}
+            onClick={() => handleNextClick(nextItem.path)}
             className={`flex items-center gap-2 rounded px-2 py-1.5 text-right text-sm transition ${
               canGoNext
                 ? "text-gray-600 hover:bg-gray-200 hover:text-black active:text-black cursor-pointer"
@@ -148,7 +196,7 @@ export default function WorkFooterNav({
         {nextItem ? (
           <button
             disabled={!canGoNext}
-            onClick={() => navigate(nextItem.path)}
+            onClick={() => handleNextClick(nextItem.path)}
             className={`flex flex-col items-center text-xs ${
               canGoNext ? "text-gray-600" : "text-gray-300 cursor-not-allowed"
             }`}

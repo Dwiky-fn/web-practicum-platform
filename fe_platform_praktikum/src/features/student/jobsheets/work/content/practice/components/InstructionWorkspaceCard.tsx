@@ -68,6 +68,24 @@ function getFileExtension(language: string): string {
 }
 
 
+function parseTemplateFiles(codeStr: string, language: string): Record<string, string> {
+  const defaultFileName = getDefaultFileName(language)
+  if (!codeStr) {
+    return { [defaultFileName]: "" }
+  }
+  try {
+    if (codeStr.trim().startsWith("{")) {
+      const parsed = JSON.parse(codeStr)
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+        return parsed as Record<string, string>
+      }
+    }
+  } catch {
+    // Not JSON
+  }
+  return { [defaultFileName]: codeStr }
+}
+
 function formatRunTime(milliseconds: number): string {
   return `${(milliseconds / 1000).toFixed(3)} detik`
 }
@@ -470,14 +488,15 @@ export default function InstructionWorkspaceCard({
   }, [activeIndex, appendOutput, currentInputMap])
 
   const handleReset = useCallback(() => {
-    const resetFiles = { [defaultFileName]: templateCode || "" }
+    const resetFiles = parseTemplateFiles(templateCode || "", language)
+    const firstFile = Object.keys(resetFiles)[0] || defaultFileName
 
     setIsDirty(true)
     setCodeMap(prev => ({
       ...prev,
       [activeIndex]: resetFiles,
     }))
-    setActiveFile(defaultFileName)
+    setActiveFile(firstFile)
     setCurrentInputMap(prev => ({
       ...prev,
       [activeIndex]: "",
@@ -495,7 +514,7 @@ export default function InstructionWorkspaceCard({
       ...prev,
       [activeIndex]: (prev[activeIndex] || 0) + 1,
     }))
-  }, [activeIndex, defaultFileName, templateCode])
+  }, [activeIndex, defaultFileName, language, templateCode])
 
   const handleFilesChange = useCallback((files: Record<string, string>, nextActiveFile?: string) => {
     setIsDirty(true)

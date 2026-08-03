@@ -43,9 +43,20 @@ const ResetForgottenPasswordPayloadSchema = Joi.object({
   .custom(validatePasswordConfirmation);
 
 const PersonalDataSchema = Joi.object({
-  no_telepon: Joi.string().allow('', null),
+  no_telepon: Joi.string()
+    .pattern(/^[0-9]+$/)
+    .allow('', null)
+    .messages({ 'string.pattern.base': 'Nomor telepon hanya boleh berisi angka' }),
   tempat_lahir: Joi.string().allow('', null),
-  tanggal_lahir: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null),
+  tanggal_lahir: Joi.string()
+    .pattern(/^\d{4}-\d{2}-\d{2}$/)
+    .custom((value, helpers) => {
+      if (value && new Date(value).getTime() > Date.now()) {
+        return helpers.error('any.custom', { message: 'Tanggal lahir tidak boleh melebihi tanggal hari ini' });
+      }
+      return value;
+    })
+    .allow('', null),
   kota: Joi.string().allow('', null),
 });
 

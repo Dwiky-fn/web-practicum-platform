@@ -387,6 +387,7 @@ function SubmissionHistoryCard({
               const score = item.finalScore ?? null;
               const dateStr = item.submittedAt ? formatAcademicDate(new Date(item.submittedAt)) : "-";
               const scoreStr = score !== null ? `${score} / 100` : "-";
+              const isReviewed = item.status === "REVIEWED" || item.status === "ACCEPTED" || item.finalScore !== null;
               
               const isActiveRemedial = 
                 jobsheet.access?.accessMode === "editable_remedial" &&
@@ -425,13 +426,24 @@ function SubmissionHistoryCard({
                       </button>
                     )}
                     {item.status !== "DRAFT" && (
-                      <button
-                        type="button"
-                        onClick={() => navigate(`${academicJobsheetWorkPath(courseId, jobsheetId, { classId, mataKuliahId, kelasPraktikumId })}/report/review`)}
-                        className="flex-1 py-1.5 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs transition cursor-pointer text-center"
-                      >
-                        Lihat Review
-                      </button>
+                      isReviewed ? (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`${academicJobsheetWorkPath(courseId, jobsheetId, { classId, mataKuliahId, kelasPraktikumId })}/report/review`)}
+                          className="flex-1 py-1.5 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs transition cursor-pointer text-center"
+                        >
+                          Lihat Review
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          title="Review belum tersedia (masih menunggu penilaian dosen)"
+                          className="flex-1 py-1.5 rounded border border-gray-200 bg-gray-100 text-gray-400 font-semibold text-xs text-center cursor-not-allowed"
+                        >
+                          Lihat Review
+                        </button>
+                      )
                     )}
                   </div>
                 </div>

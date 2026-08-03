@@ -1,52 +1,29 @@
 import { useEffect, useState } from "react"
-import { subscribeToFetch } from "../../services/api"
+import { useLocation } from "react-router-dom"
 
 export default function TopProgressBar() {
+  const location = useLocation()
   const [visible, setVisible] = useState(false)
   const [progress, setProgress] = useState(0)
 
   useEffect(() => {
-    let interval: any = null
-    let hideTimeout: any = null
+    // Show top progress bar ONLY on initial page load and route navigation
+    setVisible(true)
+    setProgress(30)
 
-    const unsubscribe = subscribeToFetch((activeCount) => {
-      if (activeCount > 0) {
-        if (hideTimeout) clearTimeout(hideTimeout)
-        setVisible(true)
-        setProgress((prev) => {
-          return prev > 0 ? prev : 30
-        })
-
-        if (!interval) {
-          interval = setInterval(() => {
-            setProgress((prev) => {
-              if (prev < 90) {
-                return prev + (90 - prev) * 0.1
-              }
-              return prev
-            })
-          }, 200)
-        }
-      } else {
-        if (interval) {
-          clearInterval(interval)
-          interval = null
-        }
-        setProgress(100)
-
-        hideTimeout = setTimeout(() => {
-          setVisible(false)
-          setProgress(0)
-        }, 300)
-      }
-    })
+    const timer1 = setTimeout(() => setProgress(75), 120)
+    const timer2 = setTimeout(() => setProgress(100), 280)
+    const timer3 = setTimeout(() => {
+      setVisible(false)
+      setProgress(0)
+    }, 550)
 
     return () => {
-      unsubscribe()
-      if (interval) clearInterval(interval)
-      if (hideTimeout) clearTimeout(hideTimeout)
+      clearTimeout(timer1)
+      clearTimeout(timer2)
+      clearTimeout(timer3)
     }
-  }, [])
+  }, [location.pathname])
 
   if (!visible) return null
 

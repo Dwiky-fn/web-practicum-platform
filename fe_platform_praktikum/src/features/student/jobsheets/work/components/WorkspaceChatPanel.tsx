@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { MessageSquare, Send, X, AlertCircle, CheckCheck, Loader2, Minus } from "lucide-react"
+import { MessageSquare, Send, X, AlertCircle, CheckCheck, Loader2 } from "lucide-react"
 import {
   getOrCreateConversation,
   getChatMessages,

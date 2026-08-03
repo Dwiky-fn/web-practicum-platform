@@ -1,14 +1,14 @@
-import type { ChatMessage } from "./chatService"
-
 type ChatEventCallback = (data: any) => void
 
 export class ChatSocketClient {
+  private token: string
   private ws: WebSocket | null = null
   private listeners: Map<string, Set<ChatEventCallback>> = new Map()
-  private isConnected = false
-  private reconnectTimer: any = null
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
-  constructor(private token: string) {}
+  constructor(token: string) {
+    this.token = token
+  }
 
   public connect(): Promise<void> {
     return new Promise((resolve) => {
@@ -18,15 +18,15 @@ export class ChatSocketClient {
       }
 
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
-      const host = process.env.VITE_API_URL
-        ? new URL(process.env.VITE_API_URL).host
+      const viteApiUrl = import.meta.env.VITE_API_URL
+      const host = viteApiUrl
+        ? new URL(viteApiUrl).host
         : window.location.host
       const wsUrl = `${protocol}//${host}/chat?token=${encodeURIComponent(this.token)}`
 
       this.ws = new WebSocket(wsUrl)
 
       this.ws.onopen = () => {
-        this.isConnected = true
         this.emitLocal("connected", true)
         resolve()
       }
@@ -43,13 +43,11 @@ export class ChatSocketClient {
       }
 
       this.ws.onclose = () => {
-        this.isConnected = false
         this.emitLocal("connected", false)
         this.scheduleReconnect()
       }
 
       this.ws.onerror = () => {
-        this.isConnected = false
         this.emitLocal("connected", false)
         resolve()
       }
@@ -123,6 +121,5 @@ export class ChatSocketClient {
       this.ws.close()
       this.ws = null
     }
-    this.isConnected = false
   }
 }

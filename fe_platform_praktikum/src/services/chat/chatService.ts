@@ -1,4 +1,4 @@
-import { apiFetch } from "../apiFetch"
+import { apiFetch } from "../api"
 
 export interface ChatConversation {
   id: string

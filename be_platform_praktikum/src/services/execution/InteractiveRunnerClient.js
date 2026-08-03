@@ -13,7 +13,15 @@ class InteractiveRunnerClient {
   run(payload, handlers) {
     this.close();
 
-    this._socket = new WebSocket(this._runnerUrl);
+    const apiKey = process.env.RUNNER_API_KEY || process.env.INTERACTIVE_RUNNER_API_KEY || '';
+    let targetUrl = this._runnerUrl;
+    if (apiKey) {
+      const urlObj = new URL(targetUrl);
+      urlObj.searchParams.set('token', apiKey);
+      targetUrl = urlObj.toString();
+    }
+
+    this._socket = new WebSocket(targetUrl);
 
     this._socket.on('open', () => {
       this._isRunning = true;

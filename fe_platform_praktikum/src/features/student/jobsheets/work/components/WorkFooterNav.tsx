@@ -73,20 +73,28 @@ export default function WorkFooterNav({
     const targetId = isExperiment ? parts[parts.indexOf("experiment") + 1] : parts[parts.indexOf("exercise") + 1]
     if (!targetId) return null
 
-    const reportData = isExperiment
-      ? submission?.report?.experiments?.[targetId]
-      : submission?.report?.exercises?.[targetId]
+    const rawReport = (isExperiment
+      ? (submission?.report?.experiments as Record<string, any>)?.[targetId]
+      : (submission?.report?.exercises as Record<string, any>)?.[targetId]) as any
 
-    const steps = reportData?.steps || []
-    if (!steps.length) {
+    const rawSteps: any[] = Array.isArray(rawReport?.steps)
+      ? rawReport.steps
+      : rawReport
+      ? [rawReport]
+      : []
+
+    if (!rawSteps.length) {
       return "Anda belum mengisi kode program, membuat output kode program, dan menulis analisis pengerjaan."
     }
 
     const missingParts: string[] = []
-    const hasCode = steps.some((s) => Object.values(s.files || {}).some((c) => Boolean(c && c.trim())))
-    const hasOutput = steps.some((s) => Boolean(s.output && s.output.trim()))
-    const hasAnalysis = steps.some((s) => {
-      if (!s.analysis) return false
+    const hasCode = rawSteps.some((s: any) => {
+      const filesObj = s?.files || {}
+      return Object.values(filesObj).some((c: any) => typeof c === "string" && Boolean(c.trim()))
+    })
+    const hasOutput = rawSteps.some((s: any) => typeof s?.output === "string" && Boolean(s.output.trim()))
+    const hasAnalysis = rawSteps.some((s: any) => {
+      if (!s?.analysis) return false
       if (typeof s.analysis === "string") return Boolean(s.analysis.trim())
       const jsonStr = JSON.stringify(s.analysis)
       return jsonStr.length > 25 && !jsonStr.includes('"text":""')

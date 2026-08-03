@@ -287,8 +287,10 @@ export async function getLecturerCourseGroups(options: { scope?: "active" | "his
 export async function getLecturerCourseGroup(
   _lecturerId: string,
   courseId: string,
+  options: { scope?: "active" | "history" | "all" } = {},
 ): Promise<LecturerCourseGroup | null> {
-  const groups = await getLecturerCourseGroups()
+  const scope = options.scope === "history" ? "history" : "active"
+  const groups = await getLecturerCourseGroups({ scope })
   return groups.find((group) => group.id === courseId) ?? null
 }
 
@@ -399,13 +401,15 @@ export function buildLecturerJobsheetSummaries(
 export async function getLecturerCourseDataset(
   lecturerId: string,
   courseId: string,
+  options: { scope?: "active" | "history" | "all" } = {},
 ): Promise<LecturerCourseDataset | null> {
-  const course = await getLecturerCourseGroup(lecturerId, courseId)
+  const course = await getLecturerCourseGroup(lecturerId, courseId, options)
 
   if (!course) return null
 
+  const scopeOption = options.scope === "history" ? { scope: "history" as const } : {}
   const [classDetails, courseJobsheetsRes] = await Promise.all([
-    Promise.all(course.classes.map((classItem) => getLecturerClassDetail(classItem.id))),
+    Promise.all(course.classes.map((classItem) => getLecturerClassDetail(classItem.id, scopeOption))),
     apiFetch(`/mata-kuliah/${course.mataKuliahId || course.id}/jobsheets`).catch(() =>
       apiFetch(`/mata-kuliah/${courseId}/jobsheets`),
     ),
@@ -415,20 +419,13 @@ export async function getLecturerCourseDataset(
   const jobsheetMap = new Map<string, LecturerJobsheetSummary>()
 
   courseJobsheets.forEach((jobsheet, index) => {
-    let status: LecturerJobsheetStatus = "Draft"
-    if (jobsheet.status === "PUBLISHED") {
-      status = "Published"
-    } else if (jobsheet.status === "UNPUBLISHED") {
-      status = "Nonaktif"
-    }
-
     jobsheetMap.set(jobsheet.id, {
       id: jobsheet.id,
       classJobsheetId: "",
       courseId: courseId,
       number: index + 1,
       title: jobsheet.title?.trim() || "Draft Tanpa Judul",
-      status: status,
+      status: "Draft",
       deadline: jobsheet.deadline && jobsheet.deadline !== "-" ? jobsheet.deadline : "",
       usedIn: [],
       submitted: 0,
@@ -469,7 +466,7 @@ export async function getLecturerCourseDataset(
         }
         if (summary.status === "Published") {
           current.status = "Published"
-        } else if (current.status !== "Published") {
+        } else if (current.status !== "Published" && summary.status !== "Draft") {
           current.status = summary.status
         }
         continue
@@ -482,7 +479,15 @@ export async function getLecturerCourseDataset(
     }
   }
 
-  const jobsheets = Array.from(jobsheetMap.values()).sort((left, right) => left.number - right.number)
+  const isHistoryScope = options.scope === "history"
+  const jobsheets = Array.from(jobsheetMap.values())
+    .map((item) => {
+      if (isHistoryScope) {
+        return { ...item, status: "Arsip" as LecturerJobsheetStatus }
+      }
+      return item
+    })
+    .sort((left, right) => left.number - right.number)
 
   return {
     course,

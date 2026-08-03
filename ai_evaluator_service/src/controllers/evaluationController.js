@@ -45,7 +45,7 @@ async function evaluationController(req, res, next) {
     req.body?.webhookUrl ||
     req.body?.callbackUrl ||
     process.env.LMS_WEBHOOK_URL ||
-    'https://be.dwkyjnrdi.my.id/api/internal/ai-callback';
+    'http://localhost:3000/api/internal/ai-callback';
 
   if (submissionId) {
     if (activeEvaluations.has(submissionId)) {

@@ -166,20 +166,29 @@ class AcademicDataService {
   }
 
   async activateTahunSemester(id) {
-    const active = await this._pool.query("SELECT id FROM tahun_semester WHERE status = 'active' LIMIT 1");
-    if (active.rows.length) throw new Error('TAHUN_SEMESTER_MANUAL_ACTIVATION_DISABLED');
-    return this.initialActivateTahunSemester(id);
-  }
-
-  async initialActivateTahunSemester(id) {
     const client = await this._pool.connect();
     try {
       await client.query('BEGIN');
       const target = await client.query('SELECT id, tahun_semester, status FROM tahun_semester WHERE id = $1 LIMIT 1', [id]);
       if (!target.rows.length) throw new Error('TAHUN_SEMESTER_NOT_FOUND');
-      const active = await client.query("SELECT id FROM tahun_semester WHERE status = 'active' LIMIT 1");
-      if (active.rows.length) throw new Error('TAHUN_SEMESTER_INITIAL_ACTIVATION_LOCKED');
+
+      // 1. Nonaktifkan/Arsipkan tahun semester yang saat ini aktif
+      await client.query("UPDATE tahun_semester SET status = 'archived', updated_at = CURRENT_TIMESTAMP WHERE status = 'active' AND id <> $1", [id]);
+
+      // 2. Aktifkan tahun semester target
       await client.query("UPDATE tahun_semester SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
+
+      // 3. Sinkronkan semester di student_profiles untuk semua mahasiswa yang sudah di-plot ke kelas pada tahun semester baru ini
+      await client.query(`
+        UPDATE student_profiles sp
+        SET semester = s.semester
+        FROM kelas_mhs km
+        JOIN semester s ON s.id = km.id_semester
+        WHERE km.id_mahasiswa = sp.user_id
+          AND km.id_tahun_semester = $1
+          AND km.status = 'active'
+      `, [id]);
+
       await client.query('COMMIT');
       return (await this.getTahunSemester()).find((item) => item.id === id);
     } catch (error) {
@@ -962,10 +971,11 @@ class AcademicDataService {
         if (currentSemester !== Number(source.semester)) throw new Error('STUDENT_SEMESTER_MISMATCH');
 
         const target = await client.query(
-          `SELECT ks.id, ks.id_tahun_semester, ks.id_semester, ks.id_kelas, s.semester, k.kelas
+          `SELECT ks.id, ks.id_tahun_semester, ks.id_semester, ks.id_kelas, s.semester, k.kelas, ts.status AS tahun_semester_status
            FROM kelas_semester ks
            JOIN semester s ON s.id = ks.id_semester
            JOIN kelas k ON k.id = ks.id_kelas
+           JOIN tahun_semester ts ON ts.id = ks.id_tahun_semester
            WHERE ks.id = $1
            LIMIT 1`,
           [transition.targetKelasSemesterId],
@@ -985,6 +995,7 @@ class AcademicDataService {
         );
         if (duplicateTargetPeriod.rows.length) throw new Error('KELAS_MAHASISWA_DUPLICATE');
 
+        const isTargetActive = String(targetClass.tahun_semester_status || '').toLowerCase() === 'active';
         const kmId = createId('km');
         await client.query(
           `INSERT INTO kelas_mhs (id, id_tahun_semester, id_semester, id_kelas, id_mahasiswa, status, id_kelas_semester)
@@ -998,10 +1009,12 @@ class AcademicDataService {
             targetClass.id,
           ],
         );
-        await client.query(
-          'UPDATE student_profiles SET semester = $2 WHERE user_id = $1',
-          [row.id_mahasiswa, targetSemester],
-        );
+        if (isTargetActive) {
+          await client.query(
+            'UPDATE student_profiles SET semester = $2 WHERE user_id = $1',
+            [row.id_mahasiswa, targetSemester],
+          );
+        }
         await client.query(
           `INSERT INTO student_class_history (
              id, id_mahasiswa, from_kelas_mhs_id, to_kelas_mhs_id,

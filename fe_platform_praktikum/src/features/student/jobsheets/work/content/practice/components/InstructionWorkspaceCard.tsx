@@ -744,20 +744,11 @@ export default function InstructionWorkspaceCard({
                     title="Resize bottom panel"
                   />
                 )}
-                <div className="flex h-10 items-center justify-between border-b border-[#2b2b2b] bg-[#252526] px-2">
+                <div className="flex h-10 items-center justify-between border-b border-[#2b2b2b] bg-[#252526] px-3">
                   <div className="flex h-full items-center gap-1">
-                    <BottomTabButton active={bottomPanelTab === "terminal"} onClick={() => {
-                      setBottomPanelTab("terminal")
-                      setIsBottomPanelExpanded(true)
-                    }}>
+                    <span className="text-xs font-semibold text-[#cccccc] uppercase tracking-wider">
                       Terminal
-                    </BottomTabButton>
-                    <BottomTabButton active={bottomPanelTab === "analysis"} onClick={() => {
-                      setBottomPanelTab("analysis")
-                      setIsBottomPanelExpanded(true)
-                    }}>
-                      Analisis
-                    </BottomTabButton>
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     {runTimeMap[activeIndex] && !runningMap[activeIndex] && (
@@ -766,44 +757,26 @@ export default function InstructionWorkspaceCard({
                     <button
                       type="button"
                       onClick={() => setIsBottomPanelExpanded(prev => !prev)}
-                      className="h-8 rounded px-3 text-sm font-semibold text-[#cccccc] hover:bg-[#2a2d2e] hover:text-white"
+                      className="h-7 rounded px-2.5 text-xs font-semibold text-[#cccccc] hover:bg-[#2a2d2e] hover:text-white"
                     >
-                      {isBottomPanelExpanded ? "Collapse Panel" : "Expand Panel"}
+                      {isBottomPanelExpanded ? "Collapse Terminal" : "Expand Terminal"}
                     </button>
                   </div>
                 </div>
                 {isBottomPanelExpanded && (
                   <div className="h-[calc(100%-44px)] min-h-0 overflow-hidden">
-                    {bottomPanelTab === "terminal" ? (
-                      <TerminalPanel
-                        output={outputMap[activeIndex] || ""}
-                        isRunning={!!runningMap[activeIndex]}
-                        currentInput={currentInputMap[activeIndex] || ""}
-                        inputRef={terminalInputRef}
-                        scrollRef={terminalScrollRef}
-                        onCurrentInputChange={(value) => setCurrentInputMap(prev => ({
-                          ...prev,
-                          [activeIndex]: value,
-                        }))}
-                        onSendInput={handleSendInput}
-                      />
-                    ) : (
-                      <div className="h-full overflow-y-auto bg-white p-4">
-                        <AnalysisEditor
-                          value={analysisMap[activeIndex] || { type: "doc", content: [] }}
-                          onChange={(value) => {
-                            if (readOnly) return
-                            setIsDirty(true)
-                            setAnalysisMap(prev => ({
-                              ...prev,
-                              [activeIndex]: value,
-                            }))
-                            scheduleLiveAnalysis(value)
-                          }}
-                          readOnly={readOnly}
-                        />
-                      </div>
-                    )}
+                    <TerminalPanel
+                      output={outputMap[activeIndex] || ""}
+                      isRunning={!!runningMap[activeIndex]}
+                      currentInput={currentInputMap[activeIndex] || ""}
+                      inputRef={terminalInputRef}
+                      scrollRef={terminalScrollRef}
+                      onCurrentInputChange={(value) => setCurrentInputMap(prev => ({
+                        ...prev,
+                        [activeIndex]: value,
+                      }))}
+                      onSendInput={handleSendInput}
+                    />
                   </div>
                 )}
               </div>
@@ -811,6 +784,29 @@ export default function InstructionWorkspaceCard({
           </div>
         </div>
       )}
+
+      {/* ── Separate Standalone Card for Analysis ── */}
+      <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="mb-3">
+          <h4 className="text-sm font-bold text-gray-900">Analisis Percobaan</h4>
+          <p className="text-xs text-gray-500">Tuliskan analisis, pengamatan, dan kesimpulan hasil eksekusi program Anda di bawah ini.</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-3">
+          <AnalysisEditor
+            value={analysisMap[activeIndex] || { type: "doc", content: [] }}
+            onChange={(value) => {
+              if (readOnly) return
+              setIsDirty(true)
+              setAnalysisMap(prev => ({
+                ...prev,
+                [activeIndex]: value,
+              }))
+              scheduleLiveAnalysis(value)
+            }}
+            readOnly={readOnly}
+          />
+        </div>
+      </div>
     </section>
   )
 }
@@ -829,19 +825,7 @@ function InstructionTabButton({ active, children, onClick }: { active: boolean, 
   )
 }
 
-function BottomTabButton({ active, children, onClick }: { active: boolean, children: React.ReactNode, onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`h-9 border-t-2 px-3 text-sm font-semibold ${
-        active ? "border-t-[#007acc] bg-[#1e1e1e] text-white" : "border-t-transparent text-[#cccccc] hover:bg-[#2a2d2e] hover:text-white"
-      }`}
-    >
-      {children}
-    </button>
-  )
-}
+
 
 function TerminalPanel({
   output,

@@ -76,6 +76,7 @@ export default function AdminUsersPage() {
     action: ConfirmAction
     user: AdminStudent | AdminLecturer
   } | null>(null)
+  const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [actionLoading, setActionLoading] = useState("")
   const [error, setError] = useState("")
@@ -277,6 +278,7 @@ export default function AdminUsersPage() {
   const studentSemesterOptions = getStudentSemesterOptions(activeSemester?.term)
 
   const fetchUsers = useCallback(async () => {
+    setLoading(true)
     setError("")
 
     try {
@@ -292,6 +294,8 @@ export default function AdminUsersPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal mengambil data pengguna")
+    } finally {
+      setLoading(false)
     }
   }, [isStudent, keyword, role, semester])
 
@@ -713,7 +717,13 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {isStudent ? (
+      {loading ? (
+        <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4 animate-pulse">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-12 bg-gray-100 rounded-xl" />
+          ))}
+        </div>
+      ) : isStudent ? (
         students.length ? (
           <>
             <AdminTable headers={selectedIds.length > 0 ? ["", "NIM", "Nama", "Semester", "Status", "Aksi"] : ["NIM", "Nama", "Semester", "Status", "Aksi"]}>

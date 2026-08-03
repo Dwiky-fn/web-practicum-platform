@@ -86,6 +86,7 @@ class NotificationsService {
     const query = `
       SELECT *
       FROM (
+        /* 1. Review Selesai / Revisi oleh Dosen */
         SELECT DISTINCT
           CONCAT('review-', ts.id, '-', sr.id) AS id,
           ts.student_id,
@@ -115,6 +116,52 @@ class NotificationsService {
 
         UNION ALL
 
+        /* 2. Pengingat Deadline Mendekati (Belum Submit & Deadline belum lewat) */
+        SELECT DISTINCT
+          CONCAT('deadline-near-', j.id, '-', kp.id) AS id,
+          km.id_mahasiswa AS student_id,
+          CASE
+            WHEN jc.deadline < NOW() THEN 'Deadline Jobsheet Terlewat'
+            WHEN jc.deadline <= NOW() + INTERVAL '24 hours' THEN '⚠️ Deadline Segera Berakhir (< 24 Jam)'
+            WHEN jc.deadline <= NOW() + INTERVAL '3 days' THEN '⏳ Pengingat Deadline Jobsheet'
+            ELSE 'Jadwal Tenggat Jobsheet'
+          END AS title,
+          CASE
+            WHEN jc.deadline < NOW()
+              THEN CONCAT('Deadline untuk jobsheet "', j.title, '" (', mk.nama_mk, ') telah terlewat pada ', to_char(jc.deadline, 'DD Mon YYYY HH24:MI'), '. Segera selesaikan pengerjaan Anda!')
+            WHEN jc.deadline <= NOW() + INTERVAL '24 hours'
+              THEN CONCAT('Tenggat waktu jobsheet "', j.title, '" (', mk.nama_mk, ') tersisa kurang dari 24 jam! Segera kumpulkan sebelum ', to_char(jc.deadline, 'HH24:MI'), '.')
+            ELSE CONCAT('Jobsheet "', j.title, '" pada ', mk.nama_mk, ' memiliki tenggat waktu hingga ', to_char(jc.deadline, 'DD Mon YYYY HH24:MI'), '.')
+          END AS message,
+          CONCAT('/mata-kuliah/', mk.id, '/jobsheets/', j.id, '/works?mataKuliahId=', mk.id, '&kelasPraktikumId=', kp.id) AS target_url,
+          false AS is_read,
+          COALESCE(jc.deadline, CURRENT_TIMESTAMP) AS sort_at
+        FROM kelas_mhs km
+        JOIN kelas_praktikum kp
+          ON kp.id_tahun_semester = km.id_tahun_semester
+         AND kp.id_semester = km.id_semester
+         AND kp.id_kelas = km.id_kelas
+        JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
+        JOIN jobsheet_classes jc
+          ON jc.id_kelas_praktikum = kp.id
+         AND jc.is_active = true
+        JOIN jobsheets j
+          ON j.id = jc.jobsheet_id
+         AND j.id_mata_kuliah = kp.id_mata_kuliah
+        LEFT JOIN task_submissions ts
+          ON ts.student_id = km.id_mahasiswa
+         AND ts.id_kelas_praktikum = kp.id
+         AND ts.jobsheet_id = j.id
+        WHERE km.id_mahasiswa = $1
+          AND LOWER(COALESCE(km.status, 'active')) = 'active'
+          AND LOWER(COALESCE(kp.status, 'open')) IN ('open', 'active')
+          AND j.status = 'PUBLISHED'
+          AND jc.deadline IS NOT NULL
+          AND (ts.id IS NULL OR ts.status NOT IN ('SUBMITTED', 'REVIEWED'))
+
+        UNION ALL
+
+        /* 3. Jobsheet Baru Diterbitkan */
         SELECT DISTINCT
           CONCAT('j-', j.id) AS id,
           km.id_mahasiswa AS student_id,
@@ -159,24 +206,46 @@ class NotificationsService {
   async _getLecturerNotifications(lecturerId) {
     try {
       const query = `
-        SELECT DISTINCT
-          CONCAT('pending-', kp.id, '-', ts.id) AS id,
-          $1 AS student_id,
-          'Laporan Menunggu Evaluasi' AS title,
-          CONCAT('Mahasiswa ', COALESCE(prof.fullname, u.email), ' telah mengumpulkan laporan pada ', mk.nama_mk, ' (Kelas ', k.kelas, ').') AS message,
-          CONCAT('/reviews/', u.id, '?courseId=', mk.id, '&classId=', kp.id, '&jobsheetId=', jc.jobsheet_id, '&mataKuliahId=', mk.id, '&kelasPraktikumId=', kp.id, '&from=class-evaluation') AS target_url,
-          false AS is_read
-        FROM pengampu p
-        JOIN kelas_praktikum kp ON kp.id = p.id_kelas_praktikum
-        JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
-        JOIN master_kelas k ON k.id = kp.id_kelas
-        JOIN jobsheet_classes jc ON jc.id_kelas_praktikum = kp.id
-        JOIN task_submissions ts ON ts.id_kelas_praktikum = kp.id AND ts.jobsheet_id = jc.jobsheet_id
-        JOIN users u ON u.id = ts.student_id
-        LEFT JOIN profiles prof ON prof.user_id = u.id
-        WHERE p.id_dosen = $1
-          AND ts.status IN ('SUBMITTED', 'REVIEWING')
-        ORDER BY id ASC
+        SELECT * FROM (
+          /* 1. Laporan Mahasiswa Menunggu Penilaian */
+          SELECT DISTINCT
+            CONCAT('pending-', kp.id, '-', ts.id) AS id,
+            $1 AS student_id,
+            'Laporan Menunggu Evaluasi' AS title,
+            CONCAT('Mahasiswa ', COALESCE(prof.fullname, u.email), ' telah mengumpulkan laporan pada ', mk.nama_mk, ' (Kelas ', k.kelas, ').') AS message,
+            CONCAT('/reviews/', u.id, '?courseId=', mk.id, '&classId=', kp.id, '&jobsheetId=', jc.jobsheet_id, '&mataKuliahId=', mk.id, '&kelasPraktikumId=', kp.id, '&from=class-evaluation') AS target_url,
+            false AS is_read,
+            COALESCE(ts.submitted_at, CURRENT_TIMESTAMP) AS sort_at
+          FROM pengampu p
+          JOIN kelas_praktikum kp ON kp.id = p.id_kelas_praktikum
+          JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
+          JOIN master_kelas k ON k.id = kp.id_kelas
+          JOIN jobsheet_classes jc ON jc.id_kelas_praktikum = kp.id
+          JOIN task_submissions ts ON ts.id_kelas_praktikum = kp.id AND ts.jobsheet_id = jc.jobsheet_id
+          JOIN users u ON u.id = ts.student_id
+          LEFT JOIN profiles prof ON prof.user_id = u.id
+          WHERE p.id_dosen = $1
+            AND ts.status IN ('SUBMITTED', 'REVIEWING')
+
+          UNION ALL
+
+          /* 2. Draft Jobsheet Belum Dipublish */
+          SELECT DISTINCT
+            CONCAT('draft-j-', j.id) AS id,
+            $1 AS student_id,
+            'Draft Jobsheet Belum Dipublish' AS title,
+            CONCAT('Jobsheet "', j.title, '" (', mk.nama_mk, ') masih berstatus Draft. Jangan lupa mempublikasikan jika siap digunakan.') AS message,
+            CONCAT('/mata-kuliah/', mk.id, '/jobsheets/', j.id, '/edit') AS target_url,
+            false AS is_read,
+            CURRENT_TIMESTAMP AS sort_at
+          FROM pengampu p
+          JOIN kelas_praktikum kp ON kp.id = p.id_kelas_praktikum
+          JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
+          JOIN jobsheets j ON j.id_mata_kuliah = mk.id
+          WHERE p.id_dosen = $1
+            AND j.status = 'DRAFT'
+        ) lecturer_notifs
+        ORDER BY sort_at DESC, id ASC
         LIMIT 10
       `;
       const result = await this._pool.query(query, [lecturerId]);

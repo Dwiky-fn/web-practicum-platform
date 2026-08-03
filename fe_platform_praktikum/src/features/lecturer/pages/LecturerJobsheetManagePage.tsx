@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { ArrowLeft, BookOpen, FileText, Pencil, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, BookOpen, Copy, FileText, Pencil, Plus, Trash2 } from "lucide-react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import { apiFetch } from "../../../services/api"
@@ -17,10 +17,13 @@ import {
 import {
   deleteLecturerJobsheet,
   getLecturerCourseDataset,
+  getLecturerJobsheetById,
   publishLecturerJobsheet,
   type LecturerCourseDataset,
   type LecturerJobsheetSummary,
 } from "../service"
+import type { Jobsheet } from "../../../services/jobsheet/types"
+import { IndonesianDateTimePicker } from "../components/IndonesianDateTimePicker"
 import { toast } from "../../../components/toast/toastStore"
 import { academicCourseBasePath } from "../../../services/academicScope"
 import { datetimeLocalToDbValue, dbValueToDatetimeLocal, formatDeadlineLocal } from "../utils/deadline"
@@ -32,90 +35,6 @@ type PublishClassSetting = {
   isActive: boolean
   deadline: string
   inactiveDurationMinutes: string
-}
-
-function IndonesianDateTimePicker({
-  value,
-  disabled,
-  onChange,
-}: {
-  value: string
-  disabled?: boolean
-  onChange: (value: string) => void
-}) {
-  const parts = value ? value.split("T") : ["", ""]
-  const dateVal = parts[0] || ""
-  const timeVal = parts[1] || "00:00"
-  const [hourVal = "00", minuteVal = "00"] = timeVal.split(":")
-
-  const handleDateChange = (newDate: string) => {
-    if (!newDate) {
-      onChange("")
-      return
-    }
-    const h = hourVal || "00"
-    const m = minuteVal || "00"
-    onChange(`${newDate}T${h.padStart(2, "0")}:${m.padStart(2, "0")}`)
-  }
-
-  const handleHourChange = (newHour: string) => {
-    const d = dateVal || new Date().toISOString().slice(0, 10)
-    const m = minuteVal || "00"
-    onChange(`${d}T${newHour.padStart(2, "0")}:${m.padStart(2, "0")}`)
-  }
-
-  const handleMinuteChange = (newMinute: string) => {
-    const d = dateVal || new Date().toISOString().slice(0, 10)
-    const h = hourVal || "00"
-    onChange(`${d}T${h.padStart(2, "0")}:${newMinute.padStart(2, "0")}`)
-  }
-
-  const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"))
-  const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"))
-
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <input
-        type="date"
-        value={dateVal}
-        disabled={disabled}
-        onChange={(e) => handleDateChange(e.target.value)}
-        className="h-8 rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-800 focus:border-blue-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
-      />
-      <div className="flex items-center gap-1">
-        <select
-          value={hourVal.padStart(2, "0")}
-          disabled={disabled}
-          onChange={(e) => handleHourChange(e.target.value)}
-          className="h-8 rounded-lg border border-gray-300 bg-white px-1.5 text-xs font-bold text-gray-800 focus:border-blue-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 cursor-pointer"
-          title="Pilih Jam (00 - 23 WIB)"
-        >
-          {hours.map((h) => (
-            <option key={h} value={h}>
-              {h}
-            </option>
-          ))}
-        </select>
-        <span className="text-xs font-bold text-gray-500">:</span>
-        <select
-          value={minuteVal.padStart(2, "0")}
-          disabled={disabled}
-          onChange={(e) => handleMinuteChange(e.target.value)}
-          className="h-8 rounded-lg border border-gray-300 bg-white px-1.5 text-xs font-bold text-gray-800 focus:border-blue-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 cursor-pointer"
-          title="Pilih Menit (00 - 59)"
-        >
-          {minutes.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
-        <span className="text-[10px] font-extrabold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
-          24 Jam
-        </span>
-      </div>
-    </div>
-  )
 }
 
 function renderClassAndDeadline(jobsheet: LecturerJobsheetSummary) {
@@ -194,6 +113,27 @@ export default function LecturerJobsheetManagePage() {
   const [editPlanValue, setEditPlanValue] = useState("1")
   const [savingPlan, setSavingPlan] = useState(false)
 
+  // ── Modal Salin Dari Semester Lain State ──
+  const [isCopyModalOpen, setIsCopyModalOpen] = useState(false)
+  const [availableCopyJobsheets, setAvailableCopyJobsheets] = useState<Array<{ id: string; title: string; description: string }>>([])
+  const [loadingCopyList, setLoadingCopyList] = useState(false)
+  const [copyPreviewJobsheet, setCopyPreviewJobsheet] = useState<Jobsheet | null>(null)
+
+  const handleOpenCopyModal = useCallback(async () => {
+    setIsCopyModalOpen(true)
+    setCopyPreviewJobsheet(null)
+    setLoadingCopyList(true)
+    try {
+      const res = await apiFetch(`/mata-kuliah/${dataset?.course.mataKuliahId || dataset?.course.id || effectiveCourseId}/jobsheets`)
+      setAvailableCopyJobsheets(res.data?.jobsheets ?? [])
+    } catch (err) {
+      toast.error("Gagal memuat daftar jobsheet: " + (err instanceof Error ? err.message : ""))
+    } finally {
+      setLoadingCopyList(false)
+    }
+  }, [dataset, effectiveCourseId])
+
+  const isHistoryScope = searchParams.get("scope") === "history"
   const loadDataset = useCallback(async () => {
     if (!user || user.role !== "DOSEN" || !effectiveCourseId) return
 
@@ -201,14 +141,14 @@ export default function LecturerJobsheetManagePage() {
     setError("")
 
     try {
-      const nextDataset = await getLecturerCourseDataset(user.id, effectiveCourseId)
+      const nextDataset = await getLecturerCourseDataset(user.id, effectiveCourseId, isHistoryScope ? { scope: "history" } : {})
       setDataset(nextDataset)
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Gagal memuat dataset jobsheet dosen.")
     } finally {
       setLoading(false)
     }
-  }, [effectiveCourseId, user])
+  }, [effectiveCourseId, isHistoryScope, user])
 
   useEffect(() => {
     loadDataset()
@@ -362,7 +302,7 @@ export default function LecturerJobsheetManagePage() {
         title="Kelola Jobsheet Praktikum"
         subtitle={`Manajemen materi jobsheet & alokasi untuk mata kuliah ${dataset?.course.name ?? "-"}`}
         right={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2.5 pt-1">
             <LecturerButton
               variant="secondary"
               onClick={() => {
@@ -373,6 +313,10 @@ export default function LecturerJobsheetManagePage() {
             >
               <Pencil size={15} />
               Atur Rencana Jobsheet ({(dataset?.classDetails[0] as any)?.jumlahJobsheetRencana ?? (dataset?.classDetails[0] as any)?.jumlah_jobsheet_rencana ?? 1})
+            </LecturerButton>
+            <LecturerButton variant="secondary" onClick={handleOpenCopyModal}>
+              <Copy size={15} />
+              Salin Dari Semester Lain
             </LecturerButton>
             <LecturerButton onClick={() => navigate(`${jobsheetBasePath}/create`)}>
               <Plus size={16} />
@@ -421,7 +365,9 @@ export default function LecturerJobsheetManagePage() {
             <div className="grid gap-5 md:grid-cols-2">
               {filteredJobsheets.map((jobsheet) => {
                 const isPublished = jobsheet.status === "Published" || jobsheet.status === "Selesai"
-                const statusBadgeClass = isPublished
+                const statusBadgeClass = jobsheet.status === "Arsip"
+                  ? "bg-purple-50 text-purple-800 border-purple-200"
+                  : isPublished
                   ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                   : jobsheet.status === "Draft"
                   ? "bg-amber-50 text-amber-800 border-amber-200"
@@ -578,6 +524,168 @@ export default function LecturerJobsheetManagePage() {
                 placeholder="Contoh: 10"
               />
             </div>
+          </div>
+        </LecturerModal>
+      )}
+      {/* Modal Salin Jobsheet Dari Semester Lain */}
+      {isCopyModalOpen && (
+        <LecturerModal
+          title="Salin Jobsheet Dari Semester Lain"
+          onClose={() => {
+            setIsCopyModalOpen(false)
+            setCopyPreviewJobsheet(null)
+          }}
+          footer={
+            <div className="flex items-center justify-between w-full">
+              {copyPreviewJobsheet ? (
+                <LecturerButton variant="secondary" onClick={() => setCopyPreviewJobsheet(null)}>
+                  ← Kembali ke Daftar Jobsheet
+                </LecturerButton>
+              ) : (
+                <span className="text-xs text-gray-500">Pilih jobsheet yang ingin disalin ke semester aktif ini.</span>
+              )}
+              <LecturerButton variant="secondary" onClick={() => {
+                setIsCopyModalOpen(false)
+                setCopyPreviewJobsheet(null)
+              }}>
+                Tutup
+              </LecturerButton>
+            </div>
+          }
+        >
+          <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+            {copyPreviewJobsheet ? (
+              /* Tampilan Detail Preview Jobsheet yang akan disalin */
+              <div className="space-y-4">
+                <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700">Preview Detail Jobsheet</span>
+                      <h4 className="text-base font-bold text-gray-900 mt-0.5">{copyPreviewJobsheet.title}</h4>
+                      <p className="text-xs text-gray-600 mt-0.5">{copyPreviewJobsheet.description || "Tidak ada deskripsi singkat."}</p>
+                    </div>
+                    <LecturerButton
+                      onClick={() => {
+                        setIsCopyModalOpen(false)
+                        navigate(`${jobsheetBasePath}/create?sourceJobsheetId=${copyPreviewJobsheet.id}`)
+                      }}
+                    >
+                      <Copy size={15} />
+                      Gunakan &amp; Salin Jobsheet Ini
+                    </LecturerButton>
+                  </div>
+                </div>
+
+                {copyPreviewJobsheet.goal && (
+                  <div className="rounded-xl border border-gray-200 p-4">
+                    <p className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Tujuan Pembelajaran</p>
+                    <p className="text-xs text-gray-800 leading-relaxed whitespace-pre-line">{copyPreviewJobsheet.goal}</p>
+                  </div>
+                )}
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-center">
+                    <p className="text-[10px] font-bold text-gray-500 uppercase">Dasar Teori</p>
+                    <p className="text-lg font-extrabold text-blue-900 mt-1">{copyPreviewJobsheet.theory.length} Subtopik</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-center">
+                    <p className="text-[10px] font-bold text-gray-500 uppercase">Percobaan</p>
+                    <p className="text-lg font-extrabold text-indigo-900 mt-1">{copyPreviewJobsheet.experiments.length} Modul</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-center">
+                    <p className="text-[10px] font-bold text-gray-500 uppercase">Latihan</p>
+                    <p className="text-lg font-extrabold text-purple-900 mt-1">{copyPreviewJobsheet.exercises.length} Soal</p>
+                  </div>
+                </div>
+
+                {copyPreviewJobsheet.theory.length > 0 && (
+                  <div className="rounded-xl border border-gray-200 p-4">
+                    <p className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Daftar Subtopik Dasar Teori</p>
+                    <ul className="list-disc list-inside space-y-1 text-xs text-gray-800">
+                      {copyPreviewJobsheet.theory.map((t, idx) => (
+                        <li key={t.id || idx}><strong>{t.title}</strong> {t.rubric ? `(Bobot: ${t.rubric}%)` : ""}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {copyPreviewJobsheet.experiments.length > 0 && (
+                  <div className="rounded-xl border border-gray-200 p-4">
+                    <p className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Daftar Percobaan Praktikum</p>
+                    <ul className="list-disc list-inside space-y-1 text-xs text-gray-800">
+                      {copyPreviewJobsheet.experiments.map((e, idx) => (
+                        <li key={e.id || idx}><strong>{e.title}</strong> {e.rubric ? `(Bobot: ${e.rubric}%)` : ""}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {copyPreviewJobsheet.exercises.length > 0 && (
+                  <div className="rounded-xl border border-gray-200 p-4">
+                    <p className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Daftar Soal Latihan Mandiri</p>
+                    <ul className="list-disc list-inside space-y-1 text-xs text-gray-800">
+                      {copyPreviewJobsheet.exercises.map((ex, idx) => (
+                        <li key={ex.id || idx}><strong>{ex.title}</strong> {ex.rubric ? `(Bobot: ${ex.rubric}%)` : ""}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Tampilan Daftar Jobsheet Tersedia */
+              <div className="space-y-3">
+                <p className="text-xs text-gray-600">
+                  Berikut adalah daftar seluruh master jobsheet praktikum yang pernah dibuat untuk mata kuliah <strong>{dataset?.course.name}</strong>:
+                </p>
+
+                {loadingCopyList ? (
+                  <div className="py-8 text-center text-xs text-gray-400 font-medium">Memuat daftar jobsheet...</div>
+                ) : availableCopyJobsheets.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-gray-400 font-medium">Belum ada jobsheet dari semester terdahulu.</div>
+                ) : (
+                  <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
+                    {availableCopyJobsheets.map((job) => (
+                      <div key={job.id} className="p-3.5 hover:bg-gray-50 flex items-center justify-between transition-colors">
+                        <div>
+                          <p className="text-xs font-bold text-gray-900">{job.title}</p>
+                          <p className="text-[11px] text-gray-500 mt-0.5">{job.description || "Master Jobsheet Praktikum"}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                setLoadingCopyList(true)
+                                const fullJob = await getLecturerJobsheetById(effectiveCourseId, job.id, {
+                                  mataKuliahId: dataset?.course.mataKuliahId || dataset?.course.id || effectiveCourseId,
+                                })
+                                setCopyPreviewJobsheet(fullJob)
+                              } catch (err) {
+                                toast.error("Gagal memuat detail jobsheet: " + (err instanceof Error ? err.message : ""))
+                              } finally {
+                                setLoadingCopyList(false)
+                              }
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg border border-gray-300 bg-white text-xs font-bold text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                          >
+                            Preview Detail
+                          </button>
+                          <LecturerButton
+                            onClick={() => {
+                              setIsCopyModalOpen(false)
+                              navigate(`${jobsheetBasePath}/create?sourceJobsheetId=${job.id}`)
+                            }}
+                          >
+                            <Copy size={13} />
+                            Salin Jobsheet
+                          </LecturerButton>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </LecturerModal>
       )}

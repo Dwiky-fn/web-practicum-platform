@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 import { BookOpen, ChevronDown, ChevronUp, Layers, Sparkles, Users } from "lucide-react"
 import { useNavigate } from "react-router-dom"
-import TopProgressBar from "../../../components/loading/TopProgressBar"
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
 import LecturerLayout from "../components/LecturerLayout"
 import { LecturerButton, LecturerEmptyState } from "../components/LecturerUI"
@@ -16,7 +15,14 @@ export default function LecturerCoursesPage() {
   const [activeCourses, setActiveCourses] = useState<LecturerCourseGroup[]>([])
   const [historyCourses, setHistoryCourses] = useState<LecturerCourseGroup[]>([])
   const [activeTab, setActiveTab] = useState<"active" | "history">("active")
-  const [openIds, setOpenIds] = useState<string[]>([])
+  const [openIds, setOpenIds] = useState<string[]>(() => {
+    try {
+      const saved = sessionStorage.getItem("lecturer_courses_open_ids")
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
   const [historyPeriod, setHistoryPeriod] = useState("all")
 
   useEffect(() => {
@@ -36,7 +42,6 @@ export default function LecturerCoursesPage() {
         }
         setActiveCourses(activeGroups)
         setHistoryCourses(historyGroups)
-        setOpenIds(activeGroups[0] ? [activeGroups[0].id] : [])
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Gagal memuat mata kuliah dosen.")
       } finally {
@@ -48,11 +53,15 @@ export default function LecturerCoursesPage() {
   }, [user])
 
   const toggleCourse = (courseId: string) => {
-    setOpenIds((current) =>
-      current.includes(courseId)
+    setOpenIds((current) => {
+      const next = current.includes(courseId)
         ? current.filter((id) => id !== courseId)
-        : [...current, courseId],
-    )
+        : [...current, courseId]
+      try {
+        sessionStorage.setItem("lecturer_courses_open_ids", JSON.stringify(next))
+      } catch {}
+      return next
+    })
   }
 
   const historyPeriods = Array.from(new Set(historyCourses.map((course) => course.period).filter(Boolean)))
@@ -64,12 +73,23 @@ export default function LecturerCoursesPage() {
     ? "Belum ada mata kuliah yang diampu pada semester aktif."
     : "Belum ada riwayat pengajaran."
 
-  if (loading) {
-    return <TopProgressBar />
-  }
-
   return (
     <LecturerLayout>
+      {loading ? (
+        <div className="space-y-6">
+          <div className="h-32 bg-gray-200 rounded-2xl animate-pulse" />
+          <div className="grid grid-cols-1 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl p-6 border border-gray-100 space-y-4 animate-pulse">
+                <div className="h-6 bg-gray-200 rounded w-1/3" />
+                <div className="h-4 bg-gray-200 rounded w-1/4" />
+                <div className="h-20 bg-gray-100 rounded-xl" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <>
 
 
       {error && (
@@ -97,10 +117,7 @@ export default function LecturerCoursesPage() {
           <div className="flex items-center gap-2 rounded-xl bg-white/10 p-1.5 backdrop-blur-md">
             <button
               type="button"
-              onClick={() => {
-                setActiveTab("active")
-                setOpenIds(activeCourses[0] ? [activeCourses[0].id] : [])
-              }}
+              onClick={() => setActiveTab("active")}
               className={`rounded-lg px-4 py-2 text-xs font-bold transition-all ${
                 activeTab === "active"
                   ? "bg-white text-blue-900 shadow-sm"
@@ -111,10 +128,7 @@ export default function LecturerCoursesPage() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                setActiveTab("history")
-                setOpenIds(historyCourses[0] ? [historyCourses[0].id] : [])
-              }}
+              onClick={() => setActiveTab("history")}
               className={`rounded-lg px-4 py-2 text-xs font-bold transition-all ${
                 activeTab === "history"
                   ? "bg-white text-blue-900 shadow-sm"
@@ -238,6 +252,8 @@ export default function LecturerCoursesPage() {
             )
           })}
         </div>
+      )}
+        </>
       )}
     </LecturerLayout>
   )

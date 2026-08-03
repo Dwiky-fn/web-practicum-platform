@@ -34,10 +34,23 @@ router.post('/ai-callback', validateAiServiceApiKey, async (req, res, next) => {
       });
     }
 
-    console.log(`[Webhook AI Callback] Menerima callback evaluasi AI untuk submissionId: ${submissionId}, Status: ${status}`);
+    let normalizedStatus = status;
+    if (status === 'success') {
+      normalizedStatus = 'completed';
+    }
+
+    const validStatuses = ['completed', 'failed', 'partially_failed'];
+    if (!validStatuses.includes(normalizedStatus)) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Status callback tidak valid. Harus salah satu dari: completed, failed, partially_failed',
+      });
+    }
+
+    console.log(`[Webhook AI Callback] Menerima callback evaluasi AI untuk submissionId: ${submissionId}, Status: ${normalizedStatus}`);
 
     // Memproses dan menyimpan hasil akhir ke PostgreSQL database
-    await AiEvaluationQueue.processAndSaveAiResult(submissionId, { status, data, error });
+    await AiEvaluationQueue.processAndSaveAiResult(submissionId, { status: normalizedStatus, data, error });
 
     return res.status(200).json({
       status: 'success',

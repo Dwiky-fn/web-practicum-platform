@@ -142,6 +142,7 @@ class JobsheetsService {
           ON jc.jobsheet_id = j.id
          AND jc.is_active = true
         JOIN kelas_praktikum kp ON kp.id = jc.id_kelas_praktikum
+        JOIN tahun_semester ts ON ts.id = kp.id_tahun_semester
         JOIN kelas_semester ks
           ON ks.id_tahun_semester = kp.id_tahun_semester
          AND ks.id_semester = kp.id_semester
@@ -152,6 +153,7 @@ class JobsheetsService {
          AND km.status = 'active'
         WHERE j.id_mata_kuliah = $1
           AND kp.id_mata_kuliah = $1
+          AND ts.status = 'active'
           ${kelasFilter}
          ORDER BY jc.urutan ASC NULLS LAST, j.created_at ASC
         `,

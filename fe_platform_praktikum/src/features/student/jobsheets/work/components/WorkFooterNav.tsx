@@ -61,7 +61,8 @@ export default function WorkFooterNav({
   const currentCompleted = completedItems.some(
     (item) => item.type === currentItem.type && item.id === currentItem.id
   )
-  const canGoNext = isFinishedSubmission || currentCompleted
+  const isTheoryItem = currentItem.type === "theory"
+  const canGoNext = isFinishedSubmission || !isTheoryItem || currentCompleted
 
   return (
     <>

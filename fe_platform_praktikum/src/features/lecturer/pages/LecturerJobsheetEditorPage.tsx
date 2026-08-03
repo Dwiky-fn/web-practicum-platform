@@ -31,6 +31,7 @@ import { datetimeLocalToDbValue, dbValueToDatetimeLocal } from "../utils/deadlin
 
 import { toast } from "../../../components/toast/toastStore"
 import { uploadJobsheetImage } from "../../../services/jobsheet/service"
+import { IndonesianDateTimePicker } from "../components/IndonesianDateTimePicker"
 
 const emptyDoc: JSONContent = { type: "doc", content: [] }
 
@@ -168,6 +169,7 @@ export default function LecturerJobsheetEditorPage() {
         setCourseName(course?.name ?? "")
         setDataset(nextDataset)
 
+        const sourceJobsheetId = searchParams.get("sourceJobsheetId")
         if (savedJobsheetId) {
           const selectedJobsheet = await getLecturerJobsheetById(effectiveCourseId, savedJobsheetId, {
             mataKuliahId: nextDataset?.course.mataKuliahId || nextDataset?.course.id,
@@ -217,7 +219,6 @@ export default function LecturerJobsheetEditorPage() {
             })),
           )
 
-
           const fallbackDeadline = dbValueToDatetimeLocal(selectedJobsheet.deadline)
           const classSettings = (nextDataset?.course.classes ?? []).map((classItem) => {
             const classDetail = nextDataset?.classDetails.find((item) => item.id === classItem.id)
@@ -233,6 +234,64 @@ export default function LecturerJobsheetEditorPage() {
           })
 
           setPublishSettings(classSettings)
+        } else if (sourceJobsheetId) {
+          const sourceJobsheet = await getLecturerJobsheetById(effectiveCourseId, sourceJobsheetId, {
+            mataKuliahId: nextDataset?.course.mataKuliahId || nextDataset?.course.id,
+          })
+          setTitle(`${sourceJobsheet.title} (Salinan)`)
+          const currentClass = nextDataset?.course.classes.find((item) => (item.kelasPraktikumId || item.id_kelas_praktikum) === queryKelasPraktikumId) ?? nextDataset?.course.classes?.[0]
+          setJobsheetSequence(String((currentClass?.jumlahJobsheetDibuat ?? currentClass?.jumlah_jobsheet_dibuat ?? 0) + 1))
+          setDescription(sourceJobsheet.description)
+          setGoalContent(
+            sourceJobsheet.goal
+              ? {
+                  type: "doc",
+                  content: [{ type: "paragraph", content: [{ type: "text", text: sourceJobsheet.goal }] }],
+                }
+              : emptyDoc,
+          )
+          const lang = (sourceJobsheet.programmingLanguage || "java") as "java" | "python"
+          setProgrammingLanguage(lang)
+          setTheoryItems(
+            sourceJobsheet.theory.map((item) => ({
+              id: createLocalId("theory"),
+              title: item.title,
+              content: item.content,
+              rubric: item.rubric,
+            })),
+          )
+          setExperiments(
+            sourceJobsheet.experiments.map((item) => ({
+              id: createLocalId("exp"),
+              title: item.title,
+              instructionContent: item.instructionContent ?? emptyDoc,
+              templateCode: item.defaultTemplateCode,
+              isReported: item.isReported,
+              rubric: item.rubric ?? 0,
+              inactiveDurationMinutes: item.inactiveDurationMinutes ?? null,
+            })),
+          )
+          setExercises(
+            sourceJobsheet.exercises.map((item) => ({
+              id: createLocalId("exe"),
+              title: item.title,
+              instructionContent: item.instructionContent ?? emptyDoc,
+              templateCode: item.defaultTemplateCode ?? "",
+              isReported: item.isReported,
+              rubric: item.rubric ?? 0,
+              inactiveDurationMinutes: item.inactiveDurationMinutes ?? null,
+            })),
+          )
+          setPublishSettings(
+            (nextDataset?.course.classes ?? []).map((classItem) => ({
+              classId: classItem.id,
+              kelasPraktikumId: classItem.kelasPraktikumId || classItem.id_kelas_praktikum,
+              className: classItem.name,
+              isActive: false,
+              deadline: "",
+            })),
+          )
+          toast.success(`Berhasil menyalin konten dari Jobsheet ${sourceJobsheet.title}`)
         } else {
           const firstClass = nextDataset?.course.classes?.[0]
           const defaultLang = firstClass?.programmingLanguage || "java"
@@ -1092,7 +1151,7 @@ export default function LecturerJobsheetEditorPage() {
 
       {publishOpen && (
         <LecturerModal
-          title="Publikasikan Jobsheet"
+          title="Pengaturan Alokasi & Publikasi Jobsheet"
           onClose={() => setPublishOpen(false)}
           footer={
             <>
@@ -1104,39 +1163,52 @@ export default function LecturerJobsheetEditorPage() {
           }
         >
           <div className="space-y-4">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-xs text-gray-600">
+              Pilih kelas praktikum mana saja yang dapat mengakses jobsheet ini dan tetapkan batas waktu (deadline) pengumpulannya.
+            </div>
+
             {!publishSettings.length ? (
               <p className="text-sm text-gray-500">Belum ada kelas praktikum yang diampu untuk mata kuliah ini.</p>
             ) : (
-              publishSettings.map((item, index) => (
-                <div key={item.classId} className="grid gap-3 rounded-lg border border-gray-200 p-4 md:grid-cols-[220px_1fr]">
-                  <label className="flex items-center gap-3 text-sm font-medium text-gray-800">
-                    <input
-                      type="checkbox"
-                      checked={item.isActive}
-                      onChange={() =>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-3">
+                  <p className="font-bold text-xs uppercase tracking-wide text-gray-700">Aktifkan untuk Kelas</p>
+                  {publishSettings.map((item, index) => (
+                    <label key={item.classId} className="flex items-center gap-2 text-sm text-gray-900 font-medium">
+                      <input
+                        type="checkbox"
+                        checked={item.isActive}
+                        onChange={() =>
+                          setPublishSettings((current) =>
+                            current.map((entry, currentIndex) =>
+                              currentIndex === index ? { ...entry, isActive: !entry.isActive } : entry,
+                            ),
+                          )
+                        }
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      Kelas Praktikum {item.className}
+                    </label>
+                  ))}
+                </div>
+                <div className="space-y-3">
+                  <p className="font-bold text-xs uppercase tracking-wide text-gray-700">Batas Waktu (Deadline - 24 Jam)</p>
+                  {publishSettings.map((item, index) => (
+                    <IndonesianDateTimePicker
+                      key={item.classId}
+                      value={item.deadline}
+                      disabled={!item.isActive}
+                      onChange={(newVal) =>
                         setPublishSettings((current) =>
                           current.map((entry, currentIndex) =>
-                            currentIndex === index ? { ...entry, isActive: !entry.isActive } : entry,
+                            currentIndex === index ? { ...entry, deadline: newVal } : entry,
                           ),
                         )
                       }
                     />
-                    Kelas Praktikum {item.className}
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={item.deadline}
-                    onChange={(event) =>
-                      setPublishSettings((current) =>
-                        current.map((entry, currentIndex) =>
-                          currentIndex === index ? { ...entry, deadline: event.target.value } : entry,
-                        ),
-                      )
-                    }
-                    className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm"
-                  />
+                  ))}
                 </div>
-              ))
+              </div>
             )}
           </div>
         </LecturerModal>

@@ -17,28 +17,32 @@ export default function CourseCard({
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md active:shadow-md transition cursor-pointer border border-gray-100"
+      className="group relative flex flex-col justify-between rounded-2xl border border-blue-100/80 bg-gradient-to-br from-blue-50/60 via-white to-blue-50/20 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-blue-200 hover:shadow-md cursor-pointer"
     >
-      <h3 className="font-semibold text-gray-800 mb-1">
-        {course.name}
-      </h3>
+      <div>
+        <h3 className="font-bold text-gray-900 group-hover:text-blue-700 transition-colors line-clamp-2">
+          {course.name}
+        </h3>
 
-      <p className="text-sm text-gray-500 mb-3">
-        {course.code} - {course.lecturer ?? "Dosen belum ditentukan"}
-      </p>
-
-      {/* Progress */}
-      <div className=" w-full bg-gray-200 h-2 rounded-full mb-3">
-        <div
-          className="bg-blue-600 h-2 rounded-full transition-all"
-          style={{ width: `${progress}%` }}
-        />
+        <p className="mt-1.5 text-xs text-gray-500 font-medium">
+          {course.code} &bull; {course.lecturer ?? "Dosen belum ditentukan"}
+        </p>
       </div>
 
-      <p className="text-xs text-gray-500">
-        {totalJobsheets} jobsheet · Progress: {progress}%
-      </p>
+      <div className="mt-4 pt-3 border-t border-gray-100/80">
+        {/* Progress */}
+        <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden mb-2.5">
+          <div
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 h-2 rounded-full transition-all duration-500"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
 
+        <p className="text-xs font-semibold text-gray-600 flex items-center justify-between">
+          <span>{totalJobsheets} jobsheet</span>
+          <span className="text-blue-700 font-bold">Progress: {progress}%</span>
+        </p>
+      </div>
     </div>
   )
 }

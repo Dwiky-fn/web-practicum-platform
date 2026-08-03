@@ -927,7 +927,7 @@ class ClassesService {
         [createId('png'), newClassId, lecturerId]
       );
 
-      const jobsheetsCopied = payload.copy_jobsheets
+      const jobsheetsCopied = payload.copy_jobsheets === true
         ? await this._cloneJobsheetsToClass(client, sourceClass.id, newClassId)
         : 0;
       const studentsAdded = payload.auto_enroll_students

@@ -492,6 +492,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
     savedProgress,
     completedItems,
     completeCurrentProgressItem,
+    markProgressItemCompleted,
     loading,
     error,
     updateExperiment,

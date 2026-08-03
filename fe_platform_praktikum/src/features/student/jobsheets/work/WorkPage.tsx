@@ -37,6 +37,7 @@ export default function WorkPage() {
     savedProgress,
     completedItems,
     completeCurrentProgressItem,
+    markProgressItemCompleted,
     loading,
     error,
     updateExperiment,
@@ -56,12 +57,14 @@ export default function WorkPage() {
     const scrollContainer = scrollContainerRef.current
     if (!scrollContainer) return
 
+    const isScrollable = scrollContainer.scrollHeight > scrollContainer.clientHeight
     const remainingScroll =
       scrollContainer.scrollHeight -
       scrollContainer.scrollTop -
       scrollContainer.clientHeight
 
-    if (remainingScroll <= 12) {
+    // Jika konten tidak cukup panjang untuk discroll (tidak scrollable) ATAU sudah discroll sampai bawah (<= 12px)
+    if (!isScrollable || remainingScroll <= 12) {
       completeCurrentProgressItem()
     }
   }, [completeCurrentProgressItem])
@@ -97,41 +100,43 @@ export default function WorkPage() {
     }
   }, [jobsheet, jobsheetId, readOnly, scope.kelasPraktikumId])
 
-  // Scroll ke atas hanya saat navigasi antar halaman
+  // Scroll ke atas dan auto-check completion saat navigasi atau ukuran konten berubah
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current
     if (!scrollContainer) return
 
     scrollContainer.scrollTo({ top: 0 })
 
+    // Check langsung & berikan sedikit delay untuk memastikan gambar/DOM selesai dirender
+    handleWorkScrollRef.current()
     const timer = window.setTimeout(() => {
       handleWorkScrollRef.current()
-    }, 150)
+    }, 200)
 
-    return () => window.clearTimeout(timer)
+    // Observer untuk mendeteksi perubahan ukuran konten (misal gambar/teks baru saja ter-load)
+    const resizeObserver = new ResizeObserver(() => {
+      handleWorkScrollRef.current()
+    })
+    resizeObserver.observe(scrollContainer)
+
+    return () => {
+      window.clearTimeout(timer)
+      resizeObserver.disconnect()
+    }
   }, [location.pathname])
 
+  // Auto-mark theory items as completed immediately upon route change
   useEffect(() => {
-    if (!jobsheet || !jobsheetId || !scope.kelasPraktikumId || readOnly) return
-    const relative = location.pathname.split("/works/")[1] || ""
-    const [section, id] = relative.split("/")
-    if (!id) return
-    const sectionType = section === "experiments" ? "experiment" : section === "exercises" ? "exercise" : "instruction"
-    const sectionName =
-      sectionType === "experiment"
-        ? jobsheet.experiments.find((item) => item.id === id)?.title
-        : sectionType === "exercise"
-          ? jobsheet.exercises.find((item) => item.id === id)?.title
-          : jobsheet.theory.find((item) => item.id === id)?.title
-    liveWorkspaceRef.current?.send({
-      type: "active-section-changed",
-      sectionType,
-      sectionId: id,
-      sectionName: sectionName || id,
-    })
-  }, [jobsheet, jobsheetId, location.pathname, readOnly, scope.kelasPraktikumId])
+    if (!jobsheet || !effectiveCourseId || readOnly) return
+    const pathnameWithoutQuery = location.pathname.split("?")[0]
+    const parts = pathnameWithoutQuery.split("/")
+    const theoryIndex = parts.indexOf("theory")
+    if (theoryIndex !== -1 && parts[theoryIndex + 1]) {
+      const theoryId = parts[theoryIndex + 1]
+      markProgressItemCompleted({ type: "theory", id: theoryId })
+    }
+  }, [effectiveCourseId, jobsheet, location.pathname, markProgressItemCompleted, readOnly])
 
-  // Cek scroll saat handleWorkScroll berubah (misal data baru dimuat)
   useEffect(() => {
     handleWorkScroll()
   }, [handleWorkScroll])
@@ -225,6 +230,7 @@ export default function WorkPage() {
                     trackActivity,
                     liveWorkspace: liveWorkspaceConnection,
                     readOnly,
+                    markProgressItemCompleted,
                   }}
                 />
               </>

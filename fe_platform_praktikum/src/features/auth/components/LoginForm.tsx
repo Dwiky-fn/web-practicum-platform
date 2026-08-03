@@ -83,6 +83,7 @@ export default function LoginForm() {
 
       google.accounts.id.initialize({
         client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        auto_select: false,
         callback: (response: { credential?: string }) => {
           if (!response.credential) {
             setErrorMessage("Credential Google tidak ditemukan")
@@ -93,13 +94,20 @@ export default function LoginForm() {
         },
       })
 
+      const containerWidth = googleButtonRef.current.parentElement?.clientWidth || 360
+      const buttonWidth = Math.min(Math.max(containerWidth, 200), 400)
+
       google.accounts.id.renderButton(googleButtonRef.current, {
         theme: "outline",
         size: "large",
-        text: "signin_with",
-        shape: "rectangular",
-        width: 360,
+        text: "continue_with",
+        shape: "pill",
+        width: buttonWidth,
+        logo_alignment: "left",
       })
+
+      // Panggil google.accounts.id.prompt() untuk menampilkan One Tap Overlay (Popup dari atas layar seperti alert browser)
+      google.accounts.id.prompt()
     }
 
     const existingScript = document.getElementById(scriptId)
@@ -194,18 +202,9 @@ export default function LoginForm() {
 
         {/* Password */}
         <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-600">
-              Password
-            </label>
-            <button
-              type="button"
-              className="text-xs font-medium text-blue-600 hover:text-blue-700 transition cursor-pointer"
-              onClick={() => navigate("/forgot-password")}
-            >
-              Lupa kata sandi?
-            </button>
-          </div>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1.5">
+            Password
+          </label>
           <div className="relative">
             <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <input
@@ -223,6 +222,16 @@ export default function LoginForm() {
               title={showPassword ? "Sembunyikan password" : "Tampilkan password"}
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+          {/* Lupa Kata Sandi di bawah field password */}
+          <div className="flex justify-end mt-1.5">
+            <button
+              type="button"
+              className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline transition cursor-pointer"
+              onClick={() => navigate("/forgot-password")}
+            >
+              Lupa kata sandi?
             </button>
           </div>
         </div>
@@ -251,9 +260,11 @@ export default function LoginForm() {
         <div className="flex-1 h-px bg-gray-200" />
       </div>
 
-      {/* Google Login */}
-      <div className="flex justify-center">
-        <div ref={googleButtonRef}></div>
+      {/* Google Login Wrapper dengan Styling Responsif & Menarik */}
+      <div className="flex justify-center w-full">
+        <div className="w-full max-w-full overflow-hidden rounded-xl border border-gray-200/80 bg-white p-1 shadow-sm hover:shadow-md hover:border-blue-300 transition-all duration-200 flex justify-center">
+          <div ref={googleButtonRef} className="w-full flex justify-center [&>iframe]:!w-full [&>iframe]:!max-w-full"></div>
+        </div>
       </div>
     </div>
   )

@@ -1,8 +1,8 @@
-import { BookOpen, GraduationCap, Layers, Sparkles, Users } from "lucide-react"
+import { ArrowUpRight, BookOpen, Clock, GraduationCap, Layers, ShieldCheck, Sparkles, UserPlus, Users, AlertCircle } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import AdminLayout from "../components/AdminLayout"
-import { AdminButton, AdminPanel } from "../components/AdminUI"
+import { AdminPanel } from "../components/AdminUI"
 import { getAdminDashboard } from "../../../services/admin/service"
 import type { AdminDashboardSummary } from "../../../services/admin/types"
 import { academicDataApi } from "../../../services/admin/academicData/service"
@@ -35,28 +35,6 @@ function StatCard({
   )
 }
 
-function SummaryPanel({
-  title,
-  rows,
-}: {
-  title: string
-  rows: Array<[string, string | number]>
-}) {
-  return (
-    <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm">
-      <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">{title}</h3>
-      <dl className="mt-3 space-y-2 text-xs">
-        {rows.map(([label, value]) => (
-          <div key={label} className="flex items-center justify-between gap-4 border-b border-gray-50 pb-1.5">
-            <dt className="text-gray-600">{label}</dt>
-            <dd className="font-bold text-gray-900">{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
-  )
-}
-
 function StatCardSkeleton() {
   return (
     <AdminPanel className="p-5 animate-pulse">
@@ -74,35 +52,6 @@ function StatCardSkeleton() {
   )
 }
 
-function SummaryPanelSkeleton() {
-  return (
-    <AdminPanel className="p-5 animate-pulse">
-      <div className="h-5 bg-gray-300 rounded w-1/3 mb-4"></div>
-      <div className="space-y-3">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="flex justify-between items-center">
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            <div className="h-4 bg-gray-300 rounded w-12"></div>
-          </div>
-        ))}
-      </div>
-    </AdminPanel>
-  )
-}
-
-function ActivitiesSkeleton() {
-  return (
-    <div className="space-y-3 animate-pulse mt-4">
-      {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="flex gap-4 py-2 border-b border-gray-100">
-          <div className="h-4 bg-gray-200 rounded w-20"></div>
-          <div className="h-4 bg-gray-300 rounded flex-1"></div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 export default function AdminDashboard() {
   const navigate = useNavigate()
   const [dashboard, setDashboard] = useState<AdminDashboardSummary | null>(null)
@@ -113,15 +62,12 @@ export default function AdminDashboard() {
     kelasPraktikumAktif: 0,
     kelasMahasiswaTotal: 0,
     kelasMahasiswaAktif: 0,
-    pengampuTotal: 0,
   })
 
   const [loadingDashboard, setLoadingDashboard] = useState(true)
   const [loadingKurikulum, setLoadingKurikulum] = useState(true)
   const [loadingMataKuliah, setLoadingMataKuliah] = useState(true)
   const [loadingKelasPraktikum, setLoadingKelasPraktikum] = useState(true)
-  const [loadingKelasMahasiswa, setLoadingKelasMahasiswa] = useState(true)
-  const [loadingPengampu, setLoadingPengampu] = useState(true)
 
   useEffect(() => {
     // 1. Dashboard summary
@@ -157,58 +103,24 @@ export default function AdminDashboard() {
       })
       .finally(() => setLoadingMataKuliah(false))
 
-    // 4. Kelas Praktikum
+    // 4. Kelas Praktikum (Hanya ambil kelas praktikum pada semester aktif)
     setLoadingKelasPraktikum(true)
-    Promise.all([
-      academicDataApi.getKelasPraktikum({ scope: "all" }),
-      academicDataApi.getKelasPraktikum({ scope: "active" }),
-    ])
-      .then(([allClasses, activeClasses]) => {
-        const activeCount = activeClasses.filter((item) => {
-          const st = String((item as any).tahun_semester_status || (item as any).tahunSemesterStatus || "active").toLowerCase()
-          return st === "active" || st === "aktif"
-        }).length
-
+    academicDataApi.getKelasPraktikum({ scope: "active" })
+      .then((activeClasses) => {
         setNativeStats((prev) => ({
           ...prev,
-          kelasPraktikumTotal: allClasses.length,
-          kelasPraktikumAktif: activeCount,
+          kelasPraktikumAktif: activeClasses.length,
         }))
       })
       .catch((err) => {
         toast.error("Gagal memuat data kelas praktikum: " + (err instanceof Error ? err.message : ""))
       })
       .finally(() => setLoadingKelasPraktikum(false))
-
-    // 5. Kelas Mahasiswa
-    setLoadingKelasMahasiswa(true)
-    academicDataApi.getKelasMahasiswa()
-      .then((data) => {
-        setNativeStats(prev => ({
-          ...prev,
-          kelasMahasiswaTotal: data.length,
-          kelasMahasiswaAktif: data.filter((item) => item.status === "active").length,
-        }))
-      })
-      .catch((err) => {
-        toast.error("Gagal memuat data kelas mahasiswa: " + (err instanceof Error ? err.message : ""))
-      })
-      .finally(() => setLoadingKelasMahasiswa(false))
-
-    // 6. Pengampu
-    setLoadingPengampu(true)
-    academicDataApi.getPengampu()
-      .then((data) => {
-        setNativeStats(prev => ({ ...prev, pengampuTotal: data.length }))
-      })
-      .catch((err) => {
-        toast.error("Gagal memuat data pengampu: " + (err instanceof Error ? err.message : ""))
-      })
-      .finally(() => setLoadingPengampu(false))
   }, [])
 
   const stats = dashboard?.stats
   const activeSemester = dashboard?.activeSemester
+  const unassignedStudents = dashboard?.stats.unassignedStudents ?? 0
 
   return (
     <AdminLayout>
@@ -223,22 +135,25 @@ export default function AdminDashboard() {
             <h2 className="mt-1 text-xl font-bold text-white">
               Administrator Platform Praktikum
             </h2>
-            <p className="text-xs text-blue-200">
-              Kelola data master akademik, registrasi dosen &amp; mahasiswa, serta konfigurasi kurikulum.
+            <p className="text-xs text-blue-200 mt-0.5">
+              Pusat pengawasan status akademik, manajemen pengguna, dan alokasi kelas praktikum.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-xl bg-white/10 px-3.5 py-1.5 text-xs font-bold text-white backdrop-blur-md border border-white/10">
+            <span className="rounded-xl bg-white/10 px-3.5 py-1.5 text-xs font-bold text-white backdrop-blur-md border border-white/10 flex items-center gap-1.5">
+              <Clock size={14} className="text-blue-300" />
               {loadingDashboard ? "Memuat..." : `Semester: ${activeSemester ? `${activeSemester.year} - ${activeSemester.term}` : "Belum ada"}`}
             </span>
-            <span className="rounded-xl bg-white/10 px-3.5 py-1.5 text-xs font-bold text-white backdrop-blur-md border border-white/10">
+            <span className="rounded-xl bg-white/10 px-3.5 py-1.5 text-xs font-bold text-white backdrop-blur-md border border-white/10 flex items-center gap-1.5">
+              <ShieldCheck size={14} className="text-emerald-400" />
               {loadingKurikulum ? "Memuat..." : `Kurikulum: ${activeKurikulumName}`}
             </span>
           </div>
         </div>
       </div>
 
+      {/* 4 Stat Cards Utama */}
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         {loadingDashboard ? (
           <StatCardSkeleton />
@@ -266,7 +181,7 @@ export default function AdminDashboard() {
           <StatCard
             title="Mata Kuliah"
             value={String(nativeStats.mataKuliahTotal)}
-            caption="Data Akademik Terdaftar"
+            caption="Mata Kuliah Kurikulum Aktif"
             icon={<BookOpen size={22} />}
           />
         )}
@@ -276,107 +191,137 @@ export default function AdminDashboard() {
           <StatCard
             title="Kelas Praktikum"
             value={String(nativeStats.kelasPraktikumAktif)}
-            caption={`${nativeStats.kelasPraktikumTotal} Total Kelas`}
+            caption="Semester Aktif Saat Ini"
             icon={<Layers size={22} />}
           />
         )}
       </div>
 
-      <section className="mt-8">
-        <h2 className="text-lg font-bold text-gray-900">
-          Status Akademik Semester {activeSemester?.year ?? "-"}
-        </h2>
-        <p className="mt-0.5 text-xs text-gray-500">
-          Ringkasan kesiapan akademik pada semester aktif.
-        </p>
+      {/* Grid Utama Layout Dashboard */}
+      <div className="mt-8 grid gap-6 lg:grid-cols-3">
+        
+        {/* Ringkasan Status Mahasiswa & Kelas */}
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* Card Alokasi Mahasiswa Ke Kelas */}
+          <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
+            <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">
+              Status Alokasi Mahasiswa Per Semester
+            </h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500">Mahasiswa Terploting Kelas</p>
+                  <p className="text-2xl font-extrabold text-blue-700 mt-1">{stats?.assignedStudents ?? 0}</p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">
+                  ✓
+                </div>
+              </div>
 
-        <div className="mt-4 grid gap-5 lg:grid-cols-3">
-          {loadingMataKuliah || loadingKelasPraktikum ? (
-            <SummaryPanelSkeleton />
-          ) : (
-            <SummaryPanel
-              title="Struktur Akademik"
-              rows={[
-                ["Mata Kuliah", nativeStats.mataKuliahTotal],
-                ["Total Kelas Praktikum", nativeStats.kelasPraktikumTotal],
-                ["Kelas Praktikum Aktif", nativeStats.kelasPraktikumAktif],
-              ]}
-            />
-          )}
-
-          {loadingDashboard || loadingPengampu || loadingKelasPraktikum ? (
-            <SummaryPanelSkeleton />
-          ) : (
-            <SummaryPanel
-              title="Dosen"
-              rows={[
-                ["Total Dosen", stats?.lecturers.total ?? 0],
-                ["Relasi Pengampu", nativeStats.pengampuTotal],
-                ["Kelas Praktikum Berjalan", nativeStats.kelasPraktikumAktif],
-              ]}
-            />
-          )}
-
-          {loadingDashboard || loadingKelasMahasiswa ? (
-            <SummaryPanelSkeleton />
-          ) : (
-            <SummaryPanel
-              title="Mahasiswa"
-              rows={[
-                ["Total Mahasiswa", stats?.students.total ?? 0],
-                ["Kelas Mahasiswa", nativeStats.kelasMahasiswaTotal],
-                ["Kelas Mahasiswa Aktif", nativeStats.kelasMahasiswaAktif],
-              ]}
-            />
-          )}
-        </div>
-      </section>
-
-      <section className="mt-8 grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-3">Aktivitas Terbaru</h2>
-          {loadingDashboard ? (
-            <ActivitiesSkeleton />
-          ) : (
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-130 text-xs">
-                <thead>
-                  <tr className="text-left text-gray-500 uppercase tracking-wider border-b border-gray-100">
-                    <th className="pb-2 font-bold">Waktu Log</th>
-                    <th className="pb-2 font-bold">Aktivitas Sistem</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {(dashboard?.activities ?? []).map(({ time, activity }) => (
-                    <tr key={`${time}-${activity}`} className="hover:bg-gray-50/80">
-                      <td className="py-2.5 text-gray-500 font-mono">{time}</td>
-                      <td className="py-2.5 font-medium text-gray-900">{activity}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-amber-800">Mahasiswa Belum Masuk Kelas</p>
+                  <p className="text-2xl font-extrabold text-amber-600 mt-1">{unassignedStudents}</p>
+                </div>
+                {unassignedStudents > 0 ? (
+                  <div className="h-10 w-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                    <AlertCircle size={20} />
+                  </div>
+                ) : (
+                  <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">
+                    ✓
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-        </div>
 
-        <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-3">Aksi Cepat Admin</h2>
-          <div className="mt-4 grid gap-3">
-            <AdminButton onClick={() => navigate("/admin/academic/mata-kuliah")}>
-              Tambah Mata Kuliah
-            </AdminButton>
-            <AdminButton variant="secondary" onClick={() => navigate("/admin/academic/kelas-praktikum")}>
-              Tambah Kelas Praktikum
-            </AdminButton>
-            <AdminButton variant="secondary" onClick={() => navigate("/users/lecturers")}>
-              Kelola Data Dosen
-            </AdminButton>
-            <AdminButton variant="secondary" onClick={() => navigate("/users/students")}>
-              Kelola Data Mahasiswa
-            </AdminButton>
+            {unassignedStudents > 0 && (
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3.5 flex items-center justify-between text-xs text-amber-900">
+                <span>Terdapat <strong>{unassignedStudents} mahasiswa</strong> yang belum dimasukkan ke kelas semester aktif.</span>
+                <button
+                  type="button"
+                  onClick={() => navigate("/admin/academic/kelas-mahasiswa")}
+                  className="font-bold text-amber-900 underline hover:text-amber-950 transition shrink-0 ml-2 cursor-pointer"
+                >
+                  Alokasikan Sekarang →
+                </button>
+              </div>
+            )}
           </div>
         </div>
-      </section>
+
+        {/* Kolom Kanan (1 Kolom): Aksi Cepat Admin */}
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm sticky top-6">
+            <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">
+              Navigasi Cepat Admin
+            </h2>
+            <div className="mt-4 grid gap-2.5">
+              <button
+                type="button"
+                onClick={() => navigate("/admin/academic/mata-kuliah")}
+                className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-200 bg-gray-50/50 hover:bg-blue-50/60 hover:border-blue-200 transition-all text-xs font-bold text-gray-800 hover:text-blue-900 group cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <BookOpen size={16} className="text-blue-600" />
+                  Kelola Mata Kuliah
+                </span>
+                <ArrowUpRight size={14} className="text-gray-400 group-hover:text-blue-600 transition-transform group-hover:translate-x-0.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate("/admin/academic/kelas-praktikum")}
+                className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-200 bg-gray-50/50 hover:bg-blue-50/60 hover:border-blue-200 transition-all text-xs font-bold text-gray-800 hover:text-blue-900 group cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <Layers size={16} className="text-indigo-600" />
+                  Kelola Kelas Praktikum
+                </span>
+                <ArrowUpRight size={14} className="text-gray-400 group-hover:text-indigo-600 transition-transform group-hover:translate-x-0.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate("/admin/academic/kelas-mahasiswa")}
+                className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-200 bg-gray-50/50 hover:bg-blue-50/60 hover:border-blue-200 transition-all text-xs font-bold text-gray-800 hover:text-blue-900 group cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <GraduationCap size={16} className="text-amber-600" />
+                  Kelola Kelas Mahasiswa
+                </span>
+                <ArrowUpRight size={14} className="text-gray-400 group-hover:text-amber-600 transition-transform group-hover:translate-x-0.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate("/users/lecturers")}
+                className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-200 bg-gray-50/50 hover:bg-blue-50/60 hover:border-blue-200 transition-all text-xs font-bold text-gray-800 hover:text-blue-900 group cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <Users size={16} className="text-cyan-600" />
+                  Kelola Data Dosen
+                </span>
+                <ArrowUpRight size={14} className="text-gray-400 group-hover:text-cyan-600 transition-transform group-hover:translate-x-0.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate("/users/students")}
+                className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-200 bg-gray-50/50 hover:bg-blue-50/60 hover:border-blue-200 transition-all text-xs font-bold text-gray-800 hover:text-blue-900 group cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <UserPlus size={16} className="text-emerald-600" />
+                  Kelola Data Mahasiswa
+                </span>
+                <ArrowUpRight size={14} className="text-gray-400 group-hover:text-emerald-600 transition-transform group-hover:translate-x-0.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </AdminLayout>
   )
 }

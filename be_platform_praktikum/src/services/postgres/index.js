@@ -7,9 +7,11 @@ const pool = new Pool({
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
   database: process.env.PGDATABASE,
-  ssl: process.env.PGSSL === 'true' || process.env.NODE_ENV === 'production'
+  ssl: process.env.PGSSL === 'true'
     ? { rejectUnauthorized: false }
-    : false,
+    : process.env.NODE_ENV === 'production' && process.env.PGHOST !== 'localhost' && process.env.PGHOST !== '127.0.0.1'
+      ? { rejectUnauthorized: false }
+      : false,
 });
 
 module.exports = pool;

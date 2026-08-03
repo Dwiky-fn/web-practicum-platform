@@ -125,9 +125,17 @@ export default function NotificationsPage() {
 
       {/* Notification List */}
       {loading ? (
-        <div className="rounded-2xl border border-gray-200/80 bg-white p-12 text-center text-gray-500 shadow-sm animate-pulse">
-          <div className="h-6 bg-gray-200 rounded w-1/3 mx-auto mb-2" />
-          <div className="h-4 bg-gray-100 rounded w-1/2 mx-auto" />
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm animate-pulse flex items-start space-x-3">
+              <div className="h-10 w-10 bg-gray-200 rounded-xl shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 bg-gray-200 rounded w-1/3" />
+                <div className="h-3 bg-gray-100 rounded w-3/4" />
+                <div className="h-3 bg-gray-100 rounded w-1/4" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : filteredNotifications.length === 0 ? (
         <div className="rounded-2xl border border-gray-200/80 bg-white p-12 text-center text-gray-500 shadow-sm">

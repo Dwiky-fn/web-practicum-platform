@@ -101,7 +101,7 @@ export default function UpcomingTaskSection({
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm divide-y overflow-hidden">
+    <div className="rounded-2xl border border-gray-200/80 bg-white shadow-sm divide-y divide-gray-100 overflow-hidden">
       {upcomingJobsheets.map((jobsheet) => {
         const deadlineState = getDeadlineState(jobsheet.deadline, now)
         const submission = submissionMap.get(jobsheet.id)
@@ -118,26 +118,26 @@ export default function UpcomingTaskSection({
                 kelasPraktikumId: jobsheet.kelasPraktikumId,
               }))
             }
-            className="w-full p-6 flex justify-between items-center gap-4 text-left hover:bg-gray-50 active:bg-gray-50 transition"
+            className="w-full p-5 flex justify-between items-center gap-4 text-left hover:bg-blue-50/40 active:bg-blue-50/70 transition-all duration-150"
           >
             <div className="min-w-0">
-              <p className="font-medium text-gray-800">
+              <p className="font-bold text-gray-900 line-clamp-1 hover:text-blue-700 transition-colors">
                 {jobsheet.title}
               </p>
 
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusStyle(status)}`}>
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${getStatusStyle(status)}`}>
                   {getStatusLabel(isOverdue ? "OVERDUE" : status)}
                 </span>
-                <span className={`text-xs ${isOverdue ? "text-red-500" : "text-gray-500"}`}>
+                <span className={`text-xs font-medium ${isOverdue ? "text-red-600 font-semibold" : "text-gray-500"}`}>
                   {deadlineState.label}
                 </span>
               </div>
             </div>
 
             <span
-              className={`shrink-0 text-sm font-medium ${
-                isOverdue ? "text-red-500" : "text-gray-500"
+              className={`shrink-0 text-xs font-bold ${
+                isOverdue ? "text-red-600" : "text-gray-600"
               }`}
             >
               {formatAcademicDate(jobsheet.deadline)}

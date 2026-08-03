@@ -1107,6 +1107,15 @@ export default function AdminAcademicNativePage() {
   }
 
   function renderKelasMahasiswa() {
+    if (loading) {
+      return (
+        <div className="space-y-3 p-4 animate-pulse">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-10 bg-gray-100 rounded-lg" />
+          ))}
+        </div>
+      )
+    }
     if (!groupedKelasMahasiswa.length) return <EmptyState title={emptyLabel("kelas-mahasiswa")} />
     const displayedData = groupedKelasMahasiswa.slice((page - 1) * limit, page * limit)
     return (
@@ -1172,6 +1181,15 @@ export default function AdminAcademicNativePage() {
   }
 
   function renderKelasPraktikum(items: KelasPraktikum[] = filtered as KelasPraktikum[], isDetailView = false) {
+    if (loading) {
+      return (
+        <div className="space-y-3 p-4 animate-pulse">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-10 bg-gray-100 rounded-lg" />
+          ))}
+        </div>
+      )
+    }
     if (!items.length) return <EmptyState title="Belum ada kelas praktikum untuk tahun semester ini." />
     const headers = isDetailView
       ? ["Nama Kelas", "Jobsheet", "Pengampu", "Aksi"]
@@ -1201,6 +1219,15 @@ export default function AdminAcademicNativePage() {
   }
 
   function renderTable() {
+    if (loading) {
+      return (
+        <div className="space-y-3 p-4 animate-pulse">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-10 bg-gray-100 rounded-lg" />
+          ))}
+        </div>
+      )
+    }
     if (activeTab === "kelas-mahasiswa") return renderKelasMahasiswa()
     if (!filtered.length) return <EmptyState title={emptyLabel(activeTab)} />
 

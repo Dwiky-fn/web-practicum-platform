@@ -866,7 +866,7 @@ class SubmissionsService {
         submission.jobsheet_id,
         id_mata_kuliah,
         submission.id_kelas_praktikum,
-        { role: 'MAHASISWA', id: submission.student_id }
+        { role: 'DOSEN', id: submission.student_id }
       );
 
       const report = submission.report;

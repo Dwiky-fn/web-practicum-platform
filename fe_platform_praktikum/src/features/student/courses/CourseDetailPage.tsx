@@ -93,48 +93,56 @@ export default function CourseDetailPage() {
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold">
-            {course?.name ?? <TopProgressBar />}
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">
-            {course?.code}
-          </p>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-600">
-            {course?.description || "Deskripsi mata kuliah belum tersedia."}
-          </p>
+          {loading ? (
+            <div className="space-y-2">
+              <div className="h-8 bg-gray-200 rounded w-1/3 animate-pulse" />
+              <div className="h-4 bg-gray-200 rounded w-1/6 animate-pulse" />
+              <div className="h-4 bg-gray-200 rounded w-1/2 animate-pulse mt-2" />
+            </div>
+          ) : (
+            <>
+              <h1 className="text-2xl font-semibold">
+                {course?.name || "Detail Mata Kuliah"}
+              </h1>
+              <p className="text-gray-500 text-sm mt-1">
+                {course?.code}
+              </p>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-600">
+                {course?.description || "Deskripsi mata kuliah belum tersedia."}
+              </p>
+            </>
+          )}
         </div>
 
         <div className="space-y-4">
+          {loading ? (
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <JobsheetCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : jobsheets.length === 0 ? (
+            <div className="bg-white p-6 rounded-xl shadow-sm text-gray-500">
+              Belum ada jobsheet.
+            </div>
+          ) : (
+            jobsheets.map((jobsheet) => {
+              const submission = submissions.find(
+                (s) => s.jobsheetId === jobsheet.id
+              );
 
-            {loading ? (
-              <div className="space-y-4">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <JobsheetCardSkeleton key={i} />
-                ))}
-              </div>
-            ) : jobsheets.length === 0 ? (
-              <div className="bg-white p-6 rounded-xl shadow-sm text-gray-500">
-                Belum ada jobsheet.
-              </div>
-            ) : (
-              jobsheets.map((jobsheet) => {
-                const submission = submissions.find(
-                  (s) => s.jobsheetId === jobsheet.id
-                );
-
-                return (
-                  <JobsheetCard
-                    key={jobsheet.id}
-                    jobsheet={jobsheet}
-                    submission={submission}
-                    onClick={() =>
-                      navigate(academicJobsheetPath(effectiveCourseId!, jobsheet.id, { classId, mataKuliahId, kelasPraktikumId }))
-                    }
-                  />
-                );
-              })
-            )}
-
+              return (
+                <JobsheetCard
+                  key={jobsheet.id}
+                  jobsheet={jobsheet}
+                  submission={submission}
+                  onClick={() =>
+                    navigate(academicJobsheetPath(effectiveCourseId!, jobsheet.id, { classId, mataKuliahId, kelasPraktikumId }))
+                  }
+                />
+              );
+            })
+          )}
         </div>
       </main>
     </div>

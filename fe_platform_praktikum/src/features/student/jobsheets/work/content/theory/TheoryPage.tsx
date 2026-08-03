@@ -1,15 +1,23 @@
+import { useEffect } from "react"
 import { useParams, useOutletContext } from "react-router-dom"
 import type { Jobsheet } from "../../../../../../services/jobsheet/types"
 import RichTextViewer from "../../../../../../components/editor/RichTextViewer"
 
 export default function TheoryPage() {
   const { theoryId } = useParams()
-  const { jobsheet } = useOutletContext<{
+  const { jobsheet, markProgressItemCompleted } = useOutletContext<{
     jobsheet: Jobsheet
     programmingLanguage: string
+    markProgressItemCompleted?: (item: { type: string; id: string }) => void
   }>()
   
   const theory = jobsheet.theory.find(t => t.id === theoryId)
+
+  useEffect(() => {
+    if (theoryId && markProgressItemCompleted) {
+      markProgressItemCompleted({ type: "theory", id: theoryId })
+    }
+  }, [theoryId, markProgressItemCompleted])
 
   if (!theory) {
     return (

@@ -297,10 +297,10 @@ class LecturerJobsheetsService {
     await client.query(
       `
       INSERT INTO jobsheet_classes (
-        id, jobsheet_id, id_kelas_praktikum, class_id, is_active, deadline,
+        id, jobsheet_id, id_kelas_praktikum, is_active, deadline,
         title, description, goal, content, status, urutan, inactive_duration_minutes
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       ON CONFLICT (jobsheet_id, id_kelas_praktikum)
       WHERE id_kelas_praktikum IS NOT NULL
       DO UPDATE SET
@@ -318,7 +318,6 @@ class LecturerJobsheetsService {
         payload.id,
         payload.jobsheetId,
         payload.kelasPraktikumId,
-        payload.kelasPraktikumId || payload.id,
         payload.isActive,
         payload.deadline,
         payload.title,

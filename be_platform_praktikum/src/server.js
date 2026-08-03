@@ -1,4 +1,4 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
@@ -12,57 +12,25 @@ const lecturer = require('./api/lecturer');
 const departments = require('./api/departments');
 const errorHandler = require('./middlewares/errorHandler');
 const DeadlineScheduler = require('./services/deadline/DeadlineScheduler');
-const {
-  requireAuth,
-  requireRoles,
-} = require('./middlewares/auth');
+const { requireAuth, requireRoles } = require('./middlewares/auth');
+const { mountRouteGuards, mountAppRoutes } = require('./startup');
 
 const app = express();
 const server = http.createServer(app);
 
-// middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// register routes
-app.use('/admin', requireAuth);
-app.use('/lecturer', requireAuth);
-app.use('/students', requireAuth, requireRoles('MAHASISWA', 'ADMIN'));
-app.use('/student', requireAuth, requireRoles('MAHASISWA'));
-app.use('/student-progress', requireAuth, requireRoles('MAHASISWA'));
-app.use('/courses', requireAuth, requireRoles('MAHASISWA', 'DOSEN', 'ADMIN'));
-app.use('/users', requireAuth);
-app.use('/departments', requireAuth, requireRoles('ADMIN', 'DOSEN'));
-app.use('/tahun-semester', requireAuth);
-app.use('/kurikulum', requireAuth);
-app.use('/semester', requireAuth);
-app.use('/kelas', requireAuth);
-app.use('/mata-kuliah', requireAuth);
-app.use('/kelas-mahasiswa', requireAuth);
-app.use('/kelas-praktikum', requireAuth);
-app.use('/pengampu', requireAuth);
+mountRouteGuards(app, { requireAuth, requireRoles });
+mountAppRoutes({ app, server });
 
-const internalRoutes = require('./api/internal/aiCallback');
-
-student(app);
-users(app);
-admin(app);
-lecturer(app);
-departments(app);
-execution(server);
-
-app.use('/api/internal', internalRoutes);
-
-// test route
+app.use('/api/internal', require('./api/internal/aiCallback'));
 app.get('/', (req, res) => {
   res.send('API is running');
 });
-
 app.use(errorHandler);
 
-// start server
 const PORT = process.env.PORT || 3000;
-
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   DeadlineScheduler.start();

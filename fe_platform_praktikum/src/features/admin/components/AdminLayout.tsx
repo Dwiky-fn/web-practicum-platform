@@ -4,6 +4,8 @@ import Navbar from "../../../components/navbar/Navbar"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import ScrollToTopButton from "../../../components/ScrollToTopButton"
 
+import Breadcrumbs from "../../../components/Breadcrumbs"
+
 interface AdminLayoutProps {
   children: React.ReactNode
 }
@@ -23,6 +25,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         {/* Main Content Area */}
         <SidebarInset>
           <main className="flex-1 p-6 lg:p-8 max-w-7xl mx-auto w-full">
+            <Breadcrumbs className="mb-3" />
             {children}
           </main>
           <ScrollToTopButton />

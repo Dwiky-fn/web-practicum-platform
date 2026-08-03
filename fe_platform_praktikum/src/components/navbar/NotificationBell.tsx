@@ -28,8 +28,9 @@ export default function NotificationBell({
     } else {
       onMarkAll()
     }
-    const target = notif.targetUrl || notif.target_url
+    let target = notif.targetUrl || notif.target_url
     if (target) {
+      target = target.replace(/\/works\b/g, "").replace(/\/work\b/g, "")
       navigate(target)
     }
   }

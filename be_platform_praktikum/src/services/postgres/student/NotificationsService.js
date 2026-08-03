@@ -133,7 +133,7 @@ class NotificationsService {
               THEN CONCAT('Tenggat waktu jobsheet "', j.title, '" (', mk.nama_mk, ') tersisa kurang dari 24 jam! Segera kumpulkan sebelum ', to_char(jc.deadline, 'HH24:MI'), '.')
             ELSE CONCAT('Jobsheet "', j.title, '" pada ', mk.nama_mk, ' memiliki tenggat waktu hingga ', to_char(jc.deadline, 'DD Mon YYYY HH24:MI'), '.')
           END AS message,
-          CONCAT('/mata-kuliah/', mk.id, '/jobsheets/', j.id, '/works?mataKuliahId=', mk.id, '&kelasPraktikumId=', kp.id) AS target_url,
+          CONCAT('/mata-kuliah/', mk.id, '/jobsheets/', j.id, '?mataKuliahId=', mk.id, '&kelasPraktikumId=', kp.id) AS target_url,
           false AS is_read,
           COALESCE(jc.deadline, CURRENT_TIMESTAMP) AS sort_at
         FROM kelas_mhs km

@@ -52,8 +52,10 @@ export default function NotificationsPage() {
       await markNotificationsAsRead(user.id, notif.id)
     }
 
-    if (notif.targetUrl || notif.target_url) {
-      navigate(notif.targetUrl || notif.target_url || "/dashboard")
+    let target = notif.targetUrl || notif.target_url
+    if (target) {
+      target = target.replace(/\/works\b/g, "").replace(/\/work\b/g, "")
+      navigate(target)
     }
   }
 

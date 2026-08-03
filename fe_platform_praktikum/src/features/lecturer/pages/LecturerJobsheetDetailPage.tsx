@@ -67,6 +67,7 @@ import {
   type LecturerRemedialStudent,
 } from "../service"
 import { academicCourseBasePath } from "../../../services/academicScope"
+import Breadcrumbs from "../../../components/Breadcrumbs"
 
 type DetailTab = "detail" | "monitoring" | "students" | "remedial"
 
@@ -732,11 +733,12 @@ export default function LecturerJobsheetDetailPage() {
 
   return (
     <LecturerLayout>
+      <Breadcrumbs items={[{ label: "Kelola Mata Kuliah Dosen", to: "/mata-kuliah" }, { label: jobsheet?.title || "Detail Jobsheet" }]} className="mb-3" />
       <button
         type="button"
         onClick={() => {
-          goBackToParent({
-            parentPath: courseId && classId 
+          smartNavigate(navigate, {
+            preferredPath: classId 
               ? `/kelas-praktikum/${courseId}/${classId}` 
               : courseId 
                 ? `/mata-kuliah/${courseId}/jobsheets` 

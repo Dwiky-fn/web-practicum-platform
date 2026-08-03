@@ -8,6 +8,7 @@ import type { JobsheetSubmission } from "../../../services/submission/types";
 import type { Jobsheet } from "../../../services/jobsheet/types";
 import type { Course } from "../../../services/course/types";
 import Navbar from "../../../components/navbar/Navbar";
+import Breadcrumbs from "../../../components/Breadcrumbs";
 import JobsheetCard from "./components/JobsheetCard";
 import JobsheetCardSkeleton from "./components/loading/JobsheetCardSkeleton";
 import TopProgressBar from "../../../components/loading/TopProgressBar";
@@ -84,7 +85,8 @@ export default function CourseDetailPage() {
       <Navbar />
       <TopProgressBar />
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-6">
+        <Breadcrumbs items={[{ label: "Mata Kuliah", to: "/mata-kuliah" }, { label: course?.name || "Detail Mata Kuliah" }]} />
         {error && (
           <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}

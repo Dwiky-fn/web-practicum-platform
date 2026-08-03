@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom"
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
 import LecturerLayout from "../components/LecturerLayout"
 import { LecturerButton, LecturerEmptyState } from "../components/LecturerUI"
+import Breadcrumbs from "../../../components/Breadcrumbs"
 import { getLecturerCourseGroups, type LecturerCourseGroup } from "../service"
 import { academicCourseBasePath } from "../../../services/academicScope"
 
@@ -97,6 +98,8 @@ export default function LecturerCoursesPage() {
           {error}
         </div>
       )}
+
+      <Breadcrumbs items={[{ label: "Kelola Mata Kuliah Dosen" }]} className="mb-3" />
 
       {/* Hero Banner Panel */}
       <div className="mb-6 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-800 p-6 text-white shadow-lg">

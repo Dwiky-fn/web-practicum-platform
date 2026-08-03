@@ -87,7 +87,8 @@ export default function SidebarCard({
     if (accessMode === "editable_remedial") return "Kerjakan Remedial";
     if (isLockedBySequence) return "Terkunci";
     if (isLockedByDeadline) return "Deadline Berakhir";
-    if (accessMode === "readonly_submitted" || accessMode === "readonly_reviewed") return "Lihat Pengerjaan";
+    if (submission && status && status !== "DRAFT") return "Lihat";
+    if (accessMode === "readonly_submitted" || accessMode === "readonly_reviewed") return "Lihat";
     if (status === "DRAFT") return "Lanjutkan Pengerjaan";
     return "Mulai Mengerjakan";
   }

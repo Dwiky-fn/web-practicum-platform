@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import type { Course } from "../../../services/course/types";
 import { academicCoursePath } from "../../../services/academicScope";
 import Navbar from "../../../components/navbar/Navbar";
+import Breadcrumbs from "../../../components/Breadcrumbs";
 import CourseCardSkeleton from "../../../components/loading/CourseSkeleton";
 import CourseCard from "../../../components/CourseCard";
 import TopProgressBar from "../../../components/loading/TopProgressBar";
@@ -61,7 +62,8 @@ export default function StudentCoursePage() {
       <Navbar />
       <TopProgressBar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-6 space-y-6">
+        <Breadcrumbs items={[{ label: "Mata Kuliah Saya" }]} />
         {error && (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
             {error}

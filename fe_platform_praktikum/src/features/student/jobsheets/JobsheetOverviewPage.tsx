@@ -6,6 +6,7 @@ import type { Jobsheet } from "../../../services/jobsheet/types";
 import type { JobsheetSubmission } from "../../../services/submission/types";
 import { formatAcademicDate } from "../../../shared/utils/formatAcademicDateTime";
 import Navbar from "../../../components/navbar/Navbar";
+import Breadcrumbs from "../../../components/Breadcrumbs";
 import SidebarCard from "./components/SidebarCard";
 import TopProgressBar from "../../../components/loading/TopProgressBar";
 import SidebarCardSkeleton from "./components/loading/SidebarSkeleton";
@@ -117,7 +118,8 @@ export default function JobsheetOverviewPage() {
       <Navbar />
       <TopProgressBar />
 
-      <main className="max-w-5xl mx-auto px-4 py-6 sm:px-6">
+      <main className="max-w-5xl mx-auto px-4 py-4 sm:px-6">
+        <Breadcrumbs items={[{ label: "Mata Kuliah", to: "/mata-kuliah" }, { label: "Jobsheet", to: coursePath }, { label: jobsheet?.title || "Detail Jobsheet" }]} className="mb-2" />
         <button
           type="button"
           onClick={() => navigate(coursePath)}
@@ -348,15 +350,26 @@ function SubmissionHistoryCard({
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right">
-                        {isActiveRemedial && (
-                          <button
-                            type="button"
-                            onClick={() => navigate(academicJobsheetWorkPath(courseId, jobsheetId, { classId, mataKuliahId, kelasPraktikumId }))}
-                            className="inline-flex items-center px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs transition cursor-pointer"
-                          >
-                            Kerjakan
-                          </button>
-                        )}
+                        <div className="flex justify-end gap-2">
+                          {isActiveRemedial && (
+                            <button
+                              type="button"
+                              onClick={() => navigate(academicJobsheetWorkPath(courseId, jobsheetId, { classId, mataKuliahId, kelasPraktikumId }))}
+                              className="inline-flex items-center px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs transition cursor-pointer"
+                            >
+                              Kerjakan
+                            </button>
+                          )}
+                          {item.status !== "DRAFT" && (
+                            <button
+                              type="button"
+                              onClick={() => navigate(`${academicJobsheetWorkPath(courseId, jobsheetId, { classId, mataKuliahId, kelasPraktikumId })}/report/review`)}
+                              className="inline-flex items-center px-2.5 py-1 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs transition cursor-pointer"
+                            >
+                              Lihat Review
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -401,15 +414,26 @@ function SubmissionHistoryCard({
                     </div>
                     <span className="text-xs text-gray-400">{dateStr}</span>
                   </div>
-                  {isActiveRemedial && (
-                    <button
-                      type="button"
-                      onClick={() => navigate(academicJobsheetWorkPath(courseId, jobsheetId, { classId, mataKuliahId, kelasPraktikumId }))}
-                      className="w-full py-1.5 rounded bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs transition cursor-pointer text-center mt-1"
-                    >
-                      Kerjakan
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2 mt-1">
+                    {isActiveRemedial && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(academicJobsheetWorkPath(courseId, jobsheetId, { classId, mataKuliahId, kelasPraktikumId }))}
+                        className="flex-1 py-1.5 rounded bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs transition cursor-pointer text-center"
+                      >
+                        Kerjakan
+                      </button>
+                    )}
+                    {item.status !== "DRAFT" && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`${academicJobsheetWorkPath(courseId, jobsheetId, { classId, mataKuliahId, kelasPraktikumId })}/report/review`)}
+                        className="flex-1 py-1.5 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs transition cursor-pointer text-center"
+                      >
+                        Lihat Review
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}

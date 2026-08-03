@@ -737,8 +737,8 @@ export default function LecturerJobsheetDetailPage() {
       <button
         type="button"
         onClick={() => {
-          smartNavigate(navigate, {
-            preferredPath: classId 
+          goBackToParent({
+            parentPath: classId 
               ? `/kelas-praktikum/${courseId}/${classId}` 
               : courseId 
                 ? `/mata-kuliah/${courseId}/jobsheets` 

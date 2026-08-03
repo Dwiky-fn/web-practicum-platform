@@ -289,6 +289,7 @@ export default function WorkPage() {
         onClose={() => setIsChatOpen(false)}
         kelasPraktikumId={scope.kelasPraktikumId || ""}
         jobsheetId={jobsheetId || ""}
+        onRead={() => setUnreadChatCount(0)}
       />
     </div>
   )

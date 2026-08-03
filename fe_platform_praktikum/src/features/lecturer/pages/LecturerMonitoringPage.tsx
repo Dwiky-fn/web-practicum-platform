@@ -23,6 +23,7 @@ import {
 } from "../service"
 import { connectMonitoringSocket } from "../../../services/monitoringSocket"
 import type { MonitoringSocketEvent } from "../../../services/monitoringSocket"
+import { getChatUnreadCount } from "../../../services/chat/chatService"
 
 function formatDurationFromNow(value?: string | null) {
   if (!value) return "Belum ada aktivitas"
@@ -72,6 +73,23 @@ export default function LecturerMonitoringPage() {
     mataKuliahId: selectedCourse?.mataKuliahId || selectedCourse?.id,
     kelasPraktikumId: selectedClass?.kelasPraktikumId || selectedClass?.id_kelas_praktikum,
   }
+
+  const [studentUnreadMap, setStudentUnreadMap] = useState<Record<string, number>>({})
+
+  const refreshUnreadCounts = useCallback(async () => {
+    const kpId = selectedScope.kelasPraktikumId || classId
+    if (!kpId) return
+    try {
+      const res = await getChatUnreadCount({ kelasPraktikumId: kpId })
+      setStudentUnreadMap(res.studentUnreadMap || {})
+    } catch {
+      // Ignore unread fetch failure
+    }
+  }, [selectedScope.kelasPraktikumId, classId])
+
+  useEffect(() => {
+    refreshUnreadCounts()
+  }, [refreshUnreadCounts])
 
   useEffect(() => {
     async function loadCourses() {
@@ -509,9 +527,15 @@ export default function LecturerMonitoringPage() {
                               })
                               setIsLecturerChatOpen(true)
                             }}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 transition-all cursor-pointer"
+                            className="relative inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 transition-all cursor-pointer"
                           >
-                            <MessageSquare size={14} /> Chat
+                            <MessageSquare size={14} />
+                            <span>Chat</span>
+                            {Boolean(studentUnreadMap[item.studentId]) && (
+                              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white shadow-xs">
+                                {studentUnreadMap[item.studentId]}
+                              </span>
+                            )}
                           </button>
                         </div>
                       </td>
@@ -541,6 +565,7 @@ export default function LecturerMonitoringPage() {
         jobsheetId={selectedChatStudent?.jobsheetId || ""}
         studentId={selectedChatStudent?.id}
         studentName={selectedChatStudent?.name}
+        onRead={refreshUnreadCounts}
       />
     </LecturerLayout>
   )

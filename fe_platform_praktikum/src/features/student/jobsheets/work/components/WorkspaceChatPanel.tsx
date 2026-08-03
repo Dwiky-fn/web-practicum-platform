@@ -17,6 +17,7 @@ interface WorkspaceChatPanelProps {
   onClose: () => void
   kelasPraktikumId: string
   jobsheetId: string
+  onRead?: () => void
 }
 
 export default function WorkspaceChatPanel({
@@ -24,6 +25,7 @@ export default function WorkspaceChatPanel({
   onClose,
   kelasPraktikumId,
   jobsheetId,
+  onRead,
 }: WorkspaceChatPanelProps) {
   const { user } = useCurrentUser()
   const token = localStorage.getItem("authToken") || ""
@@ -35,12 +37,20 @@ export default function WorkspaceChatPanel({
   const [sending, setSending] = useState(false)
   const [error, setError] = useState("")
   const [isWsConnected, setIsWsConnected] = useState(false)
+  const [firstUnreadId, setFirstUnreadId] = useState<string | null>(null)
 
   const chatSocketRef = useRef<ChatSocketClient | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const firstUnreadRef = useRef<HTMLDivElement>(null)
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  const scrollToTarget = () => {
+    setTimeout(() => {
+      if (firstUnreadRef.current) {
+        firstUnreadRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
+      } else {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+      }
+    }, 120)
   }
 
   // Load or create conversation
@@ -62,10 +72,16 @@ export default function WorkspaceChatPanel({
 
         const msgs = await getChatMessages(conv.id)
         if (!isMounted) return
+
+        // Identify first unread message from the other user
+        const firstUnread = msgs.find((m) => m.sender_id !== user?.id && !m.read_at)
+        setFirstUnreadId(firstUnread ? firstUnread.id : null)
+
         setMessages(msgs)
-        scrollToBottom()
+        scrollToTarget()
 
         await markChatAsRead(conv.id)
+        onRead?.()
       } catch (err) {
         if (!isMounted) return
         setError(err instanceof Error ? err.message : "Gagal memuat percakapan chat")
@@ -109,9 +125,10 @@ export default function WorkspaceChatPanel({
           }
           return [...prev, newMsg]
         })
-        scrollToBottom()
+        scrollToTarget()
         if (newMsg.sender_id !== user?.id) {
           markChatAsRead(conversation.id)
+          onRead?.()
         }
       }
     })
@@ -157,10 +174,6 @@ export default function WorkspaceChatPanel({
     return () => clearInterval(interval)
   }, [isOpen, conversation?.id])
 
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
-
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault()
     const text = inputMessage.trim()
@@ -180,7 +193,7 @@ export default function WorkspaceChatPanel({
 
     setMessages((prev) => [...prev, tempMsg])
     setInputMessage("")
-    scrollToBottom()
+    scrollToTarget()
 
     try {
       setSending(true)
@@ -268,33 +281,43 @@ export default function WorkspaceChatPanel({
         {!loading &&
           messages.map((msg) => {
             const isMe = msg.sender_id === user?.id
+            const isFirstUnread = msg.id === firstUnreadId
+
             return (
-              <div
-                key={msg.id}
-                className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
-              >
-                <div
-                  className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-xs shadow-xs leading-relaxed ${
-                    isMe
-                      ? "bg-blue-600 text-white rounded-br-none"
-                      : "bg-white text-gray-800 border border-gray-100 rounded-bl-none"
-                  }`}
-                >
-                  {!isMe && (
-                    <p className="font-bold text-[10px] text-blue-600 mb-0.5">
-                      {msg.sender_name || "Dosen"}
-                    </p>
-                  )}
-                  <p className="whitespace-pre-wrap break-words font-sans">{msg.message}</p>
-                </div>
-                <div className="flex items-center gap-1 mt-1 px-1 text-[10px] text-gray-400">
-                  <span>{formatAcademicDateTime(msg.created_at)}</span>
-                  {isMe && (
-                    <CheckCheck
-                      size={12}
-                      className={msg.read_at ? "text-blue-600 font-bold" : "text-gray-400"}
-                    />
-                  )}
+              <div key={msg.id} ref={isFirstUnread ? firstUnreadRef : null} className="space-y-2">
+                {isFirstUnread && (
+                  <div className="my-2.5 flex items-center gap-2">
+                    <div className="h-px flex-1 bg-amber-200" />
+                    <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 shadow-2xs">
+                      Pesan Baru
+                    </span>
+                    <div className="h-px flex-1 bg-amber-200" />
+                  </div>
+                )}
+                <div className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
+                  <div
+                    className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-xs shadow-xs leading-relaxed ${
+                      isMe
+                        ? "bg-blue-600 text-white rounded-br-none"
+                        : "bg-white text-gray-800 border border-gray-100 rounded-bl-none"
+                    }`}
+                  >
+                    {!isMe && (
+                      <p className="font-bold text-[10px] text-blue-600 mb-0.5">
+                        {msg.sender_name || "Dosen"}
+                      </p>
+                    )}
+                    <p className="whitespace-pre-wrap break-words font-sans">{msg.message}</p>
+                  </div>
+                  <div className="flex items-center gap-1 mt-1 px-1 text-[10px] text-gray-400">
+                    <span>{formatAcademicDateTime(msg.created_at)}</span>
+                    {isMe && (
+                      <CheckCheck
+                        size={12}
+                        className={msg.read_at ? "text-blue-600 font-bold" : "text-gray-400"}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             )

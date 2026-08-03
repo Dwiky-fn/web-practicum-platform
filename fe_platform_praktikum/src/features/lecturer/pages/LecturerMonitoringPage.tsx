@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Activity, Clock, Eye, Radio, Sparkles, UserCheck, Users, UserX } from "lucide-react"
+import { Activity, Clock, Eye, MessageSquare, Radio, Sparkles, UserCheck, Users, UserX } from "lucide-react"
 import StudentProfileModal from "../components/StudentProfileModal"
+import LecturerChatDrawer from "../components/LecturerChatDrawer"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
 import LecturerLayout from "../components/LecturerLayout"
@@ -58,6 +59,8 @@ export default function LecturerMonitoringPage() {
   const [status, setStatus] = useState("all")
   const [keyword, setKeyword] = useState("")
   const [selectedStudentProfileId, setSelectedStudentProfileId] = useState<string | null>(null)
+  const [isLecturerChatOpen, setIsLecturerChatOpen] = useState(false)
+  const [selectedChatStudent, setSelectedChatStudent] = useState<{ id: string; name: string; jobsheetId: string } | null>(null)
   const [studentCount, setStudentCount] = useState(0)
   const [rows, setRows] = useState<LecturerClassMonitoringStudent[]>([])
   const [socketStatus, setSocketStatus] = useState<"connected" | "connecting" | "disconnected">("disconnected")
@@ -481,18 +484,36 @@ export default function LecturerMonitoringPage() {
                         {item.runCount} kali
                       </td>
                       <td className="px-4 py-3.5 text-center">
-                        <button
-                          type="button"
-                          disabled={!item.currentJobsheet?.id}
-                          onClick={() => {
-                            if (!item.currentJobsheet?.id) return
-                            const kelasPraktikumId = selectedScope.kelasPraktikumId || classId
-                            navigate(`/lecturer/kelas-praktikum/${kelasPraktikumId}/jobsheets/${item.currentJobsheet.id}/students/${item.studentId}/monitor`)
-                          }}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 transition-all"
-                        >
-                          <Eye size={14} /> Live Workspace
-                        </button>
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            disabled={!item.currentJobsheet?.id}
+                            onClick={() => {
+                              if (!item.currentJobsheet?.id) return
+                              const kelasPraktikumId = selectedScope.kelasPraktikumId || classId
+                              navigate(`/lecturer/kelas-praktikum/${kelasPraktikumId}/jobsheets/${item.currentJobsheet.id}/students/${item.studentId}/monitor`)
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 transition-all cursor-pointer"
+                          >
+                            <Eye size={14} /> Live Workspace
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!item.currentJobsheet?.id}
+                            onClick={() => {
+                              if (!item.currentJobsheet?.id) return
+                              setSelectedChatStudent({
+                                id: item.studentId,
+                                name: item.name,
+                                jobsheetId: item.currentJobsheet.id,
+                              })
+                              setIsLecturerChatOpen(true)
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 transition-all cursor-pointer"
+                          >
+                            <MessageSquare size={14} /> Chat
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -509,6 +530,18 @@ export default function LecturerMonitoringPage() {
           onClose={() => setSelectedStudentProfileId(null)}
         />
       )}
+
+      <LecturerChatDrawer
+        isOpen={isLecturerChatOpen}
+        onClose={() => {
+          setIsLecturerChatOpen(false)
+          setSelectedChatStudent(null)
+        }}
+        kelasPraktikumId={selectedScope.kelasPraktikumId || classId}
+        jobsheetId={selectedChatStudent?.jobsheetId || ""}
+        studentId={selectedChatStudent?.id}
+        studentName={selectedChatStudent?.name}
+      />
     </LecturerLayout>
   )
 }

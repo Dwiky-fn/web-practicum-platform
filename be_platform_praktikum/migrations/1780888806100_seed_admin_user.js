@@ -8,12 +8,12 @@ exports.up = (pgm) => {
     VALUES (
       'admin-001',
       'Administrator',
-      'admin@praktikum.ac.id',
+      'admin@polnep.ac.id',
       '$2b$10$J.RKjQNhPCqHVFUECCAFAuma3.ttbB8V7Mg08LDvkPoAop8S.62Du',
       'ADMIN',
       true
     )
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email;
   `);
 
   // Create admin_profile for the admin user

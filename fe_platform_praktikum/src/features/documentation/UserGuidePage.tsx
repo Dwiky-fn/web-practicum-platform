@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { useCurrentUser } from "../../services/user/useCurrentUser"
 import Navbar from "../../components/navbar/Navbar"
+import Breadcrumbs from "../../components/Breadcrumbs"
 import AdminLayout from "../admin/components/AdminLayout"
 import LecturerLayout from "../lecturer/components/LecturerLayout"
 import TopProgressBar from "../../components/loading/TopProgressBar"
@@ -239,6 +240,7 @@ export default function UserGuidePage() {
 
   const pageContent = (
     <div className="space-y-6">
+      <Breadcrumbs items={[{ label: "Panduan Penggunaan" }]} />
       {/* Hero Banner Panel */}
       <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-800 p-6 text-white shadow-lg">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

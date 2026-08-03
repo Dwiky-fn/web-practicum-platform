@@ -2,6 +2,7 @@ import { createContext, useContext } from "react"
 import Navbar from "../../../components/navbar/Navbar"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import ScrollToTopButton from "../../../components/ScrollToTopButton"
+import Breadcrumbs from "../../../components/Breadcrumbs"
 
 const LecturerLayoutContext = createContext(false)
 
@@ -22,7 +23,8 @@ export default function LecturerLayout({ children }: { children: React.ReactNode
       <div className="min-h-screen bg-gray-50 text-gray-900">
         <Navbar navItems={lecturerNavItems} />
         <TopProgressBar />
-        <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-10">
+        <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-10">
+          <Breadcrumbs className="mb-3" />
           {children}
         </main>
         <ScrollToTopButton />

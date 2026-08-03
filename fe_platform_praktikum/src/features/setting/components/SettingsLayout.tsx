@@ -1,15 +1,17 @@
 import { User, IdCard, Settings } from "lucide-react";
 import type React from "react";
 
+import Breadcrumbs from "../../../components/Breadcrumbs"
+
 interface Props {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   children: React.ReactNode;
 }
 
-type TabItem = {
-  name: string;
-  icon: React.ElementType;
+interface TabItem {
+  name: string
+  icon: React.ComponentType<{ className?: string; size?: number }>
 }
 
 export default function SettingsLayout({
@@ -26,6 +28,7 @@ export default function SettingsLayout({
 
   return (
     <div className="w-full space-y-6">
+      <Breadcrumbs items={[{ label: "Pengaturan Akun" }]} />
       {/* Body Section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Sidebar Navigation */}

@@ -4,6 +4,7 @@ import type { Course } from "../../../../../services/course/types"
 import type { Jobsheet } from "../../../../../services/jobsheet/types"
 import type { AcademicScope } from "../../../../../services/academicScope"
 import { buildWorkNavigation } from "../utils/buildNavigation"
+import Breadcrumbs from "../../../../../components/Breadcrumbs"
 
 interface WorkHeaderProps {
   title: string
@@ -22,8 +23,8 @@ export default function WorkHeader({ title, backTo, course, jobsheet, scope, bas
   const activeTitle = activeItem?.label || title
 
   return (
-    <header className="shrink-0 border-b bg-white px-4 py-1.5 sm:px-5">
-      <div className="flex min-w-0">
+    <header className="shrink-0 border-b bg-white px-4 py-1.5 sm:px-5 flex flex-wrap items-center justify-between gap-2">
+      <div className="flex items-center gap-2 min-w-0">
         <button
           type="button"
           onClick={() => navigate(backTo)}
@@ -37,6 +38,14 @@ export default function WorkHeader({ title, backTo, course, jobsheet, scope, bas
           </h1>
         </button>
       </div>
+      <Breadcrumbs
+        items={[
+          { label: "Mata Kuliah", to: "/mata-kuliah" },
+          { label: jobsheet?.title || "Jobsheet", to: backTo },
+          { label: activeTitle },
+        ]}
+        className="py-0 text-[11px]"
+      />
     </header>
   )
 }

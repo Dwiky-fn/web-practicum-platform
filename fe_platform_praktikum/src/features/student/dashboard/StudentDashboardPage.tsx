@@ -13,6 +13,7 @@ import type { JobsheetSubmission } from "../../../services/submission/types";
 import { academicCoursePath, getCourseAcademicScope } from "../../../services/academicScope";
 import CourseCard from "../../../components/CourseCard";
 import Navbar from "../../../components/navbar/Navbar";
+import Breadcrumbs from "../../../components/Breadcrumbs";
 import SummaryCard from "../../../components/dashboard/SummaryCard";
 import UpcomingTaskSection from "./components/UpcomingTaskSection";
 import WelcomeSection from "./components/WelcomeSection";
@@ -119,7 +120,8 @@ export default function StudentDashboardPage() {
       <Navbar />
       <TopProgressBar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-6 space-y-6">
+        <Breadcrumbs items={[{ label: "Dashboard" }]} />
         {error && (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
             {error}

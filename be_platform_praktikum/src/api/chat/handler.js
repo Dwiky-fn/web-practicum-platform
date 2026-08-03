@@ -1,3 +1,5 @@
+const { broadcastChatMessage } = require('./ws');
+
 class ChatHandler {
   constructor(chatService) {
     this._chatService = chatService;
@@ -78,6 +80,8 @@ class ChatHandler {
         message,
         clientMessageId,
       });
+
+      broadcastChatMessage(conversationId, chatMessage);
 
       res.status(201).json({
         status: 'success',

@@ -6,7 +6,7 @@ const lecturer = require('./api/lecturer');
 const departments = require('./api/departments');
 const chat = require('./api/chat');
 const ChatService = require('./services/postgres/chat/ChatService');
-const initChatWebSocketServer = require('./api/chat/ws');
+const { initChatWebSocketServer } = require('./api/chat/ws');
 const pool = require('./services/postgres');
 
 function mountRouteGuards(app, { requireAuth, requireRoles }) {

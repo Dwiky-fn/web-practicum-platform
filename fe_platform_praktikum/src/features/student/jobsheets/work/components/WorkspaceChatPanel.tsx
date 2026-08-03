@@ -125,6 +125,32 @@ export default function WorkspaceChatPanel({
     }
   }, [isOpen, token, conversation, user?.id])
 
+  // Auto polling fallback every 3 seconds while chat panel is open
+  useEffect(() => {
+    if (!isOpen || !conversation?.id) return
+
+    const interval = setInterval(async () => {
+      try {
+        const latestMsgs = await getChatMessages(conversation.id)
+        setMessages((prev) => {
+          if (
+            latestMsgs.length !== prev.length ||
+            (latestMsgs.length > 0 &&
+              prev.length > 0 &&
+              latestMsgs[latestMsgs.length - 1].id !== prev[prev.length - 1].id)
+          ) {
+            return latestMsgs
+          }
+          return prev
+        })
+      } catch {
+        // Silently ignore polling error
+      }
+    }, 3000)
+
+    return () => clearInterval(interval)
+  }, [isOpen, conversation?.id])
+
   useEffect(() => {
     scrollToBottom()
   }, [messages])

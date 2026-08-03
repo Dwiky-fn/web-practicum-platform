@@ -162,6 +162,32 @@ export default function LecturerChatDrawer({
     }
   }, [isOpen, token, activeConversation, user?.id])
 
+  // Auto polling fallback every 3 seconds while chat drawer is open
+  useEffect(() => {
+    if (!isOpen || !activeConversation?.id) return
+
+    const interval = setInterval(async () => {
+      try {
+        const latestMsgs = await getChatMessages(activeConversation.id)
+        setMessages((prev) => {
+          if (
+            latestMsgs.length !== prev.length ||
+            (latestMsgs.length > 0 &&
+              prev.length > 0 &&
+              latestMsgs[latestMsgs.length - 1].id !== prev[prev.length - 1].id)
+          ) {
+            return latestMsgs
+          }
+          return prev
+        })
+      } catch {
+        // Silently ignore polling error
+      }
+    }, 3000)
+
+    return () => clearInterval(interval)
+  }, [isOpen, activeConversation?.id])
+
   useEffect(() => {
     scrollToBottom()
   }, [messages])

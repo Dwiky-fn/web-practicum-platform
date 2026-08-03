@@ -2,6 +2,22 @@ const { WebSocketServer, WebSocket } = require('ws');
 const jwt = require('jsonwebtoken');
 const url = require('url');
 
+let globalBroadcastToRoom = null;
+let globalBroadcastToUser = null;
+
+function broadcastChatMessage(conversationId, msg) {
+  if (globalBroadcastToRoom) {
+    globalBroadcastToRoom(`conv:${conversationId}`, 'chat:message:new', msg);
+    const recipientId =
+      msg.conversation?.student_id === msg.sender_id
+        ? msg.conversation?.lecturer_id
+        : msg.conversation?.student_id;
+    if (recipientId && globalBroadcastToUser) {
+      globalBroadcastToUser(recipientId, 'chat:notification:new', msg);
+    }
+  }
+}
+
 function initChatWebSocketServer(server, chatService) {
   const wss = new WebSocketServer({ noServer: true });
 
@@ -60,6 +76,9 @@ function initChatWebSocketServer(server, chatService) {
       });
     }
   }
+
+  globalBroadcastToRoom = broadcastToRoom;
+  globalBroadcastToUser = broadcastToUser;
 
   // Handle upgrade requests for /chat
   server.on('upgrade', (request, socket, head) => {
@@ -133,8 +152,11 @@ function initChatWebSocketServer(server, chatService) {
           // Broadcast new message to conversation room
           broadcastToRoom(`conv:${conversationId}`, 'chat:message:new', msg);
 
-          // Notify the other participant if they are online
-          const recipientId = msg.conversation.student_id === user.id ? msg.conversation.lecturer_id : msg.conversation.student_id;
+          // Notify the recipient
+          const recipientId =
+            msg.conversation.student_id === user.id
+              ? msg.conversation.lecturer_id
+              : msg.conversation.student_id;
           broadcastToUser(recipientId, 'chat:notification:new', msg);
         }
 
@@ -143,7 +165,11 @@ function initChatWebSocketServer(server, chatService) {
           if (!conversationId) return;
 
           const res = await chatService.markAsRead({ conversationId, userId: user.id });
-          broadcastToRoom(`conv:${conversationId}`, 'chat:read', { conversationId, readerId: user.id, ...res });
+          broadcastToRoom(`conv:${conversationId}`, 'chat:read', {
+            conversationId,
+            readerId: user.id,
+            ...res,
+          });
         }
       } catch (err) {
         ws.send(JSON.stringify({ event: 'chat:error', data: { message: err.message } }));
@@ -162,4 +188,7 @@ function initChatWebSocketServer(server, chatService) {
   return wss;
 }
 
-module.exports = initChatWebSocketServer;
+module.exports = {
+  initChatWebSocketServer,
+  broadcastChatMessage,
+};

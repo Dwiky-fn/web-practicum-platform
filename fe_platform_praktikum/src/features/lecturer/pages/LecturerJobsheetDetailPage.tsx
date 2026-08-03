@@ -13,6 +13,7 @@ import {
   Save,
   X,
   UserCheck,
+  MessageSquare,
 } from "lucide-react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import StudentProfileModal from "../components/StudentProfileModal"
@@ -1616,7 +1617,7 @@ export default function LecturerJobsheetDetailPage() {
           setIsLecturerChatOpen(false)
           setSelectedChatStudent(null)
         }}
-        kelasPraktikumId={effectiveKelasPraktikumId || ""}
+        kelasPraktikumId={kelasPraktikumId || classId || ""}
         jobsheetId={jobsheetId || ""}
         studentId={selectedChatStudent?.id}
         studentName={selectedChatStudent?.name}

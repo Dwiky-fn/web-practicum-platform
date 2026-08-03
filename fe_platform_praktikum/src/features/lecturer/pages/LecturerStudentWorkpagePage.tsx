@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
-import { User, MapPin, Activity } from "lucide-react"
+import { User, MapPin, Activity, ChevronDown } from "lucide-react"
 import type { JSONContent } from "@tiptap/react"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
 import { toast } from "../../../components/toast/toastStore"
@@ -269,6 +269,7 @@ export default function LecturerStudentWorkpagePage() {
   const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null)
   const [liveStatus, setLiveStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("disconnected")
   const [studentOnline, setStudentOnline] = useState(false)
+  const [isHeaderExpanded, setIsHeaderExpanded] = useState(true)
   const liveWorkspaceVersionRef = useRef(0)
 
   const basePath = `/lecturer/kelas-praktikum/${kelasPraktikumId}/jobsheets/${jobsheetId}/students/${studentId}/monitor`
@@ -612,89 +613,101 @@ export default function LecturerStudentWorkpagePage() {
         basePath={basePath}
       />
 
-      <div className="shrink-0 border-b border-gray-200 bg-white px-3 py-1.5">
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-1.5">
+      <div className="shrink-0 border-b border-gray-200 bg-white px-3 py-1.5 transition-all">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
               Monitoring Dosen
             </span>
             <span className="text-gray-300 text-[10px]">·</span>
-              <span className="text-[10px] text-gray-500 font-semibold">
-                Sync: {formatClock(lastRefreshAt || data.lastUpdatedAt)}
-              </span>
-              <span className="text-gray-300 text-[10px]">Â·</span>
-              <span className="text-[10px] font-semibold text-gray-600">
-                Live: {liveStatus === "connected" ? "Terhubung" : liveStatus === "reconnecting" ? "Menghubungkan Ulang" : liveStatus === "connecting" ? "Menghubungkan" : "Terputus"}
-              </span>
-              <span className="text-gray-300 text-[10px]">Â·</span>
-              <span className={`text-[10px] font-bold ${studentOnline ? "text-emerald-600" : "text-gray-500"}`}>
-                {studentOnline ? "Mahasiswa sedang online" : "Mahasiswa tidak sedang membuka workspace"}
-              </span>
-            </div>
+            <span className="text-[10px] text-gray-500 font-semibold">
+              Sync: {formatClock(lastRefreshAt || data.lastUpdatedAt)}
+            </span>
+            <span className="text-gray-300 text-[10px]">·</span>
+            <span className="text-[10px] font-semibold text-gray-600">
+              Live: {liveStatus === "connected" ? "Terhubung" : liveStatus === "reconnecting" ? "Menghubungkan Ulang" : liveStatus === "connecting" ? "Menghubungkan" : "Terputus"}
+            </span>
+            <span className="text-gray-300 text-[10px]">·</span>
+            <span className={`text-[10px] font-bold ${studentOnline ? "text-emerald-600" : "text-gray-500"}`}>
+              {studentOnline ? "Mahasiswa sedang online" : "Mahasiswa tidak sedang membuka workspace"}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsHeaderExpanded(!isHeaderExpanded)}
+            className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded border border-blue-200 transition cursor-pointer shrink-0 ml-2"
+            title={isHeaderExpanded ? "Sembunyikan Detail Telemetri" : "Tampilkan Detail Telemetri"}
+          >
+            <span>{isHeaderExpanded ? "Sembunyikan Detail" : "Tampilkan Detail Mahasiswa"}</span>
+            <ChevronDown size={12} className={`transition-transform duration-200 ${isHeaderExpanded ? "rotate-180" : ""}`} />
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-2">
-          {/* Card 1: Mahasiswa */}
-          <div className="flex flex-col justify-between p-2 bg-white rounded border border-gray-200 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Mahasiswa</span>
-              <User className="h-3.5 w-3.5 text-blue-500" />
-            </div>
-            <div className="mt-1 min-w-0">
-              <h3 className="text-xs font-bold text-gray-900 truncate" title={data.student.name}>
-                {data.student.name}
-              </h3>
-              <p className="text-[10px] text-gray-500 font-medium mt-0.5">NIM: {data.student.nim}</p>
-            </div>
-            <div className="mt-1.5">
-              {renderStatusBadge(data.status)}
-            </div>
-          </div>
-
-          {/* Card 2: Posisi Terakhir */}
-          <div className="flex flex-col justify-between p-2 bg-white rounded border border-gray-200 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Posisi Terakhir</span>
-              <MapPin className="h-3.5 w-3.5 text-emerald-500" />
-            </div>
-            <div className="mt-1 min-w-0">
-              <h3 className="text-xs font-bold text-gray-900 truncate" title={currentLocation?.title ?? "-"}>
-                {currentLocation?.title ?? "-"}
-              </h3>
-              <p className="text-[10px] text-gray-400 font-medium mt-0.5">
-                Update: {formatDate(data.progress.lastUpdatedAt)}
-              </p>
-            </div>
-            <div className="mt-1.5 text-[9px] font-medium text-gray-400 truncate">
-              {data.submission.isAutoSubmitted && "Dikumpulkan otomatis (deadline)."}
-              {data.status === "Belum Memulai" && "Belum ada aktivitas."}
-              {!data.submission.isAutoSubmitted && data.status !== "Belum Memulai" && "Sedang berjalan."}
-            </div>
-          </div>
-
-          {/* Card 3: Aktivitas */}
-          <div className="flex flex-col justify-between p-2 bg-white rounded border border-gray-200 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Aktivitas</span>
-              <Activity className="h-3.5 w-3.5 text-amber-500" />
-            </div>
-            <div className="mt-1 space-y-1">
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="text-gray-500 font-medium">Run Kode:</span>
-                <span className="font-bold text-gray-900 bg-gray-50 px-1 py-0.5 rounded border border-gray-100">
-                  {data.monitoringStats?.runCount ?? 0} kali
-                </span>
+        {isHeaderExpanded && (
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-2 mt-2 pt-2 border-t border-gray-100 transition-all">
+            {/* Card 1: Mahasiswa */}
+            <div className="flex flex-col justify-between p-2 bg-white rounded border border-gray-200 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Mahasiswa</span>
+                <User className="h-3.5 w-3.5 text-blue-500" />
               </div>
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="text-gray-500 font-medium">Aktivitas Terakhir:</span>
-                {renderLastActivityValue(data.monitoringStats)}
+              <div className="mt-1 min-w-0">
+                <h3 className="text-xs font-bold text-gray-900 truncate" title={data.student.name}>
+                  {data.student.name}
+                </h3>
+                <p className="text-[10px] text-gray-500 font-medium mt-0.5">NIM: {data.student.nim}</p>
+              </div>
+              <div className="mt-1.5">
+                {renderStatusBadge(data.status)}
               </div>
             </div>
-            <div className="mt-1.5 text-[9px] font-semibold text-gray-400">
-              Sesi: {data.attemptScope.label}
+
+            {/* Card 2: Posisi Terakhir */}
+            <div className="flex flex-col justify-between p-2 bg-white rounded border border-gray-200 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Posisi Terakhir</span>
+                <MapPin className="h-3.5 w-3.5 text-emerald-500" />
+              </div>
+              <div className="mt-1 min-w-0">
+                <h3 className="text-xs font-bold text-gray-900 truncate" title={currentLocation?.title ?? "-"}>
+                  {currentLocation?.title ?? "-"}
+                </h3>
+                <p className="text-[10px] text-gray-400 font-medium mt-0.5">
+                  Update: {formatDate(data.progress.lastUpdatedAt)}
+                </p>
+              </div>
+              <div className="mt-1.5 text-[9px] font-medium text-gray-400 truncate">
+                {data.submission.isAutoSubmitted && "Dikumpulkan otomatis (deadline)."}
+                {data.status === "Belum Memulai" && "Belum ada aktivitas."}
+                {!data.submission.isAutoSubmitted && data.status !== "Belum Memulai" && "Sedang berjalan."}
+              </div>
+            </div>
+
+            {/* Card 3: Aktivitas */}
+            <div className="flex flex-col justify-between p-2 bg-white rounded border border-gray-200 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Aktivitas</span>
+                <Activity className="h-3.5 w-3.5 text-amber-500" />
+              </div>
+              <div className="mt-1 space-y-1">
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-gray-500 font-medium">Run Kode:</span>
+                  <span className="font-bold text-gray-900 bg-gray-50 px-1 py-0.5 rounded border border-gray-100">
+                    {data.monitoringStats?.runCount ?? 0} kali
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-gray-500 font-medium">Aktivitas Terakhir:</span>
+                  {renderLastActivityValue(data.monitoringStats)}
+                </div>
+              </div>
+              <div className="mt-1.5 text-[9px] font-semibold text-gray-400">
+                Sesi: {data.attemptScope.label}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="flex flex-1 relative overflow-hidden">

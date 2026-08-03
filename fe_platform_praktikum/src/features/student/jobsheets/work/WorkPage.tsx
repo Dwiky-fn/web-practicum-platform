@@ -4,6 +4,8 @@ import { useWorkPage } from "./hooks/useWorkPage"
 import WorkHeader from "./components/WorkHeader"
 import WorkFooterNav from "./components/WorkFooterNav"
 import WorkSidebar from "./components/sidebar/WorkSidebar"
+import WorkspaceChatPanel from "./components/WorkspaceChatPanel"
+import { getChatUnreadCount } from "../../../../services/chat/chatService"
 import TopProgressBar from "../../../../components/loading/TopProgressBar"
 import NotFoundPage from "../../../not-found/NotFoundPage"
 import { academicCourseBasePath, academicJobsheetPath } from "../../../../services/academicScope"
@@ -30,6 +32,24 @@ export default function WorkPage() {
   const scrollContainerRef = useRef<HTMLElement | null>(null)
   const liveWorkspaceRef = useRef<ReturnType<typeof connectLiveWorkspaceSocket> | null>(null)
   const [liveWorkspaceConnection, setLiveWorkspaceConnection] = useState<ReturnType<typeof connectLiveWorkspaceSocket> | null>(null)
+  const [isChatOpen, setIsChatOpen] = useState(false)
+  const [unreadChatCount, setUnreadChatCount] = useState(0)
+
+  useEffect(() => {
+    if (!scope.kelasPraktikumId || !jobsheetId) return
+    async function checkUnread() {
+      try {
+        const res = await getChatUnreadCount({
+          kelasPraktikumId: scope.kelasPraktikumId,
+          jobsheetId,
+        })
+        setUnreadChatCount(res.totalUnread || 0)
+      } catch {
+        // Ignore unread count error
+      }
+    }
+    checkUnread()
+  }, [scope.kelasPraktikumId, jobsheetId])
   const {
     jobsheet,
     course,
@@ -164,6 +184,9 @@ export default function WorkPage() {
         course={course}
         jobsheet={jobsheet}
         scope={scope}
+        onToggleChat={() => setIsChatOpen(!isChatOpen)}
+        isChatOpen={isChatOpen}
+        unreadChatCount={unreadChatCount}
       />
 
       <div className="flex flex-1 relative overflow-hidden">
@@ -260,6 +283,13 @@ export default function WorkPage() {
           scope={scope}
         />
       )}
+
+      <WorkspaceChatPanel
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        kelasPraktikumId={scope.kelasPraktikumId || ""}
+        jobsheetId={jobsheetId || ""}
+      />
     </div>
   )
 }

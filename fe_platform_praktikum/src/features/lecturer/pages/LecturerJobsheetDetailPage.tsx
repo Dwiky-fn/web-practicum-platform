@@ -68,6 +68,7 @@ import {
 } from "../service"
 import { academicCourseBasePath } from "../../../services/academicScope"
 import Breadcrumbs from "../../../components/Breadcrumbs"
+import LecturerChatDrawer from "../components/LecturerChatDrawer"
 
 type DetailTab = "detail" | "monitoring" | "students" | "remedial"
 
@@ -329,6 +330,8 @@ export default function LecturerJobsheetDetailPage() {
   const [savingRemedial, setSavingRemedial] = useState(false)
   const [cancelRemedialTarget, setCancelRemedialTarget] = useState<LecturerRemedialSession | null>(null)
   const [cancellingRemedial, setCancellingRemedial] = useState(false)
+  const [isLecturerChatOpen, setIsLecturerChatOpen] = useState(false)
+  const [selectedChatStudent, setSelectedChatStudent] = useState<{ id: string; name: string } | null>(null)
 
   async function fetchEvaluationItems() {
     const effectiveKelasPraktikumId = kelasPraktikumId || classId
@@ -1055,6 +1058,20 @@ export default function LecturerJobsheetDetailPage() {
                             >
                               Detail Log
                             </button>
+                            <button
+                              type="button"
+                              className="font-semibold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 rounded-lg text-xs transition duration-150 flex items-center gap-1"
+                              onClick={() => {
+                                setSelectedChatStudent({
+                                  id: student.student_id,
+                                  name: student.fullname,
+                                })
+                                setIsLecturerChatOpen(true)
+                              }}
+                            >
+                              <MessageSquare size={13} />
+                              Chat
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1592,7 +1609,19 @@ export default function LecturerJobsheetDetailPage() {
           </div>
         </LecturerModal>
       )}
-     </LecturerLayout>
+
+      <LecturerChatDrawer
+        isOpen={isLecturerChatOpen}
+        onClose={() => {
+          setIsLecturerChatOpen(false)
+          setSelectedChatStudent(null)
+        }}
+        kelasPraktikumId={effectiveKelasPraktikumId || ""}
+        jobsheetId={jobsheetId || ""}
+        studentId={selectedChatStudent?.id}
+        studentName={selectedChatStudent?.name}
+      />
+    </LecturerLayout>
    )
  }
 

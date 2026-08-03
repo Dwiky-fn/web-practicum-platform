@@ -1,9 +1,13 @@
-﻿const student = require('./api/student');
+const student = require('./api/student');
 const execution = require('./api/execution');
 const users = require('./api/users');
 const admin = require('./api/admin');
 const lecturer = require('./api/lecturer');
 const departments = require('./api/departments');
+const chat = require('./api/chat');
+const ChatService = require('./services/postgres/chat/ChatService');
+const initChatWebSocketServer = require('./api/chat/ws');
+const pool = require('./services/postgres');
 
 function mountRouteGuards(app, { requireAuth, requireRoles }) {
   app.use('/admin', requireAuth);
@@ -22,6 +26,7 @@ function mountRouteGuards(app, { requireAuth, requireRoles }) {
   app.use('/kelas-mahasiswa', requireAuth);
   app.use('/kelas-praktikum', requireAuth);
   app.use('/pengampu', requireAuth);
+  app.use('/chat', requireAuth);
 }
 
 function mountAppRoutes({ app, server }) {
@@ -31,6 +36,10 @@ function mountAppRoutes({ app, server }) {
   lecturer(app);
   departments(app);
   execution(server);
+
+  const chatService = new ChatService(pool);
+  chat(app, { chatService });
+  initChatWebSocketServer(server, chatService);
 }
 
 module.exports = {

@@ -146,7 +146,7 @@ async function generateJsonText({ systemPrompt, userPrompt, requestId }) {
     const temperature = readNumberEnv('AI_TEMPERATURE', 0.1);
     const contextLength = readNumberEnv('AI_CONTEXT_LENGTH', 4096);
     const controller = new AbortController();
-    // const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     logger.info('Ollama request started', {
       requestId,
@@ -218,7 +218,7 @@ async function generateJsonText({ systemPrompt, userPrompt, requestId }) {
         details: [{ message: error.message }],
       });
     } finally {
-      // clearTimeout(timeout);
+      clearTimeout(timeout);
     }
   });
 }

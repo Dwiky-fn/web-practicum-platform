@@ -5,36 +5,51 @@ const { evaluateSubmission } = require('../services/evaluationService');
 
 const activeEvaluations = new Set();
 
-async function sendWebhookCallback(webhookUrl, payload) {
-  try {
-    console.log(
-      `[AI Service Webhook] Mengirim callback evaluasi ke: ${webhookUrl}`,
-    );
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-AI-Service-Key': process.env.AI_SERVICE_API_KEY || '',
-      },
-      body: JSON.stringify(payload),
-    });
+async function sendWebhookCallback(webhookUrl, payload, maxRetries = 3) {
+  let attempt = 0;
+  let delay = 1000;
 
-    if (!response.ok) {
+  while (attempt < maxRetries) {
+    attempt++;
+    try {
+      console.log(
+        `[AI Service Webhook] Mengirim callback evaluasi ke: ${webhookUrl} (Percobaan ${attempt}/${maxRetries})`,
+      );
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-AI-Service-Key': process.env.AI_SERVICE_API_KEY || '',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        console.log(
+          `[AI Service Webhook] Callback berhasil terkirim ke LMS Backend (HTTP ${response.status})`,
+        );
+        return;
+      }
+
       const errText = await response.text();
       console.error(
-        `[AI Service Webhook] Webhook merespon HTTP ${response.status}: ${errText}`,
+        `[AI Service Webhook] Webhook merespon HTTP ${response.status} pada percobaan ${attempt}: ${errText}`,
       );
-    } else {
-      console.log(
-        `[AI Service Webhook] Callback berhasil terkirim ke LMS Backend (HTTP ${response.status})`,
+    } catch (error) {
+      console.error(
+        `[AI Service Webhook] Gagal mengirim webhook callback pada percobaan ${attempt}:`,
+        error.message,
       );
     }
-  } catch (error) {
-    console.error(
-      `[AI Service Webhook] Gagal mengirim webhook callback:`,
-      error.message,
-    );
+
+    if (attempt < maxRetries) {
+      console.log(`[AI Service Webhook] Mengulang pengiriman callback dalam ${delay}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      delay *= 2; // Exponential backoff: 1s, 2s, 4s
+    }
   }
+
+  console.error(`[AI Service Webhook] Webhook callback gagal terkirim setelah ${maxRetries} percobaan.`);
 }
 
 async function evaluationController(req, res, next) {

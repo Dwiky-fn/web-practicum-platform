@@ -737,7 +737,6 @@ export default function LecturerJobsheetDetailPage() {
 
   return (
     <LecturerLayout>
-      <Breadcrumbs items={[{ label: "Kelola Mata Kuliah Dosen", to: "/mata-kuliah" }, { label: jobsheet?.title || "Detail Jobsheet" }]} className="mb-3" />
       <button
         type="button"
         onClick={() => {

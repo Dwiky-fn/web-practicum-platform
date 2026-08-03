@@ -179,7 +179,7 @@ export default function LecturerChatDrawer({
       client_message_id: clientMsgId,
       message: text,
       created_at: new Date().toISOString(),
-      sender_name: user.fullname || user.name || "Dosen",
+      sender_name: user.fullname || "Dosen",
       sender_role: user.role,
     }
 

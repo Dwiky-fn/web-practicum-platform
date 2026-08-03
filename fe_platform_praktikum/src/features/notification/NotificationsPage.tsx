@@ -69,7 +69,6 @@ export default function NotificationsPage() {
 
   const pageContent = (
     <div className="space-y-6">
-      <Breadcrumbs items={[{ label: "Notifikasi" }]} />
       {/* Hero Banner Panel */}
       <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-800 p-6 text-white shadow-lg">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -208,7 +207,8 @@ export default function NotificationsPage() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <TopProgressBar />
-      <main className="max-w-7xl mx-auto px-6 lg:px-10 py-8">
+      <main className="max-w-7xl mx-auto px-6 lg:px-10 py-6">
+        <Breadcrumbs items={[{ label: "Notifikasi" }]} className="mb-3" />
         {pageContent}
       </main>
     </div>

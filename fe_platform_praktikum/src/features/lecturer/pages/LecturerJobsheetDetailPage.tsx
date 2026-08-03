@@ -68,7 +68,6 @@ import {
   type LecturerRemedialStudent,
 } from "../service"
 import { academicCourseBasePath } from "../../../services/academicScope"
-import Breadcrumbs from "../../../components/Breadcrumbs"
 import LecturerChatDrawer from "../components/LecturerChatDrawer"
 
 type DetailTab = "detail" | "monitoring" | "students" | "remedial"

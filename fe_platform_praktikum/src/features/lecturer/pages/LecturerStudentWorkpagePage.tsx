@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
-import { User, MapPin, Activity, ChevronDown } from "lucide-react"
+import { User, MapPin, Activity, ChevronDown, MessageSquare } from "lucide-react"
 import type { JSONContent } from "@tiptap/react"
+import LecturerChatDrawer from "../components/LecturerChatDrawer"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
 import { toast } from "../../../components/toast/toastStore"
 import WorkHeader from "../../student/jobsheets/work/components/WorkHeader"
@@ -270,6 +271,7 @@ export default function LecturerStudentWorkpagePage() {
   const [liveStatus, setLiveStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("disconnected")
   const [studentOnline, setStudentOnline] = useState(false)
   const [isHeaderExpanded, setIsHeaderExpanded] = useState(true)
+  const [isLecturerChatOpen, setIsLecturerChatOpen] = useState(false)
   const liveWorkspaceVersionRef = useRef(0)
 
   const basePath = `/lecturer/kelas-praktikum/${kelasPraktikumId}/jobsheets/${jobsheetId}/students/${studentId}/monitor`
@@ -633,15 +635,26 @@ export default function LecturerStudentWorkpagePage() {
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsHeaderExpanded(!isHeaderExpanded)}
-            className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded border border-blue-200 transition cursor-pointer shrink-0 ml-2"
-            title={isHeaderExpanded ? "Sembunyikan Detail Telemetri" : "Tampilkan Detail Telemetri"}
-          >
-            <span>{isHeaderExpanded ? "Sembunyikan Detail" : "Tampilkan Detail Mahasiswa"}</span>
-            <ChevronDown size={12} className={`transition-transform duration-200 ${isHeaderExpanded ? "rotate-180" : ""}`} />
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+            <button
+              type="button"
+              onClick={() => setIsLecturerChatOpen(true)}
+              className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-2.5 py-0.5 rounded shadow-xs transition cursor-pointer"
+              title="Chat Langsung Mahasiswa Ini"
+            >
+              <MessageSquare size={12} />
+              <span>Chat Mahasiswa</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsHeaderExpanded(!isHeaderExpanded)}
+              className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded border border-blue-200 transition cursor-pointer"
+              title={isHeaderExpanded ? "Sembunyikan Detail Telemetri" : "Tampilkan Detail Telemetri"}
+            >
+              <span>{isHeaderExpanded ? "Sembunyikan Detail" : "Tampilkan Detail Mahasiswa"}</span>
+              <ChevronDown size={12} className={`transition-transform duration-200 ${isHeaderExpanded ? "rotate-180" : ""}`} />
+            </button>
+          </div>
         </div>
 
         {isHeaderExpanded && (
@@ -734,6 +747,15 @@ export default function LecturerStudentWorkpagePage() {
         completedItems={completedItems}
         basePath={basePath}
         backTo={monitoringPath}
+      />
+
+      <LecturerChatDrawer
+        isOpen={isLecturerChatOpen}
+        onClose={() => setIsLecturerChatOpen(false)}
+        kelasPraktikumId={kelasPraktikumId}
+        jobsheetId={jobsheetId}
+        studentId={studentId}
+        studentName={data?.student?.name}
       />
     </div>
   )

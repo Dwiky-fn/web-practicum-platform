@@ -1706,8 +1706,15 @@ export default function AdminAcademicNativePage() {
     const displayClassName = formatKelasMahasiswaName({ semester_num: semName, kelas_name: klsName })
     const headerTitle = `${displayClassName} — ${detailTahunSemester.tahun_semester}`
 
+    const breadcrumbItems = [
+      { label: "Data Akademik", to: "/admin/academic/tahun-semester" },
+      { label: "Tahun Semester", to: "/admin/academic/tahun-semester" },
+      { label: detailTahunSemester?.tahun_semester || "Detail Tahun Semester", to: `/admin/academic/tahun-semester/${tahunSemesterId}` },
+      { label: displayClassName || "Kelas Mahasiswa" },
+    ]
+
     return (
-      <AdminLayout>
+      <AdminLayout breadcrumbItems={breadcrumbItems}>
         <div className="space-y-6">
           <div>
             <button
@@ -1791,8 +1798,14 @@ export default function AdminAcademicNativePage() {
       )
     })
 
+    const breadcrumbItems = [
+      { label: "Data Akademik", to: "/admin/academic/tahun-semester" },
+      { label: "Tahun Semester", to: "/admin/academic/tahun-semester" },
+      { label: detailTahunSemester.tahun_semester },
+    ]
+
     return (
-      <AdminLayout>
+      <AdminLayout breadcrumbItems={breadcrumbItems}>
         <div className="space-y-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
@@ -1892,8 +1905,13 @@ export default function AdminAcademicNativePage() {
     return renderTahunSemesterDetail()
   }
 
+  const mainBreadcrumbItems = [
+    { label: "Data Akademik", to: "/admin/academic/tahun-semester" },
+    { label: activeTabMeta.title },
+  ]
+
   return (
-    <AdminLayout>
+    <AdminLayout breadcrumbItems={mainBreadcrumbItems}>
       <AdminSectionHeader
         eyebrow="Data Akademik"
         title={activeTabMeta.title}

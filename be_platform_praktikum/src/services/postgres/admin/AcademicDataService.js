@@ -172,6 +172,55 @@ class AcademicDataService {
       const target = await client.query('SELECT id, tahun_semester, status FROM tahun_semester WHERE id = $1 LIMIT 1', [id]);
       if (!target.rows.length) throw new Error('TAHUN_SEMESTER_NOT_FOUND');
 
+      // 1. Tahun Semester harus ada isi (struktur kelas_semester)
+      const ksCheck = await client.query(
+        'SELECT COUNT(*)::int AS count FROM kelas_semester WHERE id_tahun_semester = $1',
+        [id]
+      );
+      if (ksCheck.rows[0].count === 0) {
+        const err = new Error('TAHUN_SEMESTER_EMPTY');
+        err.statusCode = 400;
+        err.message = 'Tahun semester tidak dapat diaktifkan karena belum memiliki struktur kelas semester (kosong). Silakan buat kelas semester terlebih dahulu.';
+        throw err;
+      }
+
+      // 2. Harus sudah ada Kelas Praktikum yang dibuat untuk tahun semester ini
+      const kpCheck = await client.query(
+        'SELECT COUNT(*)::int AS count FROM kelas_praktikum WHERE id_tahun_semester = $1',
+        [id]
+      );
+      if (kpCheck.rows[0].count === 0) {
+        const err = new Error('TAHUN_SEMESTER_NO_KELAS_PRAKTIKUM');
+        err.statusCode = 400;
+        err.message = 'Tahun semester tidak dapat diaktifkan karena belum ada Kelas Praktikum yang dibuat. Silakan tambahkan Kelas Praktikum terlebih dahulu.';
+        throw err;
+      }
+
+      // 3. Semua mahasiswa yang berstatus AKTIF sudah dialokasikan ke kelas masing-masing
+      const unallocatedStudents = await client.query(
+        `SELECT sp.user_id, u.fullname, sp.nim
+         FROM student_profiles sp
+         JOIN users u ON u.id = sp.user_id
+         WHERE u.status = 'active'
+           AND sp.status = 'active'
+           AND sp.user_id NOT IN (
+             SELECT DISTINCT id_mahasiswa 
+             FROM kelas_mhs 
+             WHERE id_tahun_semester = $1 AND status = 'active'
+           )`,
+        [id]
+      );
+
+      if (unallocatedStudents.rows.length > 0) {
+        const count = unallocatedStudents.rows.length;
+        const names = unallocatedStudents.rows.slice(0, 3).map(s => s.fullname || s.nim).join(', ');
+        const extraText = count > 3 ? ` dan ${count - 3} lainnya` : '';
+        const err = new Error('TAHUN_SEMESTER_UNALLOCATED_STUDENTS');
+        err.statusCode = 400;
+        err.message = `Tahun semester tidak dapat diaktifkan karena masih terdapat ${count} mahasiswa aktif (misal: ${names}${extraText}) yang belum dialokasikan ke kelas. Silakan alokasikan semua mahasiswa aktif terlebih dahulu.`;
+        throw err;
+      }
+
       // 1. Nonaktifkan/Arsipkan tahun semester yang saat ini aktif
       await client.query("UPDATE tahun_semester SET status = 'archived', updated_at = CURRENT_TIMESTAMP WHERE status = 'active' AND id <> $1", [id]);
 

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw, Search, Users } from "lucide-react"
+import { ChevronLeft, ChevronRight, RefreshCw, Search, Users } from "lucide-react"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
 import { useBackNavigation } from "../../../shared/utils/backNavigation"
+import BackButton from "../../../components/BackButton"
 import { toast } from "../../../components/toast/toastStore"
 import {
   getClassJobsheetMonitoring,
@@ -342,8 +343,7 @@ export default function LecturerClassJobsheetMonitoringPage() {
       <header className="shrink-0 border-b border-gray-200 bg-white px-6 py-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <button
-              type="button"
+            <BackButton
               onClick={() => {
                 goBackToParent({
                   parentPath: jobsheetId ? `/jobsheets/${jobsheetId}` : "/mata-kuliah",
@@ -351,11 +351,8 @@ export default function LecturerClassJobsheetMonitoringPage() {
                   preserveQueryParams: ["courseId", "classId", "mataKuliahId", "kelasPraktikumId"],
                 })
               }}
-              className="mb-2 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Kembali
-            </button>
+              className="mb-2"
+            />
             <h1 className="truncate text-xl font-semibold text-gray-900">{data.context.jobsheetTitle}</h1>
             <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
               <span>{data.context.className}</span>

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useBackNavigation } from "../../../shared/utils/backNavigation";
 const emptyDoc = { type: "doc" as const, content: [] }
-import { ArrowLeft, Eye, Edit } from "lucide-react"
+import { Eye, Edit } from "lucide-react"
 import { formatAcademicDateTime } from "../../../shared/utils/formatAcademicDateTime"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import type { Jobsheet } from "../../../services/jobsheet/types"
@@ -701,7 +701,7 @@ export default function LecturerReviewPage() {
   const isReadOnly = isDraft || (isReviewed && !isEditingReview)
 
   return (
-    <LecturerLayout>
+    <LecturerLayout onBack={handleBack}>
       {/* ── Confirm Delete AI Feedback Modal ── */}
       {confirmDeleteAiFeedback && (
         <LecturerModal
@@ -724,15 +724,6 @@ export default function LecturerReviewPage() {
           <p className="mt-2 text-xs text-gray-500">Tindakan ini tidak dapat dibatalkan setelah dikonfirmasi.</p>
         </LecturerModal>
       )}
-
-      <button
-        type="button"
-        onClick={handleBack}
-        className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
-      >
-        <ArrowLeft size={18} />
-        Kembali
-      </button>
 
       <PageHeader
         title="Review Pengerjaan Mahasiswa"

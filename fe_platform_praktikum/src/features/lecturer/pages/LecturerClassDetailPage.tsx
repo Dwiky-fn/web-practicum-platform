@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import StudentProfileModal from "../components/StudentProfileModal"
-import { ArrowLeft, BookOpen, CheckCircle, Clock, Eye, FileCheck, Layers, Pencil, Plus, Sparkles, Trash2, Users } from "lucide-react"
+import { BookOpen, CheckCircle, Clock, Eye, FileCheck, Layers, Pencil, Plus, Sparkles, Trash2, Users } from "lucide-react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import { apiFetch } from "../../../services/api"
@@ -250,20 +250,14 @@ export default function LecturerClassDetailPage() {
   }
 
   return (
-    <LecturerLayout>
-      <button
-        type="button"
-        onClick={() => {
-          goBackToParent({
-            parentPath: "/mata-kuliah",
-            fallbackPath: "/mata-kuliah",
-          })
-        }}
-        className="mb-5 inline-flex items-center gap-2 text-xs font-bold text-blue-700 hover:text-blue-900"
-      >
-        <ArrowLeft size={16} />
-        Kembali ke Navigasi Utama
-      </button>
+    <LecturerLayout
+      onBack={() => {
+        goBackToParent({
+          parentPath: "/mata-kuliah",
+          fallbackPath: "/mata-kuliah",
+        })
+      }}
+    >
 
 
 

@@ -17,8 +17,23 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children, breadcrumbItems, backTo, onBack, showBack }: AdminLayoutProps) {
   const location = useLocation()
-  const isDashboard = location.pathname === "/admin" || location.pathname === "/admin/dashboard" || location.pathname === "/"
-  const shouldShowBackButton = showBack ?? (!isDashboard || backTo !== undefined || onBack !== undefined)
+  const path = location.pathname.replace(/\/+$/, "")
+  const isMainIndexPage =
+    path === "/admin" ||
+    path === "/admin/dashboard" ||
+    path === "" ||
+    path === "/" ||
+    path === "/users/students" ||
+    path === "/users/lecturers" ||
+    path === "/admin/academic" ||
+    path === "/admin/academic/tahun-semester" ||
+    path === "/admin/academic/kurikulum" ||
+    path === "/admin/academic/semester" ||
+    path === "/admin/academic/kelas" ||
+    path === "/admin/academic/mata-kuliah" ||
+    path === "/admin/academic/departments"
+
+  const shouldShowBackButton = showBack ?? (!isMainIndexPage || backTo !== undefined || onBack !== undefined)
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">

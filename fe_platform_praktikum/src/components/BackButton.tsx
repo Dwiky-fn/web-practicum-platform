@@ -81,10 +81,21 @@ export function getDefaultParentPath(pathname: string, search: string): string {
     return `/users/${role}`
   }
 
-  // 11. Admin Sub-pages
+  // 11. Admin Sub-pages & Academic Details
+  if (path.startsWith("/admin/academic/tahun-semester/")) {
+    if (path.includes("/kelas-mahasiswa")) {
+      const tsId = path.split("/admin/academic/tahun-semester/")[1].split("/")[0]
+      return `/admin/academic/tahun-semester/${tsId}`
+    }
+    return "/admin/academic/tahun-semester"
+  }
+
+  if (path.startsWith("/admin/academic/kelas-praktikum/")) {
+    return "/admin/academic/tahun-semester"
+  }
+
   if (path.startsWith("/admin/") && path !== "/admin/dashboard" && path !== "/admin") {
-    if (path.startsWith("/admin/academic/kelas-praktikum/")) return "/admin/academic/kelas-praktikum"
-    if (path.startsWith("/admin/academic/")) return "/admin/dashboard"
+    if (path.startsWith("/admin/academic/")) return "/admin/academic/tahun-semester"
     return "/admin/dashboard"
   }
 

@@ -1717,14 +1717,6 @@ export default function AdminAcademicNativePage() {
       <AdminLayout breadcrumbItems={breadcrumbItems}>
         <div className="space-y-6">
           <div>
-            <button
-              type="button"
-              className="mb-3 flex items-center gap-1 text-sm font-medium text-blue-700 hover:text-blue-900"
-              onClick={() => navigate(`/admin/academic/tahun-semester/${tahunSemesterId}`)}
-            >
-              <ArrowLeft size={16} />
-              Kembali
-            </button>
             <h1 className="text-2xl font-semibold text-gray-900">{headerTitle}</h1>
             <p className="text-sm text-gray-500">
               Daftar mahasiswa pada Semester {semName} Kelas {klsName} untuk tahun semester {detailTahunSemester.tahun_semester}.
@@ -1809,14 +1801,6 @@ export default function AdminAcademicNativePage() {
         <div className="space-y-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
-              <button
-                type="button"
-                className="mb-3 flex items-center gap-1 text-sm font-medium text-blue-700 hover:text-blue-900"
-                onClick={() => navigate("/admin/academic/tahun-semester")}
-              >
-                <ArrowLeft size={16} />
-                Kembali
-              </button>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-semibold text-gray-900">{detailTahunSemester.tahun_semester}</h1>
                 {statusBadge(detailTahunSemester.status)}

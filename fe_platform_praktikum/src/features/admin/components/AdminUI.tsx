@@ -142,18 +142,15 @@ export function AdminTable({
     <div className="overflow-x-auto rounded-lg border border-gray-200">
       <table className="w-full min-w-180 border-collapse bg-white text-sm">
         <thead>
-          <tr className="bg-blue-50 text-left text-gray-800">
-            {headers.map((header, idx) => {
-              const isAction = idx === headers.length - 1 || /aksi|action|profil|evaluasi/i.test(header)
-              return (
-                <th
-                  key={header}
-                  className={`border-b border-gray-200 px-4 py-3 font-semibold ${isAction ? "text-right" : "text-left"}`}
-                >
-                  {header}
-                </th>
-              )
-            })}
+          <tr className="bg-blue-50 text-gray-800">
+            {headers.map((header) => (
+              <th
+                key={header}
+                className="border-b border-gray-200 px-4 py-3 font-semibold text-center"
+              >
+                {header}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">{children}</tbody>

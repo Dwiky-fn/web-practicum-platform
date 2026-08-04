@@ -4,7 +4,6 @@ import AdminLayout from "../components/AdminLayout"
 import { AdminPanel } from "../components/AdminUI"
 import StudentProfileModal from "../../lecturer/components/StudentProfileModal"
 import { getUserById } from "../../../services/user/service"
-import BackButton from "../../../components/BackButton"
 
 export default function AdminUserProfilePage() {
   const { role, id } = useParams<{ role: "students" | "lecturers"; id: string }>()
@@ -37,19 +36,16 @@ export default function AdminUserProfilePage() {
 
   const roleLabel = role === "lecturers" ? "Dosen" : "Mahasiswa"
   const detailLabel = fullname || (role === "lecturers" ? "Profil Dosen" : "Profil Mahasiswa")
+  const backTarget = `/users/${role ?? "students"}`
 
   const breadcrumbItems = [
-    { label: "Kelola User", to: `/users/${role ?? "students"}` },
-    { label: roleLabel, to: `/users/${role ?? "students"}` },
+    { label: "Kelola User", to: backTarget },
+    { label: roleLabel, to: backTarget },
     { label: detailLabel },
   ]
 
   return (
-    <AdminLayout breadcrumbItems={breadcrumbItems}>
-      <div className="mb-4">
-        <BackButton to={`/users/${role ?? "students"}`} />
-      </div>
-
+    <AdminLayout breadcrumbItems={breadcrumbItems} backTo={backTarget}>
       <AdminPanel className="mx-auto max-w-5xl p-6">
         <StudentProfileModal
           studentId={id}

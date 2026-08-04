@@ -1,4 +1,4 @@
-import { Download, FileUp, Plus, Trash2, UserCheck, UserPlus, UserX } from "lucide-react"
+import { Download, FileUp, Loader2, Plus, Trash2, UserCheck, UserPlus, UserX } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import * as XLSX from "xlsx"
@@ -54,6 +54,22 @@ function parseCsv(text: string) {
     .filter((row) => row.length > 1)
 }
 
+function findCellValue(row: Record<string, any>, targetKeys: string[]): string {
+  if (!row || typeof row !== "object") return ""
+  for (const key of Object.keys(row)) {
+    const normKey = key.toLowerCase().replace(/[^a-z0-9]/g, "")
+    for (const target of targetKeys) {
+      if (normKey.includes(target.toLowerCase())) {
+        const val = row[key]
+        if (val !== undefined && val !== null && String(val).trim() !== "") {
+          return String(val).trim()
+        }
+      }
+    }
+  }
+  return ""
+}
+
 export default function AdminUsersPage() {
   const params = useParams<{ role?: UserRoleTab }>()
   const role = params.role === "lecturers" ? "lecturers" : "students"
@@ -79,6 +95,7 @@ export default function AdminUsersPage() {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null)
   const [actionLoading, setActionLoading] = useState("")
   const [error, setError] = useState("")
   const isStudent = role === "students"
@@ -444,55 +461,99 @@ export default function AdminUsersPage() {
     try {
       setSubmitting(true)
       setError("")
-      let rows: string[][] = []
+      let parsedObjects: Record<string, any>[] = []
       const extension = importFile.name.split(".").pop()?.toLowerCase()
+
       if (extension === "xlsx" || extension === "xls") {
         const data = await importFile.arrayBuffer()
         const workbook = XLSX.read(new Uint8Array(data), { type: "array" })
         const sheetName = workbook.SheetNames[0]
         if (!sheetName) throw new Error("File Excel tidak memiliki sheet data")
         const worksheet = workbook.Sheets[sheetName]
-        const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][]
-        rows = rawRows.map(row => row.map(cell => String(cell === null || cell === undefined ? "" : cell).trim()))
+        parsedObjects = XLSX.utils.sheet_to_json(worksheet, { defval: "" }) as Record<string, any>[]
       } else {
-        rows = parseCsv(await importFile.text())
+        const rawRows = parseCsv(await importFile.text())
+        if (!rawRows.length) throw new Error("File CSV kosong")
+        const headers = rawRows[0].map((h) => h.trim())
+        parsedObjects = rawRows.slice(1).map((row) => {
+          const obj: Record<string, any> = {}
+          headers.forEach((h, idx) => {
+            obj[h] = row[idx] ? String(row[idx]).trim() : ""
+          })
+          return obj
+        })
       }
-      const normalizedRows = rows[0]?.[0]?.toLowerCase().includes(isStudent ? "nim" : "nip")
-        ? rows.slice(1)
-        : rows
 
-      for (const row of normalizedRows) {
+      if (!parsedObjects.length) {
+        throw new Error("File tidak memiliki baris data untuk di-import")
+      }
+
+      setImportProgress({ current: 0, total: parsedObjects.length })
+      let successCount = 0
+
+      for (let i = 0; i < parsedObjects.length; i++) {
+        const row = parsedObjects[i]
+        setImportProgress({ current: i + 1, total: parsedObjects.length })
+
         if (isStudent) {
-          const [nim, fullname, angkatan, semesterValue, email, programStudi, jurusan] = row
+          const nim = findCellValue(row, ["nim"])
+          const fullname = findCellValue(row, ["nama", "fullname"])
+          if (!nim && !fullname) continue // Skip empty trailing row
+
+          if (!nim) throw new Error(`Baris ke-${i + 2}: NIM Mahasiswa wajib diisi`)
+          if (!fullname) throw new Error(`Baris ke-${i + 2}: Nama Mahasiswa wajib diisi`)
+
+          const angkatanVal = findCellValue(row, ["angkatan", "year"])
+          const semesterVal = findCellValue(row, ["semester"])
+          const emailVal = findCellValue(row, ["email", "mail"])
+          const programStudi = findCellValue(row, ["prodi", "programstudi"])
+          const jurusan = findCellValue(row, ["jurusan", "dept"])
+
           await createAdminStudent({
             nim,
             fullname,
-            angkatan: Number(angkatan || 0),
-            semester: Number(semesterValue || 0),
-            email,
+            angkatan: Number(angkatanVal || new Date().getFullYear()),
+            semester: Number(semesterVal || 1),
+            email: emailVal || "",
             status: "Aktif",
-            programStudi: programStudi || undefined,
-            jurusan: jurusan || undefined,
+            programStudi: programStudi || "",
+            jurusan: jurusan || "",
           })
+          successCount++
         } else {
-          const [nip, fullname, email] = row
+          const nip = findCellValue(row, ["nip"])
+          const fullname = findCellValue(row, ["nama", "fullname"])
+          if (!nip && !fullname) continue // Skip empty trailing row
+
+          if (!nip) throw new Error(`Baris ke-${i + 2}: NIP Dosen wajib diisi`)
+          if (!fullname) throw new Error(`Baris ke-${i + 2}: Nama Dosen wajib diisi`)
+
+          const cleanNip = nip.replace(/\D/g, "")
+          if (cleanNip.length !== 18) {
+            throw new Error(`Baris ke-${i + 2} (${fullname}): NIP harus berupa 18 digit angka (NIP: ${nip})`)
+          }
+
+          const emailVal = findCellValue(row, ["email", "mail"])
+
           await createAdminLecturer({
-            nip,
+            nip: cleanNip,
             fullname,
-            email,
+            email: emailVal || "",
             status: "Aktif",
           })
+          successCount++
         }
       }
 
       setImportFile(null)
       setModal(null)
-      toast.success(`Berhasil mengimport data ${isStudent ? "mahasiswa" : "dosen"}.`)
+      toast.success(`Berhasil mengimport ${successCount} data ${isStudent ? "mahasiswa" : "dosen"}.`)
       fetchUsers()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal mengimport pengguna")
     } finally {
       setSubmitting(false)
+      setImportProgress(null)
     }
   }
 
@@ -524,7 +585,14 @@ export default function AdminUsersPage() {
               </AdminButton>
             ) : (
               <AdminButton type="submit" form="admin-import-form" disabled={submitting || !importFile || !!importFileError}>
-                {submitting ? "Mengimport..." : "Import File"}
+                {submitting ? (
+                  <span className="flex items-center gap-1.5">
+                    <Loader2 className="animate-spin" size={15} />
+                    {importProgress ? `Mengimport... (${importProgress.current}/${importProgress.total})` : "Mengimport..."}
+                  </span>
+                ) : (
+                  "Import File"
+                )}
               </AdminButton>
             )}
           </>
@@ -680,6 +748,26 @@ export default function AdminUsersPage() {
                 </div>
               )}
             </div>
+
+            {submitting && importProgress && (
+              <div className="rounded-xl border border-blue-200 bg-blue-50/90 p-4 space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-semibold text-blue-900">
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="animate-spin text-blue-600" size={16} />
+                    Mengimport data {isStudent ? "mahasiswa" : "dosen"}...
+                  </span>
+                  <span className="font-mono bg-blue-100 px-2 py-0.5 rounded-md text-blue-800">
+                    {importProgress.current} / {importProgress.total}
+                  </span>
+                </div>
+                <div className="h-2.5 w-full bg-blue-200/80 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-600 transition-all duration-300 rounded-full"
+                    style={{ width: `${Math.min(100, Math.round((importProgress.current / Math.max(importProgress.total, 1)) * 100))}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between rounded-xl border border-blue-200 bg-blue-50/90 p-4 text-sm text-blue-950 shadow-2xs">
               <div>

@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ClipboardList } from "lucide-react";
+import { useParams, useSearchParams } from "react-router-dom";
+import { ClipboardList } from "lucide-react";
 import { getSubmissionByJobsheetId, getSubmissionHistory } from "../../../services/submission/service";
 import type { Jobsheet } from "../../../services/jobsheet/types";
 import type { JobsheetSubmission } from "../../../services/submission/types";
 import { formatAcademicDate } from "../../../shared/utils/formatAcademicDateTime";
 import Navbar from "../../../components/navbar/Navbar";
 import Breadcrumbs from "../../../components/Breadcrumbs";
+import BackButton from "../../../components/BackButton";
 import SidebarCard from "./components/SidebarCard";
 import TopProgressBar from "../../../components/loading/TopProgressBar";
 import SidebarCardSkeleton from "./components/loading/SidebarSkeleton";
@@ -124,15 +125,10 @@ export default function JobsheetOverviewPage() {
       <TopProgressBar />
 
       <main className="max-w-5xl mx-auto px-4 py-4 sm:px-6">
-        <Breadcrumbs items={[{ label: "Mata Kuliah", to: "/mata-kuliah" }, { label: course?.name || "Detail Mata Kuliah", to: coursePath }, { label: jobsheet?.title || "Detail Jobsheet" }]} className="mb-2" />
-        <button
-          type="button"
-          onClick={() => navigate(coursePath)}
-          className="mb-4 inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-600 hover:bg-white hover:text-blue-600 transition cursor-pointer"
-        >
-          <ArrowLeft size={16} />
-          Kembali
-        </button>
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <BackButton to={coursePath} />
+          <Breadcrumbs items={[{ label: "Mata Kuliah", to: "/mata-kuliah" }, { label: course?.name || "Detail Mata Kuliah", to: coursePath }, { label: jobsheet?.title || "Detail Jobsheet" }]} />
+        </div>
 
         {error && (
           <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

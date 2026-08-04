@@ -1,7 +1,8 @@
-import { FileUp, Plus, Trash2, UserCheck, UserPlus, UserX } from "lucide-react"
+import { Download, FileUp, Plus, Trash2, UserCheck, UserPlus, UserX } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import * as XLSX from "xlsx"
+import { exportUserListToExcel, downloadUserImportTemplate } from "../../../shared/utils/exportUserListToExcel"
 import AdminLayout from "../components/AdminLayout"
 import {
   AdminButton,
@@ -680,11 +681,23 @@ export default function AdminUsersPage() {
               )}
             </div>
 
-            <div className="rounded-md bg-blue-50 p-4 text-sm text-blue-900">
-              <p className="font-semibold">Catatan Format File:</p>
-              <p className="mt-1">
-                Format kolom: {isStudent ? "NIM, Nama, Angkatan, Semester, Email, Program Studi (Opsional), Jurusan (Opsional)" : "NIP, Nama, Email"}
-              </p>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between rounded-xl border border-blue-200 bg-blue-50/90 p-4 text-sm text-blue-950 shadow-2xs">
+              <div>
+                <p className="font-semibold text-blue-900">Format Kolom Excel & Password Default:</p>
+                <p className="mt-1 text-xs text-blue-800 leading-relaxed">
+                  {isStudent
+                    ? "Kolom: NIM, Nama Mahasiswa, Angkatan, Semester, Email | Password default: NIM"
+                    : "Kolom: NIP, Nama Dosen, Email | Password default otomatis: Nama + 4 Digit NIP (misal: Dwiky1001)"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => downloadUserImportTemplate(role)}
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition shadow-2xs cursor-pointer shrink-0"
+              >
+                <Download size={14} />
+                Download Template
+              </button>
             </div>
           </form>
         )}
@@ -712,6 +725,22 @@ export default function AdminUsersPage() {
               onChange={setKeyword}
               placeholder={isStudent ? "Cari NIM / Nama" : "Cari NIP / Nama"}
             />
+            <button
+              type="button"
+              onClick={() => {
+                const currentData = isStudent ? students : lecturers
+                if (!currentData.length) {
+                  toast.warning(`Belum ada data ${isStudent ? "mahasiswa" : "dosen"} untuk diexport.`)
+                  return
+                }
+                exportUserListToExcel(role, currentData)
+                toast.success(`Berhasil meng-export Data ${isStudent ? "Mahasiswa" : "Dosen"} ke Excel.`)
+              }}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg transition shadow-2xs cursor-pointer shrink-0"
+            >
+              <Download size={15} />
+              <span>Export Excel</span>
+            </button>
             <AdminButton onClick={() => { setAddTab("single"); setModal("add"); }}>
               <Plus size={16} />
               {isStudent ? "Tambah Mahasiswa dan Akun" : "Tambah Dosen"}

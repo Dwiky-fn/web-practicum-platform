@@ -14,25 +14,42 @@ interface BreadcrumbsProps {
 function isIdString(str: string): boolean {
   if (!str) return false
   const trimmed = str.trim()
-  // Check UUIDs, CUIDs, numeric IDs, or long random hashes
+  // Check UUIDs
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) return true
-  if (/^[a-z0-9]{18,}$/i.test(trimmed)) return true
+  // Check hex ID hashes (e.g., 5a467f9efc, mongodb objectIds, etc.)
+  if (/^[0-9a-f]{6,}$/i.test(trimmed)) return true
+  // Check alphanumeric hashes containing numbers
+  if (/^[a-z0-9_-]{8,}$/i.test(trimmed) && /[0-9]/.test(trimmed)) return true
+  // Check numeric IDs
   if (/^\d+$/.test(trimmed) && (trimmed.length >= 4 || Number(trimmed) > 100)) return true
   return false
 }
 
 function sanitizeLabel(label: string, prevSegment?: string): string {
   if (!label) return ""
-  if (isIdString(label)) {
+  const trimmed = label.trim()
+
+  // Catch labels formatted as "Dosen 5a467f9efc", "Mahasiswa 1234", etc.
+  if (/^(dosen|mahasiswa|user|lecturer|student|jobsheet|kelas|course|lecturers|students)\s+[0-9a-f\-_]{4,}$/i.test(trimmed)) {
+    const prefix = trimmed.split(" ")[0].toLowerCase()
+    if (prefix.includes("dosen") || prefix.includes("lecturer")) return "Profil Dosen"
+    if (prefix.includes("mahasiswa") || prefix.includes("student")) return "Profil Mahasiswa"
+    if (prefix.includes("jobsheet")) return "Detail Jobsheet"
+    if (prefix.includes("kelas")) return "Detail Kelas"
+    return "Detail"
+  }
+
+  if (isIdString(trimmed)) {
     const prev = (prevSegment || "").toLowerCase()
-    if (prev.includes("mata-kuliah") || prev.includes("course")) return "Detail Mata Kuliah"
-    if (prev.includes("jobsheet")) return "Detail Jobsheet"
-    if (prev.includes("kelas")) return "Detail Kelas"
-    if (prev.includes("user") || prev.includes("student") || prev.includes("mahasiswa")) return "Detail Mahasiswa"
+    if (prev.includes("lecturers") || prev.includes("lecturer") || prev.includes("dosen")) return "Profil Dosen"
+    if (prev.includes("students") || prev.includes("student") || prev.includes("mahasiswa") || prev.includes("user") || prev.includes("users")) return "Profil Mahasiswa"
+    if (prev.includes("mata-kuliah") || prev.includes("course") || prev.includes("courses")) return "Detail Mata Kuliah"
+    if (prev.includes("jobsheet") || prev.includes("jobsheets")) return "Detail Jobsheet"
+    if (prev.includes("kelas") || prev.includes("classes")) return "Detail Kelas"
     if (prev.includes("tahun-semester")) return "Detail Tahun Semester"
-    if (prev.includes("experiment")) return "Percobaan"
-    if (prev.includes("exercise")) return "Latihan"
-    if (prev.includes("theory")) return "Teori"
+    if (prev.includes("experiment") || prev.includes("experiments")) return "Percobaan"
+    if (prev.includes("exercise") || prev.includes("exercises")) return "Latihan"
+    if (prev.includes("theory") || prev.includes("theories")) return "Teori"
     return "Detail"
   }
   return label
@@ -56,14 +73,15 @@ function formatSegmentLabel(segment: string, prevSegment?: string): string {
   if (norm === "notifications" || norm === "notifikasi") return "Notifikasi"
   if (norm === "settings" || norm === "pengaturan") return "Pengaturan"
   if (norm === "panduan") return "Panduan"
-  if (norm === "mahasiswa") return "Mahasiswa"
-  if (norm === "dosen") return "Dosen"
+  if (norm === "mahasiswa" || norm === "students") return "Mahasiswa"
+  if (norm === "dosen" || norm === "lecturers") return "Dosen"
   if (norm === "tahun-semester") return "Tahun Semester"
   if (norm === "kelas-praktikum") return "Kelas Praktikum"
   if (norm === "kelas-mahasiswa") return "Kelas Mahasiswa"
 
   let label = segment.replace(/[-_]/g, " ")
-  return label.charAt(0).toUpperCase() + label.slice(1)
+  label = label.charAt(0).toUpperCase() + label.slice(1)
+  return sanitizeLabel(label, prevSegment)
 }
 
 export default function Breadcrumbs({ items, className = "" }: BreadcrumbsProps) {

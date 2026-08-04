@@ -1,5 +1,6 @@
 import { useLocation } from "react-router-dom"
 import { ChevronRight, Home } from "lucide-react"
+import { formatTahunSemesterDisplay } from "../shared/utils/formatTahunSemester"
 
 export interface BreadcrumbItem {
   label: string
@@ -41,13 +42,13 @@ function sanitizeLabel(label: string, prevSegment?: string): string {
     if (prev.includes("mata-kuliah") || prev.includes("course") || prev.includes("courses")) return "Detail Mata Kuliah"
     if (prev.includes("jobsheet") || prev.includes("jobsheets")) return "Detail Jobsheet"
     if (prev.includes("kelas") || prev.includes("classes")) return "Detail Kelas"
-    if (prev.includes("tahun-semester")) return "Detail Tahun Semester"
+    if (prev.includes("tahun-semester")) return formatTahunSemesterDisplay(trimmed)
     if (prev.includes("experiment") || prev.includes("experiments")) return "Percobaan"
     if (prev.includes("exercise") || prev.includes("exercises")) return "Latihan"
     if (prev.includes("theory") || prev.includes("theories")) return "Teori"
     return "Detail"
   }
-  return label
+  return formatTahunSemesterDisplay(label)
 }
 
 function formatSegmentLabel(segment: string, prevSegment?: string): string {
@@ -87,8 +88,10 @@ export default function Breadcrumbs({ items, className = "" }: BreadcrumbsProps)
   if (items && items.length > 0) {
     list = items.map((item, idx) => {
       const prev = idx > 0 ? items[idx - 1].label : undefined
+      const isId = isIdString(item.label)
+      const cleanLabel = isId ? sanitizeLabel(item.label, prev) : formatTahunSemesterDisplay(item.label)
       return {
-        label: sanitizeLabel(item.label, prev),
+        label: cleanLabel,
         to: item.to,
       }
     })

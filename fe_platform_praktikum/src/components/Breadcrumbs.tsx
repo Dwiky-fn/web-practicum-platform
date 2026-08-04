@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom"
+import { useLocation } from "react-router-dom"
 import { ChevronRight, Home } from "lucide-react"
 
 export interface BreadcrumbItem {
@@ -120,16 +120,12 @@ export default function Breadcrumbs({ items, className = "" }: BreadcrumbsProps)
   return (
     <nav
       aria-label="Breadcrumb"
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100/80 border border-gray-200/80 text-xs font-medium text-gray-600 shadow-2xs ${className}`}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100/80 border border-gray-200/80 text-xs font-medium text-gray-600 shadow-2xs select-none pointer-events-none ${className}`}
     >
-      <Link
-        to="/dashboard"
-        className="inline-flex items-center text-gray-400 hover:text-blue-600 transition-colors"
-        title="Ke Dashboard Utama"
-      >
+      <span className="inline-flex items-center text-gray-400">
         <Home size={13} />
         <span className="sr-only">Dashboard</span>
-      </Link>
+      </span>
 
       {filteredList.map((item, index) => {
         const isLast = index === filteredList.length - 1
@@ -137,22 +133,13 @@ export default function Breadcrumbs({ items, className = "" }: BreadcrumbsProps)
         return (
           <span key={index} className="inline-flex items-center gap-1.5">
             <ChevronRight size={12} className="text-gray-300 shrink-0" />
-            {!isLast && item.to ? (
-              <Link
-                to={item.to}
-                className="truncate max-w-[180px] md:max-w-[280px] text-gray-500 hover:text-blue-600 hover:underline transition-colors"
-              >
-                {item.label}
-              </Link>
-            ) : (
-              <span
-                className={`truncate max-w-[200px] md:max-w-[320px] ${
-                  isLast ? "font-semibold text-gray-900" : "text-gray-500"
-                }`}
-              >
-                {item.label}
-              </span>
-            )}
+            <span
+              className={`truncate max-w-[200px] md:max-w-[320px] ${
+                isLast ? "font-semibold text-gray-900" : "text-gray-500 font-normal"
+              }`}
+            >
+              {item.label}
+            </span>
           </span>
         )
       })}

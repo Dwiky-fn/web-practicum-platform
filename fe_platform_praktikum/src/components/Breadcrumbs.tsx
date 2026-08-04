@@ -1,4 +1,4 @@
-import { useLocation } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 import { ChevronRight, Home } from "lucide-react"
 
 export interface BreadcrumbItem {
@@ -14,13 +14,9 @@ interface BreadcrumbsProps {
 function isIdString(str: string): boolean {
   if (!str) return false
   const trimmed = str.trim()
-  // Check UUIDs
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) return true
-  // Check hex ID hashes (e.g., 5a467f9efc, mongodb objectIds, etc.)
   if (/^[0-9a-f]{6,}$/i.test(trimmed)) return true
-  // Check alphanumeric hashes containing numbers
   if (/^[a-z0-9_-]{8,}$/i.test(trimmed) && /[0-9]/.test(trimmed)) return true
-  // Check numeric IDs
   if (/^\d+$/.test(trimmed) && (trimmed.length >= 4 || Number(trimmed) > 100)) return true
   return false
 }
@@ -29,7 +25,6 @@ function sanitizeLabel(label: string, prevSegment?: string): string {
   if (!label) return ""
   const trimmed = label.trim()
 
-  // Catch labels formatted as "Dosen 5a467f9efc", "Mahasiswa 1234", etc.
   if (/^(dosen|mahasiswa|user|lecturer|student|jobsheet|kelas|course|lecturers|students)\s+[0-9a-f\-_]{4,}$/i.test(trimmed)) {
     const prefix = trimmed.split(" ")[0].toLowerCase()
     if (prefix.includes("dosen") || prefix.includes("lecturer")) return "Profil Dosen"
@@ -87,56 +82,80 @@ function formatSegmentLabel(segment: string, prevSegment?: string): string {
 export default function Breadcrumbs({ items, className = "" }: BreadcrumbsProps) {
   const location = useLocation()
 
-  let rawList: string[] = []
+  let list: BreadcrumbItem[] = []
 
   if (items && items.length > 0) {
-    rawList = items.map((item, idx) => {
+    list = items.map((item, idx) => {
       const prev = idx > 0 ? items[idx - 1].label : undefined
-      return sanitizeLabel(item.label, prev)
+      return {
+        label: sanitizeLabel(item.label, prev),
+        to: item.to,
+      }
     })
   } else {
     // Auto-generate breadcrumbs based on URL pathname
     const pathSegments = location.pathname.split("/").filter(Boolean)
-    rawList = pathSegments.map((segment, index) => {
+    let currentPath = ""
+    list = pathSegments.map((segment, index) => {
+      currentPath += `/${segment}`
       const prevSegment = index > 0 ? pathSegments[index - 1] : undefined
-      return formatSegmentLabel(segment, prevSegment)
+      return {
+        label: formatSegmentLabel(segment, prevSegment),
+        to: currentPath,
+      }
     })
   }
 
-  // Deduplicate consecutive identical labels (e.g., "Mata Kuliah" > "Mata Kuliah")
-  const filteredList: string[] = []
-  rawList.forEach((label) => {
-    if (!label) return
-    if (filteredList.length === 0 || filteredList[filteredList.length - 1] !== label) {
-      filteredList.push(label)
+  // Deduplicate consecutive identical labels
+  const filteredList: BreadcrumbItem[] = []
+  list.forEach((item) => {
+    if (!item.label) return
+    if (filteredList.length === 0 || filteredList[filteredList.length - 1].label !== item.label) {
+      filteredList.push(item)
     }
   })
 
   if (filteredList.length === 0) return null
 
   return (
-    <nav aria-label="Breadcrumb" className={`flex items-center text-xs text-gray-500 py-2 px-1 select-none pointer-events-none ${className}`}>
-      <div className="inline-flex items-center space-x-1.5 md:space-x-2 flex-wrap">
-        <span className="inline-flex items-center text-gray-400">
-          <Home size={13} className="mr-1" />
-          <span className="sr-only">Home</span>
-        </span>
-        {filteredList.map((label, index) => {
-          const isLast = index === filteredList.length - 1
-          return (
-            <span key={index} className="inline-flex items-center gap-1.5 md:gap-2">
-              <ChevronRight size={12} className="text-gray-300 shrink-0" />
+    <nav
+      aria-label="Breadcrumb"
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100/80 border border-gray-200/80 text-xs font-medium text-gray-600 shadow-2xs ${className}`}
+    >
+      <Link
+        to="/dashboard"
+        className="inline-flex items-center text-gray-400 hover:text-blue-600 transition-colors"
+        title="Ke Dashboard Utama"
+      >
+        <Home size={13} />
+        <span className="sr-only">Dashboard</span>
+      </Link>
+
+      {filteredList.map((item, index) => {
+        const isLast = index === filteredList.length - 1
+
+        return (
+          <span key={index} className="inline-flex items-center gap-1.5">
+            <ChevronRight size={12} className="text-gray-300 shrink-0" />
+            {!isLast && item.to ? (
+              <Link
+                to={item.to}
+                className="truncate max-w-[180px] md:max-w-[280px] text-gray-500 hover:text-blue-600 hover:underline transition-colors"
+              >
+                {item.label}
+              </Link>
+            ) : (
               <span
                 className={`truncate max-w-[200px] md:max-w-[320px] ${
-                  isLast ? "font-semibold text-gray-800" : "font-normal text-gray-500"
+                  isLast ? "font-semibold text-gray-900" : "text-gray-500"
                 }`}
               >
-                {label}
+                {item.label}
               </span>
-            </span>
-          )
-        })}
-      </div>
+            )}
+          </span>
+        )
+      })}
     </nav>
   )
 }

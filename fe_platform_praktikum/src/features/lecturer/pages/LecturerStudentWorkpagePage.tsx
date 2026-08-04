@@ -562,6 +562,8 @@ export default function LecturerStudentWorkpagePage() {
               language={workData.context.programmingLanguage || "java"}
               initialSteps={steps}
               readOnly
+              alwaysExpanded
+              hideInstructionTabs
             />
           ) : (
             <EmptyWorkState text="Belum ada pengerjaan yang disimpan mahasiswa pada bagian ini." />
@@ -594,6 +596,8 @@ export default function LecturerStudentWorkpagePage() {
               language={workData.context.programmingLanguage || "java"}
               initialSteps={normalizeReadonlySteps(rawSteps)}
               readOnly
+              alwaysExpanded
+              hideInstructionTabs
             />
           ) : (
             <EmptyWorkState text="Belum ada pengerjaan yang disimpan mahasiswa pada bagian ini." />

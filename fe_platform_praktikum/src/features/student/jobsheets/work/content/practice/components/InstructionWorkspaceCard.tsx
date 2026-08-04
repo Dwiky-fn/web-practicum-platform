@@ -49,6 +49,8 @@ interface Props {
     id: string
     name: string
   }
+  alwaysExpanded?: boolean
+  hideInstructionTabs?: boolean
 }
 
 type BottomPanelTab = "terminal" | "analysis"
@@ -119,6 +121,8 @@ export default function InstructionWorkspaceCard({
   runStats,
   liveWorkspace,
   liveSection,
+  alwaysExpanded = false,
+  hideInstructionTabs = false,
 }: Props) {
   const defaultFileName = getDefaultFileName(language)
   const totalSteps = Math.max(instructions.length, initialSteps?.length || 0, 1)
@@ -135,7 +139,7 @@ export default function InstructionWorkspaceCard({
   const [isSaving, setIsSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState("")
   const [saveError, setSaveError] = useState("")
-  const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(false)
+  const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(alwaysExpanded)
   const [bottomPanelTab, setBottomPanelTab] = useState<BottomPanelTab>("terminal")
   const [isBottomPanelExpanded, setIsBottomPanelExpanded] = useState(true)
   const [bottomPanelHeight, setBottomPanelHeight] = useState(220)
@@ -687,7 +691,7 @@ export default function InstructionWorkspaceCard({
                     ) : null}
                   </p>
                 </div>
-                {Array.from({ length: totalSteps }, (_, index) => (
+                {!hideInstructionTabs && Array.from({ length: totalSteps }, (_, index) => (
                   <InstructionTabButton
                     key={index}
                     active={activeIndex === index}
@@ -741,10 +745,12 @@ export default function InstructionWorkspaceCard({
                     </ToolbarButton>
                   </>
                 )}
-                <ToolbarButton onClick={() => setIsWorkspaceExpanded(false)}>
-                  <ChevronUp size={16} aria-hidden="true" />
-                  Collapse
-                </ToolbarButton>
+                {!alwaysExpanded && (
+                  <ToolbarButton onClick={() => setIsWorkspaceExpanded(false)}>
+                    <ChevronUp size={16} aria-hidden="true" />
+                    Collapse
+                  </ToolbarButton>
+                )}
               </div>
             </div>
 

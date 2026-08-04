@@ -611,7 +611,7 @@ export default function AdminUsersPage() {
                 name="password"
                 className={inputClass}
                 type="password"
-                placeholder={isStudent ? "Default: NIM Mahasiswa" : "Default: NIP Dosen"}
+                placeholder={isStudent ? "Default: NIM Mahasiswa" : "Default: Nama + 4 Digit NIP (misal: Dwiky1001)"}
               />
             </FieldRow>
             <FieldRow label="Status">

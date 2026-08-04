@@ -19,11 +19,26 @@ function normalizePasswordName(fullname = '') {
     .replace(/[^a-z0-9]/g, '') || 'dosen';
 }
 
+function extractCleanFirstName(fullname) {
+  if (!fullname) return 'Dosen';
+  const clean = fullname
+    .replace(/(dr\.|ir\.|prof\.|s\.t\.|m\.t\.|m\.kom\.|ph\.d\.|s\.kom\.|m\.cs\.|m\.sc\.)/gi, '')
+    .trim();
+  const words = clean.split(/\s+/).filter(Boolean);
+  const firstWord = words.find((w) => w.length >= 2) || words[0] || 'Dosen';
+  const alphaOnly = firstWord.replace(/[^a-zA-Z]/g, '');
+  if (!alphaOnly) return 'Dosen';
+  return alphaOnly.charAt(0).toUpperCase() + alphaOnly.slice(1).toLowerCase();
+}
+
 function createLecturerDefaultPassword(fullname, nip) {
-  if (nip && String(nip).trim() !== '') {
-    return String(nip).trim();
+  const firstName = extractCleanFirstName(fullname);
+  if (nip && String(nip).trim().length >= 4) {
+    const nipStr = String(nip).trim();
+    const lastFour = nipStr.slice(-4);
+    return `${firstName}${lastFour}`;
   }
-  return 'dosen123';
+  return `${firstName}1234`;
 }
 
 class AdminUsersService {

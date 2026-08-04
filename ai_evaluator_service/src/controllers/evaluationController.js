@@ -43,13 +43,17 @@ async function sendWebhookCallback(webhookUrl, payload, maxRetries = 3) {
     }
 
     if (attempt < maxRetries) {
-      console.log(`[AI Service Webhook] Mengulang pengiriman callback dalam ${delay}ms...`);
+      console.log(
+        `[AI Service Webhook] Mengulang pengiriman callback dalam ${delay}ms...`,
+      );
       await new Promise((resolve) => setTimeout(resolve, delay));
       delay *= 2; // Exponential backoff: 1s, 2s, 4s
     }
   }
 
-  console.error(`[AI Service Webhook] Webhook callback gagal terkirim setelah ${maxRetries} percobaan.`);
+  console.error(
+    `[AI Service Webhook] Webhook callback gagal terkirim setelah ${maxRetries} percobaan.`,
+  );
 }
 
 async function evaluationController(req, res, next) {
@@ -59,8 +63,7 @@ async function evaluationController(req, res, next) {
     req.body?.options?.callbackUrl ||
     req.body?.webhookUrl ||
     req.body?.callbackUrl ||
-    process.env.LMS_WEBHOOK_URL ||
-    'http://localhost:3000/api/internal/ai-callback';
+    process.env.LMS_WEBHOOK_URL;
 
   if (submissionId) {
     if (activeEvaluations.has(submissionId)) {

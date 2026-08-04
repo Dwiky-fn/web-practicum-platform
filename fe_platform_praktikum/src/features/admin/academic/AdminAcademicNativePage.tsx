@@ -2,6 +2,7 @@ import { AlertTriangle, Eye, Loader2, Plus } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Navigate, useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom"
 import AdminLayout from "../components/AdminLayout"
+import TopProgressBar from "../../../components/loading/TopProgressBar"
 import {
   AdminActionCell,
   AdminButton,
@@ -1767,7 +1768,18 @@ export default function AdminAcademicNativePage() {
     if (loading) {
       return (
         <AdminLayout>
-          <p className="text-sm text-gray-500">Memuat detail tahun semester...</p>
+          <TopProgressBar />
+          <div className="space-y-6 animate-pulse">
+            <div className="space-y-3">
+              <div className="h-8 w-64 bg-gray-200 rounded-xl" />
+              <div className="h-4 w-48 bg-gray-200 rounded-lg" />
+            </div>
+            <div className="h-10 w-full max-w-md bg-gray-200 rounded-xl" />
+            <div className="space-y-3 rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
+              <div className="h-6 w-40 bg-gray-200 rounded" />
+              <div className="h-32 bg-gray-100 rounded-xl" />
+            </div>
+          </div>
         </AdminLayout>
       )
     }

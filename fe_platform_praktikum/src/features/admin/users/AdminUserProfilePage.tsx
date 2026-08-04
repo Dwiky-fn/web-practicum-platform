@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react"
-import { ArrowLeft } from "lucide-react"
-import { useNavigate, useParams } from "react-router-dom"
+import { useParams } from "react-router-dom"
 import AdminLayout from "../components/AdminLayout"
 import { AdminPanel } from "../components/AdminUI"
 import StudentProfileModal from "../../lecturer/components/StudentProfileModal"
 import { getUserById } from "../../../services/user/service"
+import BackButton from "../../../components/BackButton"
 
 export default function AdminUserProfilePage() {
   const { role, id } = useParams<{ role: "students" | "lecturers"; id: string }>()
-  const navigate = useNavigate()
   const [fullname, setFullname] = useState<string>("")
 
   useEffect(() => {
@@ -47,14 +46,9 @@ export default function AdminUserProfilePage() {
 
   return (
     <AdminLayout breadcrumbItems={breadcrumbItems}>
-      <button
-        type="button"
-        onClick={() => navigate(`/users/${role ?? "students"}`)}
-        className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900 cursor-pointer"
-      >
-        <ArrowLeft size={18} />
-        Kembali
-      </button>
+      <div className="mb-4">
+        <BackButton to={`/users/${role ?? "students"}`} />
+      </div>
 
       <AdminPanel className="mx-auto max-w-5xl p-6">
         <StudentProfileModal

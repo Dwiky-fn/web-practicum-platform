@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
 import {
-  ArrowLeft,
   Activity,
   BookOpen,
   CalendarDays,
@@ -16,6 +15,7 @@ import {
 } from "lucide-react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import StudentProfileModal from "../components/StudentProfileModal"
+import BackButton from "../../../components/BackButton"
 import { toast } from "../../../components/toast/toastStore"
 import { useBackNavigation } from "../../../shared/utils/backNavigation"
 import {
@@ -67,7 +67,6 @@ import {
   type LecturerRemedialStudent,
 } from "../service"
 import { academicCourseBasePath } from "../../../services/academicScope"
-import Breadcrumbs from "../../../components/Breadcrumbs"
 
 type DetailTab = "detail" | "monitoring" | "students" | "remedial"
 
@@ -733,24 +732,21 @@ export default function LecturerJobsheetDetailPage() {
 
   return (
     <LecturerLayout>
-      <button
-        type="button"
-        onClick={() => {
-          goBackToParent({
-            parentPath: classId 
-              ? `/kelas-praktikum/${courseId}/${classId}` 
-              : courseId 
-                ? `/mata-kuliah/${courseId}/jobsheets` 
-                : "/mata-kuliah",
-            fallbackPath: "/mata-kuliah",
-            preserveQueryParams: ["courseId", "classId", "mataKuliahId", "kelasPraktikumId"],
-          })
-        }}
-        className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
-      >
-        <ArrowLeft size={18} />
-        Kembali
-      </button>
+      <div className="mb-4">
+        <BackButton
+          onClick={() => {
+            goBackToParent({
+              parentPath: classId 
+                ? `/kelas-praktikum/${courseId}/${classId}` 
+                : courseId 
+                  ? `/mata-kuliah/${courseId}/jobsheets` 
+                  : "/mata-kuliah",
+              fallbackPath: "/mata-kuliah",
+              preserveQueryParams: ["courseId", "classId", "mataKuliahId", "kelasPraktikumId"],
+            })
+          }}
+        />
+      </div>
 
       <PageHeader
         title={jobsheet ? jobsheet.title : "Detail Jobsheet"}

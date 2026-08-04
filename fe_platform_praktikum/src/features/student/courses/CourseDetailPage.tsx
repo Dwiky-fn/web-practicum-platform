@@ -9,6 +9,7 @@ import type { Jobsheet } from "../../../services/jobsheet/types";
 import type { Course } from "../../../services/course/types";
 import Navbar from "../../../components/navbar/Navbar";
 import Breadcrumbs from "../../../components/Breadcrumbs";
+import BackButton from "../../../components/BackButton";
 import JobsheetCard from "./components/JobsheetCard";
 import JobsheetCardSkeleton from "./components/loading/JobsheetCardSkeleton";
 import TopProgressBar from "../../../components/loading/TopProgressBar";
@@ -86,7 +87,10 @@ export default function CourseDetailPage() {
       <TopProgressBar />
 
       <main className="max-w-7xl mx-auto px-6 py-6">
-        <Breadcrumbs items={[{ label: "Mata Kuliah", to: "/mata-kuliah" }, { label: course?.name || "Detail Mata Kuliah" }]} />
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <BackButton to="/mata-kuliah" />
+          <Breadcrumbs items={[{ label: "Mata Kuliah", to: "/mata-kuliah" }, { label: course?.name || "Detail Mata Kuliah" }]} />
+        </div>
         {error && (
           <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}

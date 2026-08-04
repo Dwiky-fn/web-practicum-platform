@@ -985,6 +985,16 @@ export default function AdminAcademicNativePage() {
         }
       } else if (modal.tab === "kelas-praktikum") {
         const mk = mataKuliah.find((item) => item.id === form.id_mata_kuliah)
+        const targetSemesterId = mk?.id_semester ?? form.id_semester
+        const targetTahunSemesterId = selectedOperationalTahunSemester?.id ?? form.id_tahun_semester
+        const ksExists = kelasSemester.some(
+          (ks) => ks.id_tahun_semester === targetTahunSemesterId && ks.id_semester === targetSemesterId && ks.id_kelas === form.id_kelas
+        )
+        if (!ksExists) {
+          setError("Kelas praktikum hanya bisa dibuat untuk Kelas Mahasiswa (Rombel) yang sudah ada pada tahun semester ini. Silakan buat Kelas Mahasiswa terlebih dahulu.")
+          setSubmitting(false)
+          return
+        }
         const kelasPraktikumPayload = {
           id_tahun_semester: selectedOperationalTahunSemester?.id ?? form.id_tahun_semester,
           id_kurikulum: form.id_kurikulum,
@@ -1259,6 +1269,17 @@ export default function AdminAcademicNativePage() {
 
   function renderKelasPraktikumFields() {
     const hasKurikulum = Boolean(form.id_kurikulum)
+    const selectedMK = mataKuliah.find((item) => item.id === form.id_mata_kuliah)
+    const targetSemesterId = selectedMK?.id_semester
+
+    const availableKelasForSelectedMK = targetSemesterId
+      ? kelas.filter((k) =>
+          scopedKelasSemester.some(
+            (ks) => ks.id_semester === targetSemesterId && ks.id_kelas === k.id
+          )
+        )
+      : []
+
     return (
       <>
         {!isTahunSemesterDetail && (
@@ -1296,12 +1317,24 @@ export default function AdminAcademicNativePage() {
         <FieldRow label="Semester Otomatis">
           <input className={`${inputClass} bg-gray-100 text-gray-700`} value={selectedSemester ? `Semester ${selectedSemester.semester}` : ""} readOnly disabled />
         </FieldRow>
-        <FieldRow label="Kelas">
-          <AdminSelect value={form.id_kelas ?? ""} onChange={(v) => setField("id_kelas", v)} required>
-            <option value="">Pilih kelas</option>
-            {kelas.map((i) => option(i.id, i.kelas))}
+        <FieldRow label="Kelas (Rombel)">
+          <AdminSelect
+            value={form.id_kelas ?? ""}
+            onChange={(v) => setField("id_kelas", v)}
+            required
+            disabled={!form.id_mata_kuliah || !availableKelasForSelectedMK.length}
+          >
+            <option value="">
+              {!form.id_mata_kuliah
+                ? "Pilih mata kuliah terlebih dahulu"
+                : availableKelasForSelectedMK.length
+                  ? "Pilih kelas rombel yang tersedia"
+                  : "Belum ada Kelas Mahasiswa (Rombel) untuk semester ini"}
+            </option>
+            {availableKelasForSelectedMK.map((i) => option(i.id, `Kelas ${i.kelas}`))}
           </AdminSelect>
         </FieldRow>
+        {form.id_mata_kuliah && !availableKelasForSelectedMK.length && warningBox("Kelas praktikum hanya bisa dibuat untuk Kelas Mahasiswa (Rombel) yang sudah ada pada tahun semester ini. Silakan buat Kelas Mahasiswa terlebih dahulu pada tab Kelas Mahasiswa.")}
         <FieldRow label="Dosen">
           <AdminSelect value={form.id_dosen ?? ""} onChange={(v) => setField("id_dosen", v)} required>
             <option value="">Pilih dosen</option>

@@ -1233,6 +1233,13 @@ class AcademicDataService {
       const idSemester = payload.id_semester || row.mk_id_semester;
       if (payload.id_kurikulum && payload.id_kurikulum !== row.id_kurikulum) throw new Error('KELAS_PRAKTIKUM_KURIKULUM_MISMATCH');
       if (idSemester !== row.mk_id_semester) throw new Error('KELAS_PRAKTIKUM_SEMESTER_MISMATCH');
+      const ksCheck = await client.query(
+        `SELECT id FROM kelas_semester
+         WHERE id_tahun_semester = $1 AND id_semester = $2 AND id_kelas = $3
+         LIMIT 1`,
+        [payload.id_tahun_semester, idSemester, payload.id_kelas],
+      );
+      if (!ksCheck.rows.length) throw new Error('KELAS_PRAKTIKUM_MAHASISWA_CLASS_REQUIRED');
       const status = normalizeClassStatus(payload.status);
       const jumlahJobsheetRencana = this._normalizeJobsheetPlan(payload.jumlah_jobsheet_rencana, 1);
       const namaKelas = this._buildKelasPraktikumName({ ...row, id_semester: idSemester });
@@ -1274,6 +1281,13 @@ class AcademicDataService {
       if (!related.rows.length) throw new Error('KELAS_PRAKTIKUM_REFERENCE_NOT_FOUND');
       if (payload.id_kurikulum && payload.id_kurikulum !== related.rows[0].id_kurikulum) throw new Error('KELAS_PRAKTIKUM_KURIKULUM_MISMATCH');
       if (next.id_semester !== related.rows[0].mk_id_semester) throw new Error('KELAS_PRAKTIKUM_SEMESTER_MISMATCH');
+      const ksCheck = await client.query(
+        `SELECT id FROM kelas_semester
+         WHERE id_tahun_semester = $1 AND id_semester = $2 AND id_kelas = $3
+         LIMIT 1`,
+        [next.id_tahun_semester, next.id_semester, next.id_kelas],
+      );
+      if (!ksCheck.rows.length) throw new Error('KELAS_PRAKTIKUM_MAHASISWA_CLASS_REQUIRED');
       const jumlahJobsheetRencana = payload.jumlah_jobsheet_rencana === undefined
         ? current.jumlah_jobsheet_rencana
         : await this._assertJobsheetPlanAllowed(client, id, payload.jumlah_jobsheet_rencana);

@@ -113,6 +113,7 @@ function handleAdminError(error, res) {
     SEMESTER_PROMOTION_CONCURRENT: [409, 'Kenaikan semester sedang atau sudah diproses oleh admin lain. Muat ulang data sebelum mencoba lagi.'],
     KELAS_PRAKTIKUM_KURIKULUM_MISMATCH: [400, 'Mata kuliah tidak sesuai dengan kurikulum yang dipilih'],
     KELAS_PRAKTIKUM_SEMESTER_MISMATCH: [400, 'Mata kuliah tidak sesuai dengan semester kelas praktikum'],
+    KELAS_PRAKTIKUM_MAHASISWA_CLASS_REQUIRED: [400, 'Kelas praktikum hanya dapat dibuat untuk Kelas Mahasiswa (Rombel) yang sudah terdaftar pada tahun semester ini.'],
   };
   const detail = errors[error.message];
 

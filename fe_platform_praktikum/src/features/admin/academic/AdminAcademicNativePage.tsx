@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, Eye, Loader2, Plus } from "lucide-react"
+import { AlertTriangle, Eye, Loader2, Plus } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Navigate, useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom"
 import AdminLayout from "../components/AdminLayout"

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
-  ArrowRight,
   BookOpen,
   Clock,
   FileCheck,
@@ -244,13 +243,13 @@ export default function LecturerDashboardPage() {
           {/* Grid Cards Metrik Ringkasan Relevan dengan Quick Action */}
           <section className="mb-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {/* Card 1: Kelas Diampu */}
-            <div className="group flex flex-col justify-between rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/90 via-white to-blue-50/30 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+            <div className="flex flex-col justify-between rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/90 via-white to-blue-50/30 p-5 shadow-sm">
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-blue-700">
                     Kelas Diampu
                   </span>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700 transition-transform group-hover:scale-110">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
                     <BookOpen size={20} />
                   </div>
                 </div>
@@ -259,84 +258,48 @@ export default function LecturerDashboardPage() {
                   {classList.length ? `Kelas: ${classList.map((c) => c.className).join(", ")}` : "Belum ada kelas"}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => navigate(`/mata-kuliah/${selectedCourse?.id}/jobsheets`)}
-                className="mt-4 flex items-center justify-between border-t border-blue-100/80 pt-3 text-xs font-bold text-blue-600 transition-colors group-hover:text-blue-800"
-              >
-                <span>Kelola Jobsheet</span>
-                <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-              </button>
             </div>
 
             {/* Card 2: Mahasiswa Aktif */}
-            <div className="group flex flex-col justify-between rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/30 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+            <div className="flex flex-col justify-between rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/30 p-5 shadow-sm">
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
                     Mahasiswa Aktif
                   </span>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 transition-transform group-hover:scale-110">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
                     <Users size={20} />
                   </div>
                 </div>
                 <p className="mt-3 text-3xl font-extrabold text-gray-900">{totalStudentsCount} Orang</p>
                 <p className="mt-1 text-xs text-gray-500">Terdaftar di seluruh kelas mata kuliah ini</p>
               </div>
-              <button
-                type="button"
-                onClick={() => navigate("/mata-kuliah")}
-                className="mt-4 flex items-center justify-between border-t border-emerald-100/80 pt-3 text-xs font-bold text-emerald-600 transition-colors group-hover:text-emerald-800"
-              >
-                <span>Lihat Mata Kuliah</span>
-                <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-              </button>
             </div>
 
             {/* Card 3: Menunggu Evaluasi */}
-            <div className="group flex flex-col justify-between rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50/90 via-white to-amber-50/30 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+            <div className="flex flex-col justify-between rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50/90 via-white to-amber-50/30 p-5 shadow-sm">
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-amber-700">
                     Menunggu Evaluasi
                   </span>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700 transition-transform group-hover:scale-110">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
                     <FileCheck size={20} />
                   </div>
                 </div>
                 <p className="mt-3 text-3xl font-extrabold text-gray-900">{totalPendingReviews} Jobsheet</p>
                 <p className="mt-1 text-xs text-gray-500">Submission mahasiswa butuh penilaian</p>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (pendingReviewSubmissions.length > 0 && selectedCourse) {
-                    const first = pendingReviewSubmissions[0]
-                    const params = new URLSearchParams({
-                      courseId: selectedCourse.id,
-                      classId: first.classId,
-                      jobsheetId: first.jobsheet.id,
-                    })
-                    navigate(`/reviews/${first.student.id}?${params.toString()}`)
-                  } else {
-                    navigate("/mata-kuliah")
-                  }
-                }}
-                className="mt-4 flex items-center justify-between border-t border-amber-100/80 pt-3 text-xs font-bold text-amber-600 transition-colors group-hover:text-amber-800"
-              >
-                <span>Mulai Review</span>
-                <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-              </button>
             </div>
 
             {/* Card 4: Deadline Terdekat */}
-            <div className="group flex flex-col justify-between rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50/90 via-white to-purple-50/30 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+            <div className="flex flex-col justify-between rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50/90 via-white to-purple-50/30 p-5 shadow-sm">
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-purple-700">
                     Deadline Terdekat
                   </span>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-700 transition-transform group-hover:scale-110">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
                     <Clock size={20} />
                   </div>
                 </div>
@@ -349,14 +312,6 @@ export default function LecturerDashboardPage() {
                   {upcomingDeadlineJob ? formatDeadlineLocal(upcomingDeadlineJob.deadline) : "Semua jobsheet aman"}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => navigate(`/mata-kuliah/${selectedCourse?.id}/jobsheets`)}
-                className="mt-4 flex items-center justify-between border-t border-purple-100/80 pt-3 text-xs font-bold text-purple-600 transition-colors group-hover:text-purple-800"
-              >
-                <span>Atur Jadwal</span>
-                <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-              </button>
             </div>
           </section>
 

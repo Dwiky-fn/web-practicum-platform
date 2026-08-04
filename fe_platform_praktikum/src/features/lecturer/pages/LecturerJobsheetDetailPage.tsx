@@ -16,7 +16,6 @@ import {
 } from "lucide-react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import StudentProfileModal from "../components/StudentProfileModal"
-import BackButton from "../../../components/BackButton"
 import { toast } from "../../../components/toast/toastStore"
 import { useBackNavigation } from "../../../shared/utils/backNavigation"
 import {
@@ -735,22 +734,19 @@ export default function LecturerJobsheetDetailPage() {
   }
 
   return (
-    <LecturerLayout>
-      <div className="mb-4">
-        <BackButton
-          onClick={() => {
-            goBackToParent({
-              parentPath: classId 
-                ? `/kelas-praktikum/${courseId}/${classId}` 
-                : courseId 
-                  ? `/mata-kuliah/${courseId}/jobsheets` 
-                  : "/mata-kuliah",
-              fallbackPath: "/mata-kuliah",
-              preserveQueryParams: ["courseId", "classId", "mataKuliahId", "kelasPraktikumId"],
-            })
-          }}
-        />
-      </div>
+    <LecturerLayout
+      onBack={() => {
+        goBackToParent({
+          parentPath: classId 
+            ? `/kelas-praktikum/${courseId}/${classId}` 
+            : courseId 
+              ? `/mata-kuliah/${courseId}/jobsheets` 
+              : "/mata-kuliah",
+          fallbackPath: "/mata-kuliah",
+          preserveQueryParams: ["courseId", "classId", "mataKuliahId", "kelasPraktikumId"],
+        })
+      }}
+    >
 
       <PageHeader
         title={jobsheet ? jobsheet.title : "Detail Jobsheet"}

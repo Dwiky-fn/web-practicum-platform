@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { ArrowLeft, BookOpen, Copy, FileText, Pencil, Plus, Trash2 } from "lucide-react"
+import { BookOpen, Copy, FileText, Pencil, Plus, Trash2 } from "lucide-react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import { apiFetch } from "../../../services/api"
@@ -280,24 +280,19 @@ export default function LecturerJobsheetManagePage() {
   }
 
   return (
-    <LecturerLayout>
-      <button
-        type="button"
-        onClick={() => {
-          goBackToParent({
-            parentPath: classId 
-              ? `/kelas-praktikum/${effectiveCourseId}/${classId}` 
+    <LecturerLayout
+      onBack={() => {
+        goBackToParent({
+          parentPath: classId
+            ? `/kelas-praktikum/${courseId}/${classId}`
+            : courseId
+              ? `/mata-kuliah/${courseId}/jobsheets`
               : "/mata-kuliah",
-            fallbackPath: "/mata-kuliah",
-            preserveQueryParams: ["courseId", "classId", "mataKuliahId", "kelasPraktikumId"],
-          })
-        }}
-        className="mb-5 inline-flex items-center gap-2 text-xs font-bold text-blue-700 hover:text-blue-900"
-      >
-        <ArrowLeft size={16} />
-        Kembali ke Navigasi Utama
-      </button>
-
+          fallbackPath: "/mata-kuliah",
+          preserveQueryParams: ["courseId", "classId", "mataKuliahId", "kelasPraktikumId"],
+        })
+      }}
+    >
       <PageHeader
         title="Kelola Jobsheet Praktikum"
         subtitle={`Manajemen materi jobsheet & alokasi untuk mata kuliah ${dataset?.course.name ?? "-"}`}

@@ -3,14 +3,14 @@ import { AppSidebar } from "../../../components/app-sidebar"
 import Navbar from "../../../components/navbar/Navbar"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import ScrollToTopButton from "../../../components/ScrollToTopButton"
-
-import Breadcrumbs from "../../../components/Breadcrumbs"
+import Breadcrumbs, { type BreadcrumbItem } from "../../../components/Breadcrumbs"
 
 interface AdminLayoutProps {
   children: React.ReactNode
+  breadcrumbItems?: BreadcrumbItem[]
 }
 
-export default function AdminLayout({ children }: AdminLayoutProps) {
+export default function AdminLayout({ children, breadcrumbItems }: AdminLayoutProps) {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
       {/* Top Navbar Header (Diselaraskan dengan Tema Dosen & Mahasiswa) */}
@@ -25,7 +25,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         {/* Main Content Area */}
         <SidebarInset>
           <main className="flex-1 p-6 lg:p-8 max-w-7xl mx-auto w-full">
-            <Breadcrumbs className="mb-3" />
+            <Breadcrumbs items={breadcrumbItems} className="mb-3" />
             {children}
           </main>
           <ScrollToTopButton />

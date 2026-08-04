@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
+<<<<<<< HEAD
 import { User, MapPin, Activity, ChevronDown, MessageSquare } from "lucide-react"
+=======
+import { User, MapPin, Activity, ChevronDown } from "lucide-react"
+>>>>>>> main
 import type { JSONContent } from "@tiptap/react"
 import LecturerChatDrawer from "../components/LecturerChatDrawer"
 import RichTextViewer from "../../../components/editor/RichTextViewer"
@@ -271,7 +275,10 @@ export default function LecturerStudentWorkpagePage() {
   const [liveStatus, setLiveStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("disconnected")
   const [studentOnline, setStudentOnline] = useState(false)
   const [isHeaderExpanded, setIsHeaderExpanded] = useState(true)
+<<<<<<< HEAD
   const [isLecturerChatOpen, setIsLecturerChatOpen] = useState(false)
+=======
+>>>>>>> main
   const liveWorkspaceVersionRef = useRef(0)
 
   const basePath = `/lecturer/kelas-praktikum/${kelasPraktikumId}/jobsheets/${jobsheetId}/students/${studentId}/monitor`

@@ -613,7 +613,7 @@ export default function LecturerClassDetailPage() {
                         <td className="px-4 py-3.5 font-mono text-xs font-semibold text-gray-700">{student.nim}</td>
                         <td className="px-4 py-3.5 text-sm font-semibold text-gray-900">{student.fullname}</td>
                         <td className="px-4 py-3.5 text-center text-xs font-bold text-blue-700">{reportCount} Jobsheet</td>
-                        <td className="px-4 py-3.5 text-center">
+                        <td className="px-4 py-3.5 text-right">
                           <button
                             type="button"
                             className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:text-blue-900 hover:underline"
@@ -692,7 +692,7 @@ export default function LecturerClassDetailPage() {
                         <td className="px-4 py-3.5 text-center text-xs font-mono font-bold text-emerald-700">
                           {selectedSubmission?.submission?.review?.finalScore ?? "-"}
                         </td>
-                        <td className="px-4 py-3.5 text-center">
+                        <td className="px-4 py-3.5 text-right">
                           {selectedSubmission?.submission && ["SUBMITTED", "REVIEWED", "ACCEPTED", "REVISION", "REVIEWING"].includes(selectedSubmission.submission.status) ? (
                             <LecturerButton
                               variant="secondary"

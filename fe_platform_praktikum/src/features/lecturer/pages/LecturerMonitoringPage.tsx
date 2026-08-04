@@ -507,8 +507,8 @@ export default function LecturerMonitoringPage() {
                       <td className="px-4 py-3.5 text-center text-xs font-mono font-bold text-gray-800">
                         {item.runCount} kali
                       </td>
-                      <td className="px-4 py-3.5 text-center">
-                        <div className="flex items-center justify-center gap-2">
+                      <td className="px-4 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-2">
                           <button
                             type="button"
                             disabled={!item.currentJobsheet?.id}

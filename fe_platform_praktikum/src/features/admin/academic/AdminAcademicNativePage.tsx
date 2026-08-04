@@ -1136,53 +1136,51 @@ export default function AdminAcademicNativePage() {
             <tr key={`${group.id_semester}_${group.id_kelas}`}>
               <td className="px-4 py-3 font-semibold text-center">{displayClassName}</td>
               <td className="px-4 py-3 text-center">{group.students.length} mahasiswa</td>
-              <td className="px-4 py-3">
-                <div className="flex justify-center gap-2">
-                  <AdminButton
-                    variant="ghost"
-                    className="h-8 px-2"
-                    onClick={() => {
-                      navigate(`/admin/academic/tahun-semester/${tahunSemesterId}/kelas-mahasiswa?semesterId=${group.id_semester}&kelasId=${group.id_kelas}`)
-                    }}
-                  >
-                    <Eye size={14} />
-                    Detail
-                  </AdminButton>
-                  <AdminButton
-                    variant="ghost"
-                    className="h-8 px-2"
-                    onClick={() => {
-                      if (group.students.length > 0) {
-                        toast.warning("Kelas tidak dapat diubah karena sudah memiliki mahasiswa.")
-                        return
-                      }
-                      const isUsedInPraktikum = scopedKelasPraktikum.some(
-                        (kp) => kp.id_semester === group.id_semester && kp.id_kelas === group.id_kelas
-                      )
-                      if (isUsedInPraktikum) {
-                        toast.warning("Kelas tidak dapat diubah karena sudah digunakan oleh kelas praktikum.")
-                        return
-                      }
-                      openModal("kelas-mahasiswa", group)
-                    }}
-                  >
-                    Edit
-                  </AdminButton>
-                  <AdminButton
-                    variant="danger"
-                    className="h-8 px-2"
-                    onClick={() => {
-                      setDeleteTarget({
-                        tab: "kelas-mahasiswa",
-                        id: group.id,
-                        label: displayClassName
-                      })
-                    }}
-                  >
-                    Hapus
-                  </AdminButton>
-                </div>
-              </td>
+              <AdminActionCell>
+                <AdminButton
+                  variant="ghost"
+                  className="h-8 px-2"
+                  onClick={() => {
+                    navigate(`/admin/academic/tahun-semester/${tahunSemesterId}/kelas-mahasiswa?semesterId=${group.id_semester}&kelasId=${group.id_kelas}`)
+                  }}
+                >
+                  <Eye size={14} />
+                  Detail
+                </AdminButton>
+                <AdminButton
+                  variant="ghost"
+                  className="h-8 px-2"
+                  onClick={() => {
+                    if (group.students.length > 0) {
+                      toast.warning("Kelas tidak dapat diubah karena sudah memiliki mahasiswa.")
+                      return
+                    }
+                    const isUsedInPraktikum = scopedKelasPraktikum.some(
+                      (kp) => kp.id_semester === group.id_semester && kp.id_kelas === group.id_kelas
+                    )
+                    if (isUsedInPraktikum) {
+                      toast.warning("Kelas tidak dapat diubah karena sudah digunakan oleh kelas praktikum.")
+                      return
+                    }
+                    openModal("kelas-mahasiswa", group)
+                  }}
+                >
+                  Edit
+                </AdminButton>
+                <AdminButton
+                  variant="danger"
+                  className="h-8 px-2"
+                  onClick={() => {
+                    setDeleteTarget({
+                      tab: "kelas-mahasiswa",
+                      id: group.id,
+                      label: displayClassName
+                    })
+                  }}
+                >
+                  Hapus
+                </AdminButton>
+              </AdminActionCell>
             </tr>
           )
         })}

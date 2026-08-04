@@ -1031,8 +1031,8 @@ export default function LecturerJobsheetDetailPage() {
                         <td className="px-4 py-3 text-xs text-gray-600" title={student.last_activity_at ? formatAcademicDateTime(student.last_activity_at) : "-"}>
                           {formatRelativeTime(student.last_activity_at)}
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex flex-wrap justify-center gap-2">
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex flex-wrap justify-end gap-2">
                             <button
                               type="button"
                               className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold text-white transition duration-150 hover:bg-blue-700"
@@ -1139,7 +1139,7 @@ export default function LecturerJobsheetDetailPage() {
                           {centralFormatScore(item.submission?.calculatedProgressScore ?? item.submission?.scoreBreakdown?.progressScore)}
                         </td>
                         <td className="px-4 py-3 text-center">{centralFormatScore(item.submission?.review?.finalScore)}</td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-4 py-3 text-right">
                           {(() => {
                             const isSubmitted = item.submission && ["SUBMITTED", "REVIEWED", "ACCEPTED", "REVISION", "REVIEWING"].includes(item.submission.status)
                             return (
@@ -1215,8 +1215,8 @@ export default function LecturerJobsheetDetailPage() {
                                   {rem.status === "open" ? "Aktif" : rem.status === "closed" ? "Tutup" : rem.status === "cancelled" ? "Dibatalkan" : "Draft"}
                                 </span>
                               </td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center justify-center gap-2">
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex items-center justify-end gap-2">
                                   <button
                                     type="button"
                                     onClick={() => setSelectedRemedialId(rem.id)}

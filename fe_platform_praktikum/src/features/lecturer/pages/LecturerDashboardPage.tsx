@@ -359,7 +359,7 @@ export default function LecturerDashboardPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-center">
+                      <td className="px-4 py-3.5 text-right">
                         <LecturerButton
                           variant="secondary"
                           onClick={() => setSelectedClassModal(item)}
@@ -470,7 +470,7 @@ export default function LecturerDashboardPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-4 py-3 text-right">
                           <LecturerButton
                             variant="ghost"
                             disabled={studentSubmissions.length === 0}

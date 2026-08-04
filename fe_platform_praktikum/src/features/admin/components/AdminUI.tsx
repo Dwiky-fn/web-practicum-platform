@@ -143,14 +143,17 @@ export function AdminTable({
       <table className="w-full min-w-180 border-collapse bg-white text-sm">
         <thead>
           <tr className="bg-blue-50 text-left text-gray-800">
-            {headers.map((header) => (
-              <th
-                key={header}
-                className="border-b border-gray-200 px-4 py-3 text-center font-semibold"
-              >
-                {header}
-              </th>
-            ))}
+            {headers.map((header, idx) => {
+              const isAction = idx === headers.length - 1 || /aksi|action|profil|evaluasi/i.test(header)
+              return (
+                <th
+                  key={header}
+                  className={`border-b border-gray-200 px-4 py-3 font-semibold ${isAction ? "text-right" : "text-left"}`}
+                >
+                  {header}
+                </th>
+              )
+            })}
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">{children}</tbody>
@@ -161,12 +164,14 @@ export function AdminTable({
 
 export function AdminActionCell({
   children,
+  className = "",
 }: {
   children: React.ReactNode
+  className?: string
 }) {
   return (
-    <td className="px-4 py-3">
-      <div className="flex flex-wrap justify-center gap-2">
+    <td className={`px-4 py-3 text-right ${className}`}>
+      <div className="flex flex-wrap items-center justify-end gap-2">
         {children}
       </div>
     </td>

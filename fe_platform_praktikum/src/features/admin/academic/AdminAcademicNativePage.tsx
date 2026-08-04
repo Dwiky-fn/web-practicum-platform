@@ -1202,8 +1202,8 @@ export default function AdminAcademicNativePage() {
     }
     if (!items.length) return <EmptyState title="Belum ada kelas praktikum untuk tahun semester ini." />
     const headers = isDetailView
-      ? ["Nama Kelas", "Jobsheet", "Pengampu", "Aksi"]
-      : ["Nama Kelas", "Tahun Semester", "Mata Kuliah", "Semester", "Kelas", "Jobsheet", "Pengampu", "Aksi"]
+      ? ["Nama Kelas", "Pengampu", "Aksi"]
+      : ["Nama Kelas", "Tahun Semester", "Mata Kuliah", "Semester", "Kelas", "Pengampu", "Aksi"]
     return (
       <AdminTable headers={headers}>
         {items.map((i) => {
@@ -1216,9 +1216,6 @@ export default function AdminAcademicNativePage() {
               {!isDetailView && <td className="px-4 py-3">{i.nama_mk}</td>}
               {!isDetailView && <td className="px-4 py-3 text-center">{i.semester}</td>}
               {!isDetailView && <td className="px-4 py-3 text-center">{i.kelas}</td>}
-              <td className="px-4 py-3 text-sm">
-                Rencana {i.jumlah_jobsheet_rencana ?? i.jumlahJobsheetRencana ?? 1} / Dibuat {i.jumlah_jobsheet_dibuat ?? i.jumlahJobsheetDibuat ?? 0} / Publish {i.jumlah_jobsheet_publish ?? i.jumlahJobsheetPublish ?? 0}
-              </td>
               <td className="px-4 py-3">{lecturersForClass.map((item) => item.nama_dosen ?? item.fullname ?? item.id_dosen).join(", ") || "-"}</td>
               {actionCell("kelas-praktikum", i, displayClassName)}
             </tr>

@@ -504,7 +504,7 @@ export default function AdminUsersPage() {
     if (!modal) return null
 
     const title = isStudent
-      ? "Tambah Mahasiswa dan Buat Akun Login"
+      ? "Tambah Mahasiswa"
       : "Tambah Dosen"
 
     const isSingleTab = addTab === "single"
@@ -520,7 +520,7 @@ export default function AdminUsersPage() {
             </AdminButton>
             {isSingleTab ? (
               <AdminButton type="submit" form="admin-user-form" disabled={submitting}>
-                {submitting ? "Menyimpan..." : isStudent ? "Tambah Mahasiswa dan Akun" : "Tambah Dosen"}
+                {submitting ? "Menyimpan..." : isStudent ? "Tambah Mahasiswa" : "Tambah Dosen"}
               </AdminButton>
             ) : (
               <AdminButton type="submit" form="admin-import-form" disabled={submitting || !importFile || !!importFileError}>
@@ -743,7 +743,7 @@ export default function AdminUsersPage() {
             </button>
             <AdminButton onClick={() => { setAddTab("single"); setModal("add"); }}>
               <Plus size={16} />
-              {isStudent ? "Tambah Mahasiswa dan Akun" : "Tambah Dosen"}
+              {isStudent ? "Tambah Mahasiswa" : "Tambah Dosen"}
             </AdminButton>
           </>
         }

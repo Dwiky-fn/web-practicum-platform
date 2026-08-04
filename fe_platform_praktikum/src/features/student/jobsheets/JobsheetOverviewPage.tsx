@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { ClipboardList } from "lucide-react";
 import { getSubmissionByJobsheetId, getSubmissionHistory } from "../../../services/submission/service";
 import type { Jobsheet } from "../../../services/jobsheet/types";
@@ -43,7 +43,6 @@ function renderGoal(goal?: string | null) {
 
 export default function JobsheetOverviewPage() {
   const { user } = useCurrentUser();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const classId = searchParams.get("classId") || undefined;
   const { courseId, mataKuliahId: routeMataKuliahId, jobsheetId } = useParams<{

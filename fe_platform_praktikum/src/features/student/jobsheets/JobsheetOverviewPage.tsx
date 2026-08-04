@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ClipboardList } from "lucide-react";
 import { getSubmissionByJobsheetId, getSubmissionHistory } from "../../../services/submission/service";
 import type { Jobsheet } from "../../../services/jobsheet/types";
@@ -173,7 +173,7 @@ export default function JobsheetOverviewPage() {
                     <h2 className="text-base font-semibold text-gray-900 border-b border-gray-100 pb-3 mb-4">
                       Informasi Jobsheet
                     </h2>
-                    
+
                     <div className="space-y-5">
                       <div>
                         <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Deskripsi</h3>
@@ -323,8 +323,8 @@ function SubmissionHistoryCard({
                   const dateStr = item.submittedAt ? formatAcademicDate(new Date(item.submittedAt)) : "-";
                   const scoreStr = score !== null ? `${score} / 100` : "-";
                   const isReviewed = item.status === "REVIEWED" || item.status === "ACCEPTED" || item.finalScore !== null;
-                  
-                  const isActiveRemedial = 
+
+                  const isActiveRemedial =
                     jobsheet.access?.accessMode === "editable_remedial" &&
                     jobsheet.access?.remedialId === item.remedialId &&
                     item.status === "DRAFT";
@@ -400,8 +400,8 @@ function SubmissionHistoryCard({
               const dateStr = item.submittedAt ? formatAcademicDate(new Date(item.submittedAt)) : "-";
               const scoreStr = score !== null ? `${score} / 100` : "-";
               const isReviewed = item.status === "REVIEWED" || item.status === "ACCEPTED" || item.finalScore !== null;
-              
-              const isActiveRemedial = 
+
+              const isActiveRemedial =
                 jobsheet.access?.accessMode === "editable_remedial" &&
                 jobsheet.access?.remedialId === item.remedialId &&
                 item.status === "DRAFT";

@@ -257,7 +257,13 @@ export default function LecturerMonitoringPage() {
   }
 
   return (
-    <LecturerLayout>
+    <LecturerLayout
+      backTo={
+        selectedScope.kelasPraktikumId && selectedScope.mataKuliahId
+          ? `/kelas-praktikum/${selectedScope.mataKuliahId}/${selectedScope.kelasPraktikumId}`
+          : "/mata-kuliah"
+      }
+    >
       <PageHeader
         title="Monitoring Praktikum Real-Time"
         subtitle="Pantau aktivitas pengerjaan koding dan progres live mahasiswa saat praktikum."

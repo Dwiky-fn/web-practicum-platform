@@ -74,7 +74,7 @@ export default function LecturerCoursesPage() {
     : "Belum ada riwayat pengajaran."
 
   return (
-    <LecturerLayout>
+    <LecturerLayout backTo="/dashboard">
       {loading ? (
         <div className="space-y-6">
           <div className="h-32 bg-gray-200 rounded-2xl animate-pulse" />

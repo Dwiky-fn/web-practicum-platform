@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ClipboardList } from "lucide-react";
 import { getSubmissionByJobsheetId, getSubmissionHistory } from "../../../services/submission/service";
 import type { Jobsheet } from "../../../services/jobsheet/types";

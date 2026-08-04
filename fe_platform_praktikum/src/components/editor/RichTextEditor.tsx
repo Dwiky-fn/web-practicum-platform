@@ -177,9 +177,9 @@ export default function RichTextEditor({
   if (!editor) return null;
 
   return (
-    <div className="rich-editor-wrapper flex flex-col gap-2 w-full min-w-0 relative">
+    <div className="rich-editor-wrapper flex flex-col gap-2 w-full min-w-0 max-w-full relative">
       {editable && (
-        <div className="rich-editor-toolbar w-full min-w-0 sticky top-2 sm:top-4 z-30 bg-gray-50/95 backdrop-blur-sm rounded-lg shadow-sm border border-gray-200/60 transition-all">
+        <div className="rich-editor-toolbar w-full min-w-0 max-w-full overflow-hidden sticky top-2 sm:top-4 z-30 bg-gray-50/95 backdrop-blur-sm rounded-lg shadow-sm border border-gray-200/60 transition-all">
           <EditorToolbar
             editor={editor}
             role={resolvedRole}

@@ -588,8 +588,8 @@ export default function LecturerJobsheetEditorPage() {
         </div>
       )}
 
-      <div className="mx-auto max-w-7xl grid gap-5 lg:grid-cols-[1fr_300px] items-start">
-        <div className="space-y-5">
+      <div className="mx-auto max-w-7xl grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] items-start w-full min-w-0">
+        <div className="space-y-5 min-w-0 w-full">
         <LecturerPanel className="p-5">
           <h2 className="mb-4 text-lg font-semibold">Informasi Umum</h2>
           <div className="space-y-4">

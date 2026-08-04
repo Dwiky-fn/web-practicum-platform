@@ -163,11 +163,14 @@ export default function LecturerDashboardPage() {
   const pendingReviewSubmissions = useMemo(() => {
     return classList.flatMap((cls) =>
       cls.submissionMatrix
-        .filter(
-          (item) =>
-            item.submission &&
-            (item.submission.status === "REVIEWING" || item.submission.status === "REVISION"),
-        )
+        .filter((item) => {
+          const sub = item.submission
+          return Boolean(
+            sub &&
+              sub.status !== "DRAFT" &&
+              ((sub.score === undefined || sub.score === null) && sub.status !== "ACCEPTED")
+          )
+        })
         .map((item) => ({ ...item, classId: cls.classId, className: cls.className })),
     )
   }, [classList])

@@ -250,7 +250,7 @@ export default function LecturerClassDetailPage() {
 
   const handleExportExcel = () => {
     if (!classStudents.length) {
-      toast("Tidak ada data mahasiswa untuk diexport", "error")
+      toast.error("Tidak ada data mahasiswa untuk diexport")
       return
     }
     try {
@@ -261,9 +261,9 @@ export default function LecturerClassDetailPage() {
         jobsheets: jobsheets,
         matrix: matrix,
       })
-      toast("Rekap nilai berhasil diexport ke file Excel!", "success")
+      toast.success("Rekap nilai berhasil diexport ke file Excel!")
     } catch {
-      toast("Gagal meng-export rekap nilai ke Excel.", "error")
+      toast.error("Gagal meng-export rekap nilai ke Excel.")
     }
   }
 

@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom"
 import { SidebarProvider, SidebarInset } from "../../../components/ui/sidebar"
 import { AppSidebar } from "../../../components/app-sidebar"
 import Navbar from "../../../components/navbar/Navbar"
@@ -11,10 +12,13 @@ interface AdminLayoutProps {
   breadcrumbItems?: BreadcrumbItem[]
   backTo?: string | number
   onBack?: () => void
+  showBack?: boolean
 }
 
-export default function AdminLayout({ children, breadcrumbItems, backTo, onBack }: AdminLayoutProps) {
-  const showBackButton = backTo !== undefined || onBack !== undefined
+export default function AdminLayout({ children, breadcrumbItems, backTo, onBack, showBack }: AdminLayoutProps) {
+  const location = useLocation()
+  const isDashboard = location.pathname === "/admin" || location.pathname === "/admin/dashboard" || location.pathname === "/"
+  const shouldShowBackButton = showBack ?? (!isDashboard || backTo !== undefined || onBack !== undefined)
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
@@ -31,7 +35,7 @@ export default function AdminLayout({ children, breadcrumbItems, backTo, onBack 
         <SidebarInset>
           <main className="flex-1 p-6 lg:p-8 max-w-7xl mx-auto w-full">
             <div className="mb-4 flex flex-wrap items-center gap-3">
-              {showBackButton && (
+              {shouldShowBackButton && (
                 <BackButton to={backTo} onClick={onBack} />
               )}
               <Breadcrumbs items={breadcrumbItems} />

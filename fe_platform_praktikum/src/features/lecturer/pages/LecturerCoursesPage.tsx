@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom"
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
 import LecturerLayout from "../components/LecturerLayout"
 import { LecturerButton, LecturerEmptyState } from "../components/LecturerUI"
-import Breadcrumbs from "../../../components/Breadcrumbs"
 import { getLecturerCourseGroups, type LecturerCourseGroup } from "../service"
 import { academicCourseBasePath } from "../../../services/academicScope"
 

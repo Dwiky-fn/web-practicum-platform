@@ -238,8 +238,8 @@ export default function LecturerMonitoringPage() {
   return (
     <LecturerLayout
       backTo={
-        selectedScope.classId && selectedScope.courseId
-          ? `/kelas-praktikum/${selectedScope.courseId}/${selectedScope.classId}`
+        selectedScope.kelasPraktikumId && selectedScope.mataKuliahId
+          ? `/kelas-praktikum/${selectedScope.mataKuliahId}/${selectedScope.kelasPraktikumId}`
           : "/mata-kuliah"
       }
     >

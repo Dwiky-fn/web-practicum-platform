@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react"
 import StudentProfileModal from "../components/StudentProfileModal"
-import { BookOpen, CheckCircle, Clock, Eye, FileCheck, Layers, Pencil, Plus, Sparkles, Trash2, Users } from "lucide-react"
+import { BookOpen, CheckCircle, Clock, Eye, FileCheck, FileSpreadsheet, Layers, Pencil, Plus, Sparkles, Trash2, Users } from "lucide-react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import { apiFetch } from "../../../services/api"
 import { useBackNavigation } from "../../../shared/utils/backNavigation"
 import { formatAcademicDateTime } from "../../../shared/utils/formatAcademicDateTime"
+import { exportClassGradesToExcel } from "../../../shared/utils/exportGradesToExcel"
 import LecturerLayout from "../components/LecturerLayout"
 import {
   LecturerButton,
@@ -247,6 +248,25 @@ export default function LecturerClassDetailPage() {
 
   const evalPercentage = submittedCount ? Math.min(100, Math.round((acceptedCount / submittedCount) * 100)) : 0
 
+  const handleExportExcel = () => {
+    if (!classStudents.length) {
+      toast("Tidak ada data mahasiswa untuk diexport", "error")
+      return
+    }
+    try {
+      exportClassGradesToExcel({
+        className: header.className,
+        courseName: header.courseName,
+        students: classStudents,
+        jobsheets: jobsheets,
+        matrix: matrix,
+      })
+      toast("Rekap nilai berhasil diexport ke file Excel!", "success")
+    } catch {
+      toast("Gagal meng-export rekap nilai ke Excel.", "error")
+    }
+  }
+
   if (loading) {
     return <TopProgressBar />
   }
@@ -286,6 +306,15 @@ export default function LecturerClassDetailPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition-colors cursor-pointer border border-emerald-500/50"
+              title="Export Rekap Nilai Mahasiswa Kelas ke File Excel (.xlsx)"
+            >
+              <FileSpreadsheet size={15} />
+              <span>Export Excel Nilai</span>
+            </button>
             <span className="rounded-xl bg-white/10 px-3 py-1.5 text-xs font-bold text-white border border-white/10">
               {header.studentCount} Mahasiswa
             </span>
@@ -620,6 +649,15 @@ export default function LecturerClassDetailPage() {
                       <option value="Belum">Belum Dikumpulkan</option>
                     </NativeSelect>
                     <SearchBox value={keyword} onChange={setKeyword} placeholder="Cari Mahasiswa..." className="w-full sm:w-60" />
+                    <button
+                      type="button"
+                      onClick={handleExportExcel}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition-colors cursor-pointer shrink-0"
+                      title="Export Rekap Nilai Mahasiswa Kelas ke File Excel (.xlsx)"
+                    >
+                      <FileSpreadsheet size={15} />
+                      <span>Export Excel Nilai</span>
+                    </button>
                   </div>
                 </div>
 

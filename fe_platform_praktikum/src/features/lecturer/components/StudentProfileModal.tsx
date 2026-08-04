@@ -86,6 +86,9 @@ export default function StudentProfileModal({ studentId, onClose, isInline = fal
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!profile) return
+    setSubmitting(true)
+    setError("")
+    try {
       const isStudent = profile.role === "MAHASISWA"
       if (!isStudent && userForm.identifier) {
         if (!/^\d{18}$/.test(userForm.identifier.trim())) {

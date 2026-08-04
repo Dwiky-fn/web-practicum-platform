@@ -1,30 +1,31 @@
 import { apiFetch } from "../api"
 import type { Notification } from "./types"
 
-function getLocalReadIds(userId: string): Set<string> {
+function getLocalReadMap(userId: string): Record<string, number> {
   try {
-    const raw = localStorage.getItem(`read_notifs_${userId}`)
-    if (!raw) return new Set()
-    return new Set(JSON.parse(raw))
+    const raw = localStorage.getItem(`read_notifs_ts_${userId}`)
+    if (!raw) return {}
+    return JSON.parse(raw)
   } catch {
-    return new Set()
+    return {}
   }
 }
 
-function saveLocalReadId(userId: string, notificationId?: string) {
+function saveLocalReadTimestamp(userId: string, notificationId?: string) {
   try {
-    const localSet = getLocalReadIds(userId)
+    const map = getLocalReadMap(userId)
+    const now = Date.now()
     if (notificationId) {
-      localSet.add(notificationId)
+      if (!map[notificationId]) map[notificationId] = now
     }
-    localStorage.setItem(`read_notifs_${userId}`, JSON.stringify(Array.from(localSet)))
+    localStorage.setItem(`read_notifs_ts_${userId}`, JSON.stringify(map))
   } catch {
     // Ignore storage errors
   }
 }
 
 export async function getNotifications(userId: string): Promise<Notification[]> {
-  const localReadSet = getLocalReadIds(userId)
+  const readMap = getLocalReadMap(userId)
 
   try {
     const res = await apiFetch(`/users/${userId}/notifications`)
@@ -44,7 +45,9 @@ export async function getNotifications(userId: string): Promise<Notification[]> 
       isRead?: boolean
     }) => {
       const id = String(notification.id)
-      const isRead = Boolean(notification.is_read ?? notification.isRead) || localReadSet.has(id)
+      const isRead = Boolean(notification.is_read ?? notification.isRead) || Boolean(readMap[id])
+      const readAtTimestamp = isRead ? (readMap[id] || Date.now()) : null
+
       return {
         id,
         userId: notification.student_id || notification.userId || userId,
@@ -52,6 +55,7 @@ export async function getNotifications(userId: string): Promise<Notification[]> 
         message: notification.message || "",
         targetUrl: notification.target_url || notification.targetUrl,
         isRead,
+        readAtTimestamp,
       }
     })
   } catch {
@@ -60,7 +64,7 @@ export async function getNotifications(userId: string): Promise<Notification[]> 
 }
 
 export async function markNotificationsAsRead(userId: string, notificationId?: string): Promise<void> {
-  saveLocalReadId(userId, notificationId)
+  saveLocalReadTimestamp(userId, notificationId)
 
   try {
     await apiFetch(`/users/${userId}/notifications/read`, {

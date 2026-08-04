@@ -62,6 +62,10 @@ export default function NotificationsPage() {
 
   const filteredNotifications = notifications.filter((item) => {
     if (filter === "unread") return !item.isRead
+    if (item.isRead && item.readAtTimestamp) {
+      const minutes = (Date.now() - item.readAtTimestamp) / 1000 / 60
+      return minutes < 60
+    }
     return true
   })
 

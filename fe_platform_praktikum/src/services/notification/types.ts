@@ -6,4 +6,5 @@ export interface Notification {
   isRead: boolean
   target_url?: string
   targetUrl?: string
+  readAtTimestamp?: number | null
 }

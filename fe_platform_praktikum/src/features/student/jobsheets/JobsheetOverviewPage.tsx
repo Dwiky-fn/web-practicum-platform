@@ -11,6 +11,8 @@ import SidebarCard from "./components/SidebarCard";
 import TopProgressBar from "../../../components/loading/TopProgressBar";
 import SidebarCardSkeleton from "./components/loading/SidebarSkeleton";
 import { getJobsheetById } from "../../../services/jobsheet/service";
+import { getCourseById } from "../../../services/course/service";
+import type { Course } from "../../../services/course/types";
 import { useCurrentUser } from "../../../services/user/useCurrentUser";
 import { academicCourseBasePath, academicScopeQuery, academicJobsheetWorkPath } from "../../../services/academicScope";
 
@@ -52,6 +54,7 @@ export default function JobsheetOverviewPage() {
   const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined;
   const effectiveCourseId = mataKuliahId || courseId;
 
+  const [course, setCourse] = useState<Course | null>(null);
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null);
   const [submission, setSubmission] = useState<JobsheetSubmission | null>(null);
   const [history, setHistory] = useState<Array<{
@@ -86,15 +89,17 @@ export default function JobsheetOverviewPage() {
       try {
         setError("");
         setLoading(true);
-        const [raw, sub, historyData] = await Promise.all([
+        const [raw, sub, historyData, courseData] = await Promise.all([
           getJobsheetById(cId, jId, scope),
           getSubmissionByJobsheetId(cId, jId, studentId, scope),
           getSubmissionHistory(jId, kelasPraktikumId),
+          getCourseById(cId).catch(() => null),
         ]);
 
         setJobsheet(raw);
         setSubmission(sub);
         setHistory(historyData);
+        if (courseData) setCourse(courseData);
       } catch (error) {
         setError(
           error instanceof Error
@@ -119,7 +124,7 @@ export default function JobsheetOverviewPage() {
       <TopProgressBar />
 
       <main className="max-w-5xl mx-auto px-4 py-4 sm:px-6">
-        <Breadcrumbs items={[{ label: "Mata Kuliah", to: "/mata-kuliah" }, { label: "Jobsheet", to: coursePath }, { label: jobsheet?.title || "Detail Jobsheet" }]} className="mb-2" />
+        <Breadcrumbs items={[{ label: "Mata Kuliah", to: "/mata-kuliah" }, { label: course?.name || "Detail Mata Kuliah", to: coursePath }, { label: jobsheet?.title || "Detail Jobsheet" }]} className="mb-2" />
         <button
           type="button"
           onClick={() => navigate(coursePath)}

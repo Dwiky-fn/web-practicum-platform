@@ -21,6 +21,16 @@ export default function NotificationBell({
 }: NotificationBellProps) {
   const navigate = useNavigate()
 
+  // Filter out notifications that have been read for more than 3 minutes
+  const displayNotifications = notifications.filter((notif) => {
+    if (!notif.isRead) return true
+    if (notif.readAtTimestamp) {
+      const minutes = (Date.now() - notif.readAtTimestamp) / 1000 / 60
+      return minutes < 3
+    }
+    return false
+  })
+
   const handleNotificationClick = (notif: Notification) => {
     onToggle()
     if (onMarkItemRead) {
@@ -39,7 +49,7 @@ export default function NotificationBell({
     <div className="relative hidden md:block">
       <button
         type="button"
-        className="relative flex items-center justify-center rounded-xl p-2 text-white transition-all hover:bg-white/10 active:scale-95 focus:outline-none"
+        className="relative flex items-center justify-center rounded-xl p-2 text-white transition-all hover:bg-white/10 active:scale-95 focus:outline-none cursor-pointer"
         onClick={onToggle}
         aria-label="Notifikasi"
       >
@@ -75,7 +85,7 @@ export default function NotificationBell({
               <button
                 type="button"
                 onClick={onMarkAll}
-                className="flex items-center gap-1 text-xs font-bold text-blue-200 transition-colors hover:text-white focus:outline-none"
+                className="flex items-center gap-1 text-xs font-bold text-blue-200 transition-colors hover:text-white focus:outline-none cursor-pointer"
               >
                 <CheckCheck size={14} />
                 <span>Tandai Dibaca</span>
@@ -86,7 +96,7 @@ export default function NotificationBell({
 
         {/* List Notifikasi */}
         <div className="max-h-80 overflow-y-auto p-4 space-y-3 bg-gray-50/50">
-          {notifications.length === 0 ? (
+          {displayNotifications.length === 0 ? (
             <div className="py-8 text-center">
               <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-400">
                 <BellOff size={20} />
@@ -94,7 +104,7 @@ export default function NotificationBell({
               <p className="text-xs font-semibold text-gray-500">Belum ada notifikasi saat ini.</p>
             </div>
           ) : (
-            notifications.map((notif) => (
+            displayNotifications.map((notif) => (
               <div
                 key={notif.id}
                 onClick={() => handleNotificationClick(notif)}
@@ -129,7 +139,7 @@ export default function NotificationBell({
               onToggle()
               navigate("/notifications")
             }}
-            className="text-xs font-bold text-blue-700 hover:text-blue-900 transition-colors"
+            className="text-xs font-bold text-blue-700 hover:text-blue-900 transition cursor-pointer"
           >
             Lihat Kumpulan Notifikasi
           </button>

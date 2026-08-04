@@ -297,9 +297,10 @@ export default function LecturerJobsheetManagePage() {
         title="Kelola Jobsheet Praktikum"
         subtitle={`Manajemen materi jobsheet & alokasi untuk mata kuliah ${dataset?.course.name ?? "-"}`}
         right={
-          <div className="flex flex-wrap items-center gap-2.5 pt-1">
+          <div className="flex flex-nowrap items-center gap-2 pt-1 overflow-x-auto shrink-0 max-w-full">
             <LecturerButton
               variant="secondary"
+              className="shrink-0 whitespace-nowrap"
               onClick={() => {
                 const currentPlan = (dataset?.classDetails[0] as any)?.jumlahJobsheetRencana ?? (dataset?.classDetails[0] as any)?.jumlah_jobsheet_rencana ?? 1
                 setEditPlanValue(String(currentPlan))
@@ -307,15 +308,15 @@ export default function LecturerJobsheetManagePage() {
               }}
             >
               <Pencil size={15} />
-              Atur Rencana Jobsheet ({(dataset?.classDetails[0] as any)?.jumlahJobsheetRencana ?? (dataset?.classDetails[0] as any)?.jumlah_jobsheet_rencana ?? 1})
+              <span>Rencana Jobsheet ({(dataset?.classDetails[0] as any)?.jumlahJobsheetRencana ?? (dataset?.classDetails[0] as any)?.jumlah_jobsheet_rencana ?? 1})</span>
             </LecturerButton>
-            <LecturerButton variant="secondary" onClick={handleOpenCopyModal}>
+            <LecturerButton variant="secondary" className="shrink-0 whitespace-nowrap" onClick={handleOpenCopyModal}>
               <Copy size={15} />
-              Salin Dari Semester Lain
+              <span>Salin Dari Semester Lain</span>
             </LecturerButton>
-            <LecturerButton onClick={() => navigate(`${jobsheetBasePath}/create`)}>
+            <LecturerButton className="shrink-0 whitespace-nowrap" onClick={() => navigate(`${jobsheetBasePath}/create`)}>
               <Plus size={16} />
-              Tambah Jobsheet Baru
+              <span>Tambah Jobsheet Baru</span>
             </LecturerButton>
           </div>
         }

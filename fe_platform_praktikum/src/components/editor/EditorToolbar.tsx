@@ -266,7 +266,7 @@ export default function EditorToolbar({ editor, role, layout = "horizontal", onI
 
   return (
     <div 
-      className="editor-toolbar-container flex items-center justify-start flex-wrap gap-1.5 p-2 bg-gray-50 border border-gray-300 rounded-lg w-full max-w-full select-none overflow-visible"
+      className="editor-toolbar-container flex items-center justify-start flex-nowrap gap-1.5 p-2 bg-gray-50 border border-gray-300 rounded-lg w-full max-w-full select-none overflow-x-auto shrink-0"
     >
       {/* Format Painter (Salin Format) */}
       <ToolbarButton

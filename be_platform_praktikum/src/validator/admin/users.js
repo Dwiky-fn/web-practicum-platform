@@ -26,8 +26,16 @@ const createStudentPayloadSchema = baseUserPayloadSchema.keys({
   transfer_reason: Joi.string().trim().allow('', null),
 });
 
+const nipSchema = Joi.string()
+  .trim()
+  .pattern(/^[0-9]{18}$/)
+  .messages({
+    'string.pattern.base': 'NIP harus berupa 18 digit angka.',
+    'string.empty': 'NIP wajib diisi.',
+  });
+
 const createLecturerPayloadSchema = baseUserPayloadSchema.keys({
-  nip: Joi.string().trim().required(),
+  nip: nipSchema.required(),
 });
 
 const updateUserPayloadSchema = Joi.object({
@@ -36,7 +44,7 @@ const updateUserPayloadSchema = Joi.object({
   password: Joi.string().min(6).allow('', null),
   status: statusSchema,
   nim: Joi.string().trim().allow('', null),
-  nip: Joi.string().trim().allow('', null),
+  nip: Joi.string().trim().pattern(/^[0-9]{18}$/).messages({ 'string.pattern.base': 'NIP harus berupa 18 digit angka.' }).allow('', null),
   angkatan: Joi.number().integer().min(2000).max(2100).allow(null),
   semester: Joi.number().integer().min(1).max(14).allow(null),
   programStudi: Joi.string().trim().allow('', null),

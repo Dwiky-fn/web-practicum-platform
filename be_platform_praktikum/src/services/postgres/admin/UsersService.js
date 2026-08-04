@@ -19,12 +19,11 @@ function normalizePasswordName(fullname = '') {
     .replace(/[^a-z0-9]/g, '') || 'dosen';
 }
 
-function randomFourDigits() {
-  return String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-}
-
-function createLecturerDefaultPassword(fullname) {
-  return `${normalizePasswordName(fullname)}@${randomFourDigits()}`;
+function createLecturerDefaultPassword(fullname, nip) {
+  if (nip && String(nip).trim() !== '') {
+    return String(nip).trim();
+  }
+  return 'dosen123';
 }
 
 class AdminUsersService {
@@ -110,7 +109,7 @@ class AdminUsersService {
     const id = payload.id || createId(prefix);
     const defaultPassword = normalizedRole === 'MAHASISWA'
       ? payload.nim || DEFAULT_PASSWORD
-      : createLecturerDefaultPassword(payload.fullname);
+      : createLecturerDefaultPassword(payload.fullname, payload.nip);
     const password = await bcrypt.hash(payload.password || defaultPassword, 10);
 
     try {
@@ -251,6 +250,14 @@ class AdminUsersService {
           status ? status === 'AKTIF' : null,
         ],
       );
+
+      if (payload.password && String(payload.password).trim() !== '') {
+        const hashedPassword = await bcrypt.hash(String(payload.password).trim(), 10);
+        await client.query(
+          `UPDATE users SET password = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+          [id, hashedPassword]
+        );
+      }
 
       if (role === 'MAHASISWA') {
         let programStudi = payload.programStudi || payload.program_studi || null;

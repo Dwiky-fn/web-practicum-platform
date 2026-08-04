@@ -86,10 +86,14 @@ export default function StudentProfileModal({ studentId, onClose, isInline = fal
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!profile) return
-    setSubmitting(true)
-    setError("")
-    try {
       const isStudent = profile.role === "MAHASISWA"
+      if (!isStudent && userForm.identifier) {
+        if (!/^\d{18}$/.test(userForm.identifier.trim())) {
+          setError("NIP harus berupa 18 digit angka.")
+          setSubmitting(false)
+          return
+        }
+      }
       const updated = await updateAdminUser(profile.id, isStudent ? {
         nim: userForm.identifier,
         fullname: userForm.fullname,
@@ -219,10 +223,14 @@ export default function StudentProfileModal({ studentId, onClose, isInline = fal
                     <input
                       type="text"
                       required
-                      className={`${inputClass} text-xs h-7 w-40`}
+                      className={`${inputClass} text-xs h-7 w-44`}
                       value={userForm.identifier}
-                      onChange={(e) => setUserForm((prev) => ({ ...prev, identifier: e.target.value }))}
-                      placeholder={isStudent ? "NIM" : "NIP"}
+                      maxLength={isStudent ? 30 : 18}
+                      onChange={(e) => {
+                        const val = isStudent ? e.target.value : e.target.value.replace(/\D/g, "").slice(0, 18)
+                        setUserForm((prev) => ({ ...prev, identifier: val }))
+                      }}
+                      placeholder={isStudent ? "NIM" : "NIP (18 Digit)"}
                     />
                   </div>
                 </div>

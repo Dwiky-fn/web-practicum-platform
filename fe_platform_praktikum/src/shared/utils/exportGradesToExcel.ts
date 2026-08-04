@@ -93,13 +93,21 @@ export function exportClassGradesToExcel(options: ExportClassGradesOptions) {
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Nilai Kelas")
 
-  // Generate clean filename (e.g. 3A-Praktikum Pemrograman Berorientasi Objek.xlsx)
-  const cleanClass = className.includes(" - ")
-    ? className.split(" - ").pop()?.trim() || className
-    : className.replace(/^Kelas\s+/i, "").trim()
-  const cleanCourse = courseName.trim()
+  // Format clean class name (e.g. "3A" from "PRAKTIKUM... - 3A")
+  let cleanClass = className.trim()
+  if (cleanClass.includes(" - ")) {
+    cleanClass = cleanClass.split(" - ").pop()?.trim() || cleanClass
+  }
+  cleanClass = cleanClass.replace(/^Kelas\s+/i, "").trim()
 
-  const fileName = `${cleanClass}-${cleanCourse}.xlsx`
+  // Format clean course name
+  const cleanCourse = courseName.replace(/^Mata\s+Kuliah\s+/i, "").trim()
+
+  // Sanitize illegal filename characters (: * ? " < > | / \) while preserving spaces and hyphens
+  const safeClass = cleanClass.replace(/[:*?"<>|/\\]/g, "").trim()
+  const safeCourse = cleanCourse.replace(/[:*?"<>|/\\]/g, "").trim()
+
+  const fileName = `Rekapnilai-${safeClass}-${safeCourse}.xlsx`
 
   XLSX.writeFile(workbook, fileName)
 }

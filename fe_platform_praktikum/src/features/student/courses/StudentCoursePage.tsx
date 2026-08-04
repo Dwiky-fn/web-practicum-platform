@@ -63,7 +63,7 @@ export default function StudentCoursePage() {
       <TopProgressBar />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-6 space-y-6">
-        <Breadcrumbs items={[{ label: "Mata Kuliah Saya" }]} />
+        <Breadcrumbs items={[{ label: "Mata Kuliah" }]} />
         {error && (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
             {error}

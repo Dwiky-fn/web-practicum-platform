@@ -223,12 +223,14 @@ export default function LecturerClassDetailPage() {
   }, [jobsheetFilter, matrix, statusFilter, studentRows])
 
   const submittedCount = matrix.filter((item) => isSubmittedSubmission(item.submission)).length
-  const acceptedCount = matrix.filter(
-    (item) => getSubmissionReviewStatus(item.submission) === "Dinilai",
-  ).length
-  const pendingCount = matrix.filter(
-    (item) => getSubmissionReviewStatus(item.submission) === "Terkumpul",
-  ).length
+  const acceptedCount = matrix.filter((item) => {
+    const sub = item.submission
+    return Boolean(sub && sub.status !== "DRAFT" && ((sub.score !== undefined && sub.score !== null) || sub.status === "ACCEPTED"))
+  }).length
+  const pendingCount = matrix.filter((item) => {
+    const sub = item.submission
+    return Boolean(sub && sub.status !== "DRAFT" && ((sub.score === undefined || sub.score === null) && sub.status !== "ACCEPTED"))
+  }).length
 
   const latestActivities = useMemo(
     () =>

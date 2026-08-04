@@ -357,15 +357,13 @@ export default function AdminUsersPage() {
           setSubmitting(false)
           return
         }
-        const passwordValue = String(form.get("password") || "").trim()
         const lecturer = await createAdminLecturer({
           nip: nipVal,
           fullname: String(form.get("fullname") || "").trim(),
           email: String(form.get("email") || "").trim(),
           status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
-          ...(passwordValue ? { password: passwordValue } : {}),
         })
-        const initialPass = passwordValue || lecturer.initialPassword || nipVal || "dosen123"
+        const initialPass = lecturer.initialPassword || "Nama + 4 Digit NIP"
         toast.success(`Dosen berhasil ditambahkan. Password login: ${initialPass}`, 15000)
       }
 
@@ -605,14 +603,6 @@ export default function AdminUsersPage() {
             )}
             <FieldRow label="Email (Opsional)">
               <input name="email" className={inputClass} type="email" placeholder="Masukkan email (opsional)" />
-            </FieldRow>
-            <FieldRow label="Password (Opsional)">
-              <input
-                name="password"
-                className={inputClass}
-                type="password"
-                placeholder={isStudent ? "Default: NIM Mahasiswa" : "Default: Nama + 4 Digit NIP (misal: Dwiky1001)"}
-              />
             </FieldRow>
             <FieldRow label="Status">
               <select name="status" className={inputClass} required>

@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react"
+import { useLocation } from "react-router-dom"
 import Navbar from "../../../components/navbar/Navbar"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import ScrollToTopButton from "../../../components/ScrollToTopButton"
@@ -17,16 +18,19 @@ interface LecturerLayoutProps {
   breadcrumbItems?: BreadcrumbItem[]
   backTo?: string | number
   onBack?: () => void
+  showBack?: boolean
 }
 
-export default function LecturerLayout({ children, breadcrumbItems, backTo, onBack }: LecturerLayoutProps) {
+export default function LecturerLayout({ children, breadcrumbItems, backTo, onBack, showBack }: LecturerLayoutProps) {
   const inLayout = useContext(LecturerLayoutContext)
+  const location = useLocation()
 
   if (inLayout) {
     return <>{children}</>
   }
 
-  const showBackButton = backTo !== undefined || onBack !== undefined
+  const isDashboard = location.pathname === "/dashboard" || location.pathname === "/"
+  const shouldShowBackButton = showBack ?? (!isDashboard || backTo !== undefined || onBack !== undefined)
 
   return (
     <LecturerLayoutContext.Provider value={true}>
@@ -35,7 +39,7 @@ export default function LecturerLayout({ children, breadcrumbItems, backTo, onBa
         <TopProgressBar />
         <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-10">
           <div className="mb-4 flex flex-wrap items-center gap-3">
-            {showBackButton && (
+            {shouldShowBackButton && (
               <BackButton to={backTo} onClick={onBack} />
             )}
             <Breadcrumbs items={breadcrumbItems} />

@@ -70,6 +70,7 @@ export default function LecturerTemplateWorkspace({
   const [stdin, setStdin] = useState("")
   const [terminalOutput, setTerminalOutput] = useState("")
   const [runTime, setRunTime] = useState("")
+  const [isTerminalCollapsed, setIsTerminalCollapsed] = useState(false)
   // ── Confirm dialog state ──
   const [confirmReset, setConfirmReset] = useState(false)
   const [confirmDeleteFile, setConfirmDeleteFile] = useState(false)
@@ -259,7 +260,7 @@ export default function LecturerTemplateWorkspace({
   }
 
   return (
-    <div className="mt-3 overflow-hidden rounded-lg border border-gray-200 bg-white font-sans">
+    <div className="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white font-sans shadow-sm">
       <MiniConfirmModal
         open={confirmReset}
         title="Reset ke Template Default"
@@ -286,15 +287,46 @@ export default function LecturerTemplateWorkspace({
           setConfirmDeleteFile(false)
         }}
       />
-      <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider select-none">
-        <span>Template Editor ({label})</span>
-        <span className="font-mono text-gray-400">{activeFile}</span>
-      </div>
+      <div className="h-[720px] min-h-[650px] overflow-hidden bg-[#1e1e1e]">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden">
+          <div className="flex shrink-0 items-center justify-between border-b border-[#2b2b2b] bg-[#252526] px-3 py-2">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">Template Editor ({label})</p>
+              <p className="truncate text-xs text-[#858585]">{activeFile}</p>
+            </div>
+            <div className="ml-3 flex items-center gap-2">
+              {runTime && !isRunning && <span className="text-xs text-[#858585]">{runTime}</span>}
+              {isRunning ? (
+                <button
+                  type="button"
+                  onClick={handleStop}
+                  className="inline-flex h-9 items-center gap-2 rounded-md bg-red-600 px-3 text-sm font-semibold text-white hover:bg-red-700"
+                >
+                  <Square size={16} fill="currentColor" />
+                  Stop
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleRun}
+                  className="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700"
+                >
+                  <Play size={16} fill="currentColor" />
+                  Run
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setTerminalOutput("")}
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-[#3c3c3c] bg-[#2d2d2d] px-3 text-sm font-semibold text-[#cccccc] hover:bg-[#3c3c3c] hover:text-white"
+                title="Bersihkan output konsol"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] h-[340px] min-h-[300px]">
-        {/* Editor Area */}
-        <div className="border-r border-gray-200 h-full overflow-hidden relative">
-          <div className="h-full min-h-0">
+          <div className="min-h-0 flex-1 overflow-hidden">
             <CodeEditorPanel
               key={`${editorVersion}`}
               language={language}
@@ -330,85 +362,64 @@ export default function LecturerTemplateWorkspace({
               }}
             />
           </div>
-        </div>
 
-        {/* Console / Terminal Output */}
-        <div className="flex flex-col h-full bg-[#0c0c0c] text-gray-100 font-mono text-xs overflow-hidden">
-          {/* Header Controls */}
-          <div className="flex shrink-0 items-center justify-between border-b border-[#2b2b2b] bg-[#1a1a1a] px-3 py-1.5 select-none">
-            <span className="flex items-center gap-1.5 font-bold text-gray-400">
-              <Terminal size={14} />
-              Konsol Output
-            </span>
-            <div className="flex items-center gap-1.5">
-              {runTime && !isRunning && <span className="text-[10px] text-gray-500">{runTime}</span>}
-              {isRunning ? (
-                <button
-                  type="button"
-                  onClick={handleStop}
-                  className="flex items-center gap-1 rounded bg-red-600 px-2 py-1 font-semibold text-white hover:bg-red-700"
-                >
-                  <Square size={10} fill="currentColor" />
-                  Stop
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleRun}
-                  className="flex items-center gap-1 rounded bg-blue-600 px-2 py-1 font-semibold text-white hover:bg-blue-700"
-                >
-                  <Play size={10} fill="currentColor" />
-                  Run
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setTerminalOutput("")}
-                className="flex items-center gap-1 rounded border border-[#3c3c3c] bg-[#2d2d2d] px-2 py-1 font-semibold text-gray-300 hover:bg-[#3c3c3c] hover:text-white"
-                title="Bersihkan output konsol"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-
-          {/* Terminal Screen */}
           <div
-            ref={terminalScrollRef}
-            className="flex-1 overflow-y-auto p-3 whitespace-pre-wrap break-all leading-relaxed"
+            className="min-h-9 shrink-0 overflow-hidden border-t border-[#2b2b2b] bg-[#1e1e1e]"
+            style={{ height: isTerminalCollapsed ? "40px" : "220px" }}
           >
-            {terminalOutput || <span className="text-gray-600">Klik Run untuk menjalankan dan melihat output program...</span>}
-          </div>
-
-          {/* Interactive Stdin */}
-          {isRunning && (
-            <div className="flex border-t border-[#2b2b2b] bg-[#1a1a1a] p-1.5 select-none">
-              <input
-                type="text"
-                value={stdin}
-                onChange={(e) => setStdin(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault()
-                    handleSendStdin()
-                  }
-                }}
-                placeholder="Kirim stdin ke program..."
-                className="flex-1 border-0 bg-transparent px-2 py-1 text-xs text-gray-100 outline-none placeholder:text-gray-600"
-              />
+            <div className="flex h-10 items-center justify-between border-b border-[#2b2b2b] bg-[#252526] px-3">
+              <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#cccccc]">
+                <Terminal size={14} />
+                Terminal
+              </span>
               <button
                 type="button"
-                onClick={handleSendStdin}
-                className="rounded bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
+                onClick={() => setIsTerminalCollapsed(prev => !prev)}
+                className="h-7 rounded px-2.5 text-xs font-semibold text-[#cccccc] hover:bg-[#2a2d2e] hover:text-white"
               >
-                Send
+                {isTerminalCollapsed ? "Expand Terminal" : "Collapse Terminal"}
               </button>
             </div>
-          )}
+
+            {!isTerminalCollapsed && (
+              <div className="flex h-[calc(100%-40px)] min-h-0 flex-col overflow-hidden bg-[#0c0c0c] text-sm text-gray-100">
+                <div
+                  ref={terminalScrollRef}
+                  className="flex-1 overflow-y-auto p-4 font-mono whitespace-pre-wrap break-all leading-6"
+                >
+                  {terminalOutput || <span className="text-gray-500">Klik Run untuk menjalankan dan melihat output program...</span>}
+                </div>
+
+                {isRunning && (
+                  <div className="flex border-t border-[#2b2b2b] bg-[#1a1a1a] p-2">
+                    <input
+                      type="text"
+                      value={stdin}
+                      onChange={(e) => setStdin(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          handleSendStdin()
+                        }
+                      }}
+                      placeholder="Kirim stdin ke program..."
+                      className="flex-1 border-0 bg-transparent px-2 py-1 font-mono text-sm text-gray-100 outline-none placeholder:text-gray-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSendStdin}
+                      className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                    >
+                      Send
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Footer Reset Tool */}
       <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-4 py-2.5 select-none">
         <span className="text-[10px] text-gray-400">
           Ekstensi file: <span className="font-mono bg-gray-200 text-gray-600 px-1 py-0.5 rounded">.{language === "python" ? "py" : "java"}</span>

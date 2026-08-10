@@ -101,7 +101,7 @@ export default function DesktopNavbar({
             {/* Title */}
             <div className="leading-tight mb-3">
               <p className="text-white font-semibold text-sm">
-                Platform Praktikum
+                Platform Praktikum Pemrograman
               </p>
               <p className="text-sky-200 text-xs">
                 Teknik Informatika

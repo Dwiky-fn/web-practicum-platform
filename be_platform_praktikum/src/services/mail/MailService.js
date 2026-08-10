@@ -100,7 +100,7 @@ class MailService {
         !process.env.RESEND_FROM &&
         (!from || /@gmail\.com|@yahoo\.com|@outlook\.com|@hotmail\.com/i.test(from))
       ) {
-        from = 'Platform Praktikum <onboarding@resend.dev>';
+        from = 'Platform Praktikum Pemrograman <onboarding@resend.dev>';
       }
 
       const { data, error } = await resend.emails.send({

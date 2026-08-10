@@ -57,7 +57,7 @@ export default function MobileSidebar({
               className="w-14 h-14 rounded-lg object-cover mb-2"
             />
             <p className="font-semibold text-sm">
-              Platform Praktikum
+              Platform Praktikum Pemrograman
             </p>
             <p className="text-xs text-gray-500">
               Teknik Informatika

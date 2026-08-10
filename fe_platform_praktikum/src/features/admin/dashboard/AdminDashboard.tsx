@@ -133,7 +133,7 @@ export default function AdminDashboard() {
               Kontrol Sistem Akademik
             </div>
             <h2 className="mt-1 text-xl font-bold text-white">
-              Administrator Platform Praktikum
+              Administrator Platform Praktikum Pemrograman
             </h2>
             <p className="text-xs text-blue-200 mt-0.5">
               Pusat pengawasan status akademik, manajemen pengguna, dan alokasi kelas praktikum.

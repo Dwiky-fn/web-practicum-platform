@@ -16,7 +16,7 @@ function getSubtitle(user: User | null): string {
       return "Dosen Praktikum";
 
     case "ADMIN":
-      return "Administrator Platform Praktikum";
+      return "Administrator Platform Praktikum Pemrograman";
 
     default:
       return "";
@@ -32,7 +32,7 @@ export default function WelcomeSection({ user }: WelcomeSectionProps) {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-200">
             <Sparkles size={16} className="text-yellow-400" />
-            Selamat Datang di Platform Praktikum
+            Selamat Datang di Platform Praktikum Pemrograman
           </div>
           <h1 className="mt-1 text-2xl font-bold text-white">
             Halo, {user?.fullname ?? "Mahasiswa"}

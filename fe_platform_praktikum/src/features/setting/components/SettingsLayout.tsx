@@ -1,8 +1,6 @@
 import { User, IdCard, Settings } from "lucide-react";
 import type React from "react";
 
-import Breadcrumbs from "../../../components/Breadcrumbs"
-
 interface Props {
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -28,7 +26,6 @@ export default function SettingsLayout({
 
   return (
     <div className="w-full space-y-6">
-      <Breadcrumbs items={[{ label: "Pengaturan Akun" }]} />
       {/* Body Section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Sidebar Navigation */}

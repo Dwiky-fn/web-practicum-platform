@@ -139,7 +139,7 @@ export default function LoginForm() {
           />
         </div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-          Platform Praktikum
+          Platform Praktikum Pemrograman
         </h1>
         <p className="text-xs text-gray-500 mt-1">
           Politeknik Negeri Pontianak

@@ -172,18 +172,6 @@ class AcademicDataService {
       const target = await client.query('SELECT id, tahun_semester, status FROM tahun_semester WHERE id = $1 LIMIT 1', [id]);
       if (!target.rows.length) throw new Error('TAHUN_SEMESTER_NOT_FOUND');
 
-      // 1. Tahun Semester harus ada isi (struktur kelas_semester)
-      const ksCheck = await client.query(
-        'SELECT COUNT(*)::int AS count FROM kelas_semester WHERE id_tahun_semester = $1',
-        [id]
-      );
-      if (ksCheck.rows[0].count === 0) {
-        const err = new Error('TAHUN_SEMESTER_EMPTY');
-        err.statusCode = 400;
-        err.message = 'Tahun semester tidak dapat diaktifkan karena belum memiliki struktur kelas semester (kosong). Silakan buat kelas semester terlebih dahulu.';
-        throw err;
-      }
-
       // 1. Nonaktifkan/Arsipkan tahun semester yang saat ini aktif
       await client.query("UPDATE tahun_semester SET status = 'archived', updated_at = CURRENT_TIMESTAMP WHERE status = 'active' AND id <> $1", [id]);
 

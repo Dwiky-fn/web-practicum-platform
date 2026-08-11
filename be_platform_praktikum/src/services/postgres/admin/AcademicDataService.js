@@ -201,8 +201,8 @@ class AcademicDataService {
         `SELECT sp.user_id, u.fullname, sp.nim
          FROM student_profiles sp
          JOIN users u ON u.id = sp.user_id
-         WHERE u.status = 'active'
-           AND sp.status = 'active'
+         WHERE u.is_active = true
+           AND LOWER(sp.status) IN ('active', 'aktif')
            AND sp.user_id NOT IN (
              SELECT DISTINCT id_mahasiswa 
              FROM kelas_mhs 

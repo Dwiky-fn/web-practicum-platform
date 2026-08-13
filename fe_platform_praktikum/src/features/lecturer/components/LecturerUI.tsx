@@ -68,6 +68,7 @@ export function NativeSelect({
   label,
   className = "",
   labelClassName = "text-gray-500",
+  disabled,
 }: {
   value: string
   onChange: (value: string) => void
@@ -75,6 +76,7 @@ export function NativeSelect({
   label?: string
   className?: string
   labelClassName?: string
+  disabled?: boolean
 }) {
   return (
     <label className={`block min-w-0 ${className}`}>
@@ -87,7 +89,8 @@ export function NativeSelect({
         <select
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="h-11 w-full appearance-none rounded-md border border-gray-300 bg-white px-3 pr-9 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          disabled={disabled}
+          className="h-11 w-full appearance-none rounded-md border border-gray-300 bg-white px-3 pr-9 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:opacity-50 disabled:bg-gray-50"
         >
           {children}
         </select>

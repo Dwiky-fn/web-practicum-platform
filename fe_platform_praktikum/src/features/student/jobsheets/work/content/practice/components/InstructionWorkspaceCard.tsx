@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useLocation } from "react-router-dom"
 import type { JSONContent } from "@tiptap/react"
-import { ChevronDown, ChevronUp, Play, RotateCcw, Save, Square, AlertTriangle } from "lucide-react"
+import { Play, RotateCcw, Save, Square, AlertTriangle } from "lucide-react"
 import CodeEditorPanel from "../../../../../../../components/code-editor/CodeEditorPanel"
 import AnalysisEditor from "./workSpace/AnalysisEditor"
 import { ExecutionClient } from "../../../../../../../services/execution/executionClient"
-import type { connectLiveWorkspaceSocket } from "../../../../../../../services/liveWorkspaceSocket"
+import { connectLiveWorkspaceSocket } from "../../../../../../../services/liveWorkspaceSocket"
 import { parseFilesOrTemplate } from "../../../../../../../shared/utils/codeTemplateUtils"
+import type { InstructionStep } from "../../../../../../../shared/utils/splitInstructionContent"
 
 const LIVE_WORKSPACE_DEBUG = import.meta.env.DEV && import.meta.env.VITE_LIVE_WORKSPACE_DEBUG === "true"
 
 interface Props {
-  title: string
-  label: string
-  instructions: JSONContent[]
+  instructions: InstructionStep[]
   templateCode: string
   language: string
   onChange?: (steps: {
@@ -49,29 +49,29 @@ interface Props {
     id: string
     name: string
   }
-  alwaysExpanded?: boolean
   hideInstructionTabs?: boolean
 }
 
 type BottomPanelTab = "terminal" | "analysis"
 
-function getDefaultFileName(language: string): string {
-  switch (language) {
-    case "java": return "Main.java"
-    case "javascript": return "index.js"
-    case "typescript": return "index.ts"
-    case "python": return "main.py"
-    default: return `main.${language || "txt"}`
-  }
+function getDefaultFileName(language: string, index: number, isExperiment: boolean): string {
+  const ext = getFileExtension(language)
+  return isExperiment ? `percobaan-${index + 1}.${ext}` : `latihan-${index + 1}.${ext}`
 }
 
 function getFileExtension(language: string): string {
-  return getDefaultFileName(language).split(".").pop() || "txt"
+  switch (language) {
+    case "java": return "java"
+    case "javascript": return "js"
+    case "typescript": return "ts"
+    case "python": return "py"
+    default: return language || "txt"
+  }
 }
 
 
-function parseTemplateFiles(codeStr: string, language: string): Record<string, string> {
-  const defaultFileName = getDefaultFileName(language)
+function parseTemplateFiles(codeStr: string, language: string, index: number, isExperiment: boolean): Record<string, string> {
+  const defaultFileName = getDefaultFileName(language, index, isExperiment)
   if (!codeStr) {
     return { [defaultFileName]: "" }
   }
@@ -107,8 +107,6 @@ function getMainClass(fileName: string): string {
 }
 
 export default function InstructionWorkspaceCard({
-  title,
-  label,
   instructions,
   templateCode,
   language,
@@ -121,12 +119,15 @@ export default function InstructionWorkspaceCard({
   runStats,
   liveWorkspace,
   liveSection,
-  alwaysExpanded = false,
   hideInstructionTabs = false,
 }: Props) {
-  const defaultFileName = getDefaultFileName(language)
+  const location = useLocation()
+  const isExperiment = runContext?.moduleType === "experiment" || location.pathname.includes("/experiments/")
   const totalSteps = Math.max(instructions.length, initialSteps?.length || 0, 1)
-  const [activeIndex, setActiveIndex] = useState(0)
+  const codeIndices = Array.from({ length: totalSteps }, (_, i) => i).filter(i => instructions[i]?.needsCode)
+  const [activeIndex, setActiveIndex] = useState(() => codeIndices[0] ?? 0)
+  
+  const defaultFileName = getDefaultFileName(language, activeIndex, isExperiment)
   const [activeFile, setActiveFile] = useState(defaultFileName)
   const [codeMap, setCodeMap] = useState<Record<number, Record<string, string>>>({})
   const [analysisMap, setAnalysisMap] = useState<Record<number, JSONContent>>({})
@@ -135,11 +136,9 @@ export default function InstructionWorkspaceCard({
   const [runTimeMap, setRunTimeMap] = useState<Record<number, string>>({})
   const [runningMap, setRunningMap] = useState<Record<number, boolean>>({})
   const [editorVersionMap, setEditorVersionMap] = useState<Record<number, number>>({})
-  const [isDirty, setIsDirty] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState("")
   const [saveError, setSaveError] = useState("")
-  const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(alwaysExpanded)
   const [bottomPanelTab, setBottomPanelTab] = useState<BottomPanelTab>("terminal")
   const [isBottomPanelExpanded, setIsBottomPanelExpanded] = useState(true)
   const [bottomPanelHeight, setBottomPanelHeight] = useState(220)
@@ -234,7 +233,7 @@ export default function InstructionWorkspaceCard({
 
         return [
           index,
-          parseFilesOrTemplate(savedFiles, templateCode, language),
+          parseFilesOrTemplate(savedFiles, templateCode, language, index, isExperiment),
         ]
       })
     )
@@ -255,13 +254,13 @@ export default function InstructionWorkspaceCard({
     setCurrentInputMap(Object.fromEntries(Array.from({ length: totalSteps }, (_, index) => [index, ""])))
     setRunTimeMap(Object.fromEntries(Array.from({ length: totalSteps }, (_, index) => [index, ""])))
     setEditorVersionMap(Object.fromEntries(Array.from({ length: totalSteps }, (_, index) => [index, 0])))
-    setActiveIndex(0)
-    setActiveFile(Object.keys(nextCodeMap[0] || {})[0] || defaultFileName)
-    setIsDirty(false)
+    const initialIndex = codeIndices[0] ?? 0
+    setActiveIndex(initialIndex)
+    setActiveFile(Object.keys(nextCodeMap[initialIndex] || {})[0] || getDefaultFileName(language, initialIndex, isExperiment))
     setSaveStatus("")
     setSaveError("")
     hasHydratedInitialStateRef.current = true
-  }, [initialSteps, templateCode, defaultFileName, totalSteps, language])
+  }, [initialSteps, templateCode, totalSteps, language, codeIndices, isExperiment])
 
   useEffect(() => {
     if (!readOnly || !hasHydratedInitialStateRef.current) return
@@ -291,6 +290,8 @@ export default function InstructionWorkspaceCard({
     setAnalysisMap(nextAnalysisMap)
     setOutputMap(nextOutputMap)
   }, [defaultFileName, initialSteps, readOnly, templateCode, totalSteps, language])
+
+
 
   useEffect(() => {
     const currentFiles = codeMap[activeIndex] || {}
@@ -328,22 +329,23 @@ export default function InstructionWorkspaceCard({
     }
   }, [codeMap, liveSection?.id, liveSection?.name, liveSection?.type, liveWorkspace])
 
-  const saveCurrentSteps = useCallback(async () => {
+  const saveCurrentSteps = useCallback(async (isManual: boolean = false) => {
     if (!onChange) return
 
     const steps = Array.from({ length: totalSteps }, (_, index) => ({
       files: codeMap[index] || {},
-      output: terminalOutputRef.current[index] ?? outputMap[index] ?? "",
+      output: terminalOutputRef.current[index] || outputMap[index] || "",
       analysis: analysisMap[index] || { type: "doc", content: [] },
     }))
 
-    setIsSaving(true)
+    if (isManual) {
+      setIsSaving(true)
+    }
     setSaveStatus("")
     setSaveError("")
 
     try {
       await onChange(steps)
-      setIsDirty(false)
       setSaveStatus("Tersimpan")
       if (onSave) {
         onSave()
@@ -359,14 +361,15 @@ export default function InstructionWorkspaceCard({
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Gagal menyimpan workspace.")
     } finally {
-      setIsSaving(false)
+      if (isManual) {
+        setIsSaving(false)
+      }
     }
   }, [analysisMap, codeMap, flushLiveAnalysis, flushLiveFile, liveSection?.id, liveSection?.name, liveSection?.type, liveWorkspace, onChange, onSave, outputMap, totalSteps])
 
   const appendOutput = useCallback((index: number, chunk: string) => {
     const nextOutput = `${terminalOutputRef.current[index] || ""}${chunk}`
     terminalOutputRef.current[index] = nextOutput
-    setIsDirty(true)
     setOutputMap(prev => ({
       ...prev,
       [index]: nextOutput,
@@ -492,10 +495,9 @@ export default function InstructionWorkspaceCard({
   }, [activeIndex, appendOutput, currentInputMap])
 
   const handleReset = useCallback(() => {
-    const resetFiles = parseTemplateFiles(templateCode || "", language)
+    const resetFiles = parseTemplateFiles(templateCode || "", language, activeIndex, isExperiment)
     const firstFile = Object.keys(resetFiles)[0] || defaultFileName
 
-    setIsDirty(true)
     setCodeMap(prev => ({
       ...prev,
       [activeIndex]: resetFiles,
@@ -520,11 +522,10 @@ export default function InstructionWorkspaceCard({
     }))
   }, [activeIndex, defaultFileName, language, templateCode])
 
-  const handleFilesChange = useCallback((files: Record<string, string>, nextActiveFile?: string) => {
-    setIsDirty(true)
-    setCodeMap(prev => ({
+  const handleFilesChange = useCallback((newFiles: Record<string, string>, nextActiveFile?: string) => {
+    setCodeMap((prev) => ({
       ...prev,
-      [activeIndex]: files,
+      [activeIndex]: newFiles,
     }))
     if (nextActiveFile) setActiveFile(nextActiveFile)
     if (nextActiveFile) {
@@ -585,7 +586,6 @@ export default function InstructionWorkspaceCard({
           sectionId: liveSection?.id,
         })
       }
-      setIsDirty(true)
       setCodeMap(prev => ({
         ...prev,
         [activeIndex]: {
@@ -661,23 +661,8 @@ export default function InstructionWorkspaceCard({
           </div>
         </div>
       )}
-      {!isWorkspaceExpanded ? (
-        <div className="flex flex-col gap-3 px-5 py-4 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">{label}</p>
-            <h2 className="mt-1 text-xl font-semibold text-gray-900">{title}</h2>
-            {isDirty && <p className="mt-1 text-xs font-medium text-amber-600">Perubahan belum disimpan</p>}
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsWorkspaceExpanded(true)}
-            className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700"
-          >
-            <ChevronDown size={16} />
-            Expand Workspace
-          </button>
-        </div>
-      ) : (
+
+      {codeIndices.length > 0 && (
         <div className="h-[720px] min-h-[650px] overflow-hidden bg-[#1e1e1e]">
           <div className="flex h-full min-h-0 flex-col overflow-hidden">
             <div className="flex shrink-0 flex-col gap-2 border-b border-[#2b2b2b] bg-[#252526] px-3 py-2 lg:flex-row lg:items-center lg:justify-between">
@@ -691,16 +676,16 @@ export default function InstructionWorkspaceCard({
                     ) : null}
                   </p>
                 </div>
-                {!hideInstructionTabs && Array.from({ length: totalSteps }, (_, index) => (
+                {!hideInstructionTabs && codeIndices.map((originalIndex) => (
                   <InstructionTabButton
-                    key={index}
-                    active={activeIndex === index}
-                    onClick={() => handleInstructionChange(index)}
+                    key={originalIndex}
+                    active={activeIndex === originalIndex}
+                    onClick={() => handleInstructionChange(originalIndex)}
                   >
-                    Instruksi {index + 1}
+                    Instruksi {originalIndex + 1}
                     {runStats?.hasRunEventData && runStats.instructionRunCounts ? (
                       <span className="ml-1 rounded bg-[#4b4b52] px-1.5 py-0.5 text-[11px] text-white">
-                        {runStats.instructionRunCounts[index] ?? 0}x
+                        {runStats.instructionRunCounts[originalIndex] ?? 0}x
                       </span>
                     ) : null}
                   </InstructionTabButton>
@@ -730,7 +715,7 @@ export default function InstructionWorkspaceCard({
                       </ToolbarButton>
                     )}
                     <ToolbarButton
-                      onClick={() => saveCurrentSteps()}
+                      onClick={() => saveCurrentSteps(true)}
                       disabled={isSaving}
                     >
                       <Save size={16} aria-hidden="true" />
@@ -744,12 +729,6 @@ export default function InstructionWorkspaceCard({
                       Reset
                     </ToolbarButton>
                   </>
-                )}
-                {!alwaysExpanded && (
-                  <ToolbarButton onClick={() => setIsWorkspaceExpanded(false)}>
-                    <ChevronUp size={16} aria-hidden="true" />
-                    Collapse
-                  </ToolbarButton>
                 )}
               </div>
             </div>
@@ -821,7 +800,6 @@ export default function InstructionWorkspaceCard({
             value={analysisMap[activeIndex] || { type: "doc", content: [] }}
             onChange={(value) => {
               if (readOnly) return
-              setIsDirty(true)
               setAnalysisMap(prev => ({
                 ...prev,
                 [activeIndex]: value,

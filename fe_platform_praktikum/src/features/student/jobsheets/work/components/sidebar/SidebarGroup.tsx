@@ -8,12 +8,14 @@ interface SidebarGroupProps {
   group: SidebarNode
   getStatus: (path?: string) => "default" | "active" | "completed" | "active-completed" | "locked"
   collapsed: boolean
+  onBeforeNavigate?: () => boolean
 }
 
 export default function SidebarGroup({
   group,
   getStatus,
-  collapsed
+  collapsed,
+  onBeforeNavigate
 }: SidebarGroupProps) {
 
   const location = useLocation()
@@ -71,6 +73,7 @@ export default function SidebarGroup({
                 item={child}
                 status={getStatus(child.path)}
                 collapsed={collapsed}
+                onBeforeNavigate={onBeforeNavigate}
               />
             ))}
           </div>

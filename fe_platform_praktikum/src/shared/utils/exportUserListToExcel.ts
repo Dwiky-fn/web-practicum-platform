@@ -87,16 +87,14 @@ export function downloadUserImportTemplate(type: "students" | "lecturers") {
         "Nama Mahasiswa": "Ahmad Dani",
         Angkatan: 2023,
         Semester: 3,
-        Email: "ahmad@student.polnep.ac.id",
-        "Password (Default)": "202301001",
+        Status: "Aktif",
       },
       {
         NIM: "202301002",
         "Nama Mahasiswa": "Budi Gunawan",
         Angkatan: 2023,
         Semester: 3,
-        Email: "budi@student.polnep.ac.id",
-        "Password (Default)": "202301002",
+        Status: "Aktif",
       },
     ]
   } else {
@@ -104,14 +102,12 @@ export function downloadUserImportTemplate(type: "students" | "lecturers") {
       {
         NIP: "198001012005011001",
         "Nama Dosen": "Dwiky Firmansyah",
-        Email: "dwiky@polnep.ac.id",
-        "Password (Default)": "Dwiky1001",
+        Status: "Aktif",
       },
       {
         NIP: "198505122008022002",
         "Nama Dosen": "Dr. Budi Santoso",
-        Email: "budi@polnep.ac.id",
-        "Password (Default)": "Budi2002",
+        Status: "Aktif",
       },
     ]
   }

@@ -45,7 +45,7 @@ export default function ExperimentPage() {
     <div className="space-y-4">
       <div>
         <h2 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
-          <span>{`Percobaan ${experiment.order || jobsheet.experiments.findIndex(exp => exp.id === experiment.id) + 1}: ${experiment.title}`}</span>
+          <span>{experiment.title}</span>
           <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded-full">
             Bobot: {experiment.rubric ?? 0}%
           </span>
@@ -59,8 +59,6 @@ export default function ExperimentPage() {
 
       <InstructionWorkspaceCard
         key={componentKey}
-        title={experiment.title}
-        label={`Percobaan ${experiment.order || jobsheet.experiments.findIndex(exp => exp.id === experiment.id) + 1}`}
         instructions={workspaceInstructions}
         templateCode={experiment.defaultTemplateCode}
         language={programmingLanguage}

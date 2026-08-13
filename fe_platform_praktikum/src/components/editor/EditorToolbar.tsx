@@ -594,6 +594,8 @@ export default function EditorToolbar({ editor, role, layout = "horizontal", onI
             )}
           </div>
 
+          <ToolbarDivider layout={layout} />
+
           {/* Indent & Outdent */}
           <ToolbarButton
             icon={<Outdent size={16} />}

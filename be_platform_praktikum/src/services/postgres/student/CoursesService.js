@@ -28,7 +28,7 @@ class CoursesService {
     return nativeResult.rows;
   }
 
-  async getCoursesByStudentId(studentId) {
+  async getCoursesByStudentId(studentId, { scope = 'active' } = {}) {
     const profileResult = await this._pool.query(
       `SELECT semester
        FROM student_profiles
@@ -97,9 +97,13 @@ class CoursesService {
        AND sp.jobsheet_id = j.id
       WHERE km.id_mahasiswa = $1
         AND km.status = 'active'
-        AND ts.status = 'active'
-        AND profile.semester = s.semester
-        AND kp.status IN ('open', 'active')
+        ${
+          scope === 'active'
+            ? `AND ts.status = 'active'
+               AND profile.semester = s.semester
+               AND kp.status IN ('open', 'active')`
+            : `AND ts.status NOT IN ('active', 'planned')`
+        }
       GROUP BY
         mk.id,
         kp.id,

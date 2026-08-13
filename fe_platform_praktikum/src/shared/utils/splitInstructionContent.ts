@@ -1,23 +1,38 @@
 import type { JSONContent } from "@tiptap/core"
 
-export function splitInstructionContent(doc?: JSONContent): JSONContent[] {
+export interface InstructionStep {
+  content: JSONContent
+  needsCode: boolean
+}
+
+
+
+export function splitInstructionContent(doc?: JSONContent): InstructionStep[] {
   if (!doc?.content) return []
 
-  const orderedList = doc.content.find(
+  const targetList = doc.content.find(
     (node) => node.type === "orderedList"
   )
 
-  if (!orderedList?.content) {
-    return [doc]
+  if (!targetList?.content) {
+    return [{ content: doc, needsCode: true }]
   }
 
-  return orderedList.content.map((listItem) => ({
-    type: "doc",
-    content: [
-      {
-        type: "orderedList",
-        content: [listItem],
+  return targetList.content.map((listItem) => {
+    // Check custom attribute needsCode (default true)
+    const needsCode = listItem.attrs?.needsCode !== undefined ? Boolean(listItem.attrs.needsCode) : true
+
+    return {
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: targetList.type,
+            content: [listItem],
+          },
+        ],
       },
-    ],
-  }))
+      needsCode,
+    }
+  })
 }

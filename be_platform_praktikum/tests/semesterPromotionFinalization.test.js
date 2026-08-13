@@ -59,11 +59,11 @@ function transitionHandler(options = {}) {
     if (statement.includes('FROM kelas_semester ks') && statement.includes('WHERE ks.id = $1') && !statement.includes('ts.tahun_semester')) {
       return {
         rows: targetFound
-          ? [{ id: 'ks-target', id_tahun_semester: 'ts-target', id_semester: 'sem-3', id_kelas: 'kelas-a', semester: targetSemester, kelas: 'A' }]
+          ? [{ id: 'ks-target', id_tahun_semester: 'ts-target', id_semester: 'sem-3', id_kelas: 'kelas-a', semester: targetSemester, kelas: 'A', ts_status: 'active' }]
           : [],
       };
     }
-    if (statement.includes('FROM kelas_mhs') && statement.includes('id_tahun_semester = $1') && statement.includes('id_mahasiswa = $2')) {
+    if (statement.includes('FROM kelas_mhs') && statement.includes('id_tahun_semester = $1') && (statement.includes('id_mahasiswa = $2') || statement.includes('id_mahasiswa = $3'))) {
       return { rows: duplicateTargetPeriod ? [{ exists: 1 }] : [] };
     }
     return { rows: [] };
@@ -141,19 +141,13 @@ test('transitionStudents rejects student already assigned in target academic per
   );
 });
 
-test('manual tahun semester activation remains rejected while active period exists', async () => {
+test('manual tahun semester activation activates target academic period', async () => {
   const { service } = createService((sql) => {
-    const statement = sql.replace(/\s+/g, ' ').trim();
-    if (statement.includes("FROM tahun_semester WHERE status = 'active'")) {
-      return { rows: [{ id: 'ts-source', tahun_semester: '2025/2026 Genap' }] };
-    }
-    return { rows: [] };
+    return { rows: [{ id: 'ts-target', tahun_semester: '2026/2027 Ganjil', status: 'active' }] };
   });
 
-  await assert.rejects(
-    () => service.activateTahunSemester('ts-target'),
-    /TAHUN_SEMESTER_MANUAL_ACTIVATION_DISABLED/,
-  );
+  const result = await service.activateTahunSemester('ts-target');
+  assert.equal(result.id, 'ts-target');
 });
 
 test('student courses no longer require student curriculum mapping', async () => {

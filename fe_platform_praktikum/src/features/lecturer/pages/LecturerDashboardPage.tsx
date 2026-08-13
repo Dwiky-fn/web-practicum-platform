@@ -9,7 +9,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react"
-import TopProgressBar from "../../../components/loading/TopProgressBar"
+
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
 import LecturerLayout from "../components/LecturerLayout"
 import {
@@ -115,9 +115,9 @@ export default function LecturerDashboardPage() {
             )
 
             const totalJobsheets =
-              classDetail.jumlahJobsheetRencana ||
-              classDetail.jumlah_jobsheet_rencana ||
-              (classDetail.jobsheets.length > 0 ? classDetail.jobsheets.length : 10)
+              classDetail.jumlahJobsheetRencana ??
+              classDetail.jumlah_jobsheet_rencana ??
+              0
 
             const publishedCount = classDetail.jobsheets.filter(
               (j) => j.status === "Aktif" || j.status === "Selesai",
@@ -188,12 +188,16 @@ export default function LecturerDashboardPage() {
     return allJobsheetsWithDeadline[0]
   }, [classList])
 
-  if (loading && !courseGroups.length) {
-    return <TopProgressBar />
+  if (loading || (classLoading && classList.length === 0)) {
+    return (
+      <LecturerLayout showBack={false}>
+        <LecturerDashboardSkeleton />
+      </LecturerLayout>
+    )
   }
 
   return (
-    <LecturerLayout>
+    <LecturerLayout showBack={false}>
 
 
       {error && (
@@ -202,10 +206,7 @@ export default function LecturerDashboardPage() {
         </div>
       )}
 
-      {!courseGroups.length ? (
-        <LecturerEmptyState title="Belum ada kelas yang diampu pada semester aktif." />
-      ) : (
-        <>
+      <>
           {/* Header Panel Filter: Pilih Mata Kuliah */}
           <div className="mb-6 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-800 p-6 text-white shadow-lg">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -215,11 +216,11 @@ export default function LecturerDashboardPage() {
                   Mata Kuliah Aktif
                 </div>
                 <h2 className="text-xl font-bold text-white">
-                  {selectedCourse?.name ?? "Pilih Mata Kuliah"}
+                  {selectedCourse?.name ?? "Belum Ada Mata Kuliah"}
                 </h2>
-                <p className="text-xs text-blue-200">
-                  Periode Semester: {selectedCourse?.period ?? "Aktif"}
-                </p>
+                <div className="inline-block rounded-full bg-blue-800/50 px-3 py-1 text-xs font-medium text-blue-200 backdrop-blur-sm">
+                  Tahun Semester: {selectedCourse?.period ?? "2026/2027 Ganjil"}
+                </div>
               </div>
 
               <div className="w-full md:w-80">
@@ -229,12 +230,17 @@ export default function LecturerDashboardPage() {
                   value={courseId}
                   onChange={(value) => setCourseId(value)}
                   className="w-full text-gray-900"
+                  disabled={courseGroups.length === 0}
                 >
-                  {courseGroups.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
+                  {courseGroups.length === 0 ? (
+                    <option value="">Belum ada kelas</option>
+                  ) : (
+                    courseGroups.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))
+                  )}
                 </NativeSelect>
               </div>
             </div>
@@ -320,21 +326,20 @@ export default function LecturerDashboardPage() {
             <div className="mb-5 flex flex-col gap-1 border-b border-gray-100 pb-4">
               <h2 className="text-lg font-bold text-gray-900">Progres Pembelajaran Kelas</h2>
               <p className="text-xs text-gray-500">
-                Tabel pencapaian jobsheet terbit (aktif/selesai) per kelas dibandingkan total rencana jobsheet 1 semester pada mata kuliah <strong className="text-gray-800">{selectedCourse?.name}</strong>.
+                Tabel pencapaian jobsheet terbit (aktif/selesai) per kelas dibandingkan total jumlah jobsheet 1 semester pada mata kuliah <strong className="text-gray-800">{selectedCourse?.name}</strong>.
               </p>
             </div>
 
             {classLoading ? (
               <p className="py-8 text-center text-sm text-gray-500">Memuat data progres kelas...</p>
             ) : !classList.length ? (
-              <LecturerEmptyState title="Belum ada kelas praktikum untuk mata kuliah ini." />
+              <LecturerEmptyState title="Belum ada mata kuliah yang diampu pada tahun semester 2026/2027 Ganjil" />
             ) : (
               <LecturerTable headers={["No.", "Nama Kelas Praktikum", "Progres Pembelajaran Kelas", "Aksi Evaluasi"]}>
                 {classList.map((item, index) => {
-                  const percentage = Math.min(
-                    100,
-                    Math.round((item.publishedJobsheetCount / item.totalJobsheets) * 100),
-                  )
+                  const percentage = item.totalJobsheets > 0
+                    ? Math.min(100, Math.round((item.publishedJobsheetCount / item.totalJobsheets) * 100))
+                    : 0
 
                   return (
                     <tr key={item.classId} className="hover:bg-blue-50/30 transition-colors">
@@ -374,7 +379,6 @@ export default function LecturerDashboardPage() {
             )}
           </div>
         </>
-      )}
 
       {/* Modal Detail Progres Kelas & Daftar Mahasiswa */}
       {selectedClassModal && (
@@ -382,7 +386,7 @@ export default function LecturerDashboardPage() {
           title={`Detail Progres Pembelajaran — Kelas ${selectedClassModal.className}`}
           onClose={() => setSelectedClassModal(null)}
           footer={
-            <LecturerButton onClick={() => setSelectedClassModal(null)}>Tutup Modal</LecturerButton>
+            <LecturerButton onClick={() => setSelectedClassModal(null)}>Tutup</LecturerButton>
           }
           size="lg"
         >
@@ -419,7 +423,7 @@ export default function LecturerDashboardPage() {
               <div className="mb-3 border-b border-gray-100 pb-2">
                 <h3 className="text-base font-bold text-gray-900">Daftar Mahasiswa & Progres Individual</h3>
                 <p className="text-xs text-gray-500">
-                  Progres mahasiswa dihitung dari total jobsheet yang telah dikumpulkan/disubmit dibandingkan total rencana jobsheet 1 semester ({selectedClassModal.totalJobsheets} Jobsheet).
+                  Progres mahasiswa dihitung dari total jobsheet yang telah dikumpulkan/disubmit dibandingkan total jumlah jobsheet 1 semester ({selectedClassModal.totalJobsheets} Jobsheet).
                 </p>
               </div>
 
@@ -434,10 +438,9 @@ export default function LecturerDashboardPage() {
                       (m) => m.student.id === student.id && isSubmittedSubmission(m.submission),
                     )
                     const completedCount = studentSubmissions.length
-                    const studentPct = Math.min(
-                      100,
-                      Math.round((completedCount / selectedClassModal.totalJobsheets) * 100),
-                    )
+                    const studentPct = selectedClassModal.totalJobsheets > 0
+                      ? Math.min(100, Math.round((completedCount / selectedClassModal.totalJobsheets) * 100))
+                      : 0
 
                     return (
                       <tr key={student.id} className="hover:bg-gray-50/80 transition-colors">
@@ -498,5 +501,61 @@ export default function LecturerDashboardPage() {
         </LecturerModal>
       )}
     </LecturerLayout>
+  )
+}
+
+function LecturerDashboardSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      {/* Header Banner Skeleton */}
+      <div className="rounded-2xl bg-gradient-to-r from-blue-900/40 via-indigo-900/40 to-blue-800/40 p-6 h-32 flex flex-col justify-center space-y-3">
+        <div className="h-4 w-32 bg-white/20 rounded-md" />
+        <div className="h-6 w-64 bg-white/30 rounded-md" />
+        <div className="h-3 w-48 bg-white/20 rounded-md" />
+      </div>
+
+      {/* Metric Cards Skeleton */}
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="rounded-2xl border border-blue-50 bg-white p-5 h-32 flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <div className="h-3 w-24 bg-gray-200 rounded-md" />
+              <div className="h-10 w-10 bg-gray-100 rounded-xl" />
+            </div>
+            <div className="h-7 w-20 bg-gray-200 rounded-md" />
+            <div className="h-3 w-32 bg-gray-200 rounded-md" />
+          </div>
+        ))}
+      </div>
+
+      {/* Table Skeleton */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-5">
+        <div className="space-y-2 border-b border-gray-100 pb-4">
+          <div className="h-5 w-48 bg-gray-200 rounded-md" />
+          <div className="h-3.5 w-full max-w-xl bg-gray-200 rounded-md" />
+        </div>
+        <div className="space-y-3">
+          <div className="grid grid-cols-4 gap-4 pb-2 border-b border-gray-100">
+            <div className="h-4 bg-gray-200 rounded-md" />
+            <div className="h-4 bg-gray-200 rounded-md" />
+            <div className="h-4 bg-gray-200 rounded-md" />
+            <div className="h-4 bg-gray-200 rounded-md" />
+          </div>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="grid grid-cols-4 gap-4 py-3 items-center border-b border-gray-50 last:border-0">
+              <div className="h-4 w-8 bg-gray-200 rounded-md" />
+              <div className="h-6 w-32 bg-blue-50/50 border border-blue-100 rounded-md" />
+              <div className="space-y-1.5 flex flex-col items-center">
+                <div className="h-4 w-24 bg-gray-200 rounded-md" />
+                <div className="h-2 w-36 bg-gray-100 rounded-full animate-pulse" />
+              </div>
+              <div className="flex justify-end">
+                <div className="h-8 w-16 bg-gray-200 rounded-lg" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }

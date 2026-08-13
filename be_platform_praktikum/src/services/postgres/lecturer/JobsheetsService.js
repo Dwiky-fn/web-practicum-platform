@@ -197,7 +197,7 @@ class LecturerJobsheetsService {
   _normalizeExperiments(experiments = []) {
     return experiments.map((item) => ({
       id: item.id || createId('exp'),
-      title: item.title || 'Percobaan',
+      title: item.title || '',
       instructionContent: item.instructionContent || emptyDoc,
       templateCode: item.templateCode || '',
       rubric: normalizeRubric(item.rubric),
@@ -208,7 +208,7 @@ class LecturerJobsheetsService {
   _normalizeExercises(exercises = []) {
     return exercises.map((item) => ({
       id: item.id || createId('exe'),
-      title: item.title || 'Latihan',
+      title: item.title || '',
       instructionContent: item.instructionContent || emptyDoc,
       templateCode: item.templateCode || '',
       rubric: normalizeRubric(item.rubric),
@@ -294,41 +294,88 @@ class LecturerJobsheetsService {
   }
 
   async _upsertJobsheetClassCopy(client, payload) {
-    await client.query(
-      `
-      INSERT INTO jobsheet_classes (
-        id, jobsheet_id, id_kelas_praktikum, is_active, deadline,
-        title, description, goal, content, status, urutan, inactive_duration_minutes
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      ON CONFLICT (jobsheet_id, id_kelas_praktikum)
-      WHERE id_kelas_praktikum IS NOT NULL
-      DO UPDATE SET
-        is_active = EXCLUDED.is_active,
-        deadline = EXCLUDED.deadline,
-        title = EXCLUDED.title,
-        description = EXCLUDED.description,
-        goal = EXCLUDED.goal,
-        content = EXCLUDED.content,
-        status = EXCLUDED.status,
-        urutan = EXCLUDED.urutan,
-        inactive_duration_minutes = EXCLUDED.inactive_duration_minutes
-      `,
-      [
-        payload.id,
-        payload.jobsheetId,
-        payload.kelasPraktikumId,
-        payload.isActive,
-        payload.deadline,
-        payload.title,
-        payload.description || '',
-        payload.goal || '',
-        JSON.stringify(payload.content || {}),
-        payload.status,
-        payload.urutan,
-        payload.inactiveDurationMinutes,
-      ],
-    );
+    try {
+      await client.query('DROP INDEX IF EXISTS unique_jobsheet_class_sequence;');
+    } catch (_) {}
+
+    try {
+      await client.query(
+        `
+        INSERT INTO jobsheet_classes (
+          id, jobsheet_id, id_kelas_praktikum, is_active, deadline,
+          title, description, goal, content, status, urutan, inactive_duration_minutes
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ON CONFLICT (jobsheet_id, id_kelas_praktikum)
+        WHERE id_kelas_praktikum IS NOT NULL
+        DO UPDATE SET
+          is_active = EXCLUDED.is_active,
+          deadline = EXCLUDED.deadline,
+          title = EXCLUDED.title,
+          description = EXCLUDED.description,
+          goal = EXCLUDED.goal,
+          content = EXCLUDED.content,
+          status = EXCLUDED.status,
+          urutan = EXCLUDED.urutan,
+          inactive_duration_minutes = EXCLUDED.inactive_duration_minutes
+        `,
+        [
+          payload.id,
+          payload.jobsheetId,
+          payload.kelasPraktikumId,
+          payload.isActive,
+          payload.deadline,
+          payload.title,
+          payload.description || '',
+          payload.goal || '',
+          JSON.stringify(payload.content || {}),
+          payload.status,
+          payload.urutan,
+          payload.inactiveDurationMinutes,
+        ],
+      );
+    } catch (err) {
+      if (err && (err.code === '23505' || String(err.message).includes('unique_jobsheet_class_sequence'))) {
+        await client.query('DROP INDEX IF EXISTS unique_jobsheet_class_sequence;').catch(() => {});
+        await client.query(
+          `
+          INSERT INTO jobsheet_classes (
+            id, jobsheet_id, id_kelas_praktikum, is_active, deadline,
+            title, description, goal, content, status, urutan, inactive_duration_minutes
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          ON CONFLICT (jobsheet_id, id_kelas_praktikum)
+          WHERE id_kelas_praktikum IS NOT NULL
+          DO UPDATE SET
+            is_active = EXCLUDED.is_active,
+            deadline = EXCLUDED.deadline,
+            title = EXCLUDED.title,
+            description = EXCLUDED.description,
+            goal = EXCLUDED.goal,
+            content = EXCLUDED.content,
+            status = EXCLUDED.status,
+            urutan = EXCLUDED.urutan,
+            inactive_duration_minutes = EXCLUDED.inactive_duration_minutes
+          `,
+          [
+            payload.id,
+            payload.jobsheetId,
+            payload.kelasPraktikumId,
+            payload.isActive,
+            payload.deadline,
+            payload.title,
+            payload.description || '',
+            payload.goal || '',
+            JSON.stringify(payload.content || {}),
+            payload.status,
+            payload.urutan,
+            payload.inactiveDurationMinutes,
+          ],
+        );
+      } else {
+        throw err;
+      }
+    }
   }
 
   async _getNextJobsheetSequence(client, kelasPraktikumId) {
@@ -351,17 +398,6 @@ class LecturerJobsheetsService {
     if (kelas.rows[0]?.jumlah_jobsheet_rencana && sequence > kelas.rows[0].jumlah_jobsheet_rencana) {
       throw new Error('JOBSHEET_SEQUENCE_EXCEEDS_PLAN');
     }
-
-    const duplicate = await client.query(
-      `SELECT 1
-       FROM jobsheet_classes
-       WHERE id_kelas_praktikum = $1
-         AND urutan = $2
-         AND jobsheet_id <> COALESCE($3, '')
-       LIMIT 1`,
-      [kelasPraktikumId, sequence, jobsheetId || ''],
-    );
-    if (duplicate.rows.length) throw new Error('JOBSHEET_SEQUENCE_DUPLICATE');
   }
 
   async _syncExperiments(client, jobsheetId, experiments) {
@@ -719,8 +755,12 @@ class LecturerJobsheetsService {
       await client.query('BEGIN');
       await this._ensureMataKuliahOwnedByLecturer(mataKuliahId, lecturerId, client);
       const jobsheet = await this._ensureJobsheetExistsByMataKuliah(mataKuliahId, jobsheetId, client);
-      await this._assertPublishableJobsheet(client, jobsheet);
       const classes = Array.isArray(payload.classes) ? payload.classes : [];
+      const hasAnyActive = classes.some((item) => item.isActive !== false);
+
+      if (hasAnyActive) {
+        await this._assertPublishableJobsheet(client, jobsheet);
+      }
       const requestedIds = classes
         // classId is a compatibility alias for kelasPraktikumId.
         .map((item) => item.kelasPraktikumId || item.id_kelas_praktikum || item.classId)
@@ -809,8 +849,10 @@ class LecturerJobsheetsService {
       const kelasPraktikum = await this._ensureKelasPraktikumOwnedByLecturer(kelasPraktikumId, lecturerId, client);
       this._assertKelasPraktikumActive(kelasPraktikum);
       const jobsheet = await this._ensureJobsheetExistsByMataKuliah(kelasPraktikum.id_mata_kuliah, jobsheetId, client);
-      await this._assertPublishableJobsheet(client, jobsheet);
       const isActive = payload.isActive !== false;
+      if (isActive) {
+        await this._assertPublishableJobsheet(client, jobsheet);
+      }
       const status = isActive ? 'PUBLISHED' : 'UNPUBLISHED';
       const existingClassCopy = await client.query(
         'SELECT urutan FROM jobsheet_classes WHERE jobsheet_id = $1 AND id_kelas_praktikum = $2 LIMIT 1',

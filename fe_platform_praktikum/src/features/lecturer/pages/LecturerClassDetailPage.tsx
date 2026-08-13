@@ -89,17 +89,18 @@ export default function LecturerClassDetailPage() {
     if (!classId) return
     try {
       setSavingPlan(true)
+      const nextPlan = Number(editPlanValue || 0)
       await apiFetch(`/lecturer/kelas-praktikum/${classId}/plan`, {
         method: "PATCH",
         body: JSON.stringify({
-          jumlah_jobsheet_rencana: Number(editPlanValue || 1),
+          jumlah_jobsheet_rencana: nextPlan,
         }),
       })
-      setHeader((prev) => ({ ...prev, jobsheetPlan: Number(editPlanValue || 1) }))
+      setHeader((prev) => ({ ...prev, jobsheetPlan: nextPlan }))
       setIsEditPlanModalOpen(false)
-      toast.success("Jumlah jobsheet rencana berhasil diperbarui.")
+      toast.success("Jumlah jobsheet berhasil diperbarui.")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal memperbarui jumlah jobsheet rencana.")
+      toast.error(err instanceof Error ? err.message : "Gagal memperbarui jumlah jobsheet.")
     } finally {
       setSavingPlan(false)
     }
@@ -324,14 +325,14 @@ export default function LecturerClassDetailPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setEditPlanValue(String(header.jobsheetPlan || 1))
+                    setEditPlanValue(String(header.jobsheetPlan ?? 0))
                     setIsEditPlanModalOpen(true)
                   }}
                   className="ml-1 inline-flex items-center gap-1 rounded-md bg-white/20 px-2 py-0.5 text-[11px] font-bold text-white hover:bg-white/30 transition-colors cursor-pointer"
-                  title="Ubah Rencana Jobsheet"
+                  title="Ubah Jumlah Jobsheet"
                 >
                   <Pencil size={12} />
-                  Ubah Rencana
+                  Ubah Jumlah
                 </button>
               )}
             </div>
@@ -379,17 +380,17 @@ export default function LecturerClassDetailPage() {
 
                   <div className="flex flex-col justify-between rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/30 p-5 shadow-sm">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">Jobsheet Rencana</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">Jumlah Jobsheet</span>
                       <div className="flex items-center gap-1.5">
                         {!isHistoryScope && (
                           <button
                             type="button"
                             onClick={() => {
-                              setEditPlanValue(String(header.jobsheetPlan || 1))
+                              setEditPlanValue(String(header.jobsheetPlan ?? 0))
                               setIsEditPlanModalOpen(true)
                             }}
                             className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100/80 text-emerald-800 hover:bg-emerald-200 transition-colors"
-                            title="Ubah Jumlah Jobsheet Rencana"
+                            title="Ubah Jumlah Jobsheet"
                           >
                             <Pencil size={14} />
                           </button>
@@ -478,7 +479,7 @@ export default function LecturerClassDetailPage() {
                   <div>
                     <h3 className="text-base font-bold text-gray-900">Daftar Jobsheet Kelas Praktikum</h3>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Target Rencana: <strong className="text-blue-900 font-bold">{header.jobsheetPlan} Jobsheet</strong>
+                      Jumlah Jobsheet: <strong className="text-blue-900 font-bold">{header.jobsheetPlan} Jobsheet</strong>
                     </p>
                   </div>
 
@@ -493,9 +494,19 @@ export default function LecturerClassDetailPage() {
                           }}
                         >
                           <Pencil size={15} />
-                          Atur Rencana Jobsheet
+                          Atur Jumlah Jobsheet
                         </LecturerButton>
-                        <LecturerButton onClick={() => navigate(`/mata-kuliah/${nativeScope.mataKuliahId || courseId}/jobsheets/create`)}>
+                        <LecturerButton onClick={() => {
+                          const createdCount = jobsheets.filter(j => j.status?.toLowerCase() !== "draft").length
+                          const plannedCount = header.jobsheetPlan ?? 0
+                          if (createdCount >= plannedCount) {
+                            toast.warning(
+                              `Jumlah jobsheet yang dibuat (${createdCount}) sudah mencapai batas Jumlah Jobsheet (${plannedCount}). Silakan ubah Jumlah Jobsheet terlebih dahulu jika ingin menambah jobsheet baru.`
+                            )
+                            return
+                          }
+                          navigate(`/mata-kuliah/${nativeScope.mataKuliahId || courseId}/jobsheets/create`)
+                        }}>
                           <Plus size={16} />
                           Tambah Jobsheet
                         </LecturerButton>
@@ -755,10 +766,10 @@ export default function LecturerClassDetailPage() {
         </LecturerModal>
       )}
 
-      {/* Modal Ubah Rencana Jobsheet */}
+      {/* Modal Ubah Jumlah Jobsheet */}
       {isEditPlanModalOpen && (
         <LecturerModal
-          title="Ubah Jumlah Jobsheet Rencana"
+          title="Ubah Jumlah Jobsheet"
           description={`Tentukan jumlah target jobsheet praktikum yang direncanakan untuk kelas ${header.className} selama 1 semester.`}
           onClose={() => setIsEditPlanModalOpen(false)}
           footer={
@@ -767,16 +778,16 @@ export default function LecturerClassDetailPage() {
                 Batal
               </LecturerButton>
               <LecturerButton onClick={handleSaveJobsheetPlan} disabled={savingPlan}>
-                {savingPlan ? "Menyimpan..." : "Simpan Rencana"}
+                {savingPlan ? "Menyimpan..." : "Simpan Target"}
               </LecturerButton>
             </div>
           }
         >
           <div>
-            <label className="mb-1 block text-xs font-bold text-gray-700">Jumlah Jobsheet Rencana</label>
+            <label className="mb-1 block text-xs font-bold text-gray-700">Jumlah Jobsheet</label>
             <input
               type="number"
-              min="1"
+              min="0"
               className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm font-semibold focus:border-blue-600 focus:outline-none"
               value={editPlanValue}
               onChange={(e) => setEditPlanValue(e.target.value)}

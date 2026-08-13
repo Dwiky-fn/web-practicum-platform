@@ -16,6 +16,8 @@ export default function StudentCoursePage() {
   const { user } = useCurrentUser();
 
   const [courses, setCourses] = useState<Course[]>([]);
+  const [historyCourses, setHistoryCourses] = useState<Course[]>([]);
+  const [activeTab, setActiveTab] = useState<"active" | "history">("active");
   const [loading, setLoading] = useState(true);
   const [keyword, setKeyword] = useState('');
   const [error, setError] = useState("");
@@ -31,8 +33,12 @@ export default function StudentCoursePage() {
 
       try {
         setError("")
-        const courses = await getCoursesByStudentId(user.id)
-        setCourses(courses)
+        const [courseData, historyCourseData] = await Promise.all([
+          getCoursesByStudentId(user.id, { scope: "active" }),
+          getCoursesByStudentId(user.id, { scope: "history" }),
+        ])
+        setCourses(courseData)
+        setHistoryCourses(historyCourseData)
       } catch (error) {
         setError(error instanceof Error ? error.message : "Gagal memuat mata kuliah.")
       } finally {
@@ -42,12 +48,14 @@ export default function StudentCoursePage() {
     loadData()
   }, [user])
 
+  const activeCourseList = activeTab === "active" ? courses : historyCourses;
+
   const filteredCourses = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLowerCase()
 
-    if (!normalizedKeyword) return courses
+    if (!normalizedKeyword) return activeCourseList
 
-    return courses.filter((course) =>
+    return activeCourseList.filter((course) =>
       [
         course.name,
         course.code,
@@ -55,7 +63,7 @@ export default function StudentCoursePage() {
         course.description,
       ].some((value) => value?.toLowerCase().includes(normalizedKeyword))
     )
-  }, [courses, keyword])
+  }, [activeCourseList, keyword])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -82,7 +90,7 @@ export default function StudentCoursePage() {
                 Mata Kuliah Saya
               </h1>
               <p className="text-xs text-blue-200 mt-0.5">
-                Total {courses.length} mata kuliah praktikum terdaftar pada semester aktif.
+                Total {courses.length} mata kuliah terdaftar pada {activeTab === "active" ? "semester aktif saat ini" : "arsip riwayat"}.
               </p>
             </div>
 
@@ -100,6 +108,32 @@ export default function StudentCoursePage() {
           </div>
         </div>
 
+        {/* Tabs Filter */}
+        <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-100 max-w-fit">
+          <button
+            type="button"
+            onClick={() => setActiveTab("active")}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+              activeTab === "active"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            Semester Berjalan ({courses.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("history")}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+              activeTab === "history"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            Riwayat Arsip ({historyCourses.length})
+          </button>
+        </div>
+
         {/* Content */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -107,10 +141,12 @@ export default function StudentCoursePage() {
               <CourseCardSkeleton key={i}/>
             ))}
           </div>
-        ) : courses.length === 0 ? (
+        ) : activeCourseList.length === 0 ? (
           <div className="rounded-2xl border border-gray-200/80 bg-white p-12 text-center text-gray-500 shadow-sm">
             <BookOpen className="mx-auto h-12 w-12 text-gray-300 mb-2" />
-            <p className="text-sm font-bold text-gray-700">Belum ada mata kuliah yang terdaftar.</p>
+            <p className="text-sm font-bold text-gray-700">
+              {activeTab === "active" ? "Belum ada mata kuliah yang terdaftar." : "Belum ada riwayat mata kuliah."}
+            </p>
           </div>
         ) : filteredCourses.length === 0 ? (
           <div className="rounded-2xl border border-gray-200/80 bg-white p-12 text-center text-gray-500 shadow-sm">
@@ -124,6 +160,7 @@ export default function StudentCoursePage() {
                 key={`${course.id}-${course.kelasPraktikumId}`}
                 course={course}
                 onClick={() => navigate(academicCoursePath(course))}
+                hideProgress={true}
               />
             ))}
           </div>

@@ -5,6 +5,8 @@ import { academicJobsheetPath, type AcademicScope } from "../../../../../service
 import type { Jobsheet } from "../../../../../services/jobsheet/types";
 import type { StudentProgressItem } from "../../../../../services/progress/types";
 import type { JobsheetSubmission } from "../../../../../services/submission/types";
+import { getIncompletePracticeMessage } from "../utils/checkPracticeCompletion";
+import { toast } from "../../../../../components/toast/toastStore";
 
 interface WorkFooterNavProps {
   courseId: string,
@@ -58,64 +60,40 @@ export default function WorkFooterNav({
     submission.status === "REVISION" ||
     submission.status === "ACCEPTED"
   const isLastItem = currentIndex === navItems.length - 1
-  const currentCompleted = completedItems.some(
-    (item) => item.type === currentItem.type && item.id === currentItem.id
-  )
-  const isTheoryItem = currentItem.type === "theory"
-  const canGoNext = isFinishedSubmission || !isTheoryItem || currentCompleted
 
-  const getIncompletePracticeMessage = (): string | null => {
-    const isExperiment = location.pathname.includes("/experiment/")
-    const isExercise = location.pathname.includes("/exercise/")
-    if (!isExperiment && !isExercise) return null
-
+  const isTheory = location.pathname.includes("/theory/")
+  let isTheoryIncomplete = false
+  if (isTheory) {
     const parts = location.pathname.split("?")[0].split("/")
-    const targetId = isExperiment ? parts[parts.indexOf("experiment") + 1] : parts[parts.indexOf("exercise") + 1]
-    if (!targetId) return null
-
-    const rawReport = (isExperiment
-      ? (submission?.report?.experiments as Record<string, any>)?.[targetId]
-      : (submission?.report?.exercises as Record<string, any>)?.[targetId]) as any
-
-    const rawSteps: any[] = Array.isArray(rawReport?.steps)
-      ? rawReport.steps
-      : rawReport
-      ? [rawReport]
-      : []
-
-    if (!rawSteps.length) {
-      return "Anda belum mengisi kode program, membuat output kode program, dan menulis analisis pengerjaan."
+    const theoryId = parts[parts.indexOf("theory") + 1]
+    const completed = completedItems.some(item => item.type === "theory" && item.id === theoryId)
+    if (!completed && !isFinishedSubmission) {
+      isTheoryIncomplete = true
     }
-
-    const missingParts: string[] = []
-    const hasCode = rawSteps.some((s: any) => {
-      const filesObj = s?.files || {}
-      return Object.values(filesObj).some((c: any) => typeof c === "string" && Boolean(c.trim()))
-    })
-    const hasOutput = rawSteps.some((s: any) => typeof s?.output === "string" && Boolean(s.output.trim()))
-    const hasAnalysis = rawSteps.some((s: any) => {
-      if (!s?.analysis) return false
-      if (typeof s.analysis === "string") return Boolean(s.analysis.trim())
-      const jsonStr = JSON.stringify(s.analysis)
-      return jsonStr.length > 25 && !jsonStr.includes('"text":""')
-    })
-
-    if (!hasCode) missingParts.push("kode program")
-    if (!hasOutput) missingParts.push("output kode program")
-    if (!hasAnalysis) missingParts.push("analisis pengerjaan")
-
-    if (missingParts.length > 0) {
-      return `Perhatian: Anda belum melengkapi ${missingParts.join(", ")} pada bagian ini.`
-    }
-
-    return null
   }
 
+  const hasPracticeWarning = Boolean(getIncompletePracticeMessage(location.pathname, jobsheet, submission)) && !isFinishedSubmission
+  const isVisuallyDisabled = isTheoryIncomplete || hasPracticeWarning
+
+
+
+
   const handleNextClick = (targetPath: string) => {
-    const warning = getIncompletePracticeMessage()
-    if (warning) {
-      const confirmNext = window.confirm(`${warning}\n\nApakah Anda yakin ingin tetap melanjutkan ke halaman berikutnya?`)
-      if (!confirmNext) return
+    const isTheory = location.pathname.includes("/theory/")
+    if (isTheory) {
+      const parts = location.pathname.split("?")[0].split("/")
+      const theoryId = parts[parts.indexOf("theory") + 1]
+      const completed = completedItems.some(item => item.type === "theory" && item.id === theoryId)
+      if (!completed && !isFinishedSubmission) {
+        toast.error("Harap selesaikan membaca materi dasar teori terlebih dahulu.")
+        return
+      }
+    }
+
+    const warning = getIncompletePracticeMessage(location.pathname, jobsheet, submission)
+    if (warning && !isFinishedSubmission) {
+      toast.error(warning)
+      return
     }
     navigate(targetPath)
   }
@@ -149,12 +127,11 @@ export default function WorkFooterNav({
         <div className="w-1/3 flex justify-end">
         {nextItem && (
           <button
-            disabled={!canGoNext}
             onClick={() => handleNextClick(nextItem.path)}
             className={`flex items-center gap-2 rounded px-2 py-1.5 text-right text-sm transition ${
-              canGoNext
-                ? "text-gray-600 hover:bg-gray-200 hover:text-black active:text-black cursor-pointer"
-                : "text-gray-300 cursor-not-allowed"
+              isVisuallyDisabled
+                ? "text-gray-300 cursor-not-allowed"
+                : "text-gray-600 hover:bg-gray-200 hover:text-black active:text-black cursor-pointer"
             }`}
           >
             <div className="font-semibold truncate">
@@ -173,7 +150,7 @@ export default function WorkFooterNav({
           >
             <Home size={18} />
             <div className="font-semibold text-gray-700 truncate">
-              Kembali ke Monitoring
+              {location.pathname.startsWith("/lecturer") ? "Kembali" : "Kembali ke Detail Jobsheet"}
             </div>
           </button>
         )}
@@ -203,10 +180,9 @@ export default function WorkFooterNav({
         {/* Next */}
         {nextItem ? (
           <button
-            disabled={!canGoNext}
             onClick={() => handleNextClick(nextItem.path)}
             className={`flex flex-col items-center text-xs ${
-              canGoNext ? "text-gray-600" : "text-gray-300 cursor-not-allowed"
+              isVisuallyDisabled ? "text-gray-300 cursor-not-allowed" : "text-gray-600"
             }`}
           >
             <ArrowRight size={18} />
@@ -218,7 +194,7 @@ export default function WorkFooterNav({
             }
             className="text-xs bg-blue-600 text-white px-3 py-1 rounded-lg"
           >
-            Detail
+            {location.pathname.startsWith("/lecturer") ? "Kembali" : "Detail Jobsheet"}
           </button>
         ) : (
           <div />

@@ -1,4 +1,4 @@
-import { MessageSquare, Clipboard, Award, CheckCircle2, AlertTriangle, Clock, UserCheck } from "lucide-react"
+import { MessageSquare, Clipboard, Award, CheckCircle2, AlertTriangle, Clock, UserCheck, Sparkles } from "lucide-react"
 import type { ReviewFeedback } from "../../../../../../../../services/reviewFeedbackService"
 import type { JobsheetSubmission } from "../../../../../../../../services/submission/types"
 
@@ -80,12 +80,23 @@ export default function ReviewSummaryBanner({ feedbacks, review, onClickItem }: 
         )}
       </div>
 
+      {/* AI Recommendation if available */}
+      {review?.aiFeedback?.overallFeedback && (
+        <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-4 text-xs text-purple-950 flex items-start gap-3 shadow-2xs">
+          <Sparkles size={18} className="text-purple-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <span className="font-bold text-purple-950 uppercase tracking-wider block">Rekomendasi AI:</span>
+            <p className="leading-relaxed text-purple-900 whitespace-pre-line">{review.aiFeedback.overallFeedback}</p>
+          </div>
+        </div>
+      )}
+
       {/* Lecturer Note if available */}
       {lecturerFeedback && (
         <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-4 text-xs text-blue-900 flex items-start gap-3">
           <UserCheck size={18} className="text-blue-600 shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <span className="font-bold text-blue-950 block">Catatan Dosen Pembimbing:</span>
+            <span className="font-bold text-blue-950 uppercase tracking-wider block">Catatan Dosen Pembimbing:</span>
             <p className="leading-relaxed text-blue-900/90 whitespace-pre-line">{lecturerFeedback}</p>
           </div>
         </div>
@@ -93,7 +104,7 @@ export default function ReviewSummaryBanner({ feedbacks, review, onClickItem }: 
 
       {/* Quick Nav Category Pills */}
       <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-        <span className="text-xs font-semibold text-gray-500">Kategori Feedback:</span>
+        <span className="text-xs font-semibold text-gray-500">Kategori Catatan Dosen:</span>
         <div className="flex flex-wrap gap-2.5 select-none">
           <button
             onClick={() => onClickItem("code")}
@@ -108,7 +119,7 @@ export default function ReviewSummaryBanner({ feedbacks, review, onClickItem }: 
             className="flex items-center gap-2 bg-white hover:bg-emerald-50/80 border border-gray-200 hover:border-emerald-300 rounded-xl px-3.5 py-2 text-xs font-bold text-gray-700 hover:text-emerald-700 cursor-pointer transition shadow-2xs"
           >
             <Clipboard size={14} className="text-emerald-500" />
-            <span>{expCount} Feedback Percobaan</span>
+            <span>{expCount} Catatan Percobaan</span>
           </button>
 
           <button
@@ -116,7 +127,7 @@ export default function ReviewSummaryBanner({ feedbacks, review, onClickItem }: 
             className="flex items-center gap-2 bg-white hover:bg-indigo-50/80 border border-gray-200 hover:border-indigo-300 rounded-xl px-3.5 py-2 text-xs font-bold text-gray-700 hover:text-indigo-700 cursor-pointer transition shadow-2xs"
           >
             <Award size={14} className="text-indigo-500" />
-            <span>{jobCount || lecturerFeedback ? "Feedback Umum Tersedia" : "Tidak Ada Feedback Umum"}</span>
+            <span>{jobCount || lecturerFeedback ? "Catatan Umum Tersedia" : "Tidak Ada Catatan Umum"}</span>
           </button>
         </div>
       </div>

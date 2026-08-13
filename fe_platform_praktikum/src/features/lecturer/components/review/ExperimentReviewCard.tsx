@@ -232,18 +232,39 @@ export default function ExperimentReviewCard({
 
           {!isStudent && (
             <div className="border-t border-gray-100 pt-5">
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
+              <div className="grid gap-4 lg:grid-cols-2">
                 <div className="rounded-xl border border-purple-100 bg-purple-50/40 p-4">
-                  <div className="mb-2 inline-flex items-center gap-1 rounded-full border border-purple-100 bg-white px-2 py-0.5 text-[10px] font-bold text-purple-700">
-                    <Sparkles size={11} />
-                    Rekomendasi AI
+                  <div className="flex items-center justify-between">
+                    <div className="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-white px-2.5 py-0.5 text-[10px] font-bold text-purple-700 shadow-2xs">
+                      <Sparkles size={11} />
+                      Rekomendasi AI
+                    </div>
                   </div>
-                  <div className="text-sm font-semibold text-gray-800">
-                    Nilai: {aiRecommendation?.score ?? "-"} dari {aiRecommendation?.maxScore ?? rubric}
-                  </div>
-                  <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-gray-700">
-                    {aiRecommendation?.feedback || "Rekomendasi AI belum tersedia untuk bagian ini."}
+                  <p className="mt-1 text-[11px] font-semibold text-purple-600">
+                    Bobot bagian: {rubric || 0}. Rentang nilai: 0-{rubric || 0}. (Read-Only)
                   </p>
+
+                  <label className="mt-3 block text-xs font-semibold text-gray-700">
+                    Nilai Bagian
+                    <input
+                      type="text"
+                      readOnly
+                      value={aiRecommendation?.score != null ? String(aiRecommendation.score) : ""}
+                      placeholder="-"
+                      className="mt-1 h-9 w-full rounded-lg border border-purple-200 bg-white px-3 text-sm font-semibold text-purple-950 outline-none cursor-default"
+                    />
+                  </label>
+
+                  <label className="mt-3 block text-xs font-semibold text-gray-700">
+                    Feedback Bagian
+                    <textarea
+                      readOnly
+                      rows={4}
+                      value={aiRecommendation?.feedback || ""}
+                      placeholder="Rekomendasi AI belum tersedia untuk bagian ini."
+                      className="mt-1 w-full rounded-lg border border-purple-200 bg-white px-3 py-2 text-xs text-purple-950 outline-none resize-none cursor-default"
+                    />
+                  </label>
                 </div>
 
                 <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">

@@ -174,7 +174,7 @@ export default function PreviewPage() {
             <CheckCircle className="text-green-500" size={48} />
           </div>
           <h2 className="text-xl font-semibold text-gray-800">
-            Jobsheet Berhasil di-Submit!
+            Jobsheet Berhasil Dikumpulkan!
           </h2>
           <p className="text-sm text-gray-500">
             Laporan kamu telah berhasil dikirim.

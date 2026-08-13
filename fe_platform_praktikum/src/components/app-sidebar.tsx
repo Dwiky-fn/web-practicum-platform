@@ -173,11 +173,14 @@ export function AppSidebar() {
                 {(academicOpen || isCollapsed) && (
                   <SidebarMenuSub>
                     {[
-                      ["/admin/academic/kurikulum", "Kurikulum"],
-                      ["/admin/academic/semester", "Semester"],
-                      ["/admin/academic/mata-kuliah", "Mata Kuliah"],
-                      ["/admin/academic/kelas", "Kelas"],
-                      ["/admin/academic/tahun-semester", "Tahun Semester"],
+                      ["/admin/academic/kurikulum", "1. Kurikulum"],
+                      ["/admin/academic/semester", "2. Semester"],
+                      ["/admin/academic/mata-kuliah", "3. Mata Kuliah"],
+                      ["/admin/academic/tahun-semester", "4. Tahun Semester"],
+                      ["/admin/academic/kelas", "5. Kelas"],
+                      ["/admin/academic/kelas-mahasiswa", "6. Kelas Mahasiswa"],
+                      ["/admin/academic/kelas-praktikum", "7. Kelas Praktikum"],
+                      ["/admin/academic/kenaikan-semester", "8. Kenaikan Semester"],
                     ].map(([to, label]) => (
                       <SidebarMenuSubItem key={to}>
                         <SidebarMenuSubButton asChild isActive={location.pathname === to}>

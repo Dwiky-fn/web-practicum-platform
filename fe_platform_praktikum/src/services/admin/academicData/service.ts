@@ -287,6 +287,12 @@ export const academicDataApi = {
   },
   async transitionStudents(payload: {
     sourceKelasSemesterId: string
+    autoCreateTargets?: Array<{
+      placeholderKey: string
+      id_tahun_semester: string
+      id_semester: string
+      id_kelas: string
+    }>
     transitions: Array<{
       studentId: string
       targetKelasSemesterId: string

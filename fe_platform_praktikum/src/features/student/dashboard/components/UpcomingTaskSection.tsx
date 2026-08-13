@@ -1,8 +1,9 @@
 import { useNavigate } from "react-router-dom"
+import { ClipboardList } from "lucide-react"
 import type { Jobsheet } from "../../../../services/jobsheet/types"
 import type { JobsheetSubmission, SubmissionStatus } from "../../../../services/submission/types"
 import { getDeadlineState, parseDeadline } from "../../../../shared/utils/deadline"
-import { academicJobsheetWorkPath } from "../../../../services/academicScope"
+import { academicJobsheetPath } from "../../../../services/academicScope"
 import UpcomingTaskSkeleton from "../loading/UpcomingSkeleton"
 import { formatAcademicDate } from "../../../../shared/utils/formatAcademicDateTime"
 
@@ -94,8 +95,14 @@ export default function UpcomingTaskSection({
 
   if (upcomingJobsheets.length === 0) {
     return (
-      <div className="bg-white rounded-2xl shadow-sm p-6 text-gray-500">
-        Tidak ada praktikum terdekat
+      <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-10 px-6 text-center shadow-sm">
+        <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-gray-50">
+          <ClipboardList className="text-gray-400" size={32} />
+        </div>
+        <h3 className="text-base font-bold text-gray-900">Tidak Ada Praktikum</h3>
+        <p className="mt-1.5 max-w-sm text-sm text-gray-500">
+          Saat ini tidak ada tugas atau jobsheet praktikum yang perlu Anda kerjakan.
+        </p>
       </div>
     )
   }
@@ -113,7 +120,7 @@ export default function UpcomingTaskSection({
             key={jobsheet.id}
             type="button"
             onClick={() =>
-              navigate(academicJobsheetWorkPath(jobsheet.courseId, jobsheet.id, {
+              navigate(academicJobsheetPath(jobsheet.courseId, jobsheet.id, {
                 mataKuliahId: jobsheet.mataKuliahId,
                 kelasPraktikumId: jobsheet.kelasPraktikumId,
               }))

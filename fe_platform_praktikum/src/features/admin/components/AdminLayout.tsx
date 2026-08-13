@@ -13,12 +13,14 @@ interface AdminLayoutProps {
   backTo?: string | number
   onBack?: () => void
   showBack?: boolean
+  rightContent?: React.ReactNode
 }
 
-export default function AdminLayout({ children, breadcrumbItems, backTo, onBack, showBack }: AdminLayoutProps) {
+export default function AdminLayout({ children, breadcrumbItems, backTo, onBack, showBack, rightContent }: AdminLayoutProps) {
   const location = useLocation()
   const path = location.pathname.replace(/\/+$/, "")
   const isMainIndexPage =
+    path === "/dashboard" ||
     path === "/admin" ||
     path === "/admin/dashboard" ||
     path === "" ||
@@ -33,7 +35,7 @@ export default function AdminLayout({ children, breadcrumbItems, backTo, onBack,
     path === "/admin/academic/mata-kuliah" ||
     path === "/admin/academic/departments"
 
-  const shouldShowBackButton = showBack ?? (!isMainIndexPage || backTo !== undefined || onBack !== undefined)
+  const shouldShowBackButton = showBack ?? (!isMainIndexPage && (backTo !== undefined || onBack !== undefined))
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
@@ -49,11 +51,16 @@ export default function AdminLayout({ children, breadcrumbItems, backTo, onBack,
         {/* Main Content Area */}
         <SidebarInset>
           <main className="flex-1 p-6 lg:p-8 max-w-7xl mx-auto w-full">
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-              {shouldShowBackButton && (
-                <BackButton to={backTo} onClick={onBack} />
+            <div className="mb-4 flex flex-wrap items-center gap-3 justify-between">
+              <div className="flex flex-wrap items-center gap-3">
+                {shouldShowBackButton && (
+                  <BackButton to={backTo} onClick={onBack} />
+                )}
+                <Breadcrumbs items={breadcrumbItems} />
+              </div>
+              {rightContent && (
+                <div className="flex-shrink-0">{rightContent}</div>
               )}
-              <Breadcrumbs items={breadcrumbItems} />
             </div>
             {children}
           </main>

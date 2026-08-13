@@ -182,16 +182,16 @@ export default function LoginForm() {
 
       {/* Login Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Email / NIM */}
+        {/* Email / NIM / NIP */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1.5">
-            Email / NIM
+            Email / NIM / NIP
           </label>
           <div className="relative">
             <User size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <input
               type="text"
-              placeholder="Masukkan email atau NIM"
+              placeholder="Masukkan email, NIM, atau NIP"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               className="w-full rounded-xl bg-gray-50 border border-gray-200 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
@@ -203,13 +203,13 @@ export default function LoginForm() {
         {/* Password */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1.5">
-            Password
+            Kata Sandi
           </label>
           <div className="relative">
             <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <input
               type={showPassword ? "text" : "password"}
-              placeholder="Masukkan password"
+              placeholder="Masukkan kata sandi"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-xl bg-gray-50 border border-gray-200 pl-10 pr-10 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
@@ -219,7 +219,7 @@ export default function LoginForm() {
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1"
-              title={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+              title={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>

@@ -4,12 +4,14 @@ interface CourseCardProps {
   course: Course;
   jobsheetCount?: number;
   onClick?: () => void;
+  hideProgress?: boolean;
 }
 
 export default function CourseCard({
   course,
   jobsheetCount,
   onClick,
+  hideProgress = false,
 }: CourseCardProps) {
   const progress = course.progress ?? 0;
   const totalJobsheets = jobsheetCount ?? course.jobsheetCount ?? course.jobsheet_count ?? 0;
@@ -30,17 +32,18 @@ export default function CourseCard({
       </div>
 
       <div className="mt-4 pt-3 border-t border-gray-100/80">
-        {/* Progress */}
-        <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden mb-2.5">
-          <div
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 h-2 rounded-full transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
+        {!hideProgress && (
+          <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden mb-2.5">
+            <div
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 h-2 rounded-full transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        )}
 
         <p className="text-xs font-semibold text-gray-600 flex items-center justify-between">
           <span>{totalJobsheets} jobsheet</span>
-          <span className="text-blue-700 font-bold">Progress: {progress}%</span>
+          {!hideProgress && <span className="text-blue-700 font-bold">Progress: {progress}%</span>}
         </p>
       </div>
     </div>

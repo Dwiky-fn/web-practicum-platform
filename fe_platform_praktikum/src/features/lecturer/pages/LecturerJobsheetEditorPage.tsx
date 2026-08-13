@@ -32,6 +32,7 @@ import { datetimeLocalToDbValue, dbValueToDatetimeLocal } from "../utils/deadlin
 import { toast } from "../../../components/toast/toastStore"
 import { uploadJobsheetImage } from "../../../services/jobsheet/service"
 import { IndonesianDateTimePicker } from "../components/IndonesianDateTimePicker"
+import { InstructionCodeCheckboxes } from "../components/InstructionCodeCheckboxes"
 
 const emptyDoc: JSONContent = { type: "doc", content: [] }
 
@@ -86,30 +87,24 @@ function createTheoryItem(index: number): LecturerTheoryInput {
 }
 
 function createExperimentItem(index: number, language: "java" | "python" = "java"): PracticeEditorItem {
+  const ext = language === "python" ? "py" : "java";
   return {
     id: createLocalId("exp"),
-    title: `Percobaan ${index}`,
+    title: "",
     instructionContent: emptyDoc,
-    templateCode: language === "python" ? 'print("Hello, Python!")' : `public class Main {
-    public static void main(String[] args) {
-        System.out.println("Hello, Java!");
-    }
-}`,
+    templateCode: JSON.stringify({ [`percobaan-${index}.${ext}`]: "" }),
     isReported: true,
     rubric: 0,
   }
 }
 
 function createExerciseItem(index: number, language: "java" | "python" = "java"): PracticeEditorItem {
+  const ext = language === "python" ? "py" : "java";
   return {
     id: createLocalId("exe"),
-    title: `Latihan ${index}`,
+    title: "",
     instructionContent: emptyDoc,
-    templateCode: language === "python" ? 'print("Hello, Python!")' : `public class Main {
-    public static void main(String[] args) {
-        System.out.println("Hello, Java!");
-    }
-}`,
+    templateCode: JSON.stringify({ [`latihan-${index}.${ext}`]: "" }),
     isReported: true,
     rubric: 0,
   }
@@ -181,9 +176,9 @@ export default function LecturerJobsheetEditorPage() {
           setGoalContent(
             selectedJobsheet.goal
               ? {
-                  type: "doc",
-                  content: [{ type: "paragraph", content: [{ type: "text", text: selectedJobsheet.goal }] }],
-                }
+                type: "doc",
+                content: [{ type: "paragraph", content: [{ type: "text", text: selectedJobsheet.goal }] }],
+              }
               : emptyDoc,
           )
           const lang = (selectedJobsheet.programmingLanguage || "java") as "java" | "python"
@@ -245,9 +240,9 @@ export default function LecturerJobsheetEditorPage() {
           setGoalContent(
             sourceJobsheet.goal
               ? {
-                  type: "doc",
-                  content: [{ type: "paragraph", content: [{ type: "text", text: sourceJobsheet.goal }] }],
-                }
+                type: "doc",
+                content: [{ type: "paragraph", content: [{ type: "text", text: sourceJobsheet.goal }] }],
+              }
               : emptyDoc,
           )
           const lang = (sourceJobsheet.programmingLanguage || "java") as "java" | "python"
@@ -297,7 +292,16 @@ export default function LecturerJobsheetEditorPage() {
           const defaultLang = firstClass?.programmingLanguage || "java"
           setProgrammingLanguage(defaultLang)
           const currentClass = nextDataset?.course.classes.find((item) => (item.kelasPraktikumId || item.id_kelas_praktikum) === queryKelasPraktikumId) ?? nextDataset?.course.classes?.[0]
-          setJobsheetSequence(String((currentClass?.jumlahJobsheetDibuat ?? currentClass?.jumlah_jobsheet_dibuat ?? 0) + 1))
+          const createdCount = nextDataset?.jobsheets ? nextDataset.jobsheets.filter(j => j.status?.toLowerCase() !== "draft").length : (currentClass?.jumlahJobsheetDibuat ?? currentClass?.jumlah_jobsheet_dibuat ?? 0)
+          const plannedCount = currentClass?.jumlahJobsheetRencana ?? currentClass?.jumlah_jobsheet_rencana ?? 0
+
+          if (createdCount >= plannedCount) {
+            toast.warning(`Jumlah jobsheet yang dibuat (${createdCount}) sudah mencapai batas Jumlah Jobsheet (${plannedCount}). Silakan ubah Jumlah Jobsheet terlebih dahulu.`)
+            navigate(jobsheetBasePath, { replace: true })
+            return
+          }
+
+          setJobsheetSequence(String(createdCount + 1))
           setTheoryItems([])
           setExperiments([])
           setExercises([])
@@ -349,17 +353,17 @@ export default function LecturerJobsheetEditorPage() {
         content: item.content || emptyDoc,
         rubric: normalizeRubric(item.rubric),
       })),
-      experiments: experiments.map((item, index) => ({
+      experiments: experiments.map((item) => ({
         id: item.id,
-        title: item.title || `Percobaan ${index + 1}`,
+        title: item.title || "",
         instructionContent: item.instructionContent || emptyDoc,
         templateCode: item.templateCode,
         rubric: normalizeRubric(item.rubric),
         inactiveDurationMinutes: item.inactiveDurationMinutes ? Number(item.inactiveDurationMinutes) : null,
       })),
-      exercises: exercises.map((item, index) => ({
+      exercises: exercises.map((item) => ({
         id: item.id,
-        title: item.title || `Latihan ${index + 1}`,
+        title: item.title || "",
         instructionContent: item.instructionContent || emptyDoc,
         templateCode: item.templateCode,
         rubric: normalizeRubric(item.rubric),
@@ -429,14 +433,14 @@ export default function LecturerJobsheetEditorPage() {
     if (!jobsheetId) {
       throw new Error("Gagal menginisialisasi draft jobsheet untuk upload gambar.");
     }
-    
+
     const uploaded = await uploadJobsheetImage(jobsheetId, file);
-    
+
     if (isCreate) {
       const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
       navigate(`${jobsheetBasePath}/${jobsheetId}/edit${query}`, { replace: true });
     }
-    
+
     return uploaded;
   };
 
@@ -491,25 +495,18 @@ export default function LecturerJobsheetEditorPage() {
   }
 
   function applyLanguageChange(lang: "java" | "python") {
+    const ext = lang === "python" ? "py" : "java";
     // Auto-update templates to default code of the new language
     setExperiments((current) =>
-      current.map((item) => ({
+      current.map((item, index) => ({
         ...item,
-        templateCode: lang === "python" ? 'print("Hello, Python!")' : `public class Main {
-    public static void main(String[] args) {
-        System.out.println("Hello, Java!");
-    }
-}`,
+        templateCode: JSON.stringify({ [`percobaan-${index + 1}.${ext}`]: "" }),
       }))
     )
     setExercises((current) =>
-      current.map((item) => ({
+      current.map((item, index) => ({
         ...item,
-        templateCode: lang === "python" ? 'print("Hello, Python!")' : `public class Main {
-    public static void main(String[] args) {
-        System.out.println("Hello, Java!");
-    }
-}`,
+        templateCode: JSON.stringify({ [`latihan-${index + 1}.${ext}`]: "" }),
       }))
     )
     setProgrammingLanguage(lang)
@@ -590,128 +587,85 @@ export default function LecturerJobsheetEditorPage() {
 
       <div className="mx-auto max-w-7xl grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] items-start w-full min-w-0">
         <div className="space-y-5 min-w-0 w-full">
-        <LecturerPanel className="p-5">
-          <h2 className="mb-4 text-lg font-semibold">Informasi Umum</h2>
-          <div className="space-y-4">
-            <FieldRow label="Judul Jobsheet">
-              <input
-                className={inputClass}
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="Masukkan judul jobsheet"
-              />
-            </FieldRow>
+          <LecturerPanel className="p-5">
+            <h2 className="mb-4 text-lg font-semibold">Informasi Umum</h2>
+            <div className="space-y-4">
+              <FieldRow label="Judul Jobsheet">
+                <input
+                  className={inputClass}
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="Masukkan judul jobsheet"
+                />
+              </FieldRow>
 
-            <FieldRow label="Deskripsi Singkat">
-              <input
-                className={inputClass}
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Masukkan deskripsi singkat"
-              />
-            </FieldRow>
-            <FieldRow label="Bahasa Pemrograman">
-              <select
-                className={inputClass}
-                value={programmingLanguage}
-                onChange={(event) => handleLanguageChange(event.target.value as "java" | "python")}
-              >
-                {programmingLanguage === "" && <option value="">Pilih Bahasa...</option>}
-                <option value="java">Java</option>
-                <option value="python">Python</option>
-              </select>
-            </FieldRow>
-          </div>
-        </LecturerPanel>
-
-        <LecturerPanel className="p-5">
-          <h2 className="mb-4 text-lg font-semibold">Tujuan Praktikum</h2>
-          <RichTextEditor
-            value={goalContent}
-            onChange={setGoalContent}
-            role="DOSEN"
-            onUploadImage={handleUploadImage}
-            placeholder="Tulis tujuan praktikum dengan format lengkap..."
-          />
-        </LecturerPanel>
-
-        <LecturerPanel className="p-5">
-          <div className="mb-4 border-b border-gray-200 pb-3">
-            <h2 className="text-lg font-semibold">Dasar Teori</h2>
-          </div>
-          {!theoryItems.length && (
-            <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-5 text-center">
-              <p className="text-sm font-medium text-gray-700">Belum ada dasar teori.</p>
+              <FieldRow label="Deskripsi Singkat">
+                <input
+                  className={inputClass}
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Masukkan deskripsi singkat"
+                />
+              </FieldRow>
+              <FieldRow label="Bahasa Pemrograman">
+                <select
+                  className={inputClass}
+                  value={programmingLanguage}
+                  onChange={(event) => handleLanguageChange(event.target.value as "java" | "python")}
+                >
+                  {programmingLanguage === "" && <option value="">Pilih Bahasa...</option>}
+                  <option value="java">Java</option>
+                  <option value="python">Python</option>
+                </select>
+              </FieldRow>
             </div>
-          )}
-          <div className="space-y-4">
-            {theoryItems.map((item, index) => {
-              const itemKey = item.id ?? `theory-${index}`
-              const isCollapsed = Boolean(collapsedTheoryItems[itemKey])
+          </LecturerPanel>
 
-              return (
-                <div key={itemKey} className="rounded-lg border border-gray-200 p-4 bg-white shadow-sm transition-all">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setCollapsedTheoryItems((prev) => ({
-                            ...prev,
-                            [itemKey]: !prev[itemKey],
-                          }))
-                        }
-                        className="flex items-center justify-center p-1 text-gray-500 hover:text-gray-900 rounded hover:bg-gray-100 transition"
-                        title={isCollapsed ? "Buka (Expand) Dasar Teori" : "Tutup (Collapse) Dasar Teori"}
-                      >
-                        {isCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
-                      </button>
-                      <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
-                        <span>Dasar Teori {index + 1}</span>
-                        {item.title ? (
-                          <span className="font-normal text-gray-500 truncate max-w-[200px] sm:max-w-[300px]">
-                            — {item.title}
-                          </span>
-                        ) : null}
-                      </p>
-                      <button
-                        type="button"
-                        className="text-red-600 hover:text-red-800 p-1"
-                        onClick={() =>
-                          setTheoryItems((current) => current.filter((_, currentIndex) => currentIndex !== index))
-                        }
-                        title="Hapus dasar teori ini"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                    <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
-                      Bobot
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
-                        value={item.rubric ?? 0}
-                        onChange={(event) => {
-                          const val = normalizeRubric(event.target.value)
-                          setTheoryItems((current) =>
-                            current.map((entry, currentIndex) =>
-                              currentIndex === index ? { ...entry, rubric: val } : entry,
-                            ),
-                          )
-                        }}
-                      />
-                      %
-                    </label>
-                  </div>
+          <LecturerPanel className="p-5">
+            <h2 className="mb-4 text-lg font-semibold">Tujuan Praktikum</h2>
+            <RichTextEditor
+              value={goalContent}
+              onChange={setGoalContent}
+              role="DOSEN"
+              onUploadImage={handleUploadImage}
+              placeholder="Tulis tujuan praktikum dengan format lengkap..."
+            />
+          </LecturerPanel>
 
-                  {!isCollapsed && (
-                    <div className="mt-4 space-y-4 border-t border-gray-100 pt-4">
-                      <FieldRow label="Judul Dasar Teori">
+          <LecturerPanel className="p-5">
+            <div className="mb-4 border-b border-gray-200 pb-3">
+              <h2 className="text-lg font-semibold">Dasar Teori</h2>
+            </div>
+            {!theoryItems.length && (
+              <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-5 text-center">
+                <p className="text-sm font-medium text-gray-700">Belum ada dasar teori.</p>
+              </div>
+            )}
+            <div className="space-y-4">
+              {theoryItems.map((item, index) => {
+                const itemKey = item.id ?? `theory-${index}`
+                const isCollapsed = Boolean(collapsedTheoryItems[itemKey])
+
+                return (
+                  <div key={itemKey} className="rounded-lg border border-gray-200 p-4 bg-white shadow-sm transition-all">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-2 flex-1 min-w-0 mr-4">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCollapsedTheoryItems((prev) => ({
+                              ...prev,
+                              [itemKey]: !prev[itemKey],
+                            }))
+                          }
+                          className="flex shrink-0 items-center justify-center p-1 text-gray-500 hover:text-gray-900 rounded hover:bg-gray-100 transition"
+                          title={isCollapsed ? "Buka (Expand) Dasar Teori" : "Tutup (Collapse) Dasar Teori"}
+                        >
+                          {isCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
+                        </button>
                         <input
-                          className={inputClass}
+                          type="text"
+                          className="flex-1 bg-white border border-gray-300 rounded shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 px-3 py-1.5 transition-all outline-none font-semibold text-gray-900 min-w-0 text-sm"
                           value={item.title}
                           onChange={(event) =>
                             setTheoryItems((current) =>
@@ -722,107 +676,31 @@ export default function LecturerJobsheetEditorPage() {
                           }
                           placeholder={`Subtopik ${index + 1}`}
                         />
-                      </FieldRow>
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-gray-700">Materi</p>
-                        <RichTextEditor
-                          value={item.content}
-                          onChange={(value) =>
+                        <button
+                          type="button"
+                          className="text-red-600 hover:text-red-800 p-1 shrink-0"
+                          onClick={() =>
+                            setTheoryItems((current) => current.filter((_, currentIndex) => currentIndex !== index))
+                          }
+                          title="Hapus dasar teori ini"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                        Bobot
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
+                          value={item.rubric === 0 ? "" : (item.rubric ?? "")}
+                          placeholder="0"
+                          onChange={(event) => {
+                            const val = event.target.value === "" ? 0 : normalizeRubric(event.target.value)
                             setTheoryItems((current) =>
                               current.map((entry, currentIndex) =>
-                                currentIndex === index ? { ...entry, content: value } : entry,
-                              ),
-                            )
-                          }
-                          role="DOSEN"
-                          onUploadImage={handleUploadImage}
-                          placeholder="Tulis materi teori, tabel, code block, kutipan, dan format lainnya..."
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-          <div className="mt-4 flex justify-start">
-            <LecturerButton
-              variant="secondary"
-              onClick={() => setTheoryItems((current) => [...current, createTheoryItem(current.length + 1)])}
-            >
-              <Plus size={16} />
-              Tambah Dasar Teori
-            </LecturerButton>
-          </div>
-        </LecturerPanel>
-
-        <LecturerPanel className="p-5">
-          <div className="mb-4 border-b border-gray-200 pb-3">
-            <h2 className="text-lg font-semibold">Percobaan Praktikum</h2>
-          </div>
-          {!experiments.length && (
-            <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-5 text-center">
-              <p className="text-sm font-medium text-gray-700">Belum ada percobaan.</p>
-            </div>
-          )}
-          <div className="space-y-4">
-            {experiments.map((item, index) => {
-              const itemKey = item.id ?? `experiment-${index}`
-              const isCollapsed = Boolean(collapsedExperiments[itemKey])
-
-              return (
-                <div key={itemKey} className="rounded-lg border border-blue-100 bg-blue-50 p-4 shadow-sm transition-all">
-                  <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setCollapsedExperiments((prev) => ({
-                            ...prev,
-                            [itemKey]: !prev[itemKey],
-                          }))
-                        }
-                        className="flex items-center justify-center p-1 text-gray-600 hover:text-gray-900 rounded hover:bg-blue-100 transition"
-                        title={isCollapsed ? "Buka (Expand) Percobaan" : "Tutup (Collapse) Percobaan"}
-                      >
-                        {isCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
-                      </button>
-                      <h3 className="font-semibold text-gray-900 flex items-center gap-1.5">
-                        <span>Percobaan {index + 1}</span>
-                        {item.title ? (
-                          <span className="font-normal text-gray-600 truncate max-w-[200px] sm:max-w-[300px]">
-                            — {item.title}
-                          </span>
-                        ) : null}
-                      </h3>
-                      <button
-                        type="button"
-                        className="text-red-600 hover:text-red-800 p-1"
-                        onClick={() =>
-                          setExperiments((current) => current.filter((_, currentIndex) => currentIndex !== index))
-                        }
-                        title="Hapus percobaan ini"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
-                        Bobot
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
-                          value={item.rubric === 0 || item.rubric === null || item.rubric === undefined ? "" : item.rubric}
-                          placeholder="0"
-                          onFocus={(event) => event.target.select()}
-                          onChange={(event) => {
-                            const raw = event.target.value
-                            const val = raw === "" ? 0 : normalizeRubric(raw)
-                            setExperiments((current) =>
-                              current.map((entry, currentIndex) =>
                                 currentIndex === index ? { ...entry, rubric: val } : entry,
                               ),
                             )
@@ -830,37 +708,78 @@ export default function LecturerJobsheetEditorPage() {
                         />
                         %
                       </label>
-                      <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
-                        Batas Tidak Aktif
-                        <input
-                          type="number"
-                          min="1"
-                          className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
-                          value={item.inactiveDurationMinutes ?? ""}
-                          onChange={(event) =>
-                            setExperiments((current) =>
-                              current.map((entry, currentIndex) =>
-                                currentIndex === index
-                                  ? {
-                                      ...entry,
-                                      inactiveDurationMinutes: event.target.value ? Number(event.target.value) : null,
-                                    }
-                                  : entry,
-                              ),
-                            )
-                          }
-                        />
-                        menit
-                      </label>
                     </div>
-                  </div>
 
-                  {!isCollapsed && (
-                    <div className="space-y-3 border-t border-blue-100 pt-3 mt-2">
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-gray-600">Judul Percobaan</label>
+                    {!isCollapsed && (
+                      <div className="mt-4 space-y-4 border-t border-gray-100 pt-4">
+                        {/* Judul removed from here and moved to header */}
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-gray-700">Materi</p>
+                          <RichTextEditor
+                            value={item.content}
+                            onChange={(value) =>
+                              setTheoryItems((current) =>
+                                current.map((entry, currentIndex) =>
+                                  currentIndex === index ? { ...entry, content: value } : entry,
+                                ),
+                              )
+                            }
+                            role="DOSEN"
+                            onUploadImage={handleUploadImage}
+                            placeholder="Tulis materi teori, tabel, code block, kutipan, dan format lainnya..."
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <div className="mt-4 flex justify-start">
+              <LecturerButton
+                variant="secondary"
+                onClick={() => setTheoryItems((current) => [...current, createTheoryItem(current.length + 1)])}
+              >
+                <Plus size={16} />
+                Tambah Dasar Teori
+              </LecturerButton>
+            </div>
+          </LecturerPanel>
+
+          <LecturerPanel className="p-5">
+            <div className="mb-4 border-b border-gray-200 pb-3">
+              <h2 className="text-lg font-semibold">Percobaan Praktikum</h2>
+            </div>
+            {!experiments.length && (
+              <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-5 text-center">
+                <p className="text-sm font-medium text-gray-700">Belum ada percobaan.</p>
+              </div>
+            )}
+            <div className="space-y-4">
+              {experiments.map((item, index) => {
+                const itemKey = item.id ?? `experiment-${index}`
+                const isCollapsed = Boolean(collapsedExperiments[itemKey])
+
+                return (
+                  <div key={itemKey} className="rounded-lg border border-blue-100 bg-blue-50 p-4 shadow-sm transition-all">
+                    <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-2 flex-1 min-w-0 mr-4">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCollapsedExperiments((prev) => ({
+                              ...prev,
+                              [itemKey]: !prev[itemKey],
+                            }))
+                          }
+                          className="flex shrink-0 items-center justify-center p-1 text-gray-600 hover:text-gray-900 rounded hover:bg-blue-100 transition"
+                          title={isCollapsed ? "Buka (Expand) Percobaan" : "Tutup (Collapse) Percobaan"}
+                        >
+                          {isCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
+                        </button>
                         <input
-                          className={inputClass}
+                          type="text"
+                          className="flex-1 bg-white border border-gray-300 rounded shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 px-3 py-1.5 transition-all outline-none font-semibold text-gray-900 min-w-0 text-sm"
                           value={item.title}
                           onChange={(event) =>
                             setExperiments((current) =>
@@ -869,159 +788,161 @@ export default function LecturerJobsheetEditorPage() {
                               ),
                             )
                           }
-                          placeholder="Judul percobaan"
+                          placeholder={`Judul Percobaan ${index + 1}`}
                         />
-                      </div>
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-gray-700">Instruksi Percobaan</p>
-                        <RichTextEditor
-                          value={item.instructionContent}
-                          onChange={(value) =>
-                            setExperiments((current) =>
-                              current.map((entry, currentIndex) =>
-                                currentIndex === index ? { ...entry, instructionContent: value } : entry,
-                              ),
-                            )
+                        <button
+                          type="button"
+                          className="text-red-600 hover:text-red-800 p-1 shrink-0"
+                          onClick={() =>
+                            setExperiments((current) => current.filter((_, currentIndex) => currentIndex !== index))
                           }
-                          role="DOSEN"
-                          onUploadImage={handleUploadImage}
-                          placeholder="Tulis instruksi percobaan dengan format lengkap..."
-                        />
+                          title="Hapus percobaan ini"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
-                      <LecturerTemplateWorkspace
-                        language={(programmingLanguage as "java" | "python") || "java"}
-                        value={item.templateCode}
-                        onChange={(val) =>
-                          setExperiments((current) =>
-                            current.map((entry, currentIndex) =>
-                              currentIndex === index ? { ...entry, templateCode: val } : entry,
-                            ),
-                          )
-                        }
-                        label={`Percobaan ${index + 1}`}
-                      />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-          <div className="mt-4 flex justify-start">
-            <LecturerButton
-              variant="secondary"
-              onClick={() => setExperiments((current) => [...current, createExperimentItem(current.length + 1, (programmingLanguage || "java") as "java" | "python")])}
-            >
-              <Plus size={16} />
-              Tambah Percobaan
-            </LecturerButton>
-          </div>
-        </LecturerPanel>
-
-        <LecturerPanel className="p-5">
-          <div className="mb-4 border-b border-gray-200 pb-3">
-            <h2 className="text-lg font-semibold">Latihan Praktikum</h2>
-          </div>
-          {!exercises.length && (
-            <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-5 text-center">
-              <p className="text-sm font-medium text-gray-700">Belum ada latihan.</p>
-            </div>
-          )}
-          <div className="space-y-4">
-            {exercises.map((item, index) => {
-              const itemKey = item.id ?? `exercise-${index}`
-              const isCollapsed = Boolean(collapsedExercises[itemKey])
-
-              return (
-                <div key={itemKey} className="rounded-lg border border-blue-100 bg-blue-50 p-4 shadow-sm transition-all">
-                  <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setCollapsedExercises((prev) => ({
-                            ...prev,
-                            [itemKey]: !prev[itemKey],
-                          }))
-                        }
-                        className="flex items-center justify-center p-1 text-gray-600 hover:text-gray-900 rounded hover:bg-blue-100 transition"
-                        title={isCollapsed ? "Buka (Expand) Latihan" : "Tutup (Collapse) Latihan"}
-                      >
-                        {isCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
-                      </button>
-                      <h3 className="font-semibold text-gray-900 flex items-center gap-1.5">
-                        <span>Latihan {index + 1}</span>
-                        {item.title ? (
-                          <span className="font-normal text-gray-600 truncate max-w-[200px] sm:max-w-[300px]">
-                            — {item.title}
-                          </span>
-                        ) : null}
-                      </h3>
-                      <button
-                        type="button"
-                        className="text-red-600 hover:text-red-800 p-1"
-                        onClick={() =>
-                          setExercises((current) => current.filter((_, currentIndex) => currentIndex !== index))
-                        }
-                        title="Hapus latihan ini"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
-                        Bobot
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
-                          value={item.rubric === 0 || item.rubric === null || item.rubric === undefined ? "" : item.rubric}
-                          placeholder="0"
-                          onFocus={(event) => event.target.select()}
-                          onChange={(event) => {
-                            const raw = event.target.value
-                            const val = raw === "" ? 0 : normalizeRubric(raw)
-                            setExercises((current) =>
-                              current.map((entry, currentIndex) =>
-                                currentIndex === index ? { ...entry, rubric: val } : entry,
-                              ),
-                            )
-                          }}
-                        />
-                        %
-                      </label>
-                      <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
-                        Batas Tidak Aktif
-                        <input
-                          type="number"
-                          min="1"
-                          className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
-                          value={item.inactiveDurationMinutes ?? ""}
-                          onChange={(event) =>
-                            setExercises((current) =>
-                              current.map((entry, currentIndex) =>
-                                currentIndex === index
-                                  ? {
+                      <div className="flex flex-wrap items-center gap-3">
+                        <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                          Bobot
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
+                            value={item.rubric === 0 || item.rubric === null || item.rubric === undefined ? "" : item.rubric}
+                            placeholder="0"
+                            onFocus={(event) => event.target.select()}
+                            onChange={(event) => {
+                              const raw = event.target.value
+                              const val = raw === "" ? 0 : normalizeRubric(raw)
+                              setExperiments((current) =>
+                                current.map((entry, currentIndex) =>
+                                  currentIndex === index ? { ...entry, rubric: val } : entry,
+                                ),
+                              )
+                            }}
+                          />
+                          %
+                        </label>
+                        <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                          Batas Tidak Aktif
+                          <input
+                            type="number"
+                            min="1"
+                            className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
+                            value={item.inactiveDurationMinutes ?? ""}
+                            onChange={(event) =>
+                              setExperiments((current) =>
+                                current.map((entry, currentIndex) =>
+                                  currentIndex === index
+                                    ? {
                                       ...entry,
                                       inactiveDurationMinutes: event.target.value ? Number(event.target.value) : null,
                                     }
-                                  : entry,
+                                    : entry,
+                                ),
+                              )
+                            }
+                          />
+                          menit
+                        </label>
+                      </div>
+                    </div>
+
+                    {!isCollapsed && (
+                      <div className="space-y-3 border-t border-blue-100 pt-3 mt-2">
+                        {/* Judul removed from here and moved to header */}
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-gray-700">Instruksi Percobaan</p>
+                          <RichTextEditor
+                            value={item.instructionContent}
+                            onChange={(value) =>
+                              setExperiments((current) =>
+                                current.map((entry, currentIndex) =>
+                                  currentIndex === index ? { ...entry, instructionContent: value } : entry,
+                                ),
+                              )
+                            }
+                            role="DOSEN"
+                            onUploadImage={handleUploadImage}
+                            placeholder="Tulis instruksi percobaan dengan format lengkap..."
+                          />
+                          <InstructionCodeCheckboxes
+                            value={item.instructionContent}
+                            onChange={(value) =>
+                              setExperiments((current) =>
+                                current.map((entry, currentIndex) =>
+                                  currentIndex === index ? { ...entry, instructionContent: value } : entry,
+                                ),
+                              )
+                            }
+                          />
+                        </div>
+                        <LecturerTemplateWorkspace
+                          language={(programmingLanguage as "java" | "python") || "java"}
+                          value={item.templateCode}
+                          onChange={(val) =>
+                            setExperiments((current) =>
+                              current.map((entry, currentIndex) =>
+                                currentIndex === index ? { ...entry, templateCode: val } : entry,
                               ),
                             )
                           }
+                          label={`Percobaan ${index + 1}`}
+                          defaultTemplateCode={JSON.stringify({ [`percobaan-${index + 1}.${programmingLanguage === "python" ? "py" : "java"}`]: "" })}
                         />
-                        menit
-                      </label>
-                    </div>
+                      </div>
+                    )}
                   </div>
+                )
+              })}
+            </div>
+            <div className="mt-4 flex justify-start">
+              <LecturerButton
+                variant="secondary"
+                onClick={() => setExperiments((current) => [...current, createExperimentItem(current.length + 1, (programmingLanguage || "java") as "java" | "python")])}
+              >
+                <Plus size={16} />
+                Tambah Percobaan
+              </LecturerButton>
+            </div>
+          </LecturerPanel>
 
-                  {!isCollapsed && (
-                    <div className="space-y-3 border-t border-blue-100 pt-3 mt-2">
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-gray-600">Judul Latihan</label>
+          <LecturerPanel className="p-5">
+            <div className="mb-4 border-b border-gray-200 pb-3">
+              <h2 className="text-lg font-semibold">Latihan Praktikum</h2>
+            </div>
+            {!exercises.length && (
+              <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-5 text-center">
+                <p className="text-sm font-medium text-gray-700">Belum ada latihan.</p>
+              </div>
+            )}
+            <div className="space-y-4">
+              {exercises.map((item, index) => {
+                const itemKey = item.id ?? `exercise-${index}`
+                const isCollapsed = Boolean(collapsedExercises[itemKey])
+
+                return (
+                  <div key={itemKey} className="rounded-lg border border-blue-100 bg-blue-50 p-4 shadow-sm transition-all">
+                    <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-2 flex-1 min-w-0 mr-4">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCollapsedExercises((prev) => ({
+                              ...prev,
+                              [itemKey]: !prev[itemKey],
+                            }))
+                          }
+                          className="flex shrink-0 items-center justify-center p-1 text-gray-600 hover:text-gray-900 rounded hover:bg-blue-100 transition"
+                          title={isCollapsed ? "Buka (Expand) Latihan" : "Tutup (Collapse) Latihan"}
+                        >
+                          {isCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
+                        </button>
                         <input
-                          className={inputClass}
+                          type="text"
+                          className="flex-1 bg-white border border-gray-300 rounded shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 px-3 py-1.5 transition-all outline-none font-semibold text-gray-900 min-w-0 text-sm"
                           value={item.title}
                           onChange={(event) =>
                             setExercises((current) =>
@@ -1030,53 +951,126 @@ export default function LecturerJobsheetEditorPage() {
                               ),
                             )
                           }
-                          placeholder="Judul latihan"
+                          placeholder={`Judul Latihan ${index + 1}`}
                         />
+                        <button
+                          type="button"
+                          className="text-red-600 hover:text-red-800 p-1 shrink-0"
+                          onClick={() =>
+                            setExercises((current) => current.filter((_, currentIndex) => currentIndex !== index))
+                          }
+                          title="Hapus latihan ini"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-gray-700">Instruksi Latihan</p>
-                        <RichTextEditor
-                          value={item.instructionContent}
-                          onChange={(value) =>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                          Bobot
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
+                            value={item.rubric === 0 || item.rubric === null || item.rubric === undefined ? "" : item.rubric}
+                            placeholder="0"
+                            onFocus={(event) => event.target.select()}
+                            onChange={(event) => {
+                              const raw = event.target.value
+                              const val = raw === "" ? 0 : normalizeRubric(raw)
+                              setExercises((current) =>
+                                current.map((entry, currentIndex) =>
+                                  currentIndex === index ? { ...entry, rubric: val } : entry,
+                                ),
+                              )
+                            }}
+                          />
+                          %
+                        </label>
+                        <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                          Batas Tidak Aktif
+                          <input
+                            type="number"
+                            min="1"
+                            className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
+                            value={item.inactiveDurationMinutes ?? ""}
+                            onChange={(event) =>
+                              setExercises((current) =>
+                                current.map((entry, currentIndex) =>
+                                  currentIndex === index
+                                    ? {
+                                      ...entry,
+                                      inactiveDurationMinutes: event.target.value ? Number(event.target.value) : null,
+                                    }
+                                    : entry,
+                                ),
+                              )
+                            }
+                          />
+                          menit
+                        </label>
+                      </div>
+                    </div>
+
+                    {!isCollapsed && (
+                      <div className="space-y-3 border-t border-blue-100 pt-3 mt-2">
+                        {/* Judul removed from here and moved to header */}
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-gray-700">Instruksi Latihan</p>
+                          <RichTextEditor
+                            value={item.instructionContent}
+                            onChange={(value) =>
+                              setExercises((current) =>
+                                current.map((entry, currentIndex) =>
+                                  currentIndex === index ? { ...entry, instructionContent: value } : entry,
+                                ),
+                              )
+                            }
+                            role="DOSEN"
+                            onUploadImage={handleUploadImage}
+                            placeholder="Tulis instruksi latihan dengan format lengkap..."
+                          />
+                          <InstructionCodeCheckboxes
+                            value={item.instructionContent}
+                            onChange={(value) =>
+                              setExercises((current) =>
+                                current.map((entry, currentIndex) =>
+                                  currentIndex === index ? { ...entry, instructionContent: value } : entry,
+                                ),
+                              )
+                            }
+                          />
+                        </div>
+                        <LecturerTemplateWorkspace
+                          language={(programmingLanguage as "java" | "python") || "java"}
+                          value={item.templateCode}
+                          onChange={(val) =>
                             setExercises((current) =>
                               current.map((entry, currentIndex) =>
-                                currentIndex === index ? { ...entry, instructionContent: value } : entry,
+                                currentIndex === index ? { ...entry, templateCode: val } : entry,
                               ),
                             )
                           }
-                          role="DOSEN"
-                          onUploadImage={handleUploadImage}
-                          placeholder="Tulis instruksi latihan dengan format lengkap..."
+                          label={`Latihan ${index + 1}`}
+                          defaultTemplateCode={JSON.stringify({ [`latihan-${index + 1}.${programmingLanguage === "python" ? "py" : "java"}`]: "" })}
                         />
                       </div>
-                      <LecturerTemplateWorkspace
-                        language={(programmingLanguage as "java" | "python") || "java"}
-                        value={item.templateCode}
-                        onChange={(val) =>
-                          setExercises((current) =>
-                            current.map((entry, currentIndex) =>
-                              currentIndex === index ? { ...entry, templateCode: val } : entry,
-                            ),
-                          )
-                        }
-                        label={`Latihan ${index + 1}`}
-                      />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-          <div className="mt-4 flex justify-start">
-            <LecturerButton
-              variant="secondary"
-              onClick={() => setExercises((current) => [...current, createExerciseItem(current.length + 1, (programmingLanguage || "java") as "java" | "python")])}
-            >
-              <Plus size={16} />
-              Tambah Latihan
-            </LecturerButton>
-          </div>
-        </LecturerPanel>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <div className="mt-4 flex justify-start">
+              <LecturerButton
+                variant="secondary"
+                onClick={() => setExercises((current) => [...current, createExerciseItem(current.length + 1, (programmingLanguage || "java") as "java" | "python")])}
+              >
+                <Plus size={16} />
+                Tambah Latihan
+              </LecturerButton>
+            </div>
+          </LecturerPanel>
 
 
 
@@ -1088,11 +1082,10 @@ export default function LecturerJobsheetEditorPage() {
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block">Total Bobot Penilaian</span>
             <div className="flex flex-col gap-1">
               <span
-                className={`rounded px-2.5 py-1 text-center text-sm font-bold ${
-                  rubricTotalValid
+                className={`rounded px-2.5 py-1 text-center text-sm font-bold ${rubricTotalValid
                     ? "bg-green-100 text-green-800"
                     : "bg-red-100 text-red-800"
-                }`}
+                  }`}
               >
                 {totalRubric}% / 100%
               </span>
@@ -1185,7 +1178,7 @@ export default function LecturerJobsheetEditorPage() {
                   ))}
                 </div>
                 <div className="space-y-3">
-                  <p className="font-bold text-xs uppercase tracking-wide text-gray-700">Batas Waktu (Deadline - 24 Jam)</p>
+                  <p className="font-bold text-xs uppercase tracking-wide text-gray-700">Batas Waktu (Deadline)</p>
                   {publishSettings.map((item, index) => (
                     <IndonesianDateTimePicker
                       key={item.classId}

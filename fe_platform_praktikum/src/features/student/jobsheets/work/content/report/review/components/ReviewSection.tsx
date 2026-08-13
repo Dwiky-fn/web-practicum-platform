@@ -56,10 +56,10 @@ export default function ReviewSection({ submission }: Props) {
           </span>
         </div>
 
-        {/* Feedback Dosen */}
+        {/* Catatan Dosen */}
         <div>
           <p className="text-sm text-gray-600 mb-1">
-            Feedback Dosen
+            Catatan Dosen
           </p>
 
           <div className="bg-gray-50 border rounded-md p-3 text-sm text-gray-700">

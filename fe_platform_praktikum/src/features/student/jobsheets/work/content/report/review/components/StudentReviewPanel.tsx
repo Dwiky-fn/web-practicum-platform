@@ -182,18 +182,31 @@ export default function StudentReviewPanel({
               </div>
             </div>
 
+            {/* Rekomendasi Evaluasi AI Box */}
+            {review?.aiFeedback?.overallFeedback && (
+              <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-4 space-y-2">
+                <div className="flex items-center gap-2 text-purple-900 font-bold text-xs">
+                  <Sparkles size={14} className="text-purple-600" />
+                  <span className="uppercase tracking-wider">Rekomendasi Evaluasi AI</span>
+                </div>
+                <p className="text-xs text-purple-950 leading-relaxed whitespace-pre-line">
+                  {review.aiFeedback.overallFeedback}
+                </p>
+              </div>
+            )}
+
             {/* Feedback Keseluruhan Jobsheet Box */}
             <div className="bg-gray-50/70 border border-gray-200 rounded-xl p-4 space-y-3">
               <h5 className="font-bold text-xs text-gray-800 uppercase tracking-wider">
-                FEEDBACK KESELURUHAN JOBSHEET
+                CATATAN DOSEN KESELURUHAN JOBSHEET
               </h5>
 
-              {jobsheetFeedback?.content || review?.lecturerFeedback ? (
+              {review?.lecturerFeedback || jobsheetFeedback?.content ? (
                 <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">
-                  {jobsheetFeedback?.content || review?.lecturerFeedback}
+                  {review?.lecturerFeedback || jobsheetFeedback?.content}
                 </p>
               ) : (
-                <p className="text-xs text-gray-400 italic">Belum ada feedback keseluruhan untuk laporan ini.</p>
+                <p className="text-xs text-gray-400 italic">Belum ada catatan dosen keseluruhan untuk laporan ini.</p>
               )}
 
               {jobsheetFeedback?.strengths && jobsheetFeedback.strengths.length > 0 && (

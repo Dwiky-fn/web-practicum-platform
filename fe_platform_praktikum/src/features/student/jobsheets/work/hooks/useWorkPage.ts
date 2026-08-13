@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import type { JSONContent } from "@tiptap/core"
-import type { Jobsheet } from "../../../../../services/jobsheet/types" 
-import type { Course } from "../../../../../services/course/types" 
+import type { Jobsheet } from "../../../../../services/jobsheet/types"
+import type { Course } from "../../../../../services/course/types"
 import type { JobsheetSubmission } from "../../../../../services/submission/types"
 import { getJobsheetById } from "../../../../../services/jobsheet/service"
-import { getOrCreateSubmissionByJobsheetId, getSubmissionByJobsheetId } from "../../../../../services/submission/service" 
+import { getOrCreateSubmissionByJobsheetId, getSubmissionByJobsheetId } from "../../../../../services/submission/service"
 import { getCourseById } from "../../../../../services/course/service"
 import { updateSubmission } from "../../../../../services/submission/service"
 import { getStudentProgress, upsertStudentProgress, updateStudentProgressApi } from "../../../../../services/progress/service"
 import type { StudentProgressItem } from "../../../../../services/progress/types"
 import { useCurrentUser } from "../../../../../services/user/useCurrentUser"
 import { buildWorkNavigation } from "../utils/buildNavigation"
+import { splitInstructionContent } from "../../../../../shared/utils/splitInstructionContent"
 import { toast } from "../../../../../components/toast/toastStore"
 
 type StepData = {
@@ -28,10 +29,20 @@ function hasOutput(output?: string) {
   return (output ?? "").trim().length > 0
 }
 
-function hasMeaningfulAnalysis(analysis?: JSONContent) {
-  if (!analysis || !Array.isArray(analysis.content)) return false
+function getTiptapText(node: any): string {
+  if (!node) return ""
+  if (node.type === "text") return node.text || ""
+  if (node.content && Array.isArray(node.content)) {
+    return node.content.map(getTiptapText).join("")
+  }
+  return ""
+}
 
-  return JSON.stringify(analysis.content).replace(/\s/g, "").length > 20
+function hasMeaningfulAnalysis(analysis?: JSONContent) {
+  if (!analysis) return false
+  if (typeof analysis === "string") return (analysis as string).trim().length > 0
+
+  return getTiptapText(analysis).trim().length > 0
 }
 
 function isFinishedSubmission(submission?: JobsheetSubmission | null) {
@@ -80,10 +91,10 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
   const accessMode = access.accessMode
   const isBrowsingHistory = !!submissionIdParam || !!attemptNoParam
   const readOnly = !access.canEdit ||
-                   accessMode === "locked_deadline" ||
-                   accessMode === "readonly_submitted" ||
-                   accessMode === "readonly_reviewed" ||
-                   isBrowsingHistory
+    accessMode === "locked_deadline" ||
+    accessMode === "readonly_submitted" ||
+    accessMode === "readonly_reviewed" ||
+    isBrowsingHistory
   const canSaveProgress = access.canSaveProgress ?? access.canEdit
 
   const jobsheetIdRef = useRef(jobsheetId)
@@ -135,7 +146,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
     activityType: string,
     opts?: { experimentId?: string | null; instructionId?: string | null; metadata?: Record<string, unknown> }
   ) => {
-    if (!jobsheetId || !user || !canSaveProgress || readOnly) return
+    if (!jobsheetId || !user) return
 
     let experimentId = opts?.experimentId
     let instructionId = opts?.instructionId
@@ -168,12 +179,12 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
     } catch (err) {
       // Gagal melacak aktivitas (silent fallback)
     }
-  }, [academicScope, jobsheetId, user, jobsheet, courseId, location.pathname, location.search, kelasPraktikumId, canSaveProgress, readOnly])
+  }, [academicScope, jobsheetId, user, jobsheet, courseId, location.pathname, location.search, kelasPraktikumId])
 
   // Track tab transitions
   const lastPathRef = useRef("")
   useEffect(() => {
-    if (!courseId || !jobsheetId || !jobsheet || !user || loading || readOnly) return
+    if (!courseId || !jobsheetId || !jobsheet || !user || loading) return
     if (location.pathname === lastPathRef.current) return
     lastPathRef.current = location.pathname
 
@@ -235,17 +246,17 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
         const isLockedByDeadline = jobsheetData.access?.accessMode === "locked_deadline"
         const submissionData = isLockedByDeadline && !submissionIdParam && !attemptNoParam
           ? await getSubmissionByJobsheetId(
-              courseId!,
-              jobsheetId,
-              user.id,
-              academicScope,
-            )
+            courseId!,
+            jobsheetId,
+            user.id,
+            academicScope,
+          )
           : await getOrCreateSubmissionByJobsheetId(
-              courseId!,
-              jobsheetId,
-              user.id,
-              academicScope,
-            )
+            courseId!,
+            jobsheetId,
+            user.id,
+            academicScope,
+          )
         if (!isMountedRef.current) return
         setSubmission(submissionData)
 
@@ -297,64 +308,64 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
   // UPDATE STATE
   const updateExperiment = useCallback(async (experimentId: string, steps: StepData[]) => {
     return new Promise<void>((resolve, reject) => {
-    setSubmission(prev => {
-      if (!prev) {
-        resolve()
-        return prev
-      }
+      setSubmission(prev => {
+        if (!prev) {
+          resolve()
+          return prev
+        }
 
-      if (!steps || steps.length === 0) {
-        reject(new Error("Tidak ada langkah eksperimen untuk disimpan."))
-        console.warn("⚠️ SKIP SAVE - EMPTY STEPS")
-        return prev
-      }
+        if (!steps || steps.length === 0) {
+          reject(new Error("Tidak ada langkah eksperimen untuk disimpan."))
+          console.warn("⚠️ SKIP SAVE - EMPTY STEPS")
+          return prev
+        }
 
-      const currentExperiments = prev.report?.experiments || {}
+        const currentExperiments = prev.report?.experiments || {}
 
-      const updated = {
-        ...prev,
-        report: {
-          ...prev.report,
-          experiments: {
-            ...currentExperiments,
-            [experimentId]: {
-              ...(currentExperiments[experimentId] || {}),
-              steps
+        const updated = {
+          ...prev,
+          report: {
+            ...prev.report,
+            experiments: {
+              ...currentExperiments,
+              [experimentId]: {
+                ...(currentExperiments[experimentId] || {}),
+                steps
+              }
             }
           }
         }
-      }
 
-      saveSubmission(updated).then(resolve).catch(reject)
+        saveSubmission(updated).then(resolve).catch(reject)
 
-      return updated
-    })
+        return updated
+      })
     })
   }, [saveSubmission])
 
   const updateExercise = useCallback(async (exerciseId: string, data: StepData) => {
     return new Promise<void>((resolve, reject) => {
-    setSubmission(prev => {
-      if (!prev) {
-        resolve()
-        return prev
-      }
-      
-      const updated = {
-        ...prev,
-        report: {
-          ...prev.report,
-          exercises: {
-            ...(prev.report?.exercises || {}),
-            [exerciseId]: data
+      setSubmission(prev => {
+        if (!prev) {
+          resolve()
+          return prev
+        }
+
+        const updated = {
+          ...prev,
+          report: {
+            ...prev.report,
+            exercises: {
+              ...(prev.report?.exercises || {}),
+              [exerciseId]: data
+            }
           }
         }
-      }
 
-      saveSubmission(updated).then(resolve).catch(reject)
+        saveSubmission(updated).then(resolve).catch(reject)
 
-      return updated
-    })
+        return updated
+      })
     })
   }, [saveSubmission])
 
@@ -378,7 +389,7 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
   }, [academicScope, courseId, jobsheet, lastSavedPage, location.pathname, location.search, navigate])
 
   useEffect(() => {
-    if (!courseId || !jobsheetId || !jobsheet || !user || readOnly || !canSaveProgress) return
+    if (!courseId || !jobsheetId || !jobsheet || !user) return
     if (!submission || lastSavedPage === null) return
 
     const navItems = buildWorkNavigation(courseId, jobsheet, location.search, academicScope)
@@ -459,12 +470,23 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
     if (!currentItem) return
 
     if (currentItem.type === "experiment") {
+      const experiment = jobsheet.experiments.find((exp) => exp.id === currentItem.id)
+      if (!experiment) return
+
+      const stepsConfig = splitInstructionContent(experiment.instructionContent)
+      const codeIndices = stepsConfig.map((step, idx) => step.needsCode ? idx : -1).filter(idx => idx !== -1)
       const steps = submission.report.experiments?.[currentItem.id]?.steps ?? []
-      const isExperimentComplete = steps.length > 0 && steps.every((step) =>
-        hasCode(step.files) &&
-        hasOutput(step.output) &&
-        hasMeaningfulAnalysis(step.analysis)
-      )
+
+      if (codeIndices.length === 0) return
+
+      const isExperimentComplete = codeIndices.every((idx) => {
+        const step = steps[idx]
+        return (
+          hasCode(step?.files) &&
+          hasOutput(step?.output) &&
+          hasMeaningfulAnalysis(step?.analysis)
+        )
+      })
 
       if (!isExperimentComplete) return
     }
@@ -484,6 +506,11 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
       id: currentItem.id,
     })
   }, [academicScope, courseId, jobsheet, location.pathname, location.search, markProgressItemCompleted, readOnly, submission])
+
+  // Automatically check & mark current practice item completed whenever submission updates
+  useEffect(() => {
+    completeCurrentProgressItem()
+  }, [completeCurrentProgressItem, submission, location.pathname])
 
   return {
     jobsheet,

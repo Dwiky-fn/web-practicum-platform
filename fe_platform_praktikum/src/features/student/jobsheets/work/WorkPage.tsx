@@ -65,6 +65,22 @@ export default function WorkPage() {
     trackActivity,
     isBrowsingHistory,
   } = useWorkPage(effectiveCourseId, jobsheetId, routeMataKuliahId)
+  const [scrollPercent, setScrollPercent] = useState(0)
+
+  useEffect(() => {
+    const pathnameWithoutQuery = location.pathname.split("?")[0]
+    const parts = pathnameWithoutQuery.split("/")
+    const theoryIndex = parts.indexOf("theory")
+    if (theoryIndex !== -1 && parts[theoryIndex + 1]) {
+      const id = parts[theoryIndex + 1]
+      const completed = completedItems.some(item => item.type === "theory" && item.id === id)
+      if (completed) {
+        setScrollPercent(100)
+      } else {
+        setScrollPercent(0)
+      }
+    }
+  }, [location.pathname, completedItems])
 
   const access = jobsheet?.access || { accessMode: "editable_normal", canEdit: true, canSubmit: true }
   const accessMode = access.accessMode
@@ -78,13 +94,22 @@ export default function WorkPage() {
     if (!scrollContainer) return
 
     const isScrollable = scrollContainer.scrollHeight > scrollContainer.clientHeight
-    const remainingScroll =
-      scrollContainer.scrollHeight -
-      scrollContainer.scrollTop -
-      scrollContainer.clientHeight
+    if (!isScrollable) {
+      setScrollPercent(100)
+      completeCurrentProgressItem()
+      return
+    }
 
-    // Jika konten tidak cukup panjang untuk discroll (tidak scrollable) ATAU sudah discroll sampai bawah (<= 12px)
-    if (!isScrollable || remainingScroll <= 12) {
+    const percent = Math.min(
+      Math.round(
+        (scrollContainer.scrollTop / (scrollContainer.scrollHeight - scrollContainer.clientHeight)) * 100
+      ),
+      100
+    )
+    
+    setScrollPercent(prev => Math.max(prev, percent))
+
+    if (percent >= 98) {
       completeCurrentProgressItem()
     }
   }, [completeCurrentProgressItem])
@@ -98,7 +123,7 @@ export default function WorkPage() {
     liveWorkspaceRef.current?.close()
     liveWorkspaceRef.current = null
 
-    if (!jobsheet || !jobsheetId || !scope.kelasPraktikumId || readOnly) return undefined
+    if (!jobsheet || !jobsheetId || !scope.kelasPraktikumId) return undefined
 
     const connection = connectLiveWorkspaceSocket({
       role: "student",
@@ -145,17 +170,7 @@ export default function WorkPage() {
     }
   }, [location.pathname])
 
-  // Auto-mark theory items as completed immediately upon route change
-  useEffect(() => {
-    if (!jobsheet || !effectiveCourseId || readOnly) return
-    const pathnameWithoutQuery = location.pathname.split("?")[0]
-    const parts = pathnameWithoutQuery.split("/")
-    const theoryIndex = parts.indexOf("theory")
-    if (theoryIndex !== -1 && parts[theoryIndex + 1]) {
-      const theoryId = parts[theoryIndex + 1]
-      markProgressItemCompleted({ type: "theory", id: theoryId })
-    }
-  }, [effectiveCourseId, jobsheet, location.pathname, markProgressItemCompleted, readOnly])
+
 
   useEffect(() => {
     handleWorkScroll()
@@ -254,6 +269,7 @@ export default function WorkPage() {
                     liveWorkspace: liveWorkspaceConnection,
                     readOnly,
                     markProgressItemCompleted,
+                    scrollPercent,
                   }}
                 />
               </>

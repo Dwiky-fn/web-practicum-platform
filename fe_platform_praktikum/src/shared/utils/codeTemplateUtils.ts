@@ -88,7 +88,9 @@ export function formatTemplateCodeForDisplay(templateCode?: string | null): stri
 export function parseFilesOrTemplate(
   savedFiles?: Record<string, string> | null,
   templateCode?: string | null,
-  language?: string
+  language?: string,
+  index?: number,
+  isExperiment?: boolean
 ): Record<string, string> {
   if (savedFiles && Object.keys(savedFiles).length > 0) {
     const cleaned: Record<string, string> = {}
@@ -98,5 +100,21 @@ export function parseFilesOrTemplate(
     return cleaned
   }
 
-  return parseTemplateFiles(templateCode, language)
+  if (templateCode) {
+    try {
+      if (templateCode.trim().startsWith("{")) {
+        const parsed = JSON.parse(templateCode)
+        if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+          return parsed as Record<string, string>
+        }
+      }
+    } catch { }
+  }
+
+  const ext = language === "python" ? "py" : (language === "java" ? "java" : (language || "txt"))
+  const defaultFileName = index !== undefined && isExperiment !== undefined
+    ? (isExperiment ? `percobaan${index + 1}.${ext}` : `latihan${index + 1}.${ext}`)
+    : (language === "java" ? "Main.java" : `main.${ext}`)
+
+  return { [defaultFileName]: templateCode || "" }
 }

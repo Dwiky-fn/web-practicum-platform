@@ -2,7 +2,7 @@ exports.shorthands = undefined;
 
 exports.up = (pgm) => {
   pgm.addColumns('kelas_praktikum', {
-    jumlah_jobsheet_rencana: { type: 'INT', notNull: true, default: 1 },
+    jumlah_jobsheet_rencana: { type: 'INT', notNull: true, default: 0 },
   });
 
   pgm.addColumns('jobsheet_classes', {
@@ -28,7 +28,7 @@ exports.up = (pgm) => {
 
   pgm.sql(`
     UPDATE kelas_praktikum kp
-    SET jumlah_jobsheet_rencana = GREATEST(1, COALESCE(counted.total, 0))
+    SET jumlah_jobsheet_rencana = COALESCE(counted.total, 0)
     FROM (
       SELECT id_kelas_praktikum, COUNT(*)::int AS total
       FROM jobsheet_classes
@@ -41,7 +41,7 @@ exports.up = (pgm) => {
   pgm.addConstraint(
     'kelas_praktikum',
     'kelas_praktikum_jumlah_jobsheet_rencana_check',
-    'CHECK (jumlah_jobsheet_rencana >= 1)',
+    'CHECK (jumlah_jobsheet_rencana >= 0)',
   );
   pgm.addConstraint(
     'jobsheet_classes',

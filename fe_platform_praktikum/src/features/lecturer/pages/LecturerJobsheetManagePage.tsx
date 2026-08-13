@@ -249,8 +249,8 @@ export default function LecturerJobsheetManagePage() {
   const handleSaveJobsheetPlan = async () => {
     if (!dataset || !dataset.classDetails.length) return
     const nextPlan = parseInt(editPlanValue, 10)
-    if (!nextPlan || nextPlan < 1) {
-      toast.error("Jumlah jobsheet rencana harus berupa angka minimal 1.")
+    if (isNaN(nextPlan) || nextPlan < 0) {
+      toast.error("Jumlah jobsheet harus berupa angka minimal 0.")
       return
     }
 
@@ -265,14 +265,30 @@ export default function LecturerJobsheetManagePage() {
           })
         })
       )
-      toast.success("Rencana jobsheet mata kuliah berhasil diperbarui.")
+      toast.success("Jumlah jobsheet mata kuliah berhasil diperbarui.")
       setIsEditPlanModalOpen(false)
       await loadDataset()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal memperbarui rencana jobsheet.")
+      toast.error(err instanceof Error ? err.message : "Gagal memperbarui jumlah jobsheet.")
     } finally {
       setSavingPlan(false)
     }
+  }
+
+  const checkPlanLimitAndNavigate = (targetUrl: string) => {
+    // Hanya hitung jobsheet yang sudah tidak berstatus Draft (misal Published/Selesai/Aktif)
+    const createdCount = dataset?.jobsheets.filter(j => j.status?.toLowerCase() !== "draft").length ?? 0
+    const plannedCount = (dataset?.classDetails[0] as any)?.jumlahJobsheetRencana ?? (dataset?.classDetails[0] as any)?.jumlah_jobsheet_rencana ?? 0
+
+    if (createdCount >= plannedCount) {
+      toast.warning(
+        `Jumlah jobsheet yang dibuat (${createdCount}) sudah mencapai batas Jumlah Jobsheet (${plannedCount}). Silakan ubah Jumlah Jobsheet terlebih dahulu jika ingin menambah jobsheet baru.`
+      )
+      return false
+    }
+
+    navigate(targetUrl)
+    return true
   }
 
   if (loading) {
@@ -294,27 +310,35 @@ export default function LecturerJobsheetManagePage() {
       }}
     >
       <PageHeader
-        title="Kelola Jobsheet Praktikum"
-        subtitle={`Manajemen materi jobsheet & alokasi untuk mata kuliah ${dataset?.course.name ?? "-"}`}
+        title="Kelola Jobsheet"
+        subtitle={dataset?.course.name ?? "-"}
         right={
           <div className="flex flex-nowrap items-center gap-2 pt-1 overflow-x-auto shrink-0 max-w-full">
             <LecturerButton
               variant="secondary"
               className="shrink-0 whitespace-nowrap"
               onClick={() => {
-                const currentPlan = (dataset?.classDetails[0] as any)?.jumlahJobsheetRencana ?? (dataset?.classDetails[0] as any)?.jumlah_jobsheet_rencana ?? 1
+                const currentPlan = (dataset?.classDetails[0] as any)?.jumlahJobsheetRencana ?? (dataset?.classDetails[0] as any)?.jumlah_jobsheet_rencana ?? 0
                 setEditPlanValue(String(currentPlan))
                 setIsEditPlanModalOpen(true)
               }}
             >
               <Pencil size={15} />
-              <span>Rencana Jobsheet ({(dataset?.classDetails[0] as any)?.jumlahJobsheetRencana ?? (dataset?.classDetails[0] as any)?.jumlah_jobsheet_rencana ?? 1})</span>
+              <span>Jumlah Jobsheet ({(dataset?.classDetails[0] as any)?.jumlahJobsheetRencana ?? (dataset?.classDetails[0] as any)?.jumlah_jobsheet_rencana ?? 0})</span>
             </LecturerButton>
-            <LecturerButton variant="secondary" className="shrink-0 whitespace-nowrap" onClick={handleOpenCopyModal}>
+            <LecturerButton variant="secondary" className="shrink-0 whitespace-nowrap" onClick={() => {
+              const createdCount = dataset?.jobsheets.filter(j => j.status?.toLowerCase() !== "draft").length ?? 0
+              const plannedCount = (dataset?.classDetails[0] as any)?.jumlahJobsheetRencana ?? (dataset?.classDetails[0] as any)?.jumlah_jobsheet_rencana ?? 0
+              if (createdCount >= plannedCount) {
+                toast.warning(`Jumlah jobsheet yang dibuat (${createdCount}) sudah mencapai batas Jumlah Jobsheet (${plannedCount}). Silakan ubah Jumlah Jobsheet terlebih dahulu jika ingin menambah jobsheet baru.`)
+                return
+              }
+              handleOpenCopyModal()
+            }}>
               <Copy size={15} />
               <span>Salin Dari Semester Lain</span>
             </LecturerButton>
-            <LecturerButton className="shrink-0 whitespace-nowrap" onClick={() => navigate(`${jobsheetBasePath}/create`)}>
+            <LecturerButton className="shrink-0 whitespace-nowrap" onClick={() => checkPlanLimitAndNavigate(`${jobsheetBasePath}/create`)}>
               <Plus size={16} />
               <span>Tambah Jobsheet Baru</span>
             </LecturerButton>
@@ -344,10 +368,8 @@ export default function LecturerJobsheetManagePage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <NativeSelect value={statusFilter} onChange={setStatusFilter} label="">
                 <option value="all">Semua Status Jobsheet</option>
-                <option value="Published">Published (Terbit)</option>
-                <option value="Draft">Draft (Konsep)</option>
-                <option value="Nonaktif">Nonaktif</option>
-                <option value="Arsip">Arsip</option>
+                <option value="Published">Publish</option>
+                <option value="Draft">Draf</option>
               </NativeSelect>
               <SearchBox value={keyword} onChange={setKeyword} placeholder="Cari Jobsheet..." className="w-full sm:w-64" />
             </div>
@@ -364,10 +386,10 @@ export default function LecturerJobsheetManagePage() {
                 const statusBadgeClass = jobsheet.status === "Arsip"
                   ? "bg-purple-50 text-purple-800 border-purple-200"
                   : isPublished
-                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                  : jobsheet.status === "Draft"
-                  ? "bg-amber-50 text-amber-800 border-amber-200"
-                  : "bg-gray-100 text-gray-700 border-gray-200"
+                    ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                    : jobsheet.status === "Draft"
+                      ? "bg-amber-50 text-amber-800 border-amber-200"
+                      : "bg-gray-100 text-gray-700 border-gray-200"
 
                 return (
                   <div
@@ -433,15 +455,16 @@ export default function LecturerJobsheetManagePage() {
                     <input
                       type="checkbox"
                       checked={item.isActive}
-                      onChange={() =>
+                      onChange={(e) => {
+                        const nextValue = e.target.checked;
                         setPublishSettings((current) =>
                           current.map((entry, currentIndex) =>
                             currentIndex === index
-                              ? { ...entry, isActive: !entry.isActive }
+                              ? { ...entry, isActive: nextValue }
                               : entry,
                           ),
                         )
-                      }
+                      }}
                       className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     Kelas Praktikum {item.className}
@@ -493,13 +516,13 @@ export default function LecturerJobsheetManagePage() {
 
       {isEditPlanModalOpen && dataset && (
         <LecturerModal
-          title="Ubah Jumlah Jobsheet Rencana"
+          title="Ubah Jumlah Jobsheet"
           onClose={() => setIsEditPlanModalOpen(false)}
           footer={
             <>
               <LecturerButton variant="secondary" onClick={() => setIsEditPlanModalOpen(false)}>Batal</LecturerButton>
               <LecturerButton disabled={savingPlan} onClick={handleSaveJobsheetPlan}>
-                {savingPlan ? "Menyimpan..." : "Simpan Rencana"}
+                {savingPlan ? "Menyimpan..." : "Simpan Target"}
               </LecturerButton>
             </>
           }
@@ -510,10 +533,10 @@ export default function LecturerJobsheetManagePage() {
             </p>
 
             <div>
-              <label className="mb-1 block text-xs font-bold text-gray-700">Jumlah Jobsheet Rencana</label>
+              <label className="mb-1 block text-xs font-bold text-gray-700">Jumlah Jobsheet</label>
               <input
                 type="number"
-                min="1"
+                min="0"
                 className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm font-semibold focus:border-blue-600 focus:outline-none"
                 value={editPlanValue}
                 onChange={(e) => setEditPlanValue(e.target.value)}
@@ -562,8 +585,9 @@ export default function LecturerJobsheetManagePage() {
                     </div>
                     <LecturerButton
                       onClick={() => {
-                        setIsCopyModalOpen(false)
-                        navigate(`${jobsheetBasePath}/create?sourceJobsheetId=${copyPreviewJobsheet.id}`)
+                        if (checkPlanLimitAndNavigate(`${jobsheetBasePath}/create?sourceJobsheetId=${copyPreviewJobsheet.id}`)) {
+                          setIsCopyModalOpen(false)
+                        }
                       }}
                     >
                       <Copy size={15} />
@@ -668,8 +692,9 @@ export default function LecturerJobsheetManagePage() {
                           </button>
                           <LecturerButton
                             onClick={() => {
-                              setIsCopyModalOpen(false)
-                              navigate(`${jobsheetBasePath}/create?sourceJobsheetId=${job.id}`)
+                              if (checkPlanLimitAndNavigate(`${jobsheetBasePath}/create?sourceJobsheetId=${job.id}`)) {
+                                setIsCopyModalOpen(false)
+                              }
                             }}
                           >
                             <Copy size={13} />

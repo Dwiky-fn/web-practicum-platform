@@ -46,7 +46,7 @@ export default function NotificationBell({
   }
 
   return (
-    <div className="relative hidden md:block">
+    <div id="notification-bell-container" className="relative hidden md:block">
       <button
         type="button"
         className="relative flex items-center justify-center rounded-xl p-2 text-white transition-all hover:bg-white/10 active:scale-95 focus:outline-none cursor-pointer"
@@ -73,7 +73,7 @@ export default function NotificationBell({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles size={16} className="text-yellow-400" />
-              <span className="font-bold text-sm">Notifikasi System</span>
+              <span className="font-bold text-sm">Notifikasi Sistem</span>
               {unreadCount > 0 && (
                 <span className="rounded-full bg-red-500/90 px-2 py-0.5 text-[10px] font-extrabold text-white">
                   {unreadCount} baru

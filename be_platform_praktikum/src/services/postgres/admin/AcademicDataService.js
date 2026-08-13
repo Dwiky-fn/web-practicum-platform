@@ -927,6 +927,28 @@ class AcademicDataService {
     const client = await this._pool.connect();
     try {
       await client.query('BEGIN');
+
+      // Auto-create kelas_semester records inside this transaction
+      const autoCreateMap = {};
+      for (const target of (payload.autoCreateTargets || [])) {
+        // Check if it already exists
+        const existing = await client.query(
+          'SELECT id FROM kelas_semester WHERE id_tahun_semester = $1 AND id_semester = $2 AND id_kelas = $3 LIMIT 1',
+          [target.id_tahun_semester, target.id_semester, target.id_kelas],
+        );
+        if (existing.rows.length) {
+          autoCreateMap[target.placeholderKey] = existing.rows[0].id;
+        } else {
+          const newId = createId('ks');
+          await client.query(
+            `INSERT INTO kelas_semester (id, id_tahun_semester, id_semester, id_kelas, status)
+             VALUES ($1, $2, $3, $4, 'active')`,
+            [newId, target.id_tahun_semester, target.id_semester, target.id_kelas],
+          );
+          autoCreateMap[target.placeholderKey] = newId;
+        }
+      }
+
       const sourceClass = await client.query(
         `SELECT ks.id, ks.id_tahun_semester, ks.id_semester, ks.id_kelas, s.semester, k.kelas, ts.tahun_semester
          FROM kelas_semester ks
@@ -970,15 +992,18 @@ class AcademicDataService {
         const currentSemester = Number(row.student_semester);
         if (currentSemester !== Number(source.semester)) throw new Error('STUDENT_SEMESTER_MISMATCH');
 
+        // Resolve auto-created placeholder to real kelas_semester id
+        const resolvedTargetKsId = autoCreateMap[transition.targetKelasSemesterId] || transition.targetKelasSemesterId;
+
         const target = await client.query(
-          `SELECT ks.id, ks.id_tahun_semester, ks.id_semester, ks.id_kelas, s.semester, k.kelas, ts.status AS tahun_semester_status
+          `SELECT ks.id, ks.id_tahun_semester, ks.id_semester, ks.id_kelas, s.semester, k.kelas, ts.status AS ts_status
            FROM kelas_semester ks
            JOIN semester s ON s.id = ks.id_semester
            JOIN kelas k ON k.id = ks.id_kelas
            JOIN tahun_semester ts ON ts.id = ks.id_tahun_semester
            WHERE ks.id = $1
            LIMIT 1`,
-          [transition.targetKelasSemesterId],
+          [resolvedTargetKsId],
         );
         if (!target.rows.length) throw new Error('KELAS_SEMESTER_TARGET_NOT_FOUND');
         const targetClass = target.rows[0];
@@ -989,13 +1014,14 @@ class AcademicDataService {
           `SELECT 1
            FROM kelas_mhs
            WHERE id_tahun_semester = $1
-             AND id_mahasiswa = $2
+             AND id_semester = $2
+             AND id_mahasiswa = $3
            LIMIT 1`,
-          [targetClass.id_tahun_semester, row.id_mahasiswa],
+          [targetClass.id_tahun_semester, targetClass.id_semester, row.id_mahasiswa],
         );
         if (duplicateTargetPeriod.rows.length) throw new Error('KELAS_MAHASISWA_DUPLICATE');
 
-        const isTargetActive = String(targetClass.tahun_semester_status || '').toLowerCase() === 'active';
+        const isTargetActive = String(targetClass.ts_status || '').toLowerCase() === 'active';
         const kmId = createId('km');
         await client.query(
           `INSERT INTO kelas_mhs (id, id_tahun_semester, id_semester, id_kelas, id_mahasiswa, status, id_kelas_semester)
@@ -1009,12 +1035,10 @@ class AcademicDataService {
             targetClass.id,
           ],
         );
-        if (isTargetActive) {
-          await client.query(
-            'UPDATE student_profiles SET semester = $2 WHERE user_id = $1',
-            [row.id_mahasiswa, targetSemester],
-          );
-        }
+        await client.query(
+          'UPDATE student_profiles SET semester = $2 WHERE user_id = $1',
+          [row.id_mahasiswa, targetSemester],
+        );
         await client.query(
           `INSERT INTO student_class_history (
              id, id_mahasiswa, from_kelas_mhs_id, to_kelas_mhs_id,
@@ -1078,14 +1102,14 @@ class AcademicDataService {
     if (!row.is_active || status !== 'aktif') throw new Error('MAHASISWA_NOT_ACTIVE');
     if (Number(row.semester) !== semesterNum) throw new Error('STUDENT_SEMESTER_MISMATCH');
 
-    const params = [tahunSemesterId, studentId];
+    const params = [tahunSemesterId, semesterId, studentId];
     let ignoredClause = '';
     if (ignoredKelasMahasiswaId) {
       params.push(ignoredKelasMahasiswaId);
       ignoredClause = ` AND id <> $${params.length}`;
     }
     const periodDuplicate = await client.query(
-      `SELECT 1 FROM kelas_mhs WHERE id_tahun_semester = $1 AND id_mahasiswa = $2${ignoredClause} LIMIT 1`,
+      `SELECT 1 FROM kelas_mhs WHERE id_tahun_semester = $1 AND id_semester = $2 AND id_mahasiswa = $3${ignoredClause} LIMIT 1`,
       params,
     );
     if (periodDuplicate.rows.length) throw new Error('KELAS_MAHASISWA_DUPLICATE');
@@ -1109,9 +1133,9 @@ class AcademicDataService {
     return `${row.nama_mk} - Semester ${row.semester} - Kelas ${row.kelas} - ${row.tahun_semester}`;
   }
 
-  _normalizeJobsheetPlan(value, fallback = 1) {
+  _normalizeJobsheetPlan(value, fallback = 0) {
     const plan = Number(value ?? fallback);
-    if (!Number.isInteger(plan) || plan < 1) throw new Error('JOBSHEET_PLAN_MIN_INVALID');
+    if (!Number.isInteger(plan) || plan < 0) throw new Error('JOBSHEET_PLAN_MIN_INVALID');
     return plan;
   }
 
@@ -1192,7 +1216,7 @@ class AcademicDataService {
       );
       if (!ksCheck.rows.length) throw new Error('KELAS_PRAKTIKUM_MAHASISWA_CLASS_REQUIRED');
       const status = normalizeClassStatus(payload.status);
-      const jumlahJobsheetRencana = this._normalizeJobsheetPlan(payload.jumlah_jobsheet_rencana, 1);
+      const jumlahJobsheetRencana = this._normalizeJobsheetPlan(payload.jumlah_jobsheet_rencana, 0);
       const namaKelas = this._buildKelasPraktikumName({ ...row, id_semester: idSemester });
       await client.query(
         `INSERT INTO kelas_praktikum (

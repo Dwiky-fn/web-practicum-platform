@@ -59,6 +59,25 @@ export default function Navbar({
     setMobileOpen(false);
   }, [location.pathname, location.search]);
 
+  // Menutup dropdown profil & notifikasi saat klik di luar container mereka
+  useEffect(() => {
+    if (!profileOpen && !notifOpen) return;
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      const isInsideBell = target.closest("#notification-bell-container");
+      const isInsideProfile = target.closest("#profile-menu-container");
+
+      if (!isInsideBell && !isInsideProfile) {
+        setProfileOpen(false);
+        setNotifOpen(false);
+      }
+    };
+
+    document.addEventListener("click", handleOutsideClick);
+    return () => document.removeEventListener("click", handleOutsideClick);
+  }, [profileOpen, notifOpen]);
+
   useEffect(() => {
     if (!user) return;
 
@@ -115,10 +134,8 @@ export default function Navbar({
     <>
       {/* Overlay */}
       <NavbarOverlay
-        open={notifOpen || profileOpen || (mobileEnabled && mobileOpen)}
+        open={mobileEnabled && mobileOpen}
         onClose={() => {
-          setNotifOpen(false)
-          setProfileOpen(false)
           setMobileOpen(false)
         }}
       />

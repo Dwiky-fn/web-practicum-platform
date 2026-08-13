@@ -120,7 +120,7 @@ export default function SettingsPage() {
       await verifyUserPassword(user.id, payload.currentPassword);
       setPendingEmailChange(payload);
     } catch (error) {
-      showSettingsError(getErrorMessage(error, "Gagal memverifikasi password."));
+      showSettingsError(getErrorMessage(error, "Gagal memverifikasi kata sandi."));
       throw error;
     } finally {
       setEmailSaving(false);
@@ -183,9 +183,9 @@ export default function SettingsPage() {
 
     try {
       await updateUserPassword(user.id, payload);
-      toast.success("Password berhasil diperbarui.");
+      toast.success("Kata sandi berhasil diperbarui.");
     } catch (error) {
-      showSettingsError(getErrorMessage(error, "Gagal memperbarui password."));
+      showSettingsError(getErrorMessage(error, "Gagal memperbarui kata sandi."));
       throw error;
     } finally {
       setPasswordSaving(false);

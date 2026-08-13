@@ -20,37 +20,34 @@ export interface AcademicDateTimeParts {
 export const parseAcademicDateTime = (str: string | Date | null | undefined): AcademicDateTimeParts | null => {
   if (!str) return null;
   
-  if (str instanceof Date) {
-    const y = String(str.getFullYear()).padStart(4, '0');
-    const m = String(str.getMonth() + 1).padStart(2, '0');
-    const d = String(str.getDate()).padStart(2, '0');
-    const h = String(str.getHours()).padStart(2, '0');
-    const min = String(str.getMinutes()).padStart(2, '0');
-    const sec = String(str.getSeconds()).padStart(2, '0');
-    return { year: y, month: m, day: d, hour: h, minute: min, second: sec };
-  }
-
   let s = String(str).trim();
   s = s.replace('T', ' ');
-  
-  // If there's a timezone suffix like Z or +07:00, but we want to parse it as UTC or local,
-  // let's strip it first to parse it literally, unless it's a standard ISO string.
-  // Wait, if it has a timezone offset, we should probably parse it as a standard Date first
-  // to avoid incorrect literal parsing. But if it's "YYYY-MM-DD HH:mm:ss", it's literal.
-  if (s.includes('Z') || s.match(/[+-]\d{2}:?\d{2}$/)) {
-    const dObj = new Date(s);
+
+  if (str instanceof Date || s.includes('Z') || s.match(/[+-]\d{2}:?\d{2}$/)) {
+    const dObj = str instanceof Date ? str : new Date(s);
     if (!isNaN(dObj.getTime())) {
-      // Return parts in the local timezone or UTC?
-      // Since system uses Asia/Jakarta as the academic timezone, if system has local timezone,
-      // it might not match Asia/Jakarta if user is elsewhere. But typically we want the local/WIB date.
-      // Let's use the local time from the Date object.
-      const y = String(dObj.getFullYear()).padStart(4, '0');
-      const m = String(dObj.getMonth() + 1).padStart(2, '0');
-      const d = String(dObj.getDate()).padStart(2, '0');
-      const h = String(dObj.getHours()).padStart(2, '0');
-      const min = String(dObj.getMinutes()).padStart(2, '0');
-      const sec = String(dObj.getSeconds()).padStart(2, '0');
-      return { year: y, month: m, day: d, hour: h, minute: min, second: sec };
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Jakarta',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      });
+      const parts = formatter.formatToParts(dObj);
+      const getPart = (type: string) => (parts.find(p => p.type === type)?.value || '00');
+      let hour = getPart('hour');
+      if (hour === '24') hour = '00';
+      return {
+        year: getPart('year'),
+        month: getPart('month'),
+        day: getPart('day'),
+        hour: hour,
+        minute: getPart('minute'),
+        second: getPart('second'),
+      };
     }
   }
 

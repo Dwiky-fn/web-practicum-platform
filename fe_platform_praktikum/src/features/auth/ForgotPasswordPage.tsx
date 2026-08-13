@@ -75,10 +75,10 @@ export default function ForgotPasswordPage() {
         confirmPassword,
       })
       setStep("done")
-      setMessage("Password berhasil diperbarui! Silakan masuk kembali dengan password baru Anda.")
+      setMessage("Kata sandi berhasil diperbarui! Silakan masuk kembali dengan kata sandi baru Anda.")
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Gagal memperbarui password",
+        error instanceof Error ? error.message : "Gagal memperbarui kata sandi",
       )
     } finally {
       setIsSubmitting(false)
@@ -93,11 +93,11 @@ export default function ForgotPasswordPage() {
             <KeyRound size={16} />
             <span>Pemulihan Akun</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Lupa Password</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Lupa Kata Sandi</h1>
           <p className="mt-1 text-xs text-gray-500">
             {step === "email" && "Masukkan email akun Anda untuk menerima kode verifikasi OTP."}
-            {step === "otp" && "Masukkan kode OTP yang telah dikirim ke email Anda dan buat password baru."}
-            {step === "done" && "Proses pemulihan password akun Anda telah berhasil diselesaikan."}
+            {step === "otp" && "Masukkan kode OTP yang telah dikirim ke email Anda dan buat kata sandi baru."}
+            {step === "done" && "Proses pemulihan kata sandi akun Anda telah berhasil diselesaikan."}
           </p>
         </div>
 
@@ -199,7 +199,7 @@ export default function ForgotPasswordPage() {
 
             <div>
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-600">
-                Password Baru
+                Kata Sandi Baru
               </label>
               <div className="relative">
                 <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -217,7 +217,7 @@ export default function ForgotPasswordPage() {
 
             <div>
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-600">
-                Konfirmasi Password Baru
+                Konfirmasi Kata Sandi Baru
               </label>
               <div className="relative">
                 <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -226,7 +226,7 @@ export default function ForgotPasswordPage() {
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
                   className={`${inputClass} pl-10`}
-                  placeholder="Ulangi password baru"
+                  placeholder="Ulangi kata sandi baru"
                   minLength={8}
                   required
                 />
@@ -244,7 +244,7 @@ export default function ForgotPasswordPage() {
                   <span>Memverifikasi...</span>
                 </>
               ) : (
-                <span>Reset Password</span>
+                <span>Reset Kata Sandi</span>
               )}
             </button>
 
@@ -264,7 +264,7 @@ export default function ForgotPasswordPage() {
             to="/"
             className="flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 py-3 text-center font-medium text-white shadow-md shadow-blue-500/20 transition-all hover:from-blue-700 hover:to-indigo-700"
           >
-            <span>Kembali ke Halaman Login</span>
+            <span>Kembali ke Halaman Masuk</span>
           </Link>
         )}
 
@@ -275,7 +275,7 @@ export default function ForgotPasswordPage() {
               className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-blue-600 transition"
             >
               <ArrowLeft size={14} />
-              <span>Kembali ke Halaman Login</span>
+              <span>Kembali ke Halaman Masuk</span>
             </Link>
           </div>
         )}

@@ -24,7 +24,7 @@ export default function ProfileMenu({
   const isMenuDisabled = disabled || user?.role === "ADMIN"
 
   return (
-    <div className="relative">
+    <div id="profile-menu-container" className="relative">
       <div
         className={`flex items-center gap-2.5 rounded-full p-1 text-white select-none ${
           isMenuDisabled

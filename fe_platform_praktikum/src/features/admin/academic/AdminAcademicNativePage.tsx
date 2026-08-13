@@ -1,4 +1,4 @@
-import { AlertTriangle, Eye, Loader2, Plus } from "lucide-react"
+import { ArrowRight, Eye, Loader2, Plus, X } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Navigate, useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom"
 import AdminLayout from "../components/AdminLayout"
@@ -21,6 +21,15 @@ import {
 import { getAdminUsers } from "../../../services/admin/service"
 import type { AdminLecturer, AdminStudent } from "../../../services/admin/types"
 import { toast } from "../../../components/toast/toastStore"
+import KurikulumTab from "./tabs/KurikulumTab"
+import SemesterTab from "./tabs/SemesterTab"
+import MataKuliahTab from "./tabs/MataKuliahTab"
+import TahunSemesterTab from "./tabs/TahunSemesterTab"
+import KelasTab from "./tabs/KelasTab"
+import KelasMahasiswaTab from "./tabs/KelasMahasiswaTab"
+import KelasPraktikumTab from "./tabs/KelasPraktikumTab"
+import KenaikanSemesterTab from "./tabs/KenaikanSemesterTab"
+import KenaikanSemesterModal from "./tabs/KenaikanSemesterModal"
 import {
   academicDataApi,
   type KelasMahasiswa,
@@ -31,6 +40,7 @@ import {
   type KelasPraktikumStatus,
   type Kurikulum,
   type MataKuliah,
+  type MataKuliahTipe,
   type Pengampu,
   type PengampuPeran,
   type SemesterMaster,
@@ -46,6 +56,7 @@ type NativeTab =
   | "mata-kuliah"
   | "kelas-mahasiswa"
   | "kelas-praktikum"
+  | "kenaikan-semester"
 
 type FormState = Record<string, string>
 type AcademicItem =
@@ -58,40 +69,24 @@ type AcademicItem =
   | KelasSemester
   | KelasPraktikum
 type EditingState = { tab: NativeTab; item?: AcademicItem } | null
+type ActivateTarget = { tab: NativeTab; id?: string; label: string; pendingForm?: FormState } | null
 type DeleteTarget = { tab: NativeTab; id: string; label: string } | null
-type PromotionTarget = {
-  targetKelasSemesterId: string
-}
 
-const masterTabs: Array<{ id: NativeTab; label: string }> = [
-  { id: "tahun", label: "Tahun Semester" },
+const allTabs: Array<{ id: NativeTab; label: string }> = [
   { id: "kurikulum", label: "Kurikulum" },
   { id: "semester", label: "Semester" },
-  { id: "kelas", label: "Kelas" },
   { id: "mata-kuliah", label: "Mata Kuliah" },
-]
-
-const operationalTabs: Array<{ id: NativeTab; label: string }> = [
+  { id: "tahun", label: "Tahun Semester" },
+  { id: "kelas", label: "Kelas" },
   { id: "kelas-mahasiswa", label: "Kelas Mahasiswa" },
   { id: "kelas-praktikum", label: "Kelas Praktikum" },
+  { id: "kenaikan-semester", label: "Kenaikan Semester" },
 ]
-
-const allTabs = [...masterTabs, ...operationalTabs]
 const statusOptions: Array<{ label: string; value: AcademicStatus }> = [
   { label: "Aktif", value: "active" },
   { label: "Tidak Aktif", value: "inactive" },
 ]
-const tipeOptions: Array<{ label: string; value: string }> = [
-  { label: "Praktikum", value: "praktikum" },
-  { label: "Teori", value: "teori" },
-]
 
-const formatTipeLabel = (tipe: string) => {
-  const t = String(tipe || "").toLowerCase().trim()
-  if (t === "teori") return "Teori"
-  if (t === "teori_praktikum" || (t.includes("teori") && t.includes("praktik"))) return "Teori & Praktikum"
-  return "Praktikum"
-}
 const routeToTab: Record<string, NativeTab> = {
   "tahun-semester": "tahun",
   kurikulum: "kurikulum",
@@ -100,6 +95,7 @@ const routeToTab: Record<string, NativeTab> = {
   "mata-kuliah": "mata-kuliah",
   "kelas-mahasiswa": "kelas-mahasiswa",
   "kelas-praktikum": "kelas-praktikum",
+  "kenaikan-semester": "kenaikan-semester",
 }
 const pageCopy: Record<NativeTab, { title: string; description: string; addLabel: string }> = {
   tahun: {
@@ -137,6 +133,11 @@ const pageCopy: Record<NativeTab, { title: string; description: string; addLabel
     description: "Buka kelas praktikum berdasarkan mata kuliah, kelas/rombel, tahun semester, dan dosen pengampu.",
     addLabel: "Tambah Kelas Praktikum",
   },
+  "kenaikan-semester": {
+    title: "Kenaikan Semester",
+    description: "Atur kenaikan semester mahasiswa antar kelas rombel secara bertahap.",
+    addLabel: "Proses Kenaikan Semester",
+  },
 }
 
 const searchPlaceholder: Record<NativeTab, string> = {
@@ -147,6 +148,7 @@ const searchPlaceholder: Record<NativeTab, string> = {
   "mata-kuliah": "Cari mata kuliah",
   "kelas-mahasiswa": "Cari kelas mahasiswa",
   "kelas-praktikum": "Cari kelas praktikum",
+  "kenaikan-semester": "Cari kelas atau rombel",
 }
 
 // Upfront warning messages shown in the single delete modal per tab
@@ -170,10 +172,10 @@ function includesKeyword(values: Array<string | number | undefined>, keyword: st
 function getStatusLabel(status?: string) {
   const map: Record<string, string> = {
     active: "Aktif",
-    inactive: "Tidak Aktif",
+    inactive: "Nonaktif",
   }
 
-  return map[status ?? ""] ?? "Tidak Aktif"
+  return map[status ?? ""] ?? "Nonaktif"
 }
 
 function normalizeAcademicStatus(status?: string): AcademicStatus {
@@ -199,16 +201,6 @@ function formatActiveSuffix(status?: string) {
 
 function warningBox(message: string) {
   return <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{message}</div>
-}
-
-function emptyLabel(tab: NativeTab) {
-  if (tab === "tahun") return "Belum ada tahun semester."
-  if (tab === "kurikulum") return "Belum ada kurikulum."
-  if (tab === "semester") return "Belum ada master semester."
-  if (tab === "kelas") return "Belum ada master kelas/rombel."
-  if (tab === "mata-kuliah") return "Belum ada mata kuliah."
-  if (tab === "kelas-mahasiswa") return "Belum ada kelas mahasiswa."
-  return "Belum ada kelas praktikum."
 }
 
 function parseTahunSemester(value?: string) {
@@ -293,6 +285,7 @@ export default function AdminAcademicNativePage() {
   }, [])
   const [modal, setModal] = useState<EditingState>(null)
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null)
+  const [activateTarget, setActivateTarget] = useState<ActivateTarget>(null)
   const [form, setForm] = useState<FormState>({})
   const [detail, setDetail] = useState<KelasPraktikum | null>(null)
   const [detailStudents, setDetailStudents] = useState<KelasPraktikumMahasiswa[]>([])
@@ -313,20 +306,19 @@ export default function AdminAcademicNativePage() {
 
   // Promotion/Transition Wizard states
   const [isPromotionWizardOpen, setIsPromotionWizardOpen] = useState(false)
-  const [isPromotionConfirmOpen, setIsPromotionConfirmOpen] = useState(false)
   const [promotionSubmitError, setPromotionSubmitError] = useState("")
-  const [promotionTargets, setPromotionTargets] = useState<Record<string, PromotionTarget>>({})
-  const [selectedPromotionIds, setSelectedPromotionIds] = useState<string[]>([])
   const [submittingPromotion, setSubmittingPromotion] = useState(false)
 
-  useEffect(() => {
-    if (!isPromotionConfirmOpen && !submittingPromotion) {
-      document.getElementById("promotion-process-button")?.focus()
-    }
-  }, [isPromotionConfirmOpen, submittingPromotion])
+  // 2-Column Kenaikan Semester states
+  const [promotionSourceKsId, setPromotionSourceKsId] = useState<string>("")
+  const [promotionTargetKsId, setPromotionTargetKsId] = useState<string>("")
+  const [checkedSourceStudentIds, setCheckedSourceStudentIds] = useState<string[]>([])
+  const [promotedStudentsMap, setPromotedStudentsMap] = useState<
+    Record<string, { student: KelasMahasiswa; targetKsId: string; targetLabel: string }>
+  >({})
 
   function renderPagination(currentPage: number, totalPages: number, onPageChange: (p: number) => void, totalItems: number) {
-    if (totalItems === 0) return null
+    if (totalItems <= limit) return null
 
     return (
       <div className="mt-6 flex flex-col items-center justify-center gap-4 border-t border-gray-100 pt-6">
@@ -361,8 +353,8 @@ export default function AdminAcademicNativePage() {
                   type="button"
                   onClick={() => onPageChange(p)}
                   className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold transition cursor-pointer ${currentPage === p
-                      ? "bg-blue-600 text-white shadow-sm shadow-blue-100"
-                      : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-100"
+                    : "border border-gray-200 text-gray-600 hover:bg-gray-50"
                     }`}
                 >
                   {p}
@@ -409,22 +401,25 @@ export default function AdminAcademicNativePage() {
   const activeKurikulum = kurikulum.find((item) => item.status === "active") ?? null
   const activeKurikulumList = kurikulum.filter((item) => item.status === "active")
   const activeTabMeta = pageCopy[activeTab]
-  const detailTahunSemester = tahunSemester.find((item) => item.id === tahunSemesterId) ?? null
-  const selectedOperationalTahunSemester =
-    detailTahunSemester
-    ?? tahunSemester.find((item) => item.id === operationalTahunSemesterId)
-    ?? activeTahunSemester
-    ?? tahunSemester[0]
-    ?? null
+  const validTahunSemesterId = tahunSemesterId && tahunSemesterId !== "undefined" ? tahunSemesterId : undefined
+  const detailTahunSemester = useMemo(() => {
+    if (isTahunSemesterDetail && validTahunSemesterId) {
+      return tahunSemester.find((item) => item.id === validTahunSemesterId) ?? null
+    }
+    return activeTahunSemester ?? tahunSemester[0] ?? null
+  }, [isTahunSemesterDetail, validTahunSemesterId, activeTahunSemester, tahunSemester])
+
+  const selectedOperationalTahunSemester = detailTahunSemester
 
   const currentSemesterType = useMemo(() => {
-    if (!detailTahunSemester) return null
-    const name = detailTahunSemester.tahun_semester || ""
+    const ts = detailTahunSemester ?? selectedOperationalTahunSemester
+    if (!ts) return null
+    const name = ts.tahun_semester || ""
     if (/genap/i.test(name)) return "Genap"
     if (/ganjil/i.test(name)) return "Ganjil"
     console.warn("Format tahun semester tidak dikenali:", name)
     return null
-  }, [detailTahunSemester])
+  }, [detailTahunSemester, selectedOperationalTahunSemester])
 
   const filteredSemestersForModal = useMemo(() => {
     if (!currentSemesterType) return semester
@@ -523,11 +518,6 @@ export default function AdminAcademicNativePage() {
     setOperationalTahunSemesterId((activeTahunSemester ?? tahunSemester[0]).id)
   }, [activeTahunSemester, operationalTahunSemesterId, tahunSemester])
 
-  useEffect(() => {
-    if ((section === "kelas-mahasiswa" || section === "kelas-praktikum") && selectedOperationalTahunSemester) {
-      navigate(`/admin/academic/tahun-semester/${selectedOperationalTahunSemester.id}`, { replace: true })
-    }
-  }, [navigate, section, selectedOperationalTahunSemester])
 
   useEffect(() => {
     if (!kelasPraktikumDetailId || !kelasPraktikum.length || detail?.id === kelasPraktikumDetailId) return
@@ -537,80 +527,7 @@ export default function AdminAcademicNativePage() {
     }
   }, [kelasPraktikumDetailId, kelasPraktikum, detail?.id, openDetail])
 
-  const openPromotionWizard = async () => {
-    if (!currentKelasSemester) return
-    setPromotionSubmitError("")
-    setIsPromotionConfirmOpen(false)
-    const targets: Record<string, PromotionTarget> = {}
-    activePromotionStudents.forEach((student) => {
-      const options = getPromotionTargetOptions(student)
-      const defaultTarget = options.find((item) => item.id_kelas === student.id_kelas) ?? options[0]
-      targets[student.id_mahasiswa] = { targetKelasSemesterId: defaultTarget?.id ?? "" }
-    })
-    setSelectedPromotionIds(activePromotionStudents.map((student) => student.id_mahasiswa))
-    setPromotionTargets(targets)
-    setIsPromotionWizardOpen(true)
-  }
 
-  const updatePromotionTarget = (studentId: string, target: Partial<PromotionTarget>) => {
-    setPromotionTargets((current) => {
-      const previous = current[studentId] ?? { targetKelasSemesterId: "" }
-      return { ...current, [studentId]: { ...previous, ...target } }
-    })
-  }
-
-  const togglePromotionStudent = (studentId: string, checked: boolean) => {
-    setSelectedPromotionIds((current) => {
-      if (checked) return current.includes(studentId) ? current : [...current, studentId]
-      return current.filter((id) => id !== studentId)
-    })
-  }
-
-  const handlePromotionSubmit = async () => {
-    setPromotionSubmitError("")
-    if (!currentKelasSemester) {
-      toast.error("Kelas asal tidak valid.")
-      return
-    }
-    if (!selectedPromotionIds.length) {
-      toast.error("Pilih minimal satu mahasiswa aktif untuk dinaikkan.")
-      return
-    }
-    const invalid = selectedPromotionIds.find((studentId) => {
-      const target = promotionTargets[studentId]
-      return !target?.targetKelasSemesterId
-    })
-    if (invalid) {
-      toast.error("Kelas tujuan pada semester berikutnya belum tersedia. Silakan buat kelas tujuan terlebih dahulu.")
-      return
-    }
-    setIsPromotionConfirmOpen(true)
-  }
-
-  const processPromotion = async () => {
-    if (submittingPromotion) return
-    setPromotionSubmitError("")
-    setSubmittingPromotion(true)
-    try {
-      const payload = {
-        sourceKelasSemesterId: currentKelasSemester?.id ?? "",
-        transitions: selectedPromotionIds.map((studentId) => ({
-          studentId,
-          targetKelasSemesterId: promotionTargets[studentId]?.targetKelasSemesterId ?? "",
-        })),
-      }
-
-      const result = await academicDataApi.transitionStudents(payload)
-      toast.success(`Kenaikan semester berhasil diproses untuk ${result.processed_students} mahasiswa.`)
-      setIsPromotionConfirmOpen(false)
-      setIsPromotionWizardOpen(false)
-      loadData()
-    } catch (err) {
-      setPromotionSubmitError(err instanceof Error ? err.message : "Gagal memproses kenaikan semester.")
-    } finally {
-      setSubmittingPromotion(false)
-    }
-  }
 
   const mataKuliahPrioritized = useMemo(() => {
     const selectedKurikulumId = form.id_kurikulum || activeKurikulum?.id || ""
@@ -696,18 +613,6 @@ export default function AdminAcademicNativePage() {
     return classStudents.filter((item) => String(item.student_status || "").toLowerCase() === "aktif")
   }, [classStudents])
 
-  const getPromotionTargetOptions = useCallback((student: KelasMahasiswa) => {
-    const targetSemester = Number(student.student_semester ?? student.semester) + 1
-    return kelasSemester
-      .filter((item) => Number(item.semester) === targetSemester)
-      .sort((left, right) => {
-        const sameAsSourceLeft = left.id_kelas === student.id_kelas ? 0 : 1
-        const sameAsSourceRight = right.id_kelas === student.id_kelas ? 0 : 1
-        if (sameAsSourceLeft !== sameAsSourceRight) return sameAsSourceLeft - sameAsSourceRight
-        return String(left.kelas ?? "").localeCompare(String(right.kelas ?? ""))
-      })
-  }, [kelasSemester])
-
   const filteredClassStudents = useMemo(() => {
     return classStudents.filter((item) =>
       includesKeyword([item.nim, item.fullname, getStatusLabel(item.status)], detailKelasMahasiswaSearch)
@@ -756,7 +661,10 @@ export default function AdminAcademicNativePage() {
   function normalizeForm(tab: NativeTab, item?: AcademicItem): FormState {
     if (tab === "tahun") {
       const tahunItem = item as TahunSemester | undefined
-      return parseTahunSemester(tahunItem?.tahun_semester)
+      return {
+        ...parseTahunSemester(tahunItem?.tahun_semester),
+        status: normalizeAcademicStatus(tahunItem?.status),
+      }
     }
     if (tab === "kurikulum") {
       const kurikulumItem = item as Kurikulum | undefined
@@ -794,7 +702,7 @@ export default function AdminAcademicNativePage() {
       id_mata_kuliah: kelasPraktikumItem?.id_mata_kuliah ?? "",
       id_semester: kelasPraktikumItem?.id_semester ?? "",
       id_kelas: kelasPraktikumItem?.id_kelas ?? "",
-      jumlah_jobsheet_rencana: String(kelasPraktikumItem?.jumlah_jobsheet_rencana ?? kelasPraktikumItem?.jumlahJobsheetRencana ?? 1),
+      jumlah_jobsheet_rencana: String(kelasPraktikumItem?.jumlah_jobsheet_rencana ?? kelasPraktikumItem?.jumlahJobsheetRencana ?? 0),
       status: kelasPraktikumItem?.status ?? "open",
       id_dosen: existingPengampu?.id_dosen ?? "",
       peran: existingPengampu?.peran ?? "utama",
@@ -808,16 +716,27 @@ export default function AdminAcademicNativePage() {
     }
     if (tab === "kelas-mahasiswa") {
       if (!tahunSemester.length) return "Tambahkan tahun semester terlebih dahulu sebelum mengatur kelas mahasiswa."
+      if (!activeTahunSemester) return "Belum ada tahun semester yang aktif. Silakan aktifkan tahun semester terlebih dahulu pada tab Tahun Semester."
       if (!semester.length) return "Tambahkan master semester terlebih dahulu."
       if (!kelas.length) return "Tambahkan master kelas/rombel terlebih dahulu."
-      if (!students.length) return "Tambahkan mahasiswa terlebih dahulu."
+      if (!lecturers.length && !students.length) return "Belum ada dosen dan mahasiswa yang terdaftar di sistem. Silakan tambahkan user dosen dan mahasiswa terlebih dahulu."
+      if (!students.length) return "Belum ada mahasiswa yang terdaftar di sistem. Silakan tambahkan user mahasiswa terlebih dahulu."
+      if (!lecturers.length) return "Belum ada dosen yang terdaftar di sistem. Silakan tambahkan user dosen terlebih dahulu."
     }
     if (tab === "kelas-praktikum") {
       if (!tahunSemester.length) return "Tambahkan tahun semester terlebih dahulu sebelum membuat kelas praktikum."
+      if (!activeTahunSemester) return "Belum ada tahun semester yang aktif. Silakan aktifkan tahun semester terlebih dahulu pada tab Tahun Semester."
       if (!activeKurikulumList.length) return "Aktifkan minimal satu kurikulum terlebih dahulu sebelum membuat kelas praktikum."
       if (!mataKuliah.length) return "Belum ada mata kuliah yang terdaftar di sistem. Silakan tambahkan mata kuliah terlebih dahulu."
       if (!kelas.length) return "Tambahkan master kelas/rombel terlebih dahulu."
+      if (!lecturers.length && !students.length) return "Belum ada dosen dan mahasiswa yang terdaftar di sistem. Silakan tambahkan user dosen dan mahasiswa terlebih dahulu."
       if (!lecturers.length) return "Belum ada dosen yang terdaftar di sistem. Silakan tambahkan user dosen terlebih dahulu."
+      if (!students.length) return "Belum ada mahasiswa yang terdaftar di sistem. Silakan tambahkan user mahasiswa terlebih dahulu."
+    }
+    if (tab === "kenaikan-semester") {
+      if (!tahunSemester.length) return "Tambahkan tahun semester terlebih dahulu sebelum mengatur kenaikan semester."
+      if (!activeTahunSemester) return "Belum ada tahun semester yang aktif. Silakan aktifkan tahun semester terlebih dahulu pada tab Tahun Semester."
+      if (!scopedKelasSemester.length) return "Belum ada Kelas Mahasiswa (Rombel) yang terdaftar pada tahun semester ini."
     }
     return ""
   }
@@ -851,16 +770,22 @@ export default function AdminAcademicNativePage() {
       if (modal?.tab === "kelas-praktikum" && key === "id_mata_kuliah") {
         const mk = mataKuliah.find((item) => item.id === value)
         next.id_semester = mk?.id_semester ?? ""
+        next.id_kelas = ""
       }
       if (modal?.tab === "kelas-praktikum" && key === "id_kurikulum") {
         next.id_mata_kuliah = ""
         next.id_semester = ""
+        next.id_kelas = ""
       }
       if (modal?.tab === "kelas" && key === "kelas") {
         next.kelas = value.toUpperCase()
       }
-      if (modal?.tab === "tahun" && key === "tahun_awal" && /^\d{4}$/.test(value)) {
-        next.tahun_akhir = String(Number(value) + 1)
+      if (modal?.tab === "tahun" && key === "tahun_awal") {
+        if (/^\d{4}$/.test(value)) {
+          next.tahun_akhir = String(Number(value) + 1)
+        } else {
+          next.tahun_akhir = ""
+        }
       }
       return next
     })
@@ -876,9 +801,20 @@ export default function AdminAcademicNativePage() {
     try {
       if (modal.tab === "tahun") {
         const tahun_semester = validateTahunSemesterForm(form, tahunSemester, id)
-        const payload = id ? { tahun_semester } : { tahun_semester, status: "inactive" as const }
-        if (id) await academicDataApi.updateTahunSemester(id, payload)
-        else await academicDataApi.createTahunSemester(payload)
+        const isActivating = form.status === "active" && (modal.item as TahunSemester | undefined)?.status !== "active"
+        if (isActivating) {
+          setActivateTarget({ tab: "tahun", id, label: tahun_semester, pendingForm: { ...form } })
+          setSubmitting(false)
+          return
+        }
+        const targetStatus = normalizeAcademicStatus(form.status)
+        if (id) {
+          await academicDataApi.updateTahunSemester(id, { tahun_semester })
+          if (targetStatus === "active") await academicDataApi.activateTahunSemester(id)
+        } else {
+          const created = await academicDataApi.createTahunSemester({ tahun_semester, status: "inactive" })
+          if (targetStatus === "active" && created.id) await academicDataApi.activateTahunSemester(created.id)
+        }
       } else if (modal.tab === "kurikulum") {
         if (id) await academicDataApi.updateKurikulum(id, form)
         else await academicDataApi.createKurikulum(form)
@@ -891,7 +827,11 @@ export default function AdminAcademicNativePage() {
         if (duplicate) throw new Error("Kelas tidak boleh duplikat.")
         await academicDataApi.saveKelas({ kelas: form.kelas.toUpperCase() }, id)
       } else if (modal.tab === "mata-kuliah") {
-        await academicDataApi.saveMataKuliah({ ...form, sks: Number(form.sks) }, id)
+        const sksVal = Number(form.sks)
+        if (!form.sks || isNaN(sksVal) || sksVal <= 0) {
+          throw new Error("SKS harus berupa angka positif.")
+        }
+        await academicDataApi.saveMataKuliah({ ...form, sks: sksVal, tipe: (form.tipe as MataKuliahTipe) || "praktikum" }, id)
       } else if (modal.tab === "kelas-mahasiswa") {
         if (!isKelasMahasiswaDetail && !id) {
           const isDuplicate = scopedKelasSemester.some(
@@ -916,9 +856,9 @@ export default function AdminAcademicNativePage() {
             id_kelas: form.id_kelas,
             status: "active",
           })
-          toast.success(`Kelas ${displayClassName} berhasil dibuat.`)
           closeModal()
           await loadData()
+          toast.success(`Kelas ${displayClassName} berhasil dibuat.`)
           return
         } else {
           if (isKelasMahasiswaDetail) {
@@ -944,6 +884,8 @@ export default function AdminAcademicNativePage() {
                 failCount++
               }
             }
+            closeModal()
+            await loadData()
             if (failCount === 0) {
               if (successCount === 1) {
                 toast.success("Mahasiswa berhasil diassign ke kelas.")
@@ -955,8 +897,6 @@ export default function AdminAcademicNativePage() {
             } else {
               toast.error("Gagal assign mahasiswa.")
             }
-            closeModal()
-            await loadData()
             return
           } else {
             const isDuplicate = scopedKelasSemester.some(
@@ -977,9 +917,9 @@ export default function AdminAcademicNativePage() {
               id_kelas: form.id_kelas,
               status: "active",
             }, id)
-            toast.success("Kelas berhasil diperbarui.")
             closeModal()
             await loadData()
+            toast.success("Kelas berhasil diperbarui.")
             return
           }
         }
@@ -1001,7 +941,7 @@ export default function AdminAcademicNativePage() {
           id_mata_kuliah: form.id_mata_kuliah,
           id_semester: mk?.id_semester ?? form.id_semester,
           id_kelas: form.id_kelas,
-          jumlah_jobsheet_rencana: Number(form.jumlah_jobsheet_rencana || 1),
+          jumlah_jobsheet_rencana: Number(form.jumlah_jobsheet_rencana || 0),
           status: form.status as KelasPraktikumStatus,
         }
         const saved = await academicDataApi.saveKelasPraktikum(kelasPraktikumPayload, id)
@@ -1019,9 +959,9 @@ export default function AdminAcademicNativePage() {
           return
         }
       }
-      setSuccess("Data berhasil disimpan.")
       closeModal()
       await loadData()
+      toast.success("Data berhasil disimpan.")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan data.")
     } finally {
@@ -1035,10 +975,12 @@ export default function AdminAcademicNativePage() {
     try {
       if (tab === "tahun") await academicDataApi.activateTahunSemester(id)
       if (tab === "kurikulum") await academicDataApi.activateKurikulum(id)
-      toast.success(tab === "kurikulum" ? "Kurikulum berhasil diaktifkan." : "Tahun semester berhasil diaktifkan.")
       await loadData()
+      toast.success(tab === "kurikulum" ? "Kurikulum berhasil diaktifkan." : "Tahun semester berhasil diaktifkan di seluruh platform.")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal mengaktifkan data.")
+      console.error(`[Aktivasi Gagal] ${tab}:`, err)
+      const msg = err instanceof Error ? err.message : "Gagal mengaktifkan data."
+      toast.error(msg)
     } finally {
       setSubmitting(false)
     }
@@ -1050,6 +992,7 @@ export default function AdminAcademicNativePage() {
     setError("")
     try {
       const { id, tab } = deleteTarget
+      let successMsg = "Data berhasil dihapus."
       if (tab === "tahun") await academicDataApi.deleteTahunSemester(id, true)
       else if (tab === "kurikulum") await academicDataApi.deleteKurikulum(id, true)
       else if (tab === "semester") await academicDataApi.deleteSemester(id, true)
@@ -1058,20 +1001,19 @@ export default function AdminAcademicNativePage() {
       else if (tab === "kelas-mahasiswa") {
         if (isKelasMahasiswaDetail) {
           await academicDataApi.deleteKelasMahasiswa(id)
-          toast.success("Mahasiswa berhasil dihapus dari kelas.")
+          successMsg = "Mahasiswa berhasil dihapus dari kelas."
         } else {
           await academicDataApi.deleteKelasSemester(id)
-          toast.success("Kelas berhasil dihapus.")
+          successMsg = "Kelas berhasil dihapus."
         }
       } else if (tab === "kelas-praktikum") {
         await academicDataApi.deleteKelasPraktikum(id)
-        toast.success("Kelas praktikum berhasil dihapus.")
+        successMsg = "Kelas praktikum berhasil dihapus."
       }
-      if (tab !== "kelas-mahasiswa" && tab !== "kelas-praktikum") {
-        toast.success("Data berhasil dihapus.")
-      }
+
       setDeleteTarget(null)
       await loadData()
+      toast.success(successMsg)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Gagal menghapus data."
       toast.error(message)
@@ -1086,12 +1028,6 @@ export default function AdminAcademicNativePage() {
 
     return (
       <AdminActionCell>
-        {tab === "tahun" && (
-          <AdminButton variant="ghost" className="h-8 px-2" onClick={() => navigate(`/admin/academic/tahun-semester/${item.id}`)}>
-            <Eye size={14} />
-            Detail
-          </AdminButton>
-        )}
         {tab === "kelas-praktikum" && (
           <AdminButton variant="ghost" className="h-8 px-2" onClick={() => openDetail(kelasPraktikumItem)}>
             <Eye size={14} />
@@ -1099,8 +1035,19 @@ export default function AdminAcademicNativePage() {
           </AdminButton>
         )}
 
-        {tab === "kurikulum" && statusItem.status !== "active" && (
-          <AdminButton variant="ghost" className="h-8 px-2" disabled={submitting} onClick={() => activate(tab, item.id)}>
+        {(tab === "kurikulum" || tab === "tahun") && statusItem.status !== "active" && (
+          <AdminButton
+            variant="ghost"
+            className="h-8 px-2 text-blue-600 hover:text-blue-700 font-semibold"
+            disabled={submitting}
+            onClick={() => {
+              if (tab === "tahun") {
+                setActivateTarget({ tab: "tahun", id: item.id, label: (item as TahunSemester).tahun_semester })
+              } else {
+                activate(tab, item.id)
+              }
+            }}
+          >
             Aktifkan
           </AdminButton>
         )}
@@ -1116,113 +1063,6 @@ export default function AdminAcademicNativePage() {
     )
   }
 
-  function renderKelasMahasiswa() {
-    if (loading) {
-      return (
-        <div className="space-y-3 p-4 animate-pulse">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-10 bg-gray-100 rounded-lg" />
-          ))}
-        </div>
-      )
-    }
-    if (!groupedKelasMahasiswa.length) return <EmptyState title={emptyLabel("kelas-mahasiswa")} />
-    const displayedData = groupedKelasMahasiswa.slice((page - 1) * limit, page * limit)
-    return (
-      <AdminTable headers={["Nama Kelas", "Jumlah Mahasiswa", "Aksi"]}>
-        {displayedData.map((group) => {
-          const displayClassName = formatKelasMahasiswaName(group)
-          return (
-            <tr key={`${group.id_semester}_${group.id_kelas}`}>
-              <td className="px-4 py-3 font-semibold text-center">{displayClassName}</td>
-              <td className="px-4 py-3 text-center">{group.students.length} mahasiswa</td>
-              <AdminActionCell>
-                <AdminButton
-                  variant="ghost"
-                  className="h-8 px-2"
-                  onClick={() => {
-                    navigate(`/admin/academic/tahun-semester/${tahunSemesterId}/kelas-mahasiswa?semesterId=${group.id_semester}&kelasId=${group.id_kelas}`)
-                  }}
-                >
-                  <Eye size={14} />
-                  Detail
-                </AdminButton>
-                <AdminButton
-                  variant="ghost"
-                  className="h-8 px-2"
-                  onClick={() => {
-                    if (group.students.length > 0) {
-                      toast.warning("Kelas tidak dapat diubah karena sudah memiliki mahasiswa.")
-                      return
-                    }
-                    const isUsedInPraktikum = scopedKelasPraktikum.some(
-                      (kp) => kp.id_semester === group.id_semester && kp.id_kelas === group.id_kelas
-                    )
-                    if (isUsedInPraktikum) {
-                      toast.warning("Kelas tidak dapat diubah karena sudah digunakan oleh kelas praktikum.")
-                      return
-                    }
-                    openModal("kelas-mahasiswa", group)
-                  }}
-                >
-                  Edit
-                </AdminButton>
-                <AdminButton
-                  variant="danger"
-                  className="h-8 px-2"
-                  onClick={() => {
-                    setDeleteTarget({
-                      tab: "kelas-mahasiswa",
-                      id: group.id,
-                      label: displayClassName
-                    })
-                  }}
-                >
-                  Hapus
-                </AdminButton>
-              </AdminActionCell>
-            </tr>
-          )
-        })}
-      </AdminTable>
-    )
-  }
-
-  function renderKelasPraktikum(items: KelasPraktikum[] = filtered as KelasPraktikum[], isDetailView = false) {
-    if (loading) {
-      return (
-        <div className="space-y-3 p-4 animate-pulse">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-10 bg-gray-100 rounded-lg" />
-          ))}
-        </div>
-      )
-    }
-    if (!items.length) return <EmptyState title="Belum ada kelas praktikum untuk tahun semester ini." />
-    const headers = isDetailView
-      ? ["Nama Kelas", "Pengampu", "Aksi"]
-      : ["Nama Kelas", "Tahun Semester", "Mata Kuliah", "Semester", "Kelas", "Pengampu", "Aksi"]
-    return (
-      <AdminTable headers={headers}>
-        {items.map((i) => {
-          const lecturersForClass = pengampu.filter((item) => item.id_kelas_praktikum === i.id)
-          const displayClassName = isDetailView ? formatKelasPraktikumName(i) : i.nama_kelas
-          return (
-            <tr key={i.id}>
-              <td className="px-4 py-3 font-medium">{displayClassName}</td>
-              {!isDetailView && <td className="px-4 py-3">{i.tahun_semester}</td>}
-              {!isDetailView && <td className="px-4 py-3">{i.nama_mk}</td>}
-              {!isDetailView && <td className="px-4 py-3 text-center">{i.semester}</td>}
-              {!isDetailView && <td className="px-4 py-3 text-center">{i.kelas}</td>}
-              <td className="px-4 py-3">{lecturersForClass.map((item) => item.nama_dosen ?? item.fullname ?? item.id_dosen).join(", ") || "-"}</td>
-              {actionCell("kelas-praktikum", i, displayClassName)}
-            </tr>
-          )
-        })}
-      </AdminTable>
-    )
-  }
-
   function renderTable() {
     if (loading) {
       return (
@@ -1233,58 +1073,177 @@ export default function AdminAcademicNativePage() {
         </div>
       )
     }
-    if (activeTab === "kelas-mahasiswa") return renderKelasMahasiswa()
-    if (!filtered.length) return <EmptyState title={emptyLabel(activeTab)} />
-
-    const displayedData = filtered.slice((page - 1) * limit, page * limit)
 
     if (activeTab === "tahun") {
-      return <AdminTable headers={["Tahun Semester", "Status Semester", "Aksi"]}>{(displayedData as TahunSemester[]).map((i) => <tr key={i.id}><td className="px-4 py-3 font-medium">{i.tahun_semester}</td><td className="px-4 py-3">{statusBadgeIndo(i.status)}</td>{actionCell("tahun", i, i.tahun_semester)}</tr>)}</AdminTable>
+      return (
+        <TahunSemesterTab
+          data={filtered as TahunSemester[]}
+          page={page}
+          limit={limit}
+          submitting={submitting}
+          statusBadgeIndo={statusBadgeIndo}
+          onSetActivateTarget={setActivateTarget}
+          onOpenModal={openModal}
+          onSetDeleteTarget={setDeleteTarget}
+        />
+      )
     }
+
     if (activeTab === "kurikulum") {
-      return <AdminTable headers={["Tahun Kurikulum", "Nama Kurikulum", "Status Kurikulum", "Aksi"]}>{(displayedData as Kurikulum[]).map((i) => <tr key={i.id}><td className="px-4 py-3">{i.tahun_kurikulum}</td><td className="px-4 py-3 font-medium">{i.nama_kurikulum}</td><td className="px-4 py-3">{statusBadgeIndo(i.status)}</td>{actionCell("kurikulum", i, i.nama_kurikulum)}</tr>)}</AdminTable>
+      return (
+        <KurikulumTab
+          data={filtered as Kurikulum[]}
+          page={page}
+          limit={limit}
+          submitting={submitting}
+          statusBadgeIndo={statusBadgeIndo}
+          onActivate={activate}
+          onOpenModal={openModal}
+          onSetDeleteTarget={setDeleteTarget}
+        />
+      )
     }
+
     if (activeTab === "semester") {
-      return <AdminTable headers={["Semester", "Aksi"]}>{(displayedData as SemesterMaster[]).map((i) => <tr key={i.id}><td className="px-4 py-3">Semester {i.semester}</td>{actionCell("semester", i, `Semester ${i.semester}`)}</tr>)}</AdminTable>
+      return (
+        <SemesterTab
+          data={filtered as SemesterMaster[]}
+          page={page}
+          limit={limit}
+          submitting={submitting}
+          onOpenModal={openModal}
+          onSetDeleteTarget={setDeleteTarget}
+        />
+      )
     }
+
     if (activeTab === "kelas") {
-      return <AdminTable headers={["Kelas", "Aksi"]}>{(displayedData as KelasMaster[]).map((i) => <tr key={i.id}><td className="px-4 py-3 font-semibold">{i.kelas}</td>{actionCell("kelas", i, i.kelas)}</tr>)}</AdminTable>
+      return (
+        <KelasTab
+          data={filtered as KelasMaster[]}
+          page={page}
+          limit={limit}
+          submitting={submitting}
+          onOpenModal={openModal}
+          onSetDeleteTarget={setDeleteTarget}
+        />
+      )
     }
+
     if (activeTab === "mata-kuliah") {
-      return <AdminTable headers={["Kode", "Mata Kuliah", "SKS", "Tipe", "Semester", "Kurikulum", "Aksi"]}>{(displayedData as MataKuliah[]).map((i) => <tr key={i.id}><td className="px-4 py-3 font-mono">{i.kode_mk}</td><td className="px-4 py-3 font-medium">{i.nama_mk}</td><td className="px-4 py-3">{i.sks}</td><td className="px-4 py-3">{formatTipeLabel(i.tipe)}</td><td className="px-4 py-3">{i.semester}</td><td className="px-4 py-3">{i.nama_kurikulum}</td>{actionCell("mata-kuliah", i, i.nama_mk)}</tr>)}</AdminTable>
+      return (
+        <MataKuliahTab
+          data={filtered as MataKuliah[]}
+          page={page}
+          limit={limit}
+          submitting={submitting}
+          onOpenModal={openModal}
+          onSetDeleteTarget={setDeleteTarget}
+        />
+      )
     }
-    return renderKelasPraktikum(displayedData as KelasPraktikum[])
+
+    if (activeTab === "kelas-mahasiswa") {
+      return (
+        <KelasMahasiswaTab
+          groupedData={groupedKelasMahasiswa}
+          page={page}
+          limit={limit}
+          submitting={submitting}
+          statusBadgeIndo={statusBadgeIndo}
+          onOpenDetail={(g) =>
+            navigate(
+              `/admin/academic/tahun-semester/${g.id_tahun_semester}/kelas-mahasiswa/${g.id_semester}/${g.id_kelas}`
+            )
+          }
+          onOpenModal={openModal}
+          onSetDeleteTarget={setDeleteTarget}
+        />
+      )
+    }
+
+    if (activeTab === "kelas-praktikum") {
+      return (
+        <KelasPraktikumTab
+          data={filtered as KelasPraktikum[]}
+          pengampu={pengampu}
+          page={page}
+          limit={limit}
+          submitting={submitting}
+          onOpenDetail={openDetail}
+          onOpenModal={openModal}
+          onSetDeleteTarget={setDeleteTarget}
+        />
+      )
+    }
+
+    if (activeTab === "kenaikan-semester") {
+      return (
+        <KenaikanSemesterTab
+          groupedData={groupedKelasMahasiswa}
+          loading={loading}
+          statusBadgeIndo={statusBadgeIndo}
+          onOpenPromotionModal={(g) => {
+            setPromotionSourceKsId(g.id)
+            const targetSemNum = Number(g.semester_num) + 1
+            const targetClass = kelasSemester.find((ks) => Number(ks.semester) === targetSemNum)
+            setPromotionTargetKsId(targetClass?.id ?? "")
+            setIsPromotionWizardOpen(true)
+          }}
+        />
+      )
+    }
+
+    return null
+  }
+
+  function renderPromotionModals() {
+    return (
+      <KenaikanSemesterModal
+        isOpen={isPromotionWizardOpen}
+        groupedKelasMahasiswa={groupedKelasMahasiswa}
+        scopedKelasMahasiswa={scopedKelasMahasiswa}
+        kelasSemester={kelasSemester}
+        semester={semester}
+        kelas={kelas}
+        tahunSemester={tahunSemester}
+        initialSourceKsId={promotionSourceKsId}
+        initialTargetKsId={promotionTargetKsId}
+        onClose={() => setIsPromotionWizardOpen(false)}
+        onSuccess={loadData}
+      />
+    )
   }
 
   const option = (id: string, label: string) => <option key={id} value={id}>{label}</option>
   const formTab = modal?.tab ?? activeTab
   const currentWarning = getPrerequisiteWarning(activeTab)
   const addDisabled = Boolean(currentWarning)
-  const showOperationalFilter = activeTab === "kelas-mahasiswa" || activeTab === "kelas-praktikum"
 
   function renderKelasPraktikumFields() {
     const hasKurikulum = Boolean(form.id_kurikulum)
     const selectedMK = mataKuliah.find((item) => item.id === form.id_mata_kuliah)
     const targetSemesterId = selectedMK?.id_semester
+    const targetTahunSemesterId = detailTahunSemester?.id ?? form.id_tahun_semester ?? selectedOperationalTahunSemester?.id ?? activeTahunSemester?.id
+
+    const assignedKelasIdsForMK = kelasPraktikum
+      .filter((kp) =>
+        kp.id_tahun_semester === targetTahunSemesterId &&
+        kp.id_mata_kuliah === form.id_mata_kuliah &&
+        kp.id !== (modal?.item as KelasPraktikum | undefined)?.id
+      )
+      .map((kp) => kp.id_kelas)
 
     const availableKelasForSelectedMK = targetSemesterId
       ? kelas.filter((k) =>
-          scopedKelasSemester.some(
-            (ks) => ks.id_semester === targetSemesterId && ks.id_kelas === k.id
-          )
-        )
+        scopedKelasSemester.some(
+          (ks) => ks.id_semester === targetSemesterId && ks.id_kelas === k.id
+        ) && !assignedKelasIdsForMK.includes(k.id)
+      )
       : []
 
     return (
       <>
-        {!isTahunSemesterDetail && (
-          <FieldRow label="Tahun Semester">
-            <AdminSelect value={form.id_tahun_semester ?? ""} onChange={(v) => setField("id_tahun_semester", v)} required>
-              <option value="">Pilih tahun semester</option>
-              {tahunSemester.map((i) => option(i.id, `${i.tahun_semester}${formatActiveSuffix(i.status)}`))}
-            </AdminSelect>
-          </FieldRow>
-        )}
         <FieldRow label="Kurikulum">
           <AdminSelect value={form.id_kurikulum ?? ""} onChange={(v) => setField("id_kurikulum", v)} required>
             <option value="">Pilih kurikulum aktif</option>
@@ -1324,12 +1283,12 @@ export default function AdminAcademicNativePage() {
                 ? "Pilih mata kuliah terlebih dahulu"
                 : availableKelasForSelectedMK.length
                   ? "Pilih kelas rombel yang tersedia"
-                  : "Belum ada Kelas Mahasiswa (Rombel) untuk semester ini"}
+                  : "Semua kelas rombel untuk mata kuliah ini sudah dibuatkan kelas praktikum"}
             </option>
             {availableKelasForSelectedMK.map((i) => option(i.id, `Kelas ${i.kelas}`))}
           </AdminSelect>
         </FieldRow>
-        {form.id_mata_kuliah && !availableKelasForSelectedMK.length && warningBox("Kelas praktikum hanya bisa dibuat untuk Kelas Mahasiswa (Rombel) yang sudah ada pada tahun semester ini. Silakan buat Kelas Mahasiswa terlebih dahulu pada tab Kelas Mahasiswa.")}
+        {form.id_mata_kuliah && !availableKelasForSelectedMK.length && warningBox("Seluruh Kelas Mahasiswa (Rombel) pada semester ini sudah terdaftar sebagai kelas praktikum untuk mata kuliah ini.")}
         <FieldRow label="Dosen">
           <AdminSelect value={form.id_dosen ?? ""} onChange={(v) => setField("id_dosen", v)} required>
             <option value="">Pilih dosen</option>
@@ -1349,6 +1308,15 @@ export default function AdminAcademicNativePage() {
       ? buildTahunSemester(form)
       : "Lengkapi tahun semester"
 
+    const isDuplicate = Boolean(
+      form.tahun_awal &&
+      form.tahun_akhir &&
+      form.semester_type &&
+      tahunSemester.some(
+        (item) => item.id !== modal?.item?.id && item.tahun_semester.toLowerCase() === preview.toLowerCase()
+      )
+    )
+
     return (
       <>
         <FieldRow label="Tahun Semester">
@@ -1365,14 +1333,14 @@ export default function AdminAcademicNativePage() {
             />
             <span className="hidden text-gray-500 sm:inline">/</span>
             <input
-              className={`${inputClass} sm:w-28`}
+              className={`${inputClass} sm:w-28 bg-gray-100 text-gray-500 cursor-not-allowed`}
               inputMode="numeric"
               maxLength={4}
               pattern="\d{4}"
               value={form.tahun_akhir ?? ""}
-              onChange={(e) => setField("tahun_akhir", e.target.value.replace(/\D/g, "").slice(0, 4))}
               placeholder="2027"
-              required
+              disabled
+              readOnly
             />
             <AdminSelect value={form.semester_type ?? "Ganjil"} onChange={(v) => setField("semester_type", v)} required>
               <option value="Ganjil">Ganjil</option>
@@ -1380,6 +1348,16 @@ export default function AdminAcademicNativePage() {
             </AdminSelect>
           </div>
         </FieldRow>
+        <FieldRow label="Status Tahun Semester">
+          <AdminSelect value={form.status ?? "inactive"} onChange={(v) => setField("status", v)}>
+            {statusOptions.map((item) => option(item.value, item.label))}
+          </AdminSelect>
+        </FieldRow>
+        {isDuplicate && (
+          <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 font-medium">
+            ⚠️ Tahun semester <span className="font-bold">{preview}</span> sudah terdaftar di sistem. Silakan pilih tahun awal atau jenis semester yang berbeda.
+          </div>
+        )}
         <div className="rounded-md bg-gray-50 px-4 py-3 text-sm text-gray-700">
           Akan disimpan sebagai: <span className="font-semibold">{preview}</span>
         </div>
@@ -1388,17 +1366,27 @@ export default function AdminAcademicNativePage() {
   }
 
   function renderModals() {
+    const isTahunDuplicate = Boolean(
+      formTab === "tahun" &&
+      form.tahun_awal &&
+      form.tahun_akhir &&
+      form.semester_type &&
+      tahunSemester.some(
+        (item) => item.id !== modal?.item?.id && item.tahun_semester.toLowerCase() === buildTahunSemester(form).toLowerCase()
+      )
+    )
+
     return (
       <>
         {modal && (
           <AdminModal
             title={
               formTab === "kelas-mahasiswa" && isKelasMahasiswaDetail
-                ? "Assign Mahasiswa"
+                ? "Tempatkan Mahasiswa"
                 : `${modal.item ? "Edit" : "Tambah"} ${allTabs.find((item) => item.id === formTab)?.label.replace(/^\d+\.\s*/, "")}`
             }
             onClose={closeModal}
-            footer={<><AdminButton variant="secondary" onClick={closeModal}>Batal</AdminButton><AdminButton disabled={submitting} type="submit" form="native-academic-form">{submitting ? "Menyimpan..." : "Simpan"}</AdminButton></>}
+            footer={<><AdminButton variant="secondary" onClick={closeModal}>Batal</AdminButton><AdminButton disabled={submitting || isTahunDuplicate} type="submit" form="native-academic-form">{submitting ? "Menyimpan..." : "Simpan"}</AdminButton></>}
             size={formTab === "kelas-mahasiswa" && !isKelasMahasiswaDetail ? "sm" : "md"}
           >
             <form id="native-academic-form" className="space-y-4" onSubmit={submitForm}>
@@ -1406,7 +1394,42 @@ export default function AdminAcademicNativePage() {
               {formTab === "kurikulum" && <><FieldRow label="Tahun Kurikulum"><input className={inputClass} type="text" inputMode="numeric" pattern="[0-9]*" maxLength={4} value={form.tahun_kurikulum ?? ""} onChange={(e) => setField("tahun_kurikulum", e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="2024" required /></FieldRow><FieldRow label="Nama Kurikulum"><input className={inputClass} value={form.nama_kurikulum ?? ""} onChange={(e) => setField("nama_kurikulum", e.target.value)} placeholder="Kurikulum 2024" required /></FieldRow><FieldRow label="Status Kurikulum"><AdminSelect value={form.status ?? "inactive"} onChange={(v) => setField("status", v)}>{statusOptions.map((item) => option(item.value, item.label))}</AdminSelect></FieldRow></>}
               {formTab === "semester" && <FieldRow label="Semester"><input className={inputClass} type="number" min="1" value={form.semester ?? ""} onChange={(e) => setField("semester", e.target.value)} required /></FieldRow>}
               {formTab === "kelas" && <FieldRow label="Kelas/Rombel"><input className={inputClass} value={form.kelas ?? ""} onChange={(e) => setField("kelas", e.target.value)} placeholder="A" required /></FieldRow>}
-              {formTab === "mata-kuliah" && <><FieldRow label="Kurikulum">{!activeKurikulum && warningBox("Aktifkan kurikulum terlebih dahulu sebelum menambahkan mata kuliah.")}<AdminSelect value={form.id_kurikulum ?? ""} onChange={(v) => setField("id_kurikulum", v)} required><option value="">Pilih kurikulum</option>{kurikulum.map((i) => option(i.id, `${i.nama_kurikulum} (${i.tahun_kurikulum})${formatActiveSuffix(i.status)}`))}</AdminSelect></FieldRow><FieldRow label="Semester">{!semester.length && warningBox("Tambahkan master semester terlebih dahulu sebelum menambahkan mata kuliah.")}<AdminSelect value={form.id_semester ?? ""} onChange={(v) => setField("id_semester", v)} required><option value="">Pilih semester</option>{semester.map((i) => option(i.id, `Semester ${i.semester}`))}</AdminSelect></FieldRow><FieldRow label="Kode MK"><input className={inputClass} value={form.kode_mk ?? ""} onChange={(e) => setField("kode_mk", e.target.value)} required /></FieldRow><FieldRow label="Nama MK"><input className={inputClass} value={form.nama_mk ?? ""} onChange={(e) => setField("nama_mk", e.target.value)} required /></FieldRow><FieldRow label="SKS"><input className={inputClass} type="number" min="1" value={form.sks ?? ""} onChange={(e) => setField("sks", e.target.value)} required /></FieldRow><FieldRow label="Tipe"><AdminSelect value={form.tipe ?? "praktikum"} onChange={(v) => setField("tipe", v)}>{tipeOptions.map((v) => option(v.value, v.label))}</AdminSelect></FieldRow></>}
+              {formTab === "mata-kuliah" && (
+                <>
+                  <FieldRow label="Kurikulum">
+                    {!activeKurikulum && warningBox("Aktifkan kurikulum terlebih dahulu sebelum menambahkan mata kuliah.")}
+                    <AdminSelect value={form.id_kurikulum ?? ""} onChange={(v) => setField("id_kurikulum", v)} required>
+                      <option value="">Pilih kurikulum</option>
+                      {kurikulum.map((i) => option(i.id, `${i.nama_kurikulum} (${i.tahun_kurikulum})${formatActiveSuffix(i.status)}`))}
+                    </AdminSelect>
+                  </FieldRow>
+                  <FieldRow label="Semester">
+                    {!semester.length && warningBox("Tambahkan master semester terlebih dahulu sebelum menambahkan mata kuliah.")}
+                    <AdminSelect value={form.id_semester ?? ""} onChange={(v) => setField("id_semester", v)} required>
+                      <option value="">Pilih semester</option>
+                      {semester.map((i) => option(i.id, `Semester ${i.semester}`))}
+                    </AdminSelect>
+                  </FieldRow>
+                  <FieldRow label="Kode MK">
+                    <input className={inputClass} value={form.kode_mk ?? ""} onChange={(e) => setField("kode_mk", e.target.value)} required />
+                  </FieldRow>
+                  <FieldRow label="Nama MK">
+                    <input className={inputClass} value={form.nama_mk ?? ""} onChange={(e) => setField("nama_mk", e.target.value)} required />
+                  </FieldRow>
+                  <FieldRow label="SKS">
+                    <input
+                      className={inputClass}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={form.sks ?? ""}
+                      onChange={(e) => setField("sks", e.target.value.replace(/\D/g, ""))}
+                      placeholder="Input SKS"
+                      required
+                    />
+                  </FieldRow>
+                </>
+              )}
               {formTab === "kelas-mahasiswa" && (
                 <>
                   {isKelasMahasiswaDetail ? (
@@ -1526,7 +1549,7 @@ export default function AdminAcademicNativePage() {
                   <dt className="text-gray-500">Kelas</dt><dd>{detail.kelas}</dd>
                   <dt className="text-gray-500">Nama Kelas</dt><dd>{detail.nama_kelas}</dd>
                   <dt className="text-gray-500">Status</dt><dd>{statusBadge(detail.status)}</dd>
-                  <dt className="text-gray-500">Jobsheet Rencana</dt><dd>{detail.jumlah_jobsheet_rencana ?? detail.jumlahJobsheetRencana ?? 1}</dd>
+                  <dt className="text-gray-500">Jumlah Jobsheet</dt><dd>{detail.jumlah_jobsheet_rencana ?? detail.jumlahJobsheetRencana ?? 0}</dd>
                   <dt className="text-gray-500">Jobsheet Dibuat</dt><dd>{detail.jumlah_jobsheet_dibuat ?? detail.jumlahJobsheetDibuat ?? 0}</dd>
                   <dt className="text-gray-500">Jobsheet Publish</dt><dd>{detail.jumlah_jobsheet_publish ?? detail.jumlahJobsheetPublish ?? 0}</dd>
                   <dt className="text-gray-500">Dosen</dt><dd>{detailPengampu.map((item) => item.nama_dosen ?? item.fullname ?? item.id_dosen).join(", ") || "-"}</dd>
@@ -1579,137 +1602,403 @@ export default function AdminAcademicNativePage() {
             />
           )
         })()}
+
+        {activateTarget && (
+          <AdminConfirmModal
+            title="Konfirmasi Aktivasi Tahun Semester"
+            message={
+              <div className="space-y-3 text-left">
+                <p className="font-semibold text-gray-900">
+                  Anda akan mengaktifkan periode akademik: <span className="text-blue-600">{activateTarget.label}</span>
+                </p>
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  ⚠️ Mengaktifkan tahun semester ini akan berdampak pada seluruh platform. Periode akademik aktif saat ini akan dinonaktifkan secara otomatis.
+                </div>
+                {submitting ? (
+                  <div className="flex items-center justify-center gap-2 py-3 text-sm font-medium text-blue-600">
+                    <span className="inline-block h-4 w-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+                    Sedang mengaktifkan tahun semester...
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">
+                    Apakah Anda yakin ingin mengaktifkan tahun semester ini?
+                  </p>
+                )}
+              </div>
+            }
+            confirmLabel={submitting ? "Mengaktifkan..." : "Ya, Aktifkan"}
+            variant="primary"
+            loading={submitting}
+            onCancel={() => {
+              if (!submitting) setActivateTarget(null)
+            }}
+            onConfirm={async () => {
+              setSubmitting(true)
+              setError("")
+              try {
+                if (activateTarget.pendingForm) {
+                  const formToSubmit = activateTarget.pendingForm
+                  const id = activateTarget.id
+                  const tahun_semester = validateTahunSemesterForm(formToSubmit, tahunSemester, id)
+                  if (id) {
+                    await academicDataApi.updateTahunSemester(id, { tahun_semester })
+                    await academicDataApi.activateTahunSemester(id)
+                  } else {
+                    const created = await academicDataApi.createTahunSemester({ tahun_semester, status: "inactive" })
+                    if (created.id) await academicDataApi.activateTahunSemester(created.id)
+                  }
+                  closeModal()
+                } else if (activateTarget.id) {
+                  await academicDataApi.activateTahunSemester(activateTarget.id)
+                }
+                setActivateTarget(null)
+                await loadData()
+                toast.success("Tahun semester berhasil diaktifkan di seluruh platform.")
+              } catch (err) {
+                console.error("[Aktivasi Gagal] Tahun Semester:", err)
+                const msg = err instanceof Error ? err.message : "Gagal mengaktifkan tahun semester."
+                toast.error(msg)
+              } finally {
+                setSubmitting(false)
+              }
+            }}
+          />
+        )}
       </>
     )
   }
 
-  function renderPromotionModals() {
-    const selectedStudents = activePromotionStudents.filter((student) => selectedPromotionIds.includes(student.id_mahasiswa))
+  function renderInlinePromotionModals() {
     const closeWizard = () => {
       if (submittingPromotion) return
       setIsPromotionWizardOpen(false)
-      setIsPromotionConfirmOpen(false)
       setPromotionSubmitError("")
+      setCheckedSourceStudentIds([])
+      setPromotedStudentsMap({})
     }
+
+    const sourceGroup = groupedKelasMahasiswa.find((g) => g.id === promotionSourceKsId) ?? null
+    const sourceSemesterNum = sourceGroup ? Number(sourceGroup.semester_num) : 0
+
+    const sourceStudents = sourceGroup
+      ? scopedKelasMahasiswa.filter(
+        (km) => km.id_semester === sourceGroup.id_semester && km.id_kelas === sourceGroup.id_kelas
+      )
+      : []
+
+    const availableSourceStudents = sourceStudents.filter((s) => !promotedStudentsMap[s.id_mahasiswa])
+
+    const targetSemesterNum = sourceSemesterNum + 1
+    const validTargetClasses = kelasSemester.filter((ks) => Number(ks.semester) === targetSemesterNum)
+
+    const isAllSourceChecked =
+      availableSourceStudents.length > 0 &&
+      availableSourceStudents.every((s) => checkedSourceStudentIds.includes(s.id_mahasiswa))
+
     return (
       <>
         {isPromotionWizardOpen && (
           <AdminModal
-            title="Kenaikan Semester Mahasiswa"
+            title="Proses Kenaikan Semester Mahasiswa"
             size="lg"
             onClose={closeWizard}
             footer={
               <>
-                <AdminButton variant="secondary" onClick={closeWizard} disabled={submittingPromotion}>Batal</AdminButton>
-                <AdminButton id="promotion-process-button" onClick={handlePromotionSubmit} disabled={submittingPromotion || !selectedPromotionIds.length}>
-                  Proses Kenaikan Semester
+                <AdminButton variant="secondary" onClick={closeWizard} disabled={submittingPromotion}>
+                  Batal
+                </AdminButton>
+                <AdminButton
+                  onClick={async () => {
+                    const transitions = Object.entries(promotedStudentsMap).map(([studentId, item]) => ({
+                      studentId,
+                      targetKelasSemesterId: item.targetKsId,
+                    }))
+                    if (!transitions.length || !promotionSourceKsId) {
+                      toast.error("Belum ada mahasiswa yang dipindahkan ke Kolom Tujuan.")
+                      return
+                    }
+
+                    setSubmittingPromotion(true)
+                    setPromotionSubmitError("")
+                    try {
+                      await academicDataApi.transitionStudents({
+                        sourceKelasSemesterId: promotionSourceKsId,
+                        transitions,
+                      })
+                      setIsPromotionWizardOpen(false)
+                      setPromotedStudentsMap({})
+                      setCheckedSourceStudentIds([])
+                      await loadData()
+                      toast.success(`${transitions.length} mahasiswa berhasil dinaikkan semester!`)
+                    } catch (err) {
+                      console.error("[Kenaikan Semester Gagal]:", err)
+                      const msg = err instanceof Error ? err.message : "Gagal memproses kenaikan semester."
+                      setPromotionSubmitError(msg)
+                      toast.error(msg)
+                    } finally {
+                      setSubmittingPromotion(false)
+                    }
+                  }}
+                  disabled={submittingPromotion || Object.keys(promotedStudentsMap).length === 0}
+                >
+                  {submittingPromotion && <Loader2 size={16} className="animate-spin" />}
+                  {submittingPromotion ? "Memproses Kenaikan..." : "Simpan & Finalisasi Kenaikan Semester"}
                 </AdminButton>
               </>
             }
           >
             <div className="space-y-4">
-              <div className="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
-                <p className="font-medium text-gray-900">{selectedPromotionIds.length} dari {activePromotionStudents.length} mahasiswa aktif dipilih.</p>
-                <div className="flex gap-2">
-                  <AdminButton variant="secondary" onClick={() => setSelectedPromotionIds(activePromotionStudents.map((student) => student.id_mahasiswa))}>
-                    Pilih Semua
-                  </AdminButton>
-                  <AdminButton variant="secondary" onClick={() => setSelectedPromotionIds([])}>
-                    Kosongkan
+              {promotionSubmitError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {promotionSubmitError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-start">
+                {/* KOLOM 1: KELAS ASAL & DAFTAR MAHASISWA */}
+                <div className="flex flex-col rounded-lg border border-gray-200 bg-white p-4 space-y-3 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                    <div>
+                      <h3 className="font-semibold text-gray-900 text-sm">1. Kelas Asal</h3>
+                      <p className="text-xs text-gray-500">Pilih kelas & mahasiswa yang akan dinaikkan</p>
+                    </div>
+                    {sourceGroup && (
+                      <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                        Semester {sourceGroup.semester_num}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Dropdown Kelas Asal */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Pilih Kelas / Rombel Asal</label>
+                    <AdminSelect
+                      value={promotionSourceKsId}
+                      onChange={(v) => {
+                        setPromotionSourceKsId(v)
+                        setCheckedSourceStudentIds([])
+                        setPromotedStudentsMap({})
+
+                        const targetGroup = groupedKelasMahasiswa.find((g) => g.id === v)
+                        const tSemNum = targetGroup ? Number(targetGroup.semester_num) + 1 : 0
+                        const tClass = kelasSemester.find((ks) => Number(ks.semester) === tSemNum)
+                        setPromotionTargetKsId(tClass?.id ?? "")
+                      }}
+                    >
+                      <option value="">-- Pilih Kelas Asal --</option>
+                      {groupedKelasMahasiswa.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {formatKelasMahasiswaName({ semester_num: g.semester_num, kelas_name: g.kelas_name })} (Semester {g.semester_num})
+                        </option>
+                      ))}
+                    </AdminSelect>
+                  </div>
+
+                  {/* Toolbar & Select All */}
+                  {sourceGroup && availableSourceStudents.length > 0 && (
+                    <div className="flex items-center justify-between bg-gray-50 p-2.5 rounded-md border border-gray-200 text-xs">
+                      <label className="inline-flex items-center gap-2 cursor-pointer font-medium text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={isAllSourceChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setCheckedSourceStudentIds(availableSourceStudents.map((s) => s.id_mahasiswa))
+                            } else {
+                              setCheckedSourceStudentIds([])
+                            }
+                          }}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span>Pilih Semua ({availableSourceStudents.length})</span>
+                      </label>
+                      <span className="text-blue-600 font-semibold">{checkedSourceStudentIds.length} dipilih</span>
+                    </div>
+                  )}
+
+                  {/* Student List Box (Column 1) */}
+                  <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-md divide-y divide-gray-100 bg-white">
+                    {!promotionSourceKsId ? (
+                      <p className="p-6 text-center text-xs text-gray-500">Pilih kelas asal terlebih dahulu.</p>
+                    ) : !availableSourceStudents.length ? (
+                      <p className="p-6 text-center text-xs text-gray-500">
+                        {sourceStudents.length === 0
+                          ? "Belum ada mahasiswa di kelas ini."
+                          : "Seluruh mahasiswa telah dipindahkan ke Kolom Tujuan."}
+                      </p>
+                    ) : (
+                      availableSourceStudents.map((student) => {
+                        const isChecked = checkedSourceStudentIds.includes(student.id_mahasiswa)
+                        return (
+                          <label
+                            key={student.id_mahasiswa}
+                            className={`flex items-center justify-between p-2.5 cursor-pointer text-xs transition-colors hover:bg-blue-50/50 ${isChecked ? "bg-blue-50/70 font-medium" : ""}`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setCheckedSourceStudentIds((prev) => [...prev, student.id_mahasiswa])
+                                  } else {
+                                    setCheckedSourceStudentIds((prev) => prev.filter((id) => id !== student.id_mahasiswa))
+                                  }
+                                }}
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              />
+                              <div>
+                                <p className="font-semibold text-gray-900">{student.fullname ?? student.id_mahasiswa}</p>
+                                <p className="text-[11px] text-gray-500 font-mono">NIM: {student.nim ?? "-"}</p>
+                              </div>
+                            </div>
+                            <span className="rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700 border border-green-200">
+                              Aktif
+                            </span>
+                          </label>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* TOMBOL AKSI TENGAH: NAIKKAN TO COLUMN 2 */}
+                <div className="flex flex-col items-center justify-center gap-2 self-center py-4 md:py-16">
+                  <AdminButton
+                    variant="primary"
+                    className="w-full md:w-auto px-3.5 py-2 flex items-center justify-center gap-1.5 shadow-sm text-xs font-semibold"
+                    disabled={checkedSourceStudentIds.length === 0 || !promotionTargetKsId}
+                    onClick={() => {
+                      if (!promotionTargetKsId || !checkedSourceStudentIds.length) return
+                      const targetKs = kelasSemester.find((ks) => ks.id === promotionTargetKsId)
+                      const targetSemObj = semester.find((s) => s.id === targetKs?.id_semester)
+                      const targetKlsObj = kelas.find((k) => k.id === targetKs?.id_kelas)
+                      const targetLabel = `Semester ${targetSemObj?.semester ?? ""} Kelas ${targetKlsObj?.kelas ?? ""}`
+
+                      const newPromoted = { ...promotedStudentsMap }
+                      checkedSourceStudentIds.forEach((studentId) => {
+                        const student = sourceStudents.find((s) => s.id_mahasiswa === studentId)
+                        if (student) {
+                          newPromoted[studentId] = {
+                            student,
+                            targetKsId: promotionTargetKsId,
+                            targetLabel,
+                          }
+                        }
+                      })
+                      setPromotedStudentsMap(newPromoted)
+                      setCheckedSourceStudentIds([])
+                    }}
+                  >
+                    <span>Naikkan ({checkedSourceStudentIds.length})</span>
+                    <ArrowRight size={14} />
                   </AdminButton>
                 </div>
+
+                {/* KOLOM 2: KELAS TUJUAN & MAHASISWA NAIK SEMESTER */}
+                <div className="flex flex-col rounded-lg border border-gray-200 bg-white p-4 space-y-3 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                    <div>
+                      <h3 className="font-semibold text-gray-900 text-sm">2. Kelas Tujuan</h3>
+                      <p className="text-xs text-gray-500">Mahasiswa yang akan dinaikkan semester</p>
+                    </div>
+                    {sourceGroup && (
+                      <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-700/10">
+                        Wajib Semester {targetSemesterNum}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Dropdown Kelas Tujuan (RULE: Strict targetSemesterNum) */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Pilih Kelas Tujuan (Hanya Semester {sourceGroup ? targetSemesterNum : "?"})
+                    </label>
+                    <AdminSelect
+                      value={promotionTargetKsId}
+                      onChange={setPromotionTargetKsId}
+                      disabled={!sourceGroup || !validTargetClasses.length}
+                    >
+                      <option value="">
+                        {!sourceGroup
+                          ? "-- Pilih Kelas Asal Terlebih Dahulu --"
+                          : validTargetClasses.length
+                            ? `-- Pilih Kelas Tujuan (Semester ${targetSemesterNum}) --`
+                            : `Belum ada kelas untuk Semester ${targetSemesterNum}`}
+                      </option>
+                      {validTargetClasses.map((ks) => {
+                        const semObj = semester.find((s) => s.id === ks.id_semester)
+                        const klsObj = kelas.find((k) => k.id === ks.id_kelas)
+                        return (
+                          <option key={ks.id} value={ks.id}>
+                            Semester {semObj?.semester} Kelas {klsObj?.kelas}
+                          </option>
+                        )
+                      })}
+                    </AdminSelect>
+                    {sourceGroup && !validTargetClasses.length && (
+                      <p className="mt-1 text-xs text-amber-800 bg-amber-50 p-2 rounded border border-amber-200">
+                        ⚠️ Belum ada Kelas Mahasiswa (Rombel) untuk Semester {targetSemesterNum}. Silakan buat terlebih dahulu pada tab Kelas Mahasiswa.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Counter & Kosongkan Kolom 2 */}
+                  {Object.keys(promotedStudentsMap).length > 0 && (
+                    <div className="flex items-center justify-between bg-emerald-50 p-2.5 rounded-md border border-emerald-200 text-xs">
+                      <span className="text-emerald-700 font-semibold">{Object.keys(promotedStudentsMap).length} mahasiswa siap dinaikkan</span>
+                      <button
+                        type="button"
+                        className="text-red-600 hover:text-red-800 font-medium underline text-[11px]"
+                        onClick={() => setPromotedStudentsMap({})}
+                      >
+                        Kosongkan Kolom
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Student List Box (Column 2) */}
+                  <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-md divide-y divide-gray-100 bg-white">
+                    {!Object.keys(promotedStudentsMap).length ? (
+                      <p className="p-6 text-center text-xs text-gray-500">
+                        Belum ada mahasiswa dipindahkan ke kolom ini. Pilih mahasiswa di Kolom 1 lalu klik &quot;Naikkan →&quot;.
+                      </p>
+                    ) : (
+                      Object.entries(promotedStudentsMap).map(([studentId, item]) => (
+                        <div key={studentId} className="flex items-center justify-between p-2.5 text-xs hover:bg-gray-50">
+                          <div>
+                            <p className="font-semibold text-gray-900">{item.student.fullname ?? item.student.id_mahasiswa}</p>
+                            <p className="text-[11px] text-gray-500 font-mono">NIM: {item.student.nim ?? "-"}</p>
+                            <span className="inline-block mt-1 text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-medium">
+                              {item.targetLabel}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                            title="Batalkan mahasiswa ini"
+                            onClick={() => {
+                              const newPromoted = { ...promotedStudentsMap }
+                              delete newPromoted[studentId]
+                              setPromotedStudentsMap(newPromoted)
+                            }}
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="overflow-x-auto rounded-md border border-gray-200">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    <tr>
-                      <th className="px-4 py-3">Mahasiswa</th>
-                      <th className="px-4 py-3">Semester Saat Ini</th>
-                      <th className="px-4 py-3">Semester Tujuan</th>
-                      <th className="px-4 py-3">Kelas Asal</th>
-                      <th className="px-4 py-3">Target Kelas</th>
-                      <th className="px-4 py-3">Pilih</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
-                    {activePromotionStudents.map((student) => {
-                      const currentSemester = Number(student.student_semester ?? student.semester)
-                      const targetOptions = getPromotionTargetOptions(student)
-                      const target = promotionTargets[student.id_mahasiswa]?.targetKelasSemesterId ?? ""
-                      return (
-                        <tr key={student.id_mahasiswa}>
-                          <td className="px-4 py-3">
-                            <p className="font-medium text-gray-900">{student.fullname ?? student.id_mahasiswa}</p>
-                            <p className="text-xs text-gray-500">{student.nim ?? "-"}</p>
-                          </td>
-                          <td className="px-4 py-3">{currentSemester}</td>
-                          <td className="px-4 py-3">{currentSemester + 1}</td>
-                          <td className="px-4 py-3">{student.kelas ?? currentKelasSemester?.kelas ?? "-"}</td>
-                          <td className="px-4 py-3">
-                            <AdminSelect
-                              value={target}
-                              onChange={(value) => updatePromotionTarget(student.id_mahasiswa, { targetKelasSemesterId: value })}
-                              disabled={!targetOptions.length}
-                            >
-                              <option value="">Pilih kelas tujuan</option>
-                              {targetOptions.map((item) => option(item.id, `Semester ${item.semester} Kelas ${item.kelas}`))}
-                            </AdminSelect>
-                            {!targetOptions.length && (
-                              <p className="mt-1 text-xs text-red-600">Kelas tujuan pada semester berikutnya belum tersedia. Silakan buat kelas tujuan terlebih dahulu.</p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="checkbox"
-                              checked={selectedPromotionIds.includes(student.id_mahasiswa)}
-                              onChange={(event) => togglePromotionStudent(student.id_mahasiswa, event.target.checked)}
-                              disabled={!targetOptions.length}
-                            />
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              {promotionSubmitError && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{promotionSubmitError}</div>
-              )}
-            </div>
-          </AdminModal>
-        )}
-        {isPromotionConfirmOpen && (
-          <AdminModal
-            title="Konfirmasi Kenaikan Semester"
-            onClose={() => {
-              if (submittingPromotion) return
-              setIsPromotionConfirmOpen(false)
-            }}
-            footer={
-              <>
-                <AdminButton variant="secondary" onClick={() => setIsPromotionConfirmOpen(false)} disabled={submittingPromotion}>Batal</AdminButton>
-                <AdminButton onClick={processPromotion} disabled={submittingPromotion}>
-                  {submittingPromotion && <Loader2 size={16} className="animate-spin" />}
-                  {submittingPromotion ? "Memproses..." : "Ya, Proses"}
-                </AdminButton>
-              </>
-            }
-          >
-            <div className="space-y-3 text-sm text-gray-700">
-              <div className="flex items-start gap-3">
-                <div className="rounded-full bg-amber-100 p-2 text-amber-700"><AlertTriangle size={20} /></div>
-                <p className="font-semibold text-gray-900">Anda akan menaikkan {selectedStudents.length} mahasiswa aktif tepat satu semester.</p>
-              </div>
-              <p>Semester profil mahasiswa diperbarui dan relasi kelas lama tetap disimpan sebagai riwayat.</p>
-              {promotionSubmitError && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-700">{promotionSubmitError}</div>
-              )}
             </div>
           </AdminModal>
         )}
       </>
     )
   }
+
+  void renderInlinePromotionModals
 
   function renderKelasMahasiswaDetail() {
     if (loading) {
@@ -1735,15 +2024,27 @@ export default function AdminAcademicNativePage() {
     const displayClassName = formatKelasMahasiswaName({ semester_num: semName, kelas_name: klsName })
     const headerTitle = `${displayClassName} — ${detailTahunSemester.tahun_semester}`
 
+    const activeTsBadge = detailTahunSemester
+      ? (
+        <div className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm">
+          <span className="inline-block h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+          {detailTahunSemester.tahun_semester}
+        </div>
+      )
+      : undefined
+
     const breadcrumbItems = [
-      { label: "Data Akademik", to: "/admin/academic/tahun-semester" },
-      { label: "Tahun Semester", to: "/admin/academic/tahun-semester" },
-      { label: detailTahunSemester?.tahun_semester || "Detail Tahun Semester", to: `/admin/academic/tahun-semester/${tahunSemesterId}` },
+      { label: "Data Akademik", to: "/admin/academic/kelas-mahasiswa" },
+      { label: "Kelas Mahasiswa", to: "/admin/academic/kelas-mahasiswa" },
       { label: displayClassName || "Kelas Mahasiswa" },
     ]
 
     return (
-      <AdminLayout breadcrumbItems={breadcrumbItems}>
+      <AdminLayout
+        breadcrumbItems={breadcrumbItems}
+        backTo="/admin/academic/kelas-mahasiswa"
+        rightContent={activeTsBadge}
+      >
         <div className="space-y-6">
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">{headerTitle}</h1>
@@ -1760,22 +2061,42 @@ export default function AdminAcademicNativePage() {
               </div>
               <div className="flex flex-col gap-3 md:flex-row md:items-center">
                 <AdminSearchInput value={detailKelasMahasiswaSearch} onChange={setDetailKelasMahasiswaSearch} placeholder="Cari NIM atau nama" />
-                <AdminButton variant="secondary" onClick={openPromotionWizard} disabled={!activePromotionStudents.length || !currentKelasSemester}>
+                <AdminButton
+                  variant="secondary"
+                  onClick={() => {
+                    if (!currentKelasSemester) return
+                    setPromotionSourceKsId(currentKelasSemester.id)
+                    setCheckedSourceStudentIds([])
+                    setPromotedStudentsMap({})
+                    const targetSemNum = Number(currentKelasSemester.semester) + 1
+                    const targetClass = kelasSemester.find((ks) => Number(ks.semester) === targetSemNum)
+                    setPromotionTargetKsId(targetClass?.id ?? "")
+                    setIsPromotionWizardOpen(true)
+                  }}
+                  disabled={!activePromotionStudents.length || !currentKelasSemester}
+                >
                   Kenaikan Semester
                 </AdminButton>
                 <AdminButton onClick={() => openModal("kelas-mahasiswa")} disabled={Boolean(getPrerequisiteWarning("kelas-mahasiswa"))}>
                   <Plus size={16} />
-                  Assign Mahasiswa
+                  Tempatkan Mahasiswa
                 </AdminButton>
               </div>
             </div>
             <div className="p-4">
               {filteredClassStudents.length ? (
-                <AdminTable headers={["NIM", "Nama", "Aksi"]}>
+                <AdminTable
+                  variant="medium"
+                  headers={[
+                    { text: "NIM", align: "left" },
+                    { text: "Nama Mahasiswa", align: "left" },
+                    { text: "Aksi", align: "right" },
+                  ]}
+                >
                   {filteredClassStudents.map((item) => (
-                    <tr key={item.id}>
-                      <td className="px-4 py-3 font-mono">{item.nim ?? "-"}</td>
-                      <td className="px-4 py-3">{item.fullname ?? item.id_mahasiswa}</td>
+                    <tr key={item.id} className="hover:bg-blue-50/20 transition-colors">
+                      <td className="px-4 py-3 font-mono text-xs text-gray-600 text-left">{item.nim ?? "-"}</td>
+                      <td className="px-4 py-3 font-semibold text-left text-gray-900">{item.fullname ?? item.id_mahasiswa}</td>
                       {actionCell("kelas-mahasiswa", item, item.fullname ?? item.id_mahasiswa)}
                     </tr>
                   ))}
@@ -1882,9 +2203,20 @@ export default function AdminAcademicNativePage() {
                 </div>
               </div>
               <div className="p-4">
-                {groupedKelasMahasiswa.length ? renderKelasMahasiswa() : (
-                  <EmptyState title="Belum ada kelas mahasiswa untuk tahun semester ini." />
-                )}
+                <KelasMahasiswaTab
+                  groupedData={groupedKelasMahasiswa}
+                  page={1}
+                  limit={100}
+                  submitting={submitting}
+                  statusBadgeIndo={statusBadgeIndo}
+                  onOpenDetail={(g) =>
+                    navigate(
+                      `/admin/academic/tahun-semester/${g.id_tahun_semester}/kelas-mahasiswa/${g.id_semester}/${g.id_kelas}`
+                    )
+                  }
+                  onOpenModal={openModal}
+                  onSetDeleteTarget={setDeleteTarget}
+                />
               </div>
             </AdminPanel>
           )}
@@ -1906,7 +2238,19 @@ export default function AdminAcademicNativePage() {
                     </AdminButton>
                   </div>
                 </div>
-                <div className="p-4">{renderKelasPraktikum(filteredKelasPraktikum, true)}</div>
+                <div className="p-4">
+                  <KelasPraktikumTab
+                    data={filteredKelasPraktikum}
+                    pengampu={pengampu}
+                    page={1}
+                    limit={100}
+                    submitting={submitting}
+                    isDetailView={true}
+                    onOpenDetail={openDetail}
+                    onOpenModal={openModal}
+                    onSetDeleteTarget={setDeleteTarget}
+                  />
+                </div>
               </AdminPanel>
             </div>
           )}
@@ -1934,179 +2278,71 @@ export default function AdminAcademicNativePage() {
     { label: activeTabMeta.title },
   ]
 
+  const showOperationalContext = activeTab === "kelas-mahasiswa" || activeTab === "kelas-praktikum" || activeTab === "kenaikan-semester"
+  const activeTsBadge = showOperationalContext && activeTahunSemester
+    ? (
+      <div className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm">
+        <span className="inline-block h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+        {activeTahunSemester.tahun_semester}
+      </div>
+    )
+    : undefined
+
   return (
-    <AdminLayout breadcrumbItems={mainBreadcrumbItems}>
+    <AdminLayout breadcrumbItems={mainBreadcrumbItems} rightContent={activeTsBadge}>
       <AdminSectionHeader
         eyebrow="Data Akademik"
         title={activeTabMeta.title}
         description={activeTabMeta.description}
         actions={
           <>
-            {showOperationalFilter && (
-              <AdminSelect
-                label="Tahun Semester"
-                value={selectedOperationalTahunSemester?.id ?? ""}
-                onChange={setOperationalTahunSemesterId}
-                className="w-full md:w-56"
-              >
-                <option value="">Pilih tahun semester</option>
-                {tahunSemester.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.tahun_semester}{formatActiveSuffix(item.status)}
-                  </option>
-                ))}
-              </AdminSelect>
-            )}
             <AdminSearchInput
               value={keyword}
               onChange={setKeyword}
               placeholder={searchPlaceholder[activeTab]}
             />
-            <AdminButton disabled={addDisabled} title={currentWarning || "Tambah data"} onClick={() => openModal(activeTab)}>
-              <Plus size={16} />
-              {activeTabMeta.addLabel}
-            </AdminButton>
+            {activeTab !== "kenaikan-semester" && (
+              <AdminButton
+                disabled={addDisabled}
+                title={currentWarning || "Tambah data"}
+                onClick={() => {
+                  openModal(activeTab)
+                }}
+              >
+                <Plus size={16} />
+                {activeTabMeta.addLabel}
+              </AdminButton>
+            )}
           </>
         }
       />
       <div className="space-y-6">
         {currentWarning && warningBox(currentWarning)}
 
-        <AdminPanel>
-          <div className="p-4">
-            {renderTable()}
-            {(() => {
-              const totalItems = activeTab === "kelas-mahasiswa" ? groupedKelasMahasiswa.length : filtered.length
-              return renderPagination(page, Math.ceil(totalItems / limit), setPage, totalItems)
-            })()}
-          </div>
-        </AdminPanel>
+        {(() => {
+          const activeTabVariant: "compact" | "medium" | "full" =
+            activeTab === "semester" || activeTab === "kelas"
+              ? "compact"
+              : activeTab === "tahun" || activeTab === "kurikulum"
+                ? "medium"
+                : "full"
+
+          return (
+            <AdminPanel variant={activeTabVariant}>
+              <div className="p-4">
+                {renderTable()}
+                {(() => {
+                  const totalItems = (activeTab === "kelas-mahasiswa" || activeTab === "kenaikan-semester") ? groupedKelasMahasiswa.length : filtered.length
+                  return renderPagination(page, Math.ceil(totalItems / limit), setPage, totalItems)
+                })()}
+              </div>
+            </AdminPanel>
+          )
+        })()}
       </div>
 
-      {modal && (
-        <AdminModal
-          title={
-            formTab === "kelas-mahasiswa" && isKelasMahasiswaDetail
-              ? "Assign Mahasiswa"
-              : `${modal.item ? "Edit" : "Tambah"} ${allTabs.find((item) => item.id === formTab)?.label.replace(/^\d+\.\s*/, "")}`
-          }
-          onClose={closeModal}
-          footer={<><AdminButton variant="secondary" onClick={closeModal}>Batal</AdminButton><AdminButton disabled={submitting} type="submit" form="native-academic-form">{submitting ? "Menyimpan..." : "Simpan"}</AdminButton></>}
-          size={formTab === "kelas-mahasiswa" && !isKelasMahasiswaDetail ? "sm" : "md"}
-        >
-          <form id="native-academic-form" className="space-y-4" onSubmit={submitForm}>
-            {formTab === "tahun" && renderTahunSemesterFields()}
-            {formTab === "kurikulum" && <><FieldRow label="Tahun Kurikulum"><input className={inputClass} type="text" inputMode="numeric" pattern="[0-9]*" maxLength={4} value={form.tahun_kurikulum ?? ""} onChange={(e) => setField("tahun_kurikulum", e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="2024" required /></FieldRow><FieldRow label="Nama Kurikulum"><input className={inputClass} value={form.nama_kurikulum ?? ""} onChange={(e) => setField("nama_kurikulum", e.target.value)} placeholder="Kurikulum 2024" required /></FieldRow><FieldRow label="Status Kurikulum"><AdminSelect value={form.status ?? "inactive"} onChange={(v) => setField("status", v)}>{statusOptions.map((item) => option(item.value, item.label))}</AdminSelect></FieldRow></>}
-            {formTab === "semester" && <FieldRow label="Semester"><input className={inputClass} type="number" min="1" value={form.semester ?? ""} onChange={(e) => setField("semester", e.target.value)} required /></FieldRow>}
-            {formTab === "kelas" && <FieldRow label="Kelas/Rombel"><input className={inputClass} value={form.kelas ?? ""} onChange={(e) => setField("kelas", e.target.value)} placeholder="A" required /></FieldRow>}
-            {formTab === "mata-kuliah" && <><FieldRow label="Kurikulum">{!activeKurikulum && warningBox("Aktifkan kurikulum terlebih dahulu sebelum menambahkan mata kuliah.")}<AdminSelect value={form.id_kurikulum ?? ""} onChange={(v) => setField("id_kurikulum", v)} required><option value="">Pilih kurikulum</option>{kurikulum.map((i) => option(i.id, `${i.nama_kurikulum} (${i.tahun_kurikulum})${formatActiveSuffix(i.status)}`))}</AdminSelect></FieldRow><FieldRow label="Semester">{!semester.length && warningBox("Tambahkan master semester terlebih dahulu sebelum menambahkan mata kuliah.")}<AdminSelect value={form.id_semester ?? ""} onChange={(v) => setField("id_semester", v)} required><option value="">Pilih semester</option>{semester.map((i) => option(i.id, `Semester ${i.semester}`))}</AdminSelect></FieldRow><FieldRow label="Kode MK"><input className={inputClass} value={form.kode_mk ?? ""} onChange={(e) => setField("kode_mk", e.target.value)} required /></FieldRow><FieldRow label="Nama MK"><input className={inputClass} value={form.nama_mk ?? ""} onChange={(e) => setField("nama_mk", e.target.value)} required /></FieldRow><FieldRow label="SKS"><input className={inputClass} type="number" min="1" value={form.sks ?? ""} onChange={(e) => setField("sks", e.target.value)} required /></FieldRow><FieldRow label="Tipe"><AdminSelect value={form.tipe ?? "praktikum"} onChange={(v) => setField("tipe", v)}>{tipeOptions.map((v) => option(v.value, v.label))}</AdminSelect></FieldRow></>}
-            {formTab === "kelas-mahasiswa" && (
-              <>
-                {isKelasMahasiswaDetail ? (
-                  <>
-                    {modal.item ? (
-                      <FieldRow label="Mahasiswa">
-                        <input
-                          className={`${inputClass} bg-gray-100 text-gray-700`}
-                          value={`${(modal.item as KelasMahasiswa).nim ?? "-"} - ${(modal.item as KelasMahasiswa).fullname ?? ""}`}
-                          readOnly
-                          disabled
-                        />
-                      </FieldRow>
-                    ) : (
-                      <>
-                        <FieldRow label="Cari Mahasiswa">
-                          <input
-                            className={inputClass}
-                            value={searchMahasiswa}
-                            onChange={(e) => setSearchMahasiswa(e.target.value)}
-                            placeholder="Cari NIM atau nama mahasiswa..."
-                          />
-                        </FieldRow>
-                        <div className="rounded-md border border-blue-100 bg-blue-50 p-2.5 text-xs text-blue-800">
-                          <label className="flex items-center gap-2 cursor-pointer font-medium">
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
-                              checked={isPindahan}
-                              onChange={(e) => setIsPindahan(e.target.checked)}
-                            />
-                            Tampilkan Mahasiswa Pindahan (Abaikan validasi kesesuaian semester)
-                          </label>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700">Daftar Mahasiswa</label>
-                          <div className="max-h-60 overflow-y-auto rounded-md border border-gray-200 p-2 space-y-1 bg-white">
-                            {filteredMahasiswa.length > 0 ? (
-                              filteredMahasiswa.map((student) => {
-                                const isChecked = selectedMahasiswaIds.includes(student.id)
-                                return (
-                                  <label
-                                    key={student.id}
-                                    className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-gray-50 cursor-pointer"
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                      checked={isChecked}
-                                      onChange={() => {
-                                        setSelectedMahasiswaIds((prev) => {
-                                          if (prev.includes(student.id)) {
-                                            return prev.filter((id) => id !== student.id)
-                                          } else {
-                                            return [...prev, student.id]
-                                          }
-                                        })
-                                      }}
-                                    />
-                                    <span className="text-gray-900 font-medium">
-                                      {student.nim ?? "-"} — {student.fullname}
-                                    </span>
-                                  </label>
-                                )
-                              })
-                            ) : (
-                              <div className="px-3 py-4 text-center text-sm text-gray-500">
-                                {students.filter((s) => !existingStudentIds.has(s.id)).length === 0
-                                  ? "Semua mahasiswa yang tersedia sudah terdaftar di kelas ini."
-                                  : "Tidak ada mahasiswa yang cocok."}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <FieldRow label="Semester">
-                      <AdminSelect
-                        value={form.id_semester ?? ""}
-                        onChange={(v) => setField("id_semester", v)}
-                        required
-                      >
-                        <option value="">Pilih semester</option>
-                        {filteredSemestersForModal.map((i) => option(i.id, `Semester ${i.semester}`))}
-                      </AdminSelect>
-                    </FieldRow>
-                    <FieldRow label="Kelas / Rombel">
-                      <AdminSelect
-                        value={form.id_kelas ?? ""}
-                        onChange={(v) => setField("id_kelas", v)}
-                        required
-                      >
-                        <option value="">Pilih kelas</option>
-                        {kelas.map((i) => option(i.id, i.kelas))}
-                      </AdminSelect>
-                    </FieldRow>
-                  </>
-                )}
-              </>
-            )}
-            {formTab === "kelas-praktikum" && renderKelasPraktikumFields()}
-          </form>
-        </AdminModal>
-      )}
+      {renderModals()}
+      {renderPromotionModals()}
 
       {detail && (
         <AdminModal
@@ -2130,7 +2366,7 @@ export default function AdminAcademicNativePage() {
                 <dt className="text-gray-500">Kelas</dt><dd>{detail.kelas}</dd>
                 <dt className="text-gray-500">Nama Kelas</dt><dd>{detail.nama_kelas}</dd>
                 <dt className="text-gray-500">Status</dt><dd>{statusBadge(detail.status)}</dd>
-                <dt className="text-gray-500">Jobsheet Rencana</dt><dd>{detail.jumlah_jobsheet_rencana ?? detail.jumlahJobsheetRencana ?? 1}</dd>
+                <dt className="text-gray-500">Jumlah Jobsheet</dt><dd>{detail.jumlah_jobsheet_rencana ?? detail.jumlahJobsheetRencana ?? 0}</dd>
                 <dt className="text-gray-500">Jobsheet Dibuat</dt><dd>{detail.jumlah_jobsheet_dibuat ?? detail.jumlahJobsheetDibuat ?? 0}</dd>
                 <dt className="text-gray-500">Jobsheet Publish</dt><dd>{detail.jumlah_jobsheet_publish ?? detail.jumlahJobsheetPublish ?? 0}</dd>
                 <dt className="text-gray-500">Dosen</dt><dd>{detailPengampu.map((item) => item.nama_dosen ?? item.fullname ?? item.id_dosen).join(", ") || "-"}</dd>
@@ -2191,6 +2427,67 @@ export default function AdminAcademicNativePage() {
           />
         )
       })()}
+      {activateTarget && (
+        <AdminConfirmModal
+          title="Konfirmasi Aktivasi Tahun Semester"
+          message={
+            <div className="space-y-3 text-left">
+              <p className="font-semibold text-gray-900">
+                Anda akan mengaktifkan periode akademik: <span className="text-blue-600">{activateTarget.label}</span>
+              </p>
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                ⚠️ Mengaktifkan tahun semester ini akan berdampak pada seluruh platform. Periode akademik aktif saat ini akan dinonaktifkan secara otomatis.
+              </div>
+              {submitting ? (
+                <div className="flex items-center justify-center gap-2 py-3 text-sm font-medium text-blue-600">
+                  <span className="inline-block h-4 w-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+                  Sedang mengaktifkan tahun semester...
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">
+                  Apakah Anda yakin ingin mengaktifkan tahun semester ini?
+                </p>
+              )}
+            </div>
+          }
+          confirmLabel={submitting ? "Mengaktifkan..." : "Ya, Aktifkan"}
+          variant="primary"
+          loading={submitting}
+          onCancel={() => {
+            if (!submitting) setActivateTarget(null)
+          }}
+          onConfirm={async () => {
+            setSubmitting(true)
+            setError("")
+            try {
+              if (activateTarget.pendingForm) {
+                const formToSubmit = activateTarget.pendingForm
+                const id = activateTarget.id
+                const tahun_semester = validateTahunSemesterForm(formToSubmit, tahunSemester, id)
+                if (id) {
+                  await academicDataApi.updateTahunSemester(id, { tahun_semester })
+                  await academicDataApi.activateTahunSemester(id)
+                } else {
+                  const created = await academicDataApi.createTahunSemester({ tahun_semester, status: "inactive" })
+                  if (created.id) await academicDataApi.activateTahunSemester(created.id)
+                }
+                closeModal()
+              } else if (activateTarget.id) {
+                await academicDataApi.activateTahunSemester(activateTarget.id)
+              }
+              setActivateTarget(null)
+              await loadData()
+              toast.success("Tahun semester berhasil diaktifkan di seluruh platform.")
+            } catch (err) {
+              console.error("[Aktivasi Gagal] Tahun Semester:", err)
+              const msg = err instanceof Error ? err.message : "Gagal mengaktifkan tahun semester."
+              toast.error(msg)
+            } finally {
+              setSubmitting(false)
+            }
+          }}
+        />
+      )}
     </AdminLayout>
   )
 }

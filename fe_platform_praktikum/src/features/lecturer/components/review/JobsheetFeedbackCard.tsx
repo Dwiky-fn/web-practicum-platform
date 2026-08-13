@@ -63,14 +63,14 @@ export default function JobsheetFeedbackCard({
       {/* Header */}
       <div className="bg-gray-50 border-b border-gray-100 px-5 py-4 flex justify-between items-center">
         <h3 className="font-semibold text-gray-800 text-sm md:text-base">
-          Feedback Keseluruhan Jobsheet
+          Catatan Dosen Keseluruhan Jobsheet
         </h3>
         {!readOnly && onOpenJobsheetEditor && (
           <button
             onClick={onOpenJobsheetEditor}
             className="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold py-1.5 px-3 rounded-lg border border-blue-100 transition"
           >
-            Tulis Feedback Jobsheet
+            Tulis Catatan Dosen Jobsheet
           </button>
         )}
       </div>
@@ -160,7 +160,7 @@ export default function JobsheetFeedbackCard({
           </div>
         ) : !hasLecturerNote ? (
           <p className="text-sm text-gray-400 italic text-center py-4">
-            Belum ada feedback keseluruhan untuk laporan ini.
+            Belum ada catatan dosen keseluruhan untuk laporan ini.
           </p>
         ) : null}
       </div>

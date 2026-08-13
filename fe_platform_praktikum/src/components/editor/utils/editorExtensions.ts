@@ -16,6 +16,7 @@ import { CustomImage } from "./CustomImage"
 import { FontSizeExtension } from "./fontSizeExtension"
 import { IndentExtension } from "./indentExtension"
 import { CustomOrderedList } from "./customOrderedList"
+import { CustomListItem } from "./customListItem"
 
 export type EditorRole = "DOSEN" | "MAHASISWA"
 export type EditorMode = "editor" | "viewer-theory" | "viewer-default"
@@ -31,8 +32,10 @@ export function getEditorExtensions(
     StarterKit.configure({
       codeBlock: false,
       orderedList: false,
+      listItem: false,
     }),
     CustomOrderedList,
+    CustomListItem,
     TextStyle,
     FontSizeExtension,
     IndentExtension,

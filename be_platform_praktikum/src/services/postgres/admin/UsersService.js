@@ -419,6 +419,21 @@ class AdminUsersService {
         );
 
         if (assignedClasses.rows.length) throw new Error('USER_HAS_CLASSES');
+        await client.query('DELETE FROM lecturer_profiles WHERE user_id = $1', [id]);
+      } else if (current.rows[0].role === 'MAHASISWA') {
+        const assignedClasses = await client.query(
+          'SELECT id FROM kelas_mhs WHERE id_mahasiswa = $1 LIMIT 1',
+          [id],
+        );
+        if (assignedClasses.rows.length) throw new Error('STUDENT_HAS_CLASSES');
+
+        const hasSubmissions = await client.query(
+          'SELECT id FROM task_submissions WHERE student_id = $1 LIMIT 1',
+          [id],
+        );
+        if (hasSubmissions.rows.length) throw new Error('STUDENT_HAS_SUBMISSIONS');
+
+        await client.query('DELETE FROM student_profiles WHERE user_id = $1', [id]);
       }
 
       await client.query('DELETE FROM users WHERE id = $1', [id]);

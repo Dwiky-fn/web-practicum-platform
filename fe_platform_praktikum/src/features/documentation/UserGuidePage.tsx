@@ -63,7 +63,7 @@ export default function UserGuidePage() {
               <strong>Filter Mata Kuliah:</strong> Gunakan dropdown di banner utama untuk memfilter data ringkasan berdasarkan mata kuliah aktif tertentu.
             </li>
             <li>
-              <strong>Tabel Progres Pembelajaran Kelas:</strong> Menampilkan pencapaian jobsheet terbit dibandingkan total rencana jobsheet 1 semester per kelas (misal: <em>3/3 Jobsheet 100% Selesai</em>). Klik tombol <strong>Detail</strong> pada baris kelas untuk berpindah langsung ke Halaman Detail Kelas.
+              <strong>Tabel Progres Pembelajaran Kelas:</strong> Menampilkan pencapaian jobsheet terbit dibandingkan total jumlah jobsheet 1 semester per kelas (misal: <em>3/3 Jobsheet 100% Selesai</em>). Klik tombol <strong>Detail</strong> pada baris kelas untuk berpindah langsung ke Halaman Detail Kelas.
             </li>
           </ul>
         </div>

@@ -184,7 +184,7 @@ export default function AccountSection({
             />
             <input
               type="password"
-              placeholder="Password saat ini"
+              placeholder="Kata Sandi saat ini"
               value={emailPassword}
               onChange={(event) => setEmailPassword(event.target.value)}
               className="mb-3 w-full rounded-lg border px-4 py-2"
@@ -212,36 +212,36 @@ export default function AccountSection({
 
         <section className="rounded-2xl bg-white p-8 shadow">
           <form id="change-password-form" onSubmit={handlePasswordSubmit}>
-            <h3 className="mb-4 font-semibold">Ubah Password</h3>
+            <h3 className="mb-4 font-semibold">Ubah Kata Sandi</h3>
             <input
               type="password"
-              placeholder="Password lama"
+              placeholder="Kata Sandi saat ini"
               value={oldPassword}
               onChange={(event) => setOldPassword(event.target.value)}
               className="mb-3 w-full rounded-lg border px-4 py-2"
             />
             <input
               type="password"
-              placeholder="Password baru"
+              placeholder="Kata Sandi baru"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className="mb-3 w-full rounded-lg border px-4 py-2"
             />
             <input
               type="password"
-              placeholder="Konfirmasi password"
+              placeholder="Konfirmasi Kata Sandi"
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
               className="mb-3 w-full rounded-lg border px-4 py-2"
             />
             {password && password !== confirmPassword && (
               <p className="mb-3 text-sm text-red-600">
-                Konfirmasi password belum sama.
+                Konfirmasi kata sandi belum sama.
               </p>
             )}
             {password && password.length < 8 && (
               <p className="mb-3 text-sm text-red-600">
-                Password baru minimal 8 karakter.
+                Kata sandi baru minimal 8 karakter.
               </p>
             )}
             <button
@@ -250,7 +250,7 @@ export default function AccountSection({
               disabled={passwordSaving || !canSavePassword}
               className="rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 disabled:bg-gray-300"
             >
-              {passwordSaving ? "Menyimpan..." : "Simpan Password"}
+              {passwordSaving ? "Menyimpan..." : "Simpan Kata Sandi"}
             </button>
           </form>
         </section>

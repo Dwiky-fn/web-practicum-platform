@@ -8,6 +8,8 @@ import type { JobsheetSubmission } from "../../../../../../services/submission/t
 import type { AcademicScope } from "../../../../../../services/academicScope"
 import SidebarGroup from "./SidebarGroup"
 import SidebarHeader from "./SidebarHeader"
+import { getIncompletePracticeMessage } from "../../utils/checkPracticeCompletion"
+import { toast } from "../../../../../../components/toast/toastStore"
 
 interface WorkSidebarProps {
   courseId: string
@@ -96,6 +98,15 @@ export default function WorkSidebar({
     setSidebarOpen(true)
   }
 
+  const handleBeforeNavigate = () => {
+    const warning = getIncompletePracticeMessage(location.pathname, jobsheet, submission)
+    if (warning) {
+      toast.error(warning)
+      return false
+    }
+    return true
+  }
+
   let progress = 0
 
   if (isFinishedSubmission) {
@@ -151,6 +162,7 @@ export default function WorkSidebar({
                 group={group}
                 getStatus={getStatus}
                 collapsed={false}
+                onBeforeNavigate={handleBeforeNavigate}
               />
             ))}
 

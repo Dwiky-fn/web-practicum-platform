@@ -64,7 +64,7 @@ export function buildSidebarTree(
       children: [
         {
           id: "task",
-          title: "Jobsheet Praktikum",
+          title: "Tugas",
           type: "task",
           path: `${base}/task${query}`,
           status:

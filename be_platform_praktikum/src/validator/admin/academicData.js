@@ -100,7 +100,7 @@ const kelasPraktikumPayloadSchema = Joi.object({
   id_mata_kuliah: idSchema,
   id_semester: Joi.string().trim().allow('', null),
   id_kelas: idSchema,
-  jumlah_jobsheet_rencana: Joi.number().integer().min(1).default(1),
+  jumlah_jobsheet_rencana: Joi.number().integer().min(0).default(0),
   status: kelasPraktikumStatusSchema.default('draft'),
 });
 
@@ -110,7 +110,7 @@ const updateKelasPraktikumPayloadSchema = Joi.object({
   id_mata_kuliah: Joi.string().trim(),
   id_semester: Joi.string().trim(),
   id_kelas: Joi.string().trim(),
-  jumlah_jobsheet_rencana: Joi.number().integer().min(1),
+  jumlah_jobsheet_rencana: Joi.number().integer().min(0),
   status: kelasPraktikumStatusSchema,
 }).min(1);
 
@@ -154,10 +154,18 @@ const updateKelasSemesterPayloadSchema = Joi.object({
 
 const studentTransitionPayloadSchema = Joi.object({
   sourceKelasSemesterId: idSchema,
+  autoCreateTargets: Joi.array().items(
+    Joi.object({
+      placeholderKey: Joi.string().trim().required(),
+      id_tahun_semester: Joi.string().trim().required(),
+      id_semester: Joi.string().trim().required(),
+      id_kelas: Joi.string().trim().required(),
+    })
+  ).optional().default([]),
   transitions: Joi.array().items(
     Joi.object({
       studentId: idSchema,
-      targetKelasSemesterId: idSchema,
+      targetKelasSemesterId: Joi.string().trim().required(),
     })
   ).min(1).required(),
 });

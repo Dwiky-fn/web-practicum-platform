@@ -32,12 +32,21 @@ export function AdminButton({
 export function AdminPanel({
   children,
   className = "",
+  variant = "full",
 }: {
   children: React.ReactNode
   className?: string
+  variant?: "compact" | "medium" | "full"
 }) {
+  const variantStyle =
+    variant === "compact"
+      ? "max-w-2xl mr-auto w-full"
+      : variant === "medium"
+        ? "max-w-4xl mr-auto w-full"
+        : "w-full"
+
   return (
-    <section className={`rounded-lg border border-gray-200 bg-white shadow-sm ${className}`}>
+    <section className={`rounded-xl border border-gray-200 bg-white shadow-xs transition-all ${variantStyle} ${className}`}>
       {children}
     </section>
   )
@@ -134,26 +143,40 @@ export function AdminSelect({
 export function AdminTable({
   headers,
   children,
+  variant = "full",
+  className = "",
 }: {
-  headers: string[]
+  headers: Array<string | { text: string; align?: "left" | "center" | "right" }>
   children: React.ReactNode
+  variant?: "compact" | "medium" | "full"
+  className?: string
 }) {
+  const variantContainerStyle =
+    variant === "compact"
+      ? "max-w-2xl mr-auto w-full"
+      : variant === "medium"
+        ? "max-w-4xl mr-auto w-full"
+        : "w-full"
+
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
-      <table className="w-full min-w-180 border-collapse bg-white text-sm">
+    <div className={`overflow-x-auto rounded-xl border border-gray-200 shadow-xs bg-white ${variantContainerStyle} ${className}`}>
+      <table className="w-full border-collapse bg-white text-sm">
         <thead>
-          <tr className="bg-blue-50 text-gray-800">
-            {headers.map((header) => (
-              <th
-                key={header}
-                className="border-b border-gray-200 px-4 py-3 font-semibold text-center"
-              >
-                {header}
-              </th>
-            ))}
+          <tr className="bg-blue-50/90 text-gray-700 border-b border-gray-200">
+            {headers.map((header, idx) => {
+              const text = typeof header === "string" ? header : header.text
+              return (
+                <th
+                  key={typeof header === "string" ? `${header}_${idx}` : `${header.text}_${idx}`}
+                  className="px-4 py-3.5 font-semibold text-xs uppercase tracking-wider text-gray-600 text-center"
+                >
+                  {text}
+                </th>
+              )
+            })}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">{children}</tbody>
+        <tbody className="divide-y divide-gray-100 text-gray-700">{children}</tbody>
       </table>
     </div>
   )
@@ -167,8 +190,8 @@ export function AdminActionCell({
   className?: string
 }) {
   return (
-    <td className={`px-4 py-3 text-right ${className}`}>
-      <div className="flex flex-wrap items-center justify-end gap-2">
+    <td className={`px-4 py-2.5 text-right whitespace-nowrap ${className}`}>
+      <div className="flex items-center justify-end gap-1.5">
         {children}
       </div>
     </td>
@@ -201,7 +224,7 @@ export function AdminModal({
   children: React.ReactNode
   footer: React.ReactNode
   onClose: () => void
-  size?: "sm" | "md" | "lg"
+  size?: "sm" | "md" | "lg" | "xl" | "2xl"
 }) {
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -216,6 +239,8 @@ export function AdminModal({
     sm: "max-w-[480px]",
     md: "max-w-190",
     lg: "max-w-4xl",
+    xl: "max-w-5xl",
+    "2xl": "max-w-6xl",
   }
 
   return (

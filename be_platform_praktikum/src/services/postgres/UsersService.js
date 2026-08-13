@@ -67,6 +67,7 @@ class UsersService {
       payload.identifier ||
       payload.email ||
       payload.nim ||
+      payload.nip ||
       ''
     ).trim();
     const { password } = payload;
@@ -83,8 +84,11 @@ class UsersService {
       `SELECT u.id, u.password, u.is_active
        FROM users u
        LEFT JOIN student_profiles sp ON sp.user_id = u.id
+       LEFT JOIN lecturer_profiles lp ON lp.user_id = u.id
        WHERE LOWER(u.email) = LOWER($1)
         OR (u.role = 'MAHASISWA' AND sp.nim = $1)
+        OR (u.role IN ('DOSEN', 'ADMIN') AND lp.nip = $1)
+        OR (lp.nip = $1)
        LIMIT 1`,
       [identifier],
     );

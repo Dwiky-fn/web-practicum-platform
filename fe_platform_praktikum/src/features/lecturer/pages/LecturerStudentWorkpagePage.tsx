@@ -17,6 +17,8 @@ import type { StudentProgressItem } from "../../../services/progress/types"
 import type { JobsheetSubmission } from "../../../services/submission/types"
 import { formatAcademicDateTime, formatAcademicTime } from "../../../shared/utils/formatAcademicDateTime"
 import { connectLiveWorkspaceSocket, type LiveWorkspaceEvent } from "../../../services/liveWorkspaceSocket"
+import { splitInstructionContent } from "../../../shared/utils/splitInstructionContent"
+import SubmissionActivityTimeline from "../../student/jobsheets/work/content/task/components/SubmissionActivityTimeline"
 
 const EMPTY_DOC: JSONContent = { type: "doc", content: [] }
 const LIVE_WORKSPACE_DEBUG = import.meta.env.DEV && import.meta.env.VITE_LIVE_WORKSPACE_DEBUG === "true"
@@ -49,6 +51,7 @@ function renderStatusBadge(status: string) {
     </span>
   )
 }
+
 
 function renderLastActivityValue(stats?: {
   runCount: number
@@ -496,7 +499,7 @@ export default function LecturerStudentWorkpagePage() {
   useEffect(() => {
     if (!data || !jobsheet) return
     const route = activeRoute(location.pathname, basePath)
-    if (route.section && route.id) return
+    if ((route.section && route.id) || route.section === "task") return
     navigate(targetPathFromLocation(basePath, data, jobsheet, location.search), { replace: true })
   }, [basePath, data, jobsheet, location.pathname, location.search, navigate])
 
@@ -555,15 +558,15 @@ export default function LecturerStudentWorkpagePage() {
           {hasSavedWorkspace(rawSteps) ? (
             <InstructionWorkspaceCard
               key={`${studentId}-${jobsheetId}-${experiment.id}`}
-              title={experiment.title}
-              label="Monitoring Dosen"
-              instructions={(group?.children ?? []).map((item) => toDoc(item.instruction || item.title))}
+              instructions={(group?.children ?? []).map((item: any) => {
+                const stepDoc = toDoc(item.instruction || item.title)
+                const needsCode = item.needsCode !== undefined ? Boolean(item.needsCode) : true
+                return { content: stepDoc, needsCode }
+              })}
               templateCode=""
               language={workData.context.programmingLanguage || "java"}
               initialSteps={steps}
               readOnly
-              alwaysExpanded
-              hideInstructionTabs
             />
           ) : (
             <EmptyWorkState text="Belum ada pengerjaan yang disimpan mahasiswa pada bagian ini." />
@@ -589,19 +592,35 @@ export default function LecturerStudentWorkpagePage() {
           {hasSavedWorkspace(rawSteps) ? (
             <InstructionWorkspaceCard
               key={`${studentId}-${jobsheetId}-${exercise.id}`}
-              title={exercise.title}
-              label="Monitoring Dosen"
-              instructions={[exercise.instructionContent ?? EMPTY_DOC]}
+              instructions={splitInstructionContent(exercise.instructionContent)}
               templateCode=""
               language={workData.context.programmingLanguage || "java"}
               initialSteps={normalizeReadonlySteps(rawSteps)}
               readOnly
-              alwaysExpanded
-              hideInstructionTabs
             />
           ) : (
             <EmptyWorkState text="Belum ada pengerjaan yang disimpan mahasiswa pada bagian ini." />
           )}
+        </div>
+      )
+    }
+
+    if (route.section === "task") {
+      return (
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-800">Tugas</h1>
+            <p className="text-gray-600 text-sm mt-1">Jobsheet Praktikum {workJobsheet.title}</p>
+            {currentLocation?.moduleType === "task" && (
+              <p className="mt-2 text-sm font-semibold text-blue-700">Posisi Terakhir</p>
+            )}
+          </div>
+
+          <div className="max-w-3xl mx-auto">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden p-8">
+              <SubmissionActivityTimeline status={(workData.submission.status as any) || "DRAFT"} />
+            </div>
+          </div>
         </div>
       )
     }

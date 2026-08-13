@@ -43,7 +43,7 @@ export default function ExercisePage() {
     <div className="space-y-4">
       <div>
         <h2 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
-          <span>{`Latihan: ${exercise.title}`}</span>
+          <span>{exercise.title}</span>
           <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded-full">
             Bobot: {exercise.rubric ?? 0}%
           </span>
@@ -57,9 +57,7 @@ export default function ExercisePage() {
 
       <InstructionWorkspaceCard
         key={exercise.id}
-        title={exercise.title}
-        label="Latihan"
-        instructions={[exercise.instructionContent]}
+        instructions={[{ content: exercise.instructionContent, needsCode: true }]}
         templateCode={exercise.defaultTemplateCode || ''}
         language={programmingLanguage}
         initialSteps={initialStep ? [initialStep] : undefined}

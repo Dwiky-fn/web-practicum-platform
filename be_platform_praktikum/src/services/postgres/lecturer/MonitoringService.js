@@ -23,7 +23,10 @@ function extractOrderedSteps(content) {
     if (node.type === 'orderedList') {
       asArray(node.content).forEach((item) => {
         const text = textFromTipTap(item);
-        if (text) steps.push(text);
+        if (text) {
+          const needsCode = item.attrs?.needsCode !== undefined ? Boolean(item.attrs.needsCode) : true;
+          steps.push({ text, needsCode });
+        }
       });
       return;
     }
@@ -255,16 +258,17 @@ class MonitoringService {
       instruction: item.content || item.description || '',
     }));
 
-    const experimentGroups = experimentsRes.rows.map((experiment, index) => {
+     const experimentGroups = experimentsRes.rows.map((experiment, index) => {
       const steps = extractOrderedSteps(experiment.instruction_content);
-      const children = (steps.length ? steps : [experiment.title || `Percobaan ${index + 1}`]).map((instruction, stepIndex) => ({
+      const children = (steps.length ? steps : [{ text: experiment.title || `Percobaan ${index + 1}`, needsCode: true }]).map((step, stepIndex) => ({
         type: 'experiment-step',
         moduleType: 'experiment',
         moduleId: experiment.id,
         stepId: `${experiment.id}:step:${stepIndex + 1}`,
         stepIndex,
         title: `${experiment.title || `Percobaan ${index + 1}`} - Langkah ${stepIndex + 1}`,
-        instruction,
+        instruction: step.text,
+        needsCode: step.needsCode,
       }));
       return {
         id: experiment.id,

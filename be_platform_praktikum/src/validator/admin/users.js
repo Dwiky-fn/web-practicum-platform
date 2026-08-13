@@ -13,7 +13,7 @@ const baseUserPayloadSchema = Joi.object({
 });
 
 const createStudentPayloadSchema = baseUserPayloadSchema.keys({
-  nim: Joi.string().trim().required(),
+  nim: Joi.string().trim().pattern(/^\d{1,10}$/).required(),
   angkatan: Joi.number().integer().min(2000).max(2100).allow(null),
   semester: Joi.number().integer().min(1).max(14).allow(null),
   studyProgramId: Joi.string().allow('', null),

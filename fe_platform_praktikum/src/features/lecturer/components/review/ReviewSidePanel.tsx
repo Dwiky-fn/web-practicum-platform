@@ -162,7 +162,7 @@ export default function ReviewSidePanel({
         await onCreateFeedback(payload)
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menyimpan feedback jobsheet.")
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan catatan dosen jobsheet.")
     }
   }
 
@@ -315,7 +315,7 @@ export default function ReviewSidePanel({
                       id="inline-comment-textarea"
                       value={inlineComment}
                       onChange={(e) => setInlineComment(e.target.value)}
-                      placeholder="Masukkan catatan feedback pada baris kode ini..."
+                      placeholder="Masukkan catatan dosen pada baris kode ini..."
                       rows={3}
                       className="w-full text-xs p-2 rounded-lg border border-gray-300 focus:border-blue-500 outline-none"
                       required
@@ -336,7 +336,7 @@ export default function ReviewSidePanel({
               {allCodeFeedbacks.length === 0 && !selectedLineRange && !isEditingCode ? (
                 <div className="text-center py-5 text-gray-400 italic text-[11px] bg-gray-50 rounded-xl border border-gray-100">
                   <p>Belum ada komentar kode.</p>
-                  <p className="mt-1 text-[10px] text-gray-400">Sorot baris di blok kode untuk memberikan feedback.</p>
+                  <p className="mt-1 text-[10px] text-gray-400">Sorot baris di blok kode untuk memberikan catatan dosen.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -432,11 +432,11 @@ export default function ReviewSidePanel({
 
             {readOnly ? (
               <div className="space-y-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                <h5 className="font-bold text-xs text-gray-700 uppercase">Feedback Keseluruhan Jobsheet</h5>
+                <h5 className="font-bold text-xs text-gray-700 uppercase">Catatan Dosen Keseluruhan Jobsheet</h5>
                 {jobContent ? (
                   <p className="text-xs text-gray-800 whitespace-pre-wrap leading-relaxed">{jobContent}</p>
                 ) : (
-                  <p className="text-xs text-gray-400 italic">Belum ada feedback jobsheet yang disimpan.</p>
+                  <p className="text-xs text-gray-400 italic">Belum ada catatan dosen jobsheet yang disimpan.</p>
                 )}
                 {jobStrengths && (
                   <div className="text-xs">
@@ -466,7 +466,7 @@ export default function ReviewSidePanel({
             ) : (
               <>
                 <div className="space-y-3 border border-gray-200 rounded-xl p-3 bg-gray-50/50">
-                  <h5 className="font-bold text-xs text-gray-700 uppercase tracking-wider">Feedback Keseluruhan</h5>
+                  <h5 className="font-bold text-xs text-gray-700 uppercase tracking-wider">Catatan Dosen Keseluruhan</h5>
 
                   <label className="block text-xs font-medium text-gray-700">
                     Evaluasi Akhir Dosen

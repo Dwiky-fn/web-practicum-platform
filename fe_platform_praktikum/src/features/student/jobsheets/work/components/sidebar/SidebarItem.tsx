@@ -1,17 +1,20 @@
 import { Check, Lock } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import type { SidebarNode } from "../../utils/buildSidebarStructure"
+import { toast } from "../../../../../../components/toast/toastStore"
 
 interface SidebarItemProps {
   item: SidebarNode
   status: "default" | "active" | "completed" | "active-completed" | "locked"
   collapsed: boolean
+  onBeforeNavigate?: () => boolean
 }
 
 export default function SidebarItem({
   item,
   status,
-  collapsed
+  collapsed,
+  onBeforeNavigate
 }: SidebarItemProps) {
 
   const navigate = useNavigate()
@@ -43,11 +46,16 @@ export default function SidebarItem({
 
   return (
     <button
-      disabled={status === "locked"}
       onClick={() => {
-        if (status !== "locked") {
-          navigate(item.path!)
+        if (onBeforeNavigate) {
+          const canNavigate = onBeforeNavigate()
+          if (!canNavigate) return
         }
+        if (status === "locked") {
+          toast.error("Selesaikan modul sebelumnya terlebih dahulu.")
+          return
+        }
+        navigate(item.path!)
       }}
       className={`flex items-center gap-3 text-sm transition w-full ${
         status === "locked"

@@ -247,6 +247,12 @@ async function evaluationController(req, res, next) {
           `[AI Background Job] Evaluasi gagal untuk submission ${submissionId}:`,
           evalError.message,
         );
+        if (evalError.details) {
+          console.error(
+            '[AI Background Job] Error details:',
+            JSON.stringify(evalError.details, null, 2),
+          );
+        }
         await sendWebhookCallback(webhookUrl, {
           status: 'failed',
           submissionId,

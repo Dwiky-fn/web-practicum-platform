@@ -101,7 +101,7 @@ export default function AdminUsersPage() {
   const isStudent = role === "students"
 
   function renderPagination(currentPage: number, totalPages: number, onPageChange: (p: number) => void, totalItems: number) {
-    if (totalItems === 0) return null
+    if (totalItems <= limit) return null
 
     return (
       <div className="mt-6 flex flex-col items-center justify-center gap-4 border-t border-gray-100 pt-6">
@@ -247,18 +247,20 @@ export default function AdminUsersPage() {
     const key = `${confirm.action}-${confirm.user.id}`
     setActionLoading(key)
     try {
+      let msg = ""
       if (confirm.action === "activate") {
         await activateAdminUser(confirm.user.id)
-        toast.success("Pengguna berhasil diaktifkan.")
+        msg = "Pengguna berhasil diaktifkan."
       } else if (confirm.action === "deactivate") {
         await deactivateAdminUser(confirm.user.id)
-        toast.success("Pengguna berhasil dinonaktifkan.")
+        msg = "Pengguna berhasil dinonaktifkan."
       } else {
         await deleteAdminUser(confirm.user.id)
-        toast.success("Pengguna berhasil dihapus.")
+        msg = "Pengguna berhasil dihapus."
       }
       setConfirm(null)
-      fetchUsers()
+      await fetchUsers()
+      if (msg) toast.success(msg)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal memproses aksi")
     } finally {
@@ -272,19 +274,21 @@ export default function AdminUsersPage() {
       setSubmitting(true)
       setError("")
       const { action, ids } = bulkConfirm
+      let msg = ""
       if (action === "activate") {
         await Promise.all(ids.map((id) => activateAdminUser(id)))
-        toast.success(`${ids.length} pengguna berhasil diaktifkan.`)
+        msg = `${ids.length} pengguna berhasil diaktifkan.`
       } else if (action === "deactivate") {
         await Promise.all(ids.map((id) => deactivateAdminUser(id)))
-        toast.success(`${ids.length} pengguna berhasil dinonaktifkan.`)
+        msg = `${ids.length} pengguna berhasil dinonaktifkan.`
       } else {
         await Promise.all(ids.map((id) => deleteAdminUser(id)))
-        toast.success(`${ids.length} pengguna berhasil dihapus.`)
+        msg = `${ids.length} pengguna berhasil dihapus.`
       }
       setSelectedIds([])
       setBulkConfirm(null)
-      fetchUsers()
+      await fetchUsers()
+      if (msg) toast.success(msg)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal memproses aksi massal")
     } finally {
@@ -358,16 +362,23 @@ export default function AdminUsersPage() {
     try {
       setSubmitting(true)
       setError("")
+      let successMessage = ""
       if (isStudent) {
+        const nimVal = String(form.get("identifier") || "").trim().replace(/\D/g, "").slice(0, 10)
+        if (!nimVal) {
+          toast.error("NIM wajib diisi dan hanya berupa angka (maksimal 10 digit).")
+          setSubmitting(false)
+          return
+        }
         await createAdminStudent({
-          nim: String(form.get("identifier") || "").trim(),
+          nim: nimVal,
           fullname: String(form.get("fullname") || "").trim(),
           email: String(form.get("email") || "").trim(),
           angkatan: Number(form.get("angkatan") || 0),
           semester: Number(form.get("semester") || 0),
           status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
         })
-        toast.success("Mahasiswa dan akun login berhasil ditambahkan.")
+        successMessage = "Mahasiswa dan akun login berhasil ditambahkan."
       } else {
         const nipVal = String(form.get("identifier") || "").trim()
         if (!/^\d{18}$/.test(nipVal)) {
@@ -382,11 +393,14 @@ export default function AdminUsersPage() {
           status: String(form.get("status") || "") as "Aktif" | "Nonaktif",
         })
         const initialPass = lecturer.initialPassword || "Nama + 4 Digit NIP"
-        toast.success(`Dosen berhasil ditambahkan. Password login: ${initialPass}`, 15000)
+        successMessage = `Dosen berhasil ditambahkan. Password login: ${initialPass}`
       }
 
       setModal(null)
-      fetchUsers()
+      await fetchUsers()
+      if (successMessage) {
+        toast.success(successMessage, isStudent ? undefined : 15000)
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal menyimpan pengguna")
     } finally {
@@ -496,26 +510,35 @@ export default function AdminUsersPage() {
         setImportProgress({ current: i + 1, total: parsedObjects.length })
 
         if (isStudent) {
-          const nim = findCellValue(row, ["nim"])
+          const rawNim = String(findCellValue(row, ["nim"]) || "").trim()
           const fullname = findCellValue(row, ["nama", "fullname"])
-          if (!nim && !fullname) continue // Skip empty trailing row
+          if (!rawNim && !fullname) continue // Skip empty trailing row
 
-          if (!nim) throw new Error(`Baris ke-${i + 2}: NIM Mahasiswa wajib diisi`)
+          if (!rawNim) throw new Error(`Baris ke-${i + 2}: NIM Mahasiswa wajib diisi`)
           if (!fullname) throw new Error(`Baris ke-${i + 2}: Nama Mahasiswa wajib diisi`)
+
+          const cleanNim = rawNim.replace(/\D/g, "")
+          if (!cleanNim) {
+            throw new Error(`Baris ke-${i + 2} (${fullname}): NIM harus berupa angka`)
+          }
+          if (cleanNim.length > 10) {
+            throw new Error(`Baris ke-${i + 2} (${fullname}): NIM maksimal 10 digit angka (NIM: ${rawNim})`)
+          }
 
           const angkatanVal = findCellValue(row, ["angkatan", "year"])
           const semesterVal = findCellValue(row, ["semester"])
           const emailVal = findCellValue(row, ["email", "mail"])
+          const statusVal = findCellValue(row, ["status"])
           const programStudi = findCellValue(row, ["prodi", "programstudi"])
           const jurusan = findCellValue(row, ["jurusan", "dept"])
 
           await createAdminStudent({
-            nim,
+            nim: cleanNim,
             fullname,
             angkatan: Number(angkatanVal || new Date().getFullYear()),
             semester: Number(semesterVal || 1),
             email: emailVal || "",
-            status: "Aktif",
+            status: (statusVal === "Nonaktif" || statusVal === "Cuti") ? statusVal : "Aktif",
             programStudi: programStudi || "",
             jurusan: jurusan || "",
           })
@@ -534,12 +557,13 @@ export default function AdminUsersPage() {
           }
 
           const emailVal = findCellValue(row, ["email", "mail"])
+          const statusVal = findCellValue(row, ["status"])
 
           await createAdminLecturer({
             nip: cleanNip,
             fullname,
             email: emailVal || "",
-            status: "Aktif",
+            status: (statusVal === "Nonaktif" || statusVal === "Cuti") ? statusVal : "Aktif",
           })
           successCount++
         }
@@ -547,8 +571,8 @@ export default function AdminUsersPage() {
 
       setImportFile(null)
       setModal(null)
+      await fetchUsers()
       toast.success(`Berhasil mengimport ${successCount} data ${isStudent ? "mahasiswa" : "dosen"}.`)
-      fetchUsers()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal mengimport pengguna")
     } finally {
@@ -631,14 +655,16 @@ export default function AdminUsersPage() {
                 Data ini membuat profil mahasiswa sekaligus akun login mahasiswa. Posisi semester dan rombel berjalan tetap diatur melalui menu Kelas Mahasiswa.
               </div>
             )}
-            <FieldRow label={isStudent ? "NIM" : "NIP (18 Digit)"}>
+            <FieldRow label={isStudent ? "NIM (Max 10 Digit)" : "NIP (18 Digit)"}>
               <input
                 name="identifier"
                 className={inputClass}
-                placeholder={isStudent ? "Masukkan NIM" : "Masukkan 18 digit NIP"}
-                maxLength={isStudent ? 30 : 18}
+                placeholder={isStudent ? "Masukkan 10 digit NIM" : "Masukkan 18 digit NIP"}
+                maxLength={isStudent ? 10 : 18}
                 onInput={(e) => {
-                  if (!isStudent) {
+                  if (isStudent) {
+                    e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "").slice(0, 10)
+                  } else {
                     e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "").slice(0, 18)
                   }
                 }}
@@ -852,11 +878,18 @@ export default function AdminUsersPage() {
       ) : isStudent ? (
         students.length ? (
           <>
-            <AdminTable headers={selectedIds.length > 0 ? ["", "NIM", "Nama", "Semester", "Status", "Aksi"] : ["NIM", "Nama", "Semester", "Status", "Aksi"]}>
+            <AdminTable
+              variant="full"
+              headers={
+                selectedIds.length > 0
+                  ? ["", { text: "NIM", align: "left" }, { text: "Nama Mahasiswa", align: "left" }, { text: "Semester", align: "center" }, { text: "Status", align: "center" }, { text: "Aksi", align: "right" }]
+                  : [{ text: "NIM", align: "left" }, { text: "Nama Mahasiswa", align: "left" }, { text: "Semester", align: "center" }, { text: "Status", align: "center" }, { text: "Aksi", align: "right" }]
+              }
+            >
               {students.slice((page - 1) * limit, page * limit).map((student) => (
                 <tr
                   key={student.id}
-                  className={`${selectedIds.includes(student.id) ? "bg-blue-50/40" : ""} cursor-default select-none`}
+                  className={`${selectedIds.includes(student.id) ? "bg-blue-50/40" : ""} hover:bg-blue-50/20 transition-colors cursor-default select-none`}
                   onMouseDown={() => handleMouseDown(student.id)}
                   onMouseUp={() => handleMouseUp(student.id)}
                   onMouseLeave={cancelLongPress}
@@ -878,12 +911,12 @@ export default function AdminUsersPage() {
                       />
                     </td>
                   )}
-                  <td className="px-4 py-3 font-mono tracking-wide">{student.nim}</td>
-                  <td className="px-4 py-3">
-                    <span className="font-medium text-gray-900">{student.fullname}</span>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-600 text-left">{student.nim}</td>
+                  <td className="px-4 py-3 text-left">
+                    <span className="font-semibold text-gray-900">{student.fullname}</span>
                   </td>
-                  <td className="px-4 py-3">{student.semester}</td>
-                  <td className="px-4 py-3">{student.status}</td>
+                  <td className="px-4 py-3 text-center text-gray-600">Semester {student.semester}</td>
+                  <td className="px-4 py-3 text-center">{student.status}</td>
                   <AdminActionCell>
                     <AdminButton
                       variant="ghost"
@@ -939,11 +972,18 @@ export default function AdminUsersPage() {
         )
       ) : lecturers.length ? (
         <>
-          <AdminTable headers={selectedIds.length > 0 ? ["", "NIP", "Nama", "Email", "Status", "Aksi"] : ["NIP", "Nama", "Email", "Status", "Aksi"]}>
+          <AdminTable
+            variant="full"
+            headers={
+              selectedIds.length > 0
+                ? ["", { text: "NIP", align: "left" }, { text: "Nama Dosen", align: "left" }, { text: "Email", align: "left" }, { text: "Status", align: "center" }, { text: "Aksi", align: "right" }]
+                : [{ text: "NIP", align: "left" }, { text: "Nama Dosen", align: "left" }, { text: "Email", align: "left" }, { text: "Status", align: "center" }, { text: "Aksi", align: "right" }]
+            }
+          >
             {lecturers.slice((page - 1) * limit, page * limit).map((lecturer) => (
               <tr
                 key={lecturer.id}
-                className={`${selectedIds.includes(lecturer.id) ? "bg-blue-50/40" : ""} cursor-default select-none`}
+                className={`${selectedIds.includes(lecturer.id) ? "bg-blue-50/40" : ""} hover:bg-blue-50/20 transition-colors cursor-default select-none`}
                 onMouseDown={() => handleMouseDown(lecturer.id)}
                 onMouseUp={() => handleMouseUp(lecturer.id)}
                 onMouseLeave={cancelLongPress}
@@ -965,12 +1005,12 @@ export default function AdminUsersPage() {
                     />
                   </td>
                 )}
-                <td className="px-4 py-3 font-mono tracking-wide">{lecturer.nip}</td>
-                <td className="px-4 py-3">
-                  <span className="font-medium text-gray-900">{lecturer.fullname}</span>
+                <td className="px-4 py-3 font-mono text-xs text-gray-600 text-left">{lecturer.nip}</td>
+                <td className="px-4 py-3 text-left">
+                  <span className="font-semibold text-gray-900">{lecturer.fullname}</span>
                 </td>
-                <td className="px-4 py-3">{lecturer.email}</td>
-                <td className="px-4 py-3">{lecturer.status}</td>
+                <td className="px-4 py-3 text-left text-gray-600">{lecturer.email}</td>
+                <td className="px-4 py-3 text-center">{lecturer.status}</td>
                 <AdminActionCell>
                   <AdminButton
                     variant="ghost"

@@ -64,9 +64,9 @@ const createClientError = (message, statusCode = 400) => {
   return error;
 };
 
-const normalizeJobsheetPlan = (value, fallback = 1) => {
+const normalizeJobsheetPlan = (value, fallback = 0) => {
   const plan = Number(value ?? fallback);
-  if (!Number.isInteger(plan) || plan < 1) throw createClientError('Jumlah jobsheet rencana minimal 1.', 400);
+  if (!Number.isInteger(plan) || plan < 0) throw createClientError('Jumlah jobsheet minimal 0.', 400);
   return plan;
 };
 
@@ -115,8 +115,8 @@ class ClassesService {
       jumlah_mahasiswa: row.student_count ?? 0,
       jumlahJobsheet: row.jobsheet_count ?? 0,
       jumlah_jobsheet: row.jobsheet_count ?? 0,
-      jumlahJobsheetRencana: row.jumlah_jobsheet_rencana ?? 1,
-      jumlah_jobsheet_rencana: row.jumlah_jobsheet_rencana ?? 1,
+      jumlahJobsheetRencana: row.jumlah_jobsheet_rencana ?? 0,
+      jumlah_jobsheet_rencana: row.jumlah_jobsheet_rencana ?? 0,
       jumlahJobsheetDibuat: row.jobsheet_created_count ?? row.jobsheet_count ?? 0,
       jumlah_jobsheet_dibuat: row.jobsheet_created_count ?? row.jobsheet_count ?? 0,
       jumlahJobsheetPublish: row.jobsheet_published_count ?? 0,
@@ -139,7 +139,7 @@ class ClassesService {
   }
 
   _buildKelasPraktikumName({ nama_mk, semester, kelas, tahun_semester }) {
-    return `${nama_mk} - Semester ${semester} - Kelas ${kelas} - ${tahun_semester}`;
+    return `${nama_mk} - ${semester}${kelas}`;
   }
 
   async _getNativeClasses(filters = {}) {
@@ -296,7 +296,7 @@ class ClassesService {
 
     const idKelas = await this._getOrCreateKelasId(this._pool, rombel);
 
-    const className = `${courseName} - Semester ${semesterNum} - Kelas ${rombel.trim().toUpperCase()} - ${activePeriod.tahun_semester}`;
+    const className = `${courseName} - ${semesterNum}${rombel.trim().toUpperCase()}`;
 
     await this.ensureCourseAvailableForClass(courseId, this._pool, activePeriod.id);
     await this.ensureClassUnique({
@@ -412,7 +412,7 @@ class ClassesService {
       const rombel = kpResult.rows[0]?.kelas || 'A';
       const tsResult = await this._pool.query('SELECT tahun_semester FROM tahun_semester WHERE id = $1', [existing.rows[0].id_tahun_semester]);
       const tsName = tsResult.rows[0]?.tahun_semester || '';
-      nextName = `${courseName} - Semester ${semesterNum} - Kelas ${rombel} - ${tsName}`;
+      nextName = `${courseName} - ${semesterNum}${rombel}`;
     }
 
     await this.ensureClassUnique({
@@ -908,7 +908,7 @@ class ClassesService {
         );
       }
 
-      const className = `${sourceClass.course_name} - Semester ${sourceClass.course_semester} - Kelas ${rombel.trim().toUpperCase()} - ${activePeriod.tahun_semester}`;
+      const className = `${sourceClass.course_name} - ${sourceClass.course_semester}${rombel.trim().toUpperCase()}`;
 
       await this.ensureCourseAvailableForClass(sourceClass.id_mata_kuliah, client, academicPeriodId);
       await this.ensureClassUnique({

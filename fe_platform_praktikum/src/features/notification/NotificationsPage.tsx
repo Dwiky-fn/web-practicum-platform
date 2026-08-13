@@ -79,7 +79,7 @@ export default function NotificationsPage() {
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-200">
               <Sparkles size={16} className="text-yellow-400" />
-              Pusat Notifikasi &amp; Informasi System
+              Pusat Notifikasi &amp; Informasi Sistem
             </div>
             <h1 className="mt-1 text-2xl font-bold text-white flex items-center gap-2">
               Kumpulan Notifikasi

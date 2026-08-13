@@ -13,8 +13,12 @@ export const getAllCourses = async (): Promise<Course[]> => {
   return res.data.courses;
 };
 
-export const getCoursesByStudentId = async (studentId: string): Promise<Course[]> => {
-  const res = await apiFetch(`/students/${studentId}/mata-kuliah`);
+export const getCoursesByStudentId = async (
+  studentId: string,
+  options?: { scope?: "active" | "history" }
+): Promise<Course[]> => {
+  const scope = options?.scope || "active";
+  const res = await apiFetch(`/students/${studentId}/mata-kuliah?scope=${scope}`);
 
   return res.data.courses;
 };

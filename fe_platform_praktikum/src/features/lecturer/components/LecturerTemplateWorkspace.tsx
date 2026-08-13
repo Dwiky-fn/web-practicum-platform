@@ -8,6 +8,7 @@ interface Props {
   value: string
   onChange: (value: string) => void
   label: string
+  defaultTemplateCode?: string
 }
 
 function parseFiles(templateCode: string, language: string): Record<string, string> {
@@ -54,6 +55,7 @@ export default function LecturerTemplateWorkspace({
   value,
   onChange,
   label,
+  defaultTemplateCode,
 }: Props) {
 
   const filesRecord = useMemo(() => {
@@ -71,12 +73,20 @@ export default function LecturerTemplateWorkspace({
   const [terminalOutput, setTerminalOutput] = useState("")
   const [runTime, setRunTime] = useState("")
   const [isTerminalCollapsed, setIsTerminalCollapsed] = useState(false)
+  const [executionStatus, setExecutionStatus] = useState<"idle" | "compiling" | "running" | "output">("idle")
   // ── Confirm dialog state ──
   const [confirmReset, setConfirmReset] = useState(false)
   const [confirmDeleteFile, setConfirmDeleteFile] = useState(false)
   
   const executionClientRef = useRef<ExecutionClient | null>(null)
   const terminalScrollRef = useRef<HTMLDivElement | null>(null)
+  const terminalInputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    if (isRunning) {
+      terminalInputRef.current?.focus()
+    }
+  }, [isRunning])
 
   useEffect(() => {
     return () => {
@@ -107,26 +117,26 @@ export default function LecturerTemplateWorkspace({
     setIsRunning(true)
     setTerminalOutput("")
     setRunTime("")
-
-    if (language === "java") {
-      appendOutput("Compiling...\n")
-    } else {
-      appendOutput("Running...\n")
-    }
+    setExecutionStatus(language === "java" ? "compiling" : "running")
 
     const finishRun = () => {
       setRunTime(formatRunTime(performance.now() - runStartedAt))
       setIsRunning(false)
+      setExecutionStatus((prev) => prev === "compiling" || prev === "running" ? "output" : prev)
     }
 
     const client = new ExecutionClient({
       onMessage: (message) => {
         if (message.type === "started" || message.type === "start") {
           if (language === "java") {
-            appendOutput("Running...\n")
+            setExecutionStatus("running")
           }
           return
         }
+        
+        // Any other message means we are receiving output
+        setExecutionStatus("output")
+
         if (message.type === "output" || message.type === "stdout") {
           appendOutput(message.data)
           return
@@ -268,7 +278,7 @@ export default function LecturerTemplateWorkspace({
         confirmLabel="Reset Template"
         onCancel={() => setConfirmReset(false)}
         onConfirm={() => {
-          onChange(getDefaultTemplateCode(language))
+          onChange(defaultTemplateCode ?? getDefaultTemplateCode(language))
           setConfirmReset(false)
         }}
       />
@@ -385,15 +395,16 @@ export default function LecturerTemplateWorkspace({
               <div className="flex h-[calc(100%-40px)] min-h-0 flex-col overflow-hidden bg-[#0c0c0c] text-sm text-gray-100">
                 <div
                   ref={terminalScrollRef}
-                  className="flex-1 overflow-y-auto p-4 font-mono whitespace-pre-wrap break-all leading-6"
+                  onClick={() => terminalInputRef.current?.focus()}
+                  className="flex-1 cursor-text overflow-y-auto p-4 font-mono leading-6 whitespace-pre-wrap break-words"
                 >
-                  {terminalOutput || <span className="text-gray-500">Klik Run untuk menjalankan dan melihat output program...</span>}
-                </div>
-
-                {isRunning && (
-                  <div className="flex border-t border-[#2b2b2b] bg-[#1a1a1a] p-2">
+                  {executionStatus === "compiling" && <div className="text-blue-400 mb-1">Compiling...</div>}
+                  {executionStatus === "running" && <div className="text-emerald-400 mb-1">Running...</div>}
+                  {terminalOutput}
+                  
+                  {isRunning && (
                     <input
-                      type="text"
+                      ref={terminalInputRef}
                       value={stdin}
                       onChange={(e) => setStdin(e.target.value)}
                       onKeyDown={(e) => {
@@ -402,18 +413,17 @@ export default function LecturerTemplateWorkspace({
                           handleSendStdin()
                         }
                       }}
-                      placeholder="Kirim stdin ke program..."
-                      className="flex-1 border-0 bg-transparent px-2 py-1 font-mono text-sm text-gray-100 outline-none placeholder:text-gray-600"
+                      spellCheck={false}
+                      autoComplete="off"
+                      className="inline-block min-w-32 max-w-full border-0 bg-transparent p-0 font-mono text-sm leading-6 text-gray-100 caret-emerald-300 outline-none"
+                      style={{ width: `${Math.max(stdin.length + 1, 8)}ch` }}
                     />
-                    <button
-                      type="button"
-                      onClick={handleSendStdin}
-                      className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
-                    >
-                      Send
-                    </button>
-                  </div>
-                )}
+                  )}
+
+                  {!terminalOutput && executionStatus === "idle" && (
+                    <span className="text-gray-500">Klik Run untuk menjalankan dan melihat output program...</span>
+                  )}
+                </div>
               </div>
             )}
           </div>

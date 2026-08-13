@@ -26,8 +26,9 @@ class CoursesHandler {
   async getCoursesByStudentIdHandler(req, res, next) {
     try {
       const { studentId } = req.params;
+      const { scope } = req.query;
 
-      const courses = await this._service.getCoursesByStudentId(studentId);
+      const courses = await this._service.getCoursesByStudentId(studentId, { scope });
 
       return res.status(200).json({
         status: 'success',

@@ -1,4 +1,4 @@
-import { Sparkles, GraduationCap, BookOpen } from "lucide-react";
+import { Sparkles, GraduationCap, BookOpen, Layers } from "lucide-react";
 import type { User } from "../../../../services/user/types";
 
 interface WelcomeSectionProps {
@@ -10,7 +10,7 @@ function getSubtitle(user: User | null): string {
 
   switch (user.role) {
     case "MAHASISWA":
-      return `Semester ${user.studentProfile?.semester ?? "-"} • ${user.studentProfile?.programStudi ?? "Program Studi"}`;
+      return "";
 
     case "DOSEN":
       return "Dosen Praktikum";
@@ -45,12 +45,18 @@ export default function WelcomeSection({ user }: WelcomeSectionProps) {
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2 rounded-xl bg-white/10 px-3.5 py-2 text-xs font-bold text-white backdrop-blur-md border border-white/10">
             <GraduationCap size={16} className="text-blue-300" />
-            <span>NIM: {user?.studentProfile?.nim ?? user?.email ?? "-"}</span>
+            <span>NIM: {user?.studentProfile?.nim ?? user?.email ?? "Belum ada NIM"}</span>
           </div>
           {isStudent && (
             <div className="flex items-center gap-2 rounded-xl bg-white/10 px-3.5 py-2 text-xs font-bold text-white backdrop-blur-md border border-white/10">
+              <Layers size={16} className="text-blue-300" />
+              <span>Semester: {user?.studentProfile?.semester ?? "Belum diatur"}</span>
+            </div>
+          )}
+          {isStudent && (
+            <div className="flex items-center gap-2 rounded-xl bg-white/10 px-3.5 py-2 text-xs font-bold text-white backdrop-blur-md border border-white/10">
               <BookOpen size={16} className="text-blue-300" />
-              <span>Kelas: {user?.studentProfile?.kelas || "3A"}</span>
+              <span>Kelas: {user?.studentProfile?.kelas ?? "Belum ada kelas"}</span>
             </div>
           )}
         </div>

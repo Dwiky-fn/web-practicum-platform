@@ -155,7 +155,7 @@ export default function SubmissionValidationCard({
           </p>
         ) : (
           <p className="text-sm text-red-500">
-            Lengkapi semua bagian sebelum submit
+            Lengkapi semua bagian sebelum mengumpulkan
           </p>
         )}
       </div>
@@ -182,7 +182,7 @@ export default function SubmissionValidationCard({
             }
           `}
         >
-          {submitting ? "Mengirim..." : "Submit Jobsheet"}
+          {submitting ? "Mengirim..." : "Kumpulkan Jobsheet"}
         </button>
       </div>
     </div>

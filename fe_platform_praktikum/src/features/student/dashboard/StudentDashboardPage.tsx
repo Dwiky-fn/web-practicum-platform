@@ -43,7 +43,7 @@ export default function StudentDashboardPage() {
       try {
         setError("");
         const [courseData, activityResponse] = await Promise.all([
-          getCoursesByStudentId(user.id),
+          getCoursesByStudentId(user.id, { scope: "active" }),
           getRecentActivities(user.id),
         ]);
 
@@ -167,31 +167,44 @@ export default function StudentDashboardPage() {
         {/* Mata Kuliah & Upcoming Task */}
         <section className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           {/* Mata Kuliah */}
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-3 flex flex-col">
             <h2 className="text-lg font-bold text-gray-900 mb-4">
-              Mata Kuliah Aktif
+              Mata Kuliah
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {loading ? (
-                Array.from({ length: 3 }).map((_, i) => (
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: 3 }).map((_, i) => (
                   <CourseCardSkeleton key={i} />
-                ))
-              ) : (
-                courses.map((course) => (
+                ))}
+              </div>
+            ) : courses.length === 0 ? (
+              <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-12 px-6 text-center shadow-sm min-h-[260px]">
+                <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-gray-50">
+                  <BookOpen className="text-gray-400" size={32} />
+                </div>
+                <h3 className="text-base font-bold text-gray-900">Belum Ada Mata Kuliah</h3>
+                <p className="mt-1.5 max-w-sm text-sm text-gray-500">
+                  Anda belum terdaftar pada mata kuliah atau kelas praktikum apapun pada semester ini.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {courses.map((course) => (
                   <CourseCard
                     key={`${course.id}-${course.kelasPraktikumId}`}
                     course={course}
                     jobsheetCount={jobsheetCountByCourse[course.mataKuliahId || course.id] ?? 0}
                     onClick={() => navigate(academicCoursePath(course))}
+                    hideProgress={true}
                   />
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Upcoming Task */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 flex flex-col">
             <h2 className="text-lg font-bold text-gray-900 mb-4">
               Praktikum Sedang Berlangsung
             </h2>

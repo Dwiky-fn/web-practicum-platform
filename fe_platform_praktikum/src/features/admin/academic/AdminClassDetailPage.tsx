@@ -416,16 +416,23 @@ export default function AdminClassDetailPage() {
                 </div>
                 <AdminButton onClick={openAssignModal}>
                   <Plus size={16} />
-                  Assign Mahasiswa
+                  Tempatkan Mahasiswa
                 </AdminButton>
               </div>
 
               {selectedClass.students.length ? (
-                <AdminTable headers={selectedIds.length > 0 ? ["", "NIM", "Nama", "Semester", "Status", "Aksi"] : ["NIM", "Nama", "Semester", "Status", "Aksi"]}>
+                <AdminTable
+                  variant="full"
+                  headers={
+                    selectedIds.length > 0
+                      ? ["", { text: "NIM", align: "left" }, { text: "Nama Mahasiswa", align: "left" }, { text: "Semester", align: "center" }, { text: "Status", align: "center" }, { text: "Aksi", align: "right" }]
+                      : [{ text: "NIM", align: "left" }, { text: "Nama Mahasiswa", align: "left" }, { text: "Semester", align: "center" }, { text: "Status", align: "center" }, { text: "Aksi", align: "right" }]
+                  }
+                >
                   {selectedClass.students.map((student) => (
                     <tr
                       key={student.id}
-                      className={`${selectedIds.includes(student.id) ? "bg-blue-50/40" : ""} cursor-default select-none`}
+                      className={`${selectedIds.includes(student.id) ? "bg-blue-50/40" : ""} hover:bg-blue-50/20 transition-colors cursor-default select-none`}
                       onMouseDown={() => handleMouseDown(student.id)}
                       onMouseUp={() => handleMouseUp(student.id)}
                       onMouseLeave={cancelLongPress}
@@ -447,12 +454,12 @@ export default function AdminClassDetailPage() {
                           />
                         </td>
                       )}
-                      <td className="px-4 py-3 font-mono">{student.nim}</td>
-                      <td className="px-4 py-3">
-                        <span className="font-medium text-gray-900">{student.fullname}</span>
+                      <td className="px-4 py-3 font-mono text-xs text-gray-600 text-left">{student.nim}</td>
+                      <td className="px-4 py-3 text-left">
+                        <span className="font-semibold text-gray-900">{student.fullname}</span>
                       </td>
-                      <td className="px-4 py-3">{student.semester}</td>
-                      <td className="px-4 py-3">{student.status}</td>
+                      <td className="px-4 py-3 text-center text-gray-600">Semester {student.semester}</td>
+                      <td className="px-4 py-3 text-center">{student.status}</td>
                       <AdminActionCell>
                         <AdminButton
                           variant="ghost"
@@ -488,12 +495,20 @@ export default function AdminClassDetailPage() {
               <p className="mb-5 text-sm text-gray-600">Daftar jobsheet yang digunakan pada kelas ini.</p>
 
               {selectedClass.jobsheets.length ? (
-                <AdminTable headers={["Judul Jobsheet", "Deadline", "Status", "Aksi"]}>
+                <AdminTable
+                  variant="full"
+                  headers={[
+                    { text: "Judul Jobsheet", align: "left" },
+                    { text: "Deadline", align: "center" },
+                    { text: "Status", align: "center" },
+                    { text: "Aksi", align: "right" },
+                  ]}
+                >
                   {selectedClass.jobsheets.map((jobsheet) => (
-                    <tr key={jobsheet.classJobsheetId}>
-                      <td className="px-4 py-3">{jobsheet.title}</td>
-                      <td className="px-4 py-3">{jobsheet.deadline}</td>
-                      <td className="px-4 py-3">{jobsheet.status}</td>
+                    <tr key={jobsheet.classJobsheetId} className="hover:bg-blue-50/20 transition-colors">
+                      <td className="px-4 py-3 font-semibold text-left text-gray-900">{jobsheet.title}</td>
+                      <td className="px-4 py-3 text-center text-gray-600">{jobsheet.deadline}</td>
+                      <td className="px-4 py-3 text-center">{jobsheet.status}</td>
                       <AdminActionCell>
                         <AdminButton
                           variant="ghost"
@@ -600,7 +615,7 @@ export default function AdminClassDetailPage() {
 
       {assignOpen && (
         <AdminModal
-          title="Assign Mahasiswa ke Kelas"
+          title="Tempatkan Mahasiswa ke Kelas"
           onClose={() => setAssignOpen(false)}
           footer={
             <>
@@ -613,7 +628,7 @@ export default function AdminClassDetailPage() {
                   (assignMode === "classSemester" && !selectedKelasSemesterId)
                 }
               >
-                {assigning ? "Mengassign..." : "Assign"}
+                {assigning ? "Menempatkan..." : "Tempatkan"}
               </AdminButton>
             </>
           }
@@ -636,7 +651,7 @@ export default function AdminClassDetailPage() {
                   assignMode === "classSemester" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-900"
                 }`}
               >
-                Assign dari Kelas Semester
+                Tempatkan dari Kelas Semester
               </button>
             </div>
 

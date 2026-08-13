@@ -71,7 +71,7 @@ export default function LecturerCoursesPage() {
   const courses = activeTab === "active" ? activeCourses : filteredHistoryCourses
   const emptyTitle = activeTab === "active"
     ? "Belum ada mata kuliah yang diampu pada semester aktif."
-    : "Belum ada riwayat pengajaran."
+    : "Belum ada riwayat mata kuliah."
 
   return (
     <LecturerLayout backTo="/dashboard">
@@ -104,10 +104,10 @@ export default function LecturerCoursesPage() {
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-200">
               <Sparkles size={16} className="text-yellow-400" />
-              Penugasan Pengajaran Dosen
+              Mata Kuliah Yang Diampu Dosen
             </div>
             <h2 className="mt-1 text-xl font-bold text-white">
-              {activeTab === "active" ? "Pengajaran Semester Berjalan" : "Riwayat Arsip Pengajaran"}
+              {activeTab === "active" ? "Mata Kuliah Semester Berjalan" : "Riwayat Arsip Mata Kuliah"}
             </h2>
             <p className="text-xs text-blue-200">
               Total {courses.length} mata kuliah terdaftar pada {activeTab === "active" ? "semester aktif saat ini" : "arsip riwayat"}.
@@ -124,7 +124,7 @@ export default function LecturerCoursesPage() {
                   : "text-blue-100 hover:bg-white/10"
               }`}
             >
-              Pengajaran Aktif ({activeCourses.length})
+              Mata Kuliah Aktif ({activeCourses.length})
             </button>
             <button
               type="button"

@@ -123,7 +123,7 @@ export default function AdminDashboard() {
   const unassignedStudents = dashboard?.stats.unassignedStudents ?? 0
 
   return (
-    <AdminLayout>
+    <AdminLayout showBack={false}>
       {/* Hero Banner Panel */}
       <div className="mb-6 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-800 p-6 text-white shadow-lg">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -301,7 +301,7 @@ export default function AdminDashboard() {
               >
                 <span className="flex items-center gap-2">
                   <Users size={16} className="text-cyan-600" />
-                  Kelola Data Dosen
+                  Kelola Dosen
                 </span>
                 <ArrowUpRight size={14} className="text-gray-400 group-hover:text-cyan-600 transition-transform group-hover:translate-x-0.5" />
               </button>
@@ -313,7 +313,7 @@ export default function AdminDashboard() {
               >
                 <span className="flex items-center gap-2">
                   <UserPlus size={16} className="text-emerald-600" />
-                  Kelola Data Mahasiswa
+                  Kelola Mahasiswa
                 </span>
                 <ArrowUpRight size={14} className="text-gray-400 group-hover:text-emerald-600 transition-transform group-hover:translate-x-0.5" />
               </button>

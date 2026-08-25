@@ -131,58 +131,84 @@ type SectionEvaluationDraft = {
   aiFeedback?: string
 }
 
-function sumRubricScores(result: any) {
-  const scores = Array.isArray(result?.rubricScores) ? result.rubricScores : []
-  return {
-    score: scores.reduce((sum: number, item: any) => sum + Number(item.score || 0), 0),
-    maxScore: scores.reduce((sum: number, item: any) => sum + Number(item.maxScore || 0), 0),
-    feedback: result?.summary || scores.map((item: any) => item.reason).filter(Boolean).join("\n"),
-  }
-}
+
 
 function buildSectionEvaluationDrafts(jobsheet: Jobsheet, submission: JobsheetSubmission): Record<string, SectionEvaluationDraft> {
-  const existing = submission.review?.aiFeedback?.sectionEvaluations
-  if (Array.isArray(existing) && existing.length) {
-    return Object.fromEntries(existing
-      .filter((item: any) => item.type === "experiment" || item.type === "exercise")
-      .map((item: any) => [`${item.type}:${item.sectionId}`, {
-        type: item.type,
-        sectionId: item.sectionId,
-        score: item.score != null ? String(item.score) : "",
-        feedback: item.feedback || item.aiFeedback || "",
-        aiScore: item.aiScore ?? null,
-        aiFeedback: item.aiFeedback || "",
-      }]))
-  }
-
   const aiResults = Array.isArray(submission.review?.aiFeedback?.experimentResults)
     ? submission.review?.aiFeedback?.experimentResults
     : []
-  const byId = new Map<string, ReturnType<typeof sumRubricScores>>(
-    aiResults.map((item: any) => [String(item.experimentId), sumRubricScores(item)]),
-  )
+  const aiResultMap = new Map<string, { score: number; feedback: string }>()
+
+  aiResults.forEach((item: any) => {
+    const id = String(item.experimentId || item.exerciseId || item.id || "")
+    if (!id) return
+    const scores = Array.isArray(item?.rubricScores) ? item.rubricScores : []
+    const totalScore = scores.reduce((sum: number, r: any) => sum + Number(r.score || 0), 0)
+
+    const parts: string[] = []
+    if (item.summary) parts.push(item.summary)
+    if (Array.isArray(item.strengths) && item.strengths.length > 0) parts.push(`Kelebihan:\n- ${item.strengths.join("\n- ")}`)
+    if (Array.isArray(item.issues) && item.issues.length > 0) parts.push(`Masalah/Kekurangan:\n- ${item.issues.join("\n- ")}`)
+    if (Array.isArray(item.suggestions) && item.suggestions.length > 0) parts.push(`Saran Perbaikan:\n- ${item.suggestions.join("\n- ")}`)
+    if (!parts.length && scores.length > 0) {
+      const reasons = scores.map((r: any) => r.reason).filter(Boolean)
+      if (reasons.length > 0) parts.push(reasons.join("\n"))
+    }
+
+    aiResultMap.set(id, {
+      score: totalScore,
+      feedback: parts.join("\n\n") || "Evaluasi AI selesai.",
+    })
+  })
+
+  const existing = submission.review?.aiFeedback?.sectionEvaluations
+  const existingMap = new Map<string, any>()
+  if (Array.isArray(existing)) {
+    existing.forEach((item: any) => {
+      const key = `${item.type}:${item.sectionId}`
+      existingMap.set(key, item)
+    })
+  }
 
   const entries: Array<[string, SectionEvaluationDraft]> = []
+
   jobsheet.experiments.forEach((item) => {
-    const ai = byId.get(item.id)
-    entries.push([`experiment:${item.id}`, {
+    const key = `experiment:${item.id}`
+    const sec = existingMap.get(key)
+    const aiRes = aiResultMap.get(item.id)
+
+    const finalAiScore = sec?.aiScore ?? (sec?.score != null ? Number(sec.score) : null) ?? aiRes?.score ?? null
+    const finalAiFeedback = (sec?.aiFeedback && sec.aiFeedback.trim() !== "")
+      ? sec.aiFeedback
+      : (aiRes?.feedback || sec?.feedback || "")
+
+    entries.push([key, {
       type: "experiment",
       sectionId: item.id,
-      score: ai?.score != null ? String(Math.min(Number(item.rubric || 0), ai.score)) : "",
-      feedback: ai?.feedback || "",
-      aiScore: ai?.score ?? null,
-      aiFeedback: ai?.feedback || "",
+      score: sec?.score != null ? String(sec.score) : (finalAiScore != null ? String(Math.min(Number(item.rubric || 0), finalAiScore)) : ""),
+      feedback: sec?.feedback || finalAiFeedback || "",
+      aiScore: finalAiScore != null ? Number(finalAiScore) : null,
+      aiFeedback: finalAiFeedback,
     }])
   })
+
   jobsheet.exercises.forEach((item) => {
-    const ai = byId.get(item.id)
-    entries.push([`exercise:${item.id}`, {
+    const key = `exercise:${item.id}`
+    const sec = existingMap.get(key)
+    const aiRes = aiResultMap.get(item.id)
+
+    const finalAiScore = sec?.aiScore ?? (sec?.score != null ? Number(sec.score) : null) ?? aiRes?.score ?? null
+    const finalAiFeedback = (sec?.aiFeedback && sec.aiFeedback.trim() !== "")
+      ? sec.aiFeedback
+      : (aiRes?.feedback || sec?.feedback || "")
+
+    entries.push([key, {
       type: "exercise",
       sectionId: item.id,
-      score: ai?.score != null ? String(Math.min(Number(item.rubric || 0), ai.score)) : "",
-      feedback: ai?.feedback || "",
-      aiScore: ai?.score ?? null,
-      aiFeedback: ai?.feedback || "",
+      score: sec?.score != null ? String(sec.score) : (finalAiScore != null ? String(Math.min(Number(item.rubric || 0), finalAiScore)) : ""),
+      feedback: sec?.feedback || finalAiFeedback || "",
+      aiScore: finalAiScore != null ? Number(finalAiScore) : null,
+      aiFeedback: finalAiFeedback,
     }])
   })
 

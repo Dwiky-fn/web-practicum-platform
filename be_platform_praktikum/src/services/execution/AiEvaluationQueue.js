@@ -1158,10 +1158,25 @@ class AiEvaluationQueue {
         .map((item) => {
           const isExercise = exercises.some((e) => e.id === item.experimentId);
           const sectionScore = (item.rubricScores || []).reduce((sum, r) => sum + Number(r.score || 0), 0);
+
+          const parts = [];
+          if (item.summary) parts.push(item.summary);
+          if (Array.isArray(item.strengths) && item.strengths.length > 0) parts.push(`Kelebihan:\n- ${item.strengths.join('\n- ')}`);
+          if (Array.isArray(item.issues) && item.issues.length > 0) parts.push(`Masalah/Kekurangan:\n- ${item.issues.join('\n- ')}`);
+          if (Array.isArray(item.suggestions) && item.suggestions.length > 0) parts.push(`Saran Perbaikan:\n- ${item.suggestions.join('\n- ')}`);
+          if (parts.length === 0 && Array.isArray(item.rubricScores)) {
+            const reasons = item.rubricScores.map((r) => r.reason).filter(Boolean);
+            if (reasons.length > 0) parts.push(reasons.join('\n'));
+          }
+          const feedbackSummary = parts.join('\n\n') || 'Evaluasi AI selesai.';
+
           return {
             type: isExercise ? 'exercise' : 'experiment',
             sectionId: item.experimentId,
             score: sectionScore,
+            aiScore: sectionScore,
+            aiFeedback: feedbackSummary,
+            feedback: feedbackSummary,
           };
         });
 

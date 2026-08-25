@@ -112,9 +112,9 @@ function normalizeSectionEvaluations(sectionEvaluations = [], weightMap) {
         weight: weight.weight,
         score,
         feedback: typeof item.feedback === 'string' ? item.feedback : '',
-        aiScore: item.aiScore == null ? null : roundScore(item.aiScore),
-        aiFeedback: typeof item.aiFeedback === 'string' ? item.aiFeedback : '',
-        source: 'lecturer',
+        aiScore: item.aiScore == null ? (item.score != null ? roundScore(item.score) : null) : roundScore(item.aiScore),
+        aiFeedback: typeof item.aiFeedback === 'string' && item.aiFeedback.trim() !== '' ? item.aiFeedback : (typeof item.feedback === 'string' ? item.feedback : ''),
+        source: item.source || 'lecturer',
       };
     });
 }

@@ -1,7 +1,7 @@
-﻿const AppError = require('../../utils/AppError');
+const AppError = require('../../utils/AppError');
 const logger = require('../../utils/logger');
 const { buildEvaluationPrompt, buildRepairPrompt } = require('../promptBuilderService');
-const { generateJsonText } = require('../ollamaService');
+const { generateJsonText } = require('../aiProvider');
 const { createExperimentChunks } = require('../contextChunkService');
 const { parseAndValidate, sanitizeEvaluationResult } = require('./validation');
 const { mergeExerciseResults, mergeExperimentResults } = require('./mergeResults');

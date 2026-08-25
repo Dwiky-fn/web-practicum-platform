@@ -37,20 +37,22 @@ const PORT = Number(process.env.PORT) || 5000;
 if (require.main === module) {
   server.listen(PORT, () => {
     console.log(`AI Evaluator Service running on http://localhost:${PORT}`);
-    console.log(`Ollama model: ${process.env.OLLAMA_MODEL}`);
+    console.log(`Active AI Provider: ${process.env.AI_PROVIDER || 'gemini'}`);
+    console.log(`Gemini Model: ${process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite'}`);
+    console.log(`Ollama Model: ${process.env.OLLAMA_MODEL || 'none'}`);
   });
 }
 
 function validateEnvironment() {
-  const requiredVariables = ['OLLAMA_BASE_URL', 'OLLAMA_MODEL'];
-  const missingVariables = requiredVariables.filter(
-    (key) => !process.env[key] || !process.env[key].trim(),
-  );
-
-  if (missingVariables.length > 0) {
-    throw new Error(
-      `Environment variable belum diisi: ${missingVariables.join(', ')}`,
-    );
+  const provider = (process.env.AI_PROVIDER || 'gemini').toLowerCase().trim();
+  if (provider === 'gemini' && (!process.env.GEMINI_API_KEY || !process.env.GEMINI_API_KEY.trim())) {
+    console.warn('[Warning] GEMINI_API_KEY belum diisi di .env');
+  }
+  if (provider === 'worldgate' && (!process.env.WORLDGATE_API_KEY || !process.env.WORLDGATE_API_KEY.trim())) {
+    console.warn('[Warning] WORLDGATE_API_KEY belum diisi di .env');
+  }
+  if (provider === 'ollama' && (!process.env.OLLAMA_BASE_URL || !process.env.OLLAMA_BASE_URL.trim())) {
+    console.warn('[Warning] OLLAMA_BASE_URL belum diisi di .env');
   }
 
   const numericVariables = [

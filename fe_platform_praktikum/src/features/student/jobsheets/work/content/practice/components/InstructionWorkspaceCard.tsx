@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation } from "react-router-dom"
 import type { JSONContent } from "@tiptap/react"
-import { Play, RotateCcw, Save, Square, AlertTriangle } from "lucide-react"
+import { Play, RotateCcw, Save, Square, AlertTriangle, FileText } from "lucide-react"
 import CodeEditorPanel from "../../../../../../../components/code-editor/CodeEditorPanel"
 import AnalysisEditor from "./workSpace/AnalysisEditor"
 import { ExecutionClient } from "../../../../../../../services/execution/executionClient"
@@ -123,9 +123,9 @@ export default function InstructionWorkspaceCard({
 }: Props) {
   const location = useLocation()
   const isExperiment = runContext?.moduleType === "experiment" || location.pathname.includes("/experiments/")
+  const isExercise = runContext?.moduleType === "exercise" || location.pathname.includes("/exercises/")
   const totalSteps = Math.max(instructions.length, initialSteps?.length || 0, 1)
-  const codeIndices = Array.from({ length: totalSteps }, (_, i) => i).filter(i => instructions[i]?.needsCode)
-  const [activeIndex, setActiveIndex] = useState(() => codeIndices[0] ?? 0)
+  const [activeIndex, setActiveIndex] = useState(0)
   
   const defaultFileName = getDefaultFileName(language, activeIndex, isExperiment)
   const [activeFile, setActiveFile] = useState(defaultFileName)
@@ -254,13 +254,13 @@ export default function InstructionWorkspaceCard({
     setCurrentInputMap(Object.fromEntries(Array.from({ length: totalSteps }, (_, index) => [index, ""])))
     setRunTimeMap(Object.fromEntries(Array.from({ length: totalSteps }, (_, index) => [index, ""])))
     setEditorVersionMap(Object.fromEntries(Array.from({ length: totalSteps }, (_, index) => [index, 0])))
-    const initialIndex = codeIndices[0] ?? 0
+    const initialIndex = 0
     setActiveIndex(initialIndex)
     setActiveFile(Object.keys(nextCodeMap[initialIndex] || {})[0] || getDefaultFileName(language, initialIndex, isExperiment))
     setSaveStatus("")
     setSaveError("")
     hasHydratedInitialStateRef.current = true
-  }, [initialSteps, templateCode, totalSteps, language, codeIndices, isExperiment])
+  }, [initialSteps, templateCode, totalSteps, language, isExperiment])
 
   useEffect(() => {
     if (!readOnly || !hasHydratedInitialStateRef.current) return
@@ -271,7 +271,7 @@ export default function InstructionWorkspaceCard({
 
         return [
           index,
-          parseFilesOrTemplate(savedFiles, templateCode, language),
+          parseFilesOrTemplate(savedFiles, templateCode, language, index, isExperiment),
         ]
       })
     )
@@ -289,7 +289,13 @@ export default function InstructionWorkspaceCard({
     setCodeMap(nextCodeMap)
     setAnalysisMap(nextAnalysisMap)
     setOutputMap(nextOutputMap)
-  }, [defaultFileName, initialSteps, readOnly, templateCode, totalSteps, language])
+
+    const currentFiles = nextCodeMap[activeIndex] || {}
+    const fileKeys = Object.keys(currentFiles)
+    if (fileKeys.length > 0 && !Object.prototype.hasOwnProperty.call(currentFiles, activeFile)) {
+      setActiveFile(fileKeys[0])
+    }
+  }, [activeIndex, activeFile, defaultFileName, initialSteps, isExperiment, language, readOnly, templateCode, totalSteps])
 
 
 
@@ -352,12 +358,6 @@ export default function InstructionWorkspaceCard({
       }
       flushLiveFile()
       flushLiveAnalysis()
-      liveWorkspace?.send({
-        type: "workspace-saved",
-        sectionType: liveSection?.type,
-        sectionId: liveSection?.id,
-        sectionName: liveSection?.name,
-      })
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Gagal menyimpan workspace.")
     } finally {
@@ -614,6 +614,9 @@ export default function InstructionWorkspaceCard({
     scheduleLiveFile,
   ])
 
+  const currentInstruction = instructions[activeIndex]
+  const currentNeedsCode = currentInstruction?.needsCode !== undefined ? Boolean(currentInstruction.needsCode) : true
+
   return (
     <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       {/* ── Delete File Confirm Modal ── */}
@@ -662,154 +665,247 @@ export default function InstructionWorkspaceCard({
         </div>
       )}
 
-      {codeIndices.length > 0 && (
-        <div className="h-[720px] min-h-[650px] overflow-hidden bg-[#1e1e1e]">
-          <div className="flex h-full min-h-0 flex-col overflow-hidden">
-            <div className="flex shrink-0 flex-col gap-2 border-b border-[#2b2b2b] bg-[#252526] px-3 py-2 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 items-center gap-2 overflow-x-auto">
-                <div className="mr-2 shrink-0">
-                  <p className="text-sm font-semibold text-white">Workspace Praktikum</p>
-                  <p className="text-xs text-[#858585]">
-                    {language}
-                    {runStats?.hasRunEventData && runStats.instructionRunCounts ? (
-                      <> · Eksekusi Instruksi Ini: {runStats.instructionRunCounts[activeIndex] ?? 0} kali</>
-                    ) : null}
-                  </p>
+      {currentNeedsCode ? (
+        <>
+          <div className="h-[720px] min-h-[650px] overflow-hidden bg-[#1e1e1e]">
+            <div className="flex h-full min-h-0 flex-col overflow-hidden">
+              <div className="flex shrink-0 flex-col gap-2 border-b border-[#2b2b2b] bg-[#252526] px-3 py-2 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 items-center gap-2 overflow-x-auto">
+                  <div className="mr-2 shrink-0">
+                    <p className="text-sm font-semibold text-white">
+                      {isExercise ? "Workspace Kode Program Latihan" : "Workspace Kode Program"}
+                    </p>
+                    <p className="text-xs text-[#858585]">
+                      {language}
+                      {runStats?.hasRunEventData && runStats.instructionRunCounts ? (
+                        <> · Eksekusi Instruksi Ini: {runStats.instructionRunCounts[activeIndex] ?? 0} kali</>
+                      ) : null}
+                    </p>
+                  </div>
+                  {!hideInstructionTabs && instructions.map((step, originalIndex) => (
+                    <InstructionTabButton
+                      key={originalIndex}
+                      active={activeIndex === originalIndex}
+                      onClick={() => handleInstructionChange(originalIndex)}
+                    >
+                      Instruksi {originalIndex + 1}
+                      {step.needsCode === false && (
+                        <span className="ml-1 rounded bg-emerald-700 px-1 py-0.2 text-[10px] text-emerald-100">
+                          Text
+                        </span>
+                      )}
+                      {runStats?.hasRunEventData && runStats.instructionRunCounts && step.needsCode ? (
+                        <span className="ml-1 rounded bg-[#4b4b52] px-1.5 py-0.5 text-[11px] text-white">
+                          {runStats.instructionRunCounts[originalIndex] ?? 0}x
+                        </span>
+                      ) : null}
+                    </InstructionTabButton>
+                  ))}
                 </div>
-                {!hideInstructionTabs && codeIndices.map((originalIndex) => (
-                  <InstructionTabButton
-                    key={originalIndex}
-                    active={activeIndex === originalIndex}
-                    onClick={() => handleInstructionChange(originalIndex)}
-                  >
-                    Instruksi {originalIndex + 1}
-                    {runStats?.hasRunEventData && runStats.instructionRunCounts ? (
-                      <span className="ml-1 rounded bg-[#4b4b52] px-1.5 py-0.5 text-[11px] text-white">
-                        {runStats.instructionRunCounts[originalIndex] ?? 0}x
-                      </span>
-                    ) : null}
-                  </InstructionTabButton>
-                ))}
+
+                <div className="flex items-center gap-2 overflow-x-auto">
+                  {(saveStatus || saveError) && (
+                    <span className={`shrink-0 text-xs font-medium ${saveError ? "text-red-300" : "text-emerald-300"}`}>
+                      {saveError || saveStatus}
+                    </span>
+                  )}
+                  {!readOnly && (
+                    <>
+                      <ToolbarButton
+                        onClick={handleRun}
+                        disabled={Object.values(runningMap).some(Boolean)}
+                        primary
+                      >
+                        <Play size={16} fill="currentColor" aria-hidden="true" />
+                        Run
+                      </ToolbarButton>
+                      {runningMap[activeIndex] && (
+                        <ToolbarButton onClick={() => executionClientRef.current?.stop()} danger>
+                          <Square size={16} fill="currentColor" aria-hidden="true" />
+                          Stop
+                        </ToolbarButton>
+                      )}
+                      <ToolbarButton
+                        onClick={() => saveCurrentSteps(true)}
+                        disabled={isSaving}
+                      >
+                        <Save size={16} aria-hidden="true" />
+                        {isSaving ? "Saving" : "Save"}
+                      </ToolbarButton>
+                      <ToolbarButton
+                        onClick={handleReset}
+                        disabled={!!runningMap[activeIndex]}
+                      >
+                        <RotateCcw size={16} aria-hidden="true" />
+                        Reset
+                      </ToolbarButton>
+                    </>
+                  )}
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 overflow-x-auto">
-                {(saveStatus || saveError) && (
-                  <span className={`shrink-0 text-xs font-medium ${saveError ? "text-red-300" : "text-emerald-300"}`}>
-                    {saveError || saveStatus}
-                  </span>
-                )}
-                {!readOnly && (
-                  <>
-                    <ToolbarButton
-                      onClick={handleRun}
-                      disabled={Object.values(runningMap).some(Boolean)}
-                      primary
-                    >
-                      <Play size={16} fill="currentColor" aria-hidden="true" />
-                      Run
-                    </ToolbarButton>
-                    {runningMap[activeIndex] && (
-                      <ToolbarButton onClick={() => executionClientRef.current?.stop()} danger>
-                        <Square size={16} fill="currentColor" aria-hidden="true" />
-                        Stop
-                      </ToolbarButton>
-                    )}
-                    <ToolbarButton
-                      onClick={() => saveCurrentSteps(true)}
-                      disabled={isSaving}
-                    >
-                      <Save size={16} aria-hidden="true" />
-                      {isSaving ? "Saving" : "Save"}
-                    </ToolbarButton>
-                    <ToolbarButton
-                      onClick={handleReset}
-                      disabled={!!runningMap[activeIndex]}
-                    >
-                      <RotateCcw size={16} aria-hidden="true" />
-                      Reset
-                    </ToolbarButton>
-                  </>
-                )}
+              <div ref={codingBodyRef} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div className="min-h-0 flex-1">
+                  <CodeEditorPanel key={`${activeIndex}-${editorVersionMap[activeIndex] || 0}`} {...codeEditorProps} />
+                </div>
+                <div
+                  className="min-h-9 max-h-[45%] shrink-0 overflow-hidden border-t border-[#2b2b2b] bg-[#1e1e1e]"
+                  style={{ height: isBottomPanelExpanded ? `${bottomPanelHeight}px` : "40px" }}
+                >
+                  {isBottomPanelExpanded && (
+                    <div
+                      onMouseDown={handleBottomPanelResize}
+                      className="h-1 cursor-row-resize bg-[#2b2b2b] hover:bg-[#007acc]"
+                      title="Resize bottom panel"
+                    />
+                  )}
+                  <div className="flex h-10 items-center justify-between border-b border-[#2b2b2b] bg-[#252526] px-3">
+                    <div className="flex h-full items-center gap-1">
+                      <span className="text-xs font-semibold text-[#cccccc] uppercase tracking-wider">
+                        Terminal Output
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {runTimeMap[activeIndex] && !runningMap[activeIndex] && (
+                        <span className="text-xs text-[#858585]">{runTimeMap[activeIndex]}</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setIsBottomPanelExpanded(prev => !prev)}
+                        className="h-7 rounded px-2.5 text-xs font-semibold text-[#cccccc] hover:bg-[#2a2d2e] hover:text-white"
+                      >
+                        {isBottomPanelExpanded ? "Collapse Terminal" : "Expand Terminal"}
+                      </button>
+                    </div>
+                  </div>
+                  {isBottomPanelExpanded && (
+                    <div className="h-[calc(100%-44px)] min-h-0 overflow-hidden">
+                      <TerminalPanel
+                        output={outputMap[activeIndex] || ""}
+                        isRunning={!!runningMap[activeIndex]}
+                        currentInput={currentInputMap[activeIndex] || ""}
+                        inputRef={terminalInputRef}
+                        scrollRef={terminalScrollRef}
+                        onCurrentInputChange={(value) => setCurrentInputMap(prev => ({
+                          ...prev,
+                          [activeIndex]: value,
+                        }))}
+                        onSendInput={handleSendInput}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Standalone Card for Analysis (Code Steps) ── */}
+          <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-3">
+              <h4 className="text-sm font-bold text-gray-900">
+                {isExercise ? "Analisis / Jawaban Latihan" : "Analisis Percobaan"}
+              </h4>
+              <p className="text-xs text-gray-500">
+                {isExercise
+                  ? "Tuliskan penjelasan, jawaban, atau analisis pengerjaan latihan Anda di bawah ini."
+                  : "Tuliskan analisis, pengamatan, dan kesimpulan hasil eksekusi program Anda di bawah ini."}
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-3">
+              <AnalysisEditor
+                value={analysisMap[activeIndex] || { type: "doc", content: [] }}
+                onChange={(value) => {
+                  if (readOnly) return
+                  setAnalysisMap(prev => ({
+                    ...prev,
+                    [activeIndex]: value,
+                  }))
+                  scheduleLiveAnalysis(value)
+                }}
+                readOnly={readOnly}
+              />
+            </div>
+          </div>
+        </>
+      ) : (
+        /* ── Non-Code Instruction Panel ── */
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex flex-col gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 overflow-x-auto">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider mr-1">Instruksi:</span>
+              {!hideInstructionTabs && instructions.map((step, originalIndex) => (
+                <button
+                  key={originalIndex}
+                  type="button"
+                  onClick={() => handleInstructionChange(originalIndex)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                    activeIndex === originalIndex
+                      ? "bg-blue-700 text-white shadow-xs"
+                      : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                  }`}
+                >
+                  <span>Instruksi {originalIndex + 1}</span>
+                  {step.needsCode === false && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${activeIndex === originalIndex ? "bg-blue-800 text-blue-100" : "bg-emerald-100 text-emerald-800"}`}>
+                      Non-Kode
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {(saveStatus || saveError) && (
+                <span className={`text-xs font-semibold ${saveError ? "text-red-600" : "text-emerald-600"}`}>
+                  {saveError || saveStatus}
+                </span>
+              )}
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => saveCurrentSteps(true)}
+                  disabled={isSaving}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-blue-700 hover:bg-blue-800 px-4 py-2 text-xs font-bold text-white shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Save size={15} />
+                  <span>{isSaving ? "Menyimpan..." : "Simpan Jawaban"}</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="p-6 space-y-4 bg-white">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div>
+                <h4 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                  <FileText size={20} className="text-emerald-600" />
+                  {isExercise
+                    ? "Hasil Analisis & Jawaban Latihan"
+                    : `Hasil Analisis & Jawaban Mahasiswa${instructions.length > 1 ? ` (Instruksi ${activeIndex + 1})` : ""}`}
+                </h4>
+                <p className="text-xs text-gray-500 mt-1">
+                  Instruksi ini tidak memerlukan kode program. Tuliskan jawaban, penjelasan, atau hasil analisis Anda di bawah ini.
+                </p>
               </div>
             </div>
 
-            <div ref={codingBodyRef} className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="min-h-0 flex-1">
-                <CodeEditorPanel key={`${activeIndex}-${editorVersionMap[activeIndex] || 0}`} {...codeEditorProps} />
-              </div>
-              <div
-                className="min-h-9 max-h-[45%] shrink-0 overflow-hidden border-t border-[#2b2b2b] bg-[#1e1e1e]"
-                style={{ height: isBottomPanelExpanded ? `${bottomPanelHeight}px` : "40px" }}
-              >
-                {isBottomPanelExpanded && (
-                  <div
-                    onMouseDown={handleBottomPanelResize}
-                    className="h-1 cursor-row-resize bg-[#2b2b2b] hover:bg-[#007acc]"
-                    title="Resize bottom panel"
-                  />
-                )}
-                <div className="flex h-10 items-center justify-between border-b border-[#2b2b2b] bg-[#252526] px-3">
-                  <div className="flex h-full items-center gap-1">
-                    <span className="text-xs font-semibold text-[#cccccc] uppercase tracking-wider">
-                      Terminal
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {runTimeMap[activeIndex] && !runningMap[activeIndex] && (
-                      <span className="text-xs text-[#858585]">{runTimeMap[activeIndex]}</span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setIsBottomPanelExpanded(prev => !prev)}
-                      className="h-7 rounded px-2.5 text-xs font-semibold text-[#cccccc] hover:bg-[#2a2d2e] hover:text-white"
-                    >
-                      {isBottomPanelExpanded ? "Collapse Terminal" : "Expand Terminal"}
-                    </button>
-                  </div>
-                </div>
-                {isBottomPanelExpanded && (
-                  <div className="h-[calc(100%-44px)] min-h-0 overflow-hidden">
-                    <TerminalPanel
-                      output={outputMap[activeIndex] || ""}
-                      isRunning={!!runningMap[activeIndex]}
-                      currentInput={currentInputMap[activeIndex] || ""}
-                      inputRef={terminalInputRef}
-                      scrollRef={terminalScrollRef}
-                      onCurrentInputChange={(value) => setCurrentInputMap(prev => ({
-                        ...prev,
-                        [activeIndex]: value,
-                      }))}
-                      onSendInput={handleSendInput}
-                    />
-                  </div>
-                )}
-              </div>
+            <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4">
+              <AnalysisEditor
+                value={analysisMap[activeIndex] || { type: "doc", content: [] }}
+                onChange={(value) => {
+                  if (readOnly) return
+                  setAnalysisMap(prev => ({
+                    ...prev,
+                    [activeIndex]: value,
+                  }))
+                  scheduleLiveAnalysis(value)
+                }}
+                readOnly={readOnly}
+              />
             </div>
           </div>
         </div>
       )}
-
-      {/* ── Separate Standalone Card for Analysis ── */}
-      <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="mb-3">
-          <h4 className="text-sm font-bold text-gray-900">Analisis Percobaan</h4>
-          <p className="text-xs text-gray-500">Tuliskan analisis, pengamatan, dan kesimpulan hasil eksekusi program Anda di bawah ini.</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-3">
-          <AnalysisEditor
-            value={analysisMap[activeIndex] || { type: "doc", content: [] }}
-            onChange={(value) => {
-              if (readOnly) return
-              setAnalysisMap(prev => ({
-                ...prev,
-                [activeIndex]: value,
-              }))
-              scheduleLiveAnalysis(value)
-            }}
-            readOnly={readOnly}
-          />
-        </div>
-      </div>
     </section>
   )
 }

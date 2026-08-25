@@ -54,7 +54,7 @@ export default function PreviewPage() {
   const handleSaveDraft = async () => {
     if (!effectiveCourseId || !jobsheetId || !submission || !user) return
     if (!jobsheet?.access?.canSaveProgress || jobsheet.access.accessMode === "locked_deadline") {
-      toast.error(jobsheet?.access?.message || "Pengerjaan normal telah dikunci.")
+      toast.error(jobsheet?.access?.message || "Pengerjaan reguler telah dikunci.")
       return
     }
     try {
@@ -93,7 +93,7 @@ export default function PreviewPage() {
   const handleSubmit = async () => {
     if (!effectiveCourseId || !jobsheetId || !submission || !user) return
     if (!jobsheet?.access?.canSubmit || jobsheet.access.accessMode === "locked_deadline") {
-      setError(jobsheet?.access?.message || "Pengerjaan normal telah dikunci.")
+      setError(jobsheet?.access?.message || "Pengerjaan reguler telah dikunci.")
       return
     }
     try {

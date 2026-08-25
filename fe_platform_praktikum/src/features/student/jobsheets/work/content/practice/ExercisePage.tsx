@@ -5,6 +5,7 @@ import type { JobsheetSubmission } from "../../../../../../services/submission/t
 import InstructionWorkspaceCard from "./components/InstructionWorkspaceCard"
 import NotFoundPage from "../../../../../not-found/NotFoundPage"
 import RichTextViewer from "../../../../../../components/editor/RichTextViewer"
+import ProtectedContentContainer from "../../../../../../shared/components/ProtectedContentContainer"
 import type { connectLiveWorkspaceSocket } from "../../../../../../services/liveWorkspaceSocket"
 
 type StepData = {
@@ -38,10 +39,14 @@ export default function ExercisePage() {
     return <NotFoundPage />
   }
   const kelasPraktikumId = jobsheet.kelasPraktikumId || searchParams.get("kelasPraktikumId") || ""
+  const needsCode = exercise.instructionContent?.attrs?.needsCode !== undefined
+    ? Boolean(exercise.instructionContent.attrs.needsCode)
+    : true
+  const exerciseInstructions = [{ content: exercise.instructionContent, needsCode }]
 
   return (
     <div className="space-y-4">
-      <div>
+      <ProtectedContentContainer>
         <h2 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
           <span>{exercise.title}</span>
           <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded-full">
@@ -50,14 +55,14 @@ export default function ExercisePage() {
         </h2>
         {exercise.instructionContent && (
           <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5">
-            <RichTextViewer content={exercise.instructionContent} mode="viewer-default" />
+            <RichTextViewer content={exercise.instructionContent} mode="viewer-default" isProtected />
           </div>
         )}
-      </div>
+      </ProtectedContentContainer>
 
       <InstructionWorkspaceCard
         key={exercise.id}
-        instructions={[{ content: exercise.instructionContent, needsCode: true }]}
+        instructions={exerciseInstructions}
         templateCode={exercise.defaultTemplateCode || ''}
         language={programmingLanguage}
         initialSteps={initialStep ? [initialStep] : undefined}
@@ -66,6 +71,7 @@ export default function ExercisePage() {
         liveWorkspace={liveWorkspace}
         liveSection={{ type: "exercise", id: exerciseId, name: exercise.title }}
         readOnly={readOnly}
+        hideInstructionTabs
         runContext={kelasPraktikumId ? {
           jobsheetId: jobsheet.id,
           kelasPraktikumId,

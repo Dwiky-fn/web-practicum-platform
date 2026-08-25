@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react"
-import { ChevronDown, ChevronUp, MessageSquare, AlertCircle, Sparkles, User, FileEdit } from "lucide-react"
+import { ChevronDown, ChevronUp, MessageSquare, AlertCircle, Sparkles, User, FileEdit, FileText } from "lucide-react"
 import RichTextViewer from "../../../../components/editor/RichTextViewer"
 import CodeReviewBlock from "./CodeReviewBlock"
 import type { SelectedLineRange } from "./CodeReviewBlock"
 import type { ReviewFeedback } from "../../../../services/reviewFeedbackService"
+import { splitInstructionContent } from "../../../../shared/utils/splitInstructionContent"
 
 const emptyDoc = { type: "doc" as const, content: [] }
 
@@ -42,6 +43,7 @@ interface Props {
     feedback?: string
   } | null
   onEvaluationChange?: (value: { score: string; feedback: string }) => void
+  onAutoSave?: () => void
 }
 
 export default function ExperimentReviewCard({
@@ -63,8 +65,13 @@ export default function ExperimentReviewCard({
   evaluation,
   aiRecommendation,
   onEvaluationChange,
+  onAutoSave,
 }: Props) {
   const [isExpanded, setIsExpanded] = useState(isExpandedByDefault)
+
+  const parsedInstructions = experiment.instructionContent
+    ? splitInstructionContent(experiment.instructionContent)
+    : []
 
   useEffect(() => {
     setIsExpanded(isExpandedByDefault)
@@ -163,18 +170,6 @@ export default function ExperimentReviewCard({
       {/* Card Content */}
       {isExpanded && (
         <div className="min-w-0 p-5 space-y-6">
-          {/* Instructions */}
-          {experiment.instructionContent && (
-            <div className="min-w-0 overflow-hidden bg-blue-50/40 border border-blue-100/50 rounded-xl p-4 text-sm">
-              <h4 className="font-semibold text-blue-900 mb-2 text-xs uppercase tracking-wide">
-                Instruksi Kerja
-              </h4>
-              <div className="min-w-0 overflow-x-auto">
-                <RichTextViewer content={experiment.instructionContent} role="MAHASISWA" mode="viewer-default" />
-              </div>
-            </div>
-          )}
-
           {/* Steps */}
           {!steps.length ? (
             <div className="flex items-center gap-2 text-gray-400 italic text-sm py-4">
@@ -183,50 +178,89 @@ export default function ExperimentReviewCard({
             </div>
           ) : (
             <div className="space-y-6">
-              {steps.map((step, idx) => (
-                <div key={idx} className="border border-gray-200 rounded-xl p-4 space-y-4">
-                  {type !== "exercise" && steps.length > 1 && (
-                    <h4 className="font-semibold text-gray-800 text-sm">
-                      Langkah Ke-{idx + 1}
-                    </h4>
-                  )}
+              {steps.map((step, idx) => {
+                const stepInstruction = parsedInstructions[idx]
+                const instructionDoc = stepInstruction?.content || (idx === 0 || parsedInstructions.length <= 1 ? experiment.instructionContent : null)
 
-                  {/* Code Block for each file */}
-                  {Object.entries(step.files ?? {}).map(([fileName, fileCode]) => (
-                    <CodeReviewBlock
-                      key={fileName}
-                      submissionId={submissionId}
-                      experimentId={experiment.id}
-                      codeBlockId={`step-${idx}`}
-                      fileName={fileName}
-                      code={fileCode}
-                      feedbacks={feedbacks}
-                      readOnly={readOnly}
-                      selectedLineRange={selectedLineRange}
-                      activeFeedbackId={activeFeedbackId}
-                      onSelectLines={onSelectLines}
-                      onSelectFeedback={onSelectFeedback}
-                      onClearSelection={onClearSelection}
-                    />
-                  ))}
+                const hasCodeFiles = Object.values(step.files ?? {}).some(c => typeof c === 'string' && Boolean(c.trim()))
+                const needsCode = stepInstruction?.needsCode !== undefined
+                  ? stepInstruction.needsCode
+                  : (hasCodeFiles || Boolean(step.output?.trim()))
 
-                  {/* Output */}
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs md:text-sm">
-                    <p className="font-semibold text-gray-700 mb-1">Output Program:</p>
-                    <pre className="whitespace-pre-wrap font-mono text-gray-800 bg-white p-2 border border-gray-100 rounded">
-                      {step.output || "-"}
-                    </pre>
-                  </div>
+                return (
+                  <div key={idx} className="border border-gray-200 rounded-xl p-5 space-y-4 bg-white shadow-2xs">
+                    {/* Header Langkah / Soal */}
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                        <span className="flex items-center justify-center w-6 h-6 rounded-md bg-blue-100 text-blue-800 text-xs font-bold">
+                          {type === "exercise" ? "L" : idx + 1}
+                        </span>
+                        <span>{type === "exercise" ? "Soal / Instruksi Latihan" : `Langkah Ke-${idx + 1}`}</span>
+                      </h4>
+                      {!needsCode && (
+                        <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-md">
+                          Instruksi Teks / Non-Kode
+                        </span>
+                      )}
+                    </div>
 
-                  {/* Analysis */}
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
-                    <p className="font-semibold text-gray-700 mb-2">Analisis Mahasiswa:</p>
-                    <div className="bg-white p-3 border border-gray-100 rounded">
-                      <RichTextViewer content={step.analysis ?? emptyDoc} role="MAHASISWA" mode="viewer-default" />
+                    {/* 1. Instruksi Langkah Kerja */}
+                    {instructionDoc && (
+                      <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3.5 text-sm space-y-1.5">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-blue-900 flex items-center gap-1.5 font-sans">
+                          <FileText size={13} className="text-blue-700" />
+                          <span>{type === "exercise" ? "Instruksi Latihan:" : `Instruksi Langkah ${idx + 1}:`}</span>
+                        </p>
+                        <div className="min-w-0 overflow-x-auto text-gray-800">
+                          <RichTextViewer content={instructionDoc} role="MAHASISWA" mode="viewer-default" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 2. Kode & Output Mahasiswa (HANYA jika instruksi membutuhkan kode) */}
+                    {needsCode && (
+                      <div className="space-y-4">
+                        {/* Code Block for each file */}
+                        {Object.entries(step.files ?? {}).map(([fileName, fileCode]) => (
+                          <CodeReviewBlock
+                            key={fileName}
+                            submissionId={submissionId}
+                            experimentId={experiment.id}
+                            codeBlockId={`step-${idx}`}
+                            fileName={fileName}
+                            code={fileCode}
+                            feedbacks={feedbacks}
+                            readOnly={readOnly}
+                            selectedLineRange={selectedLineRange}
+                            activeFeedbackId={activeFeedbackId}
+                            onSelectLines={onSelectLines}
+                            onSelectFeedback={onSelectFeedback}
+                            onClearSelection={onClearSelection}
+                          />
+                        ))}
+
+                        {/* Output */}
+                        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs md:text-sm">
+                          <p className="font-semibold text-gray-700 mb-1">Output Program:</p>
+                          <pre className="whitespace-pre-wrap font-mono text-gray-800 bg-white p-2 border border-gray-100 rounded">
+                            {step.output || "(Tidak ada output)"}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 3. Analisis / Jawaban Mahasiswa */}
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3.5 text-sm">
+                      <p className="font-semibold text-gray-700 mb-2 text-xs uppercase tracking-wider">
+                        {needsCode ? "Analisis / Penjelasan Mahasiswa:" : "Hasil Analisis & Jawaban Mahasiswa:"}
+                      </p>
+                      <div className="bg-white p-3 border border-gray-100 rounded-lg">
+                        <RichTextViewer content={step.analysis ?? emptyDoc} role="MAHASISWA" mode="viewer-default" />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
 
@@ -297,6 +331,7 @@ export default function ExperimentReviewCard({
                           const numeric = Math.min(Math.max(Number(raw), 0), rubric || 0)
                           onEvaluationChange?.({ score: String(numeric), feedback: evaluation?.feedback ?? "" })
                         }}
+                        onBlur={() => onAutoSave?.()}
                         className="mt-1 h-9 w-full rounded-lg border border-gray-300 px-3 text-sm font-semibold outline-none focus:border-blue-500"
                       />
                     )}
@@ -312,6 +347,7 @@ export default function ExperimentReviewCard({
                       <textarea
                         value={evaluation?.feedback ?? ""}
                         onChange={(event) => onEvaluationChange?.({ score: evaluation?.score ?? "", feedback: event.target.value })}
+                        onBlur={() => onAutoSave?.()}
                         rows={4}
                         placeholder="Feedback final Dosen untuk bagian ini..."
                         className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-xs outline-none focus:border-blue-500"

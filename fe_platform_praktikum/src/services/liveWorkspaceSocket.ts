@@ -61,10 +61,6 @@ function debugLog(role: LiveWorkspaceRole, message: string, payload?: unknown) {
   console.debug(`[LIVE-WS][${role === "student" ? "STUDENT" : "LECTURER"}] ${message}`, payload ?? "")
 }
 
-function errorLog(role: LiveWorkspaceRole, message: string, payload?: unknown) {
-  console.error(`[LIVE-WS][${role === "student" ? "STUDENT" : "LECTURER"}] ${message}`, payload ?? "")
-}
-
 export function connectLiveWorkspaceSocket(options: ConnectOptions) {
   const url = buildUrl()
   if (!url) return { send: () => false, close: () => undefined, getVersion: () => 0 }
@@ -157,8 +153,10 @@ export function connectLiveWorkspaceSocket(options: ConnectOptions) {
     })
 
     socket.addEventListener("error", () => {
-      errorLog(options.role, "socket error")
-      socket?.close()
+      debugLog(options.role, "socket connection unavailable/closed")
+      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+        socket.close()
+      }
     })
   }
 
@@ -182,7 +180,9 @@ export function connectLiveWorkspaceSocket(options: ConnectOptions) {
       closed = true
       if (reconnectTimer) window.clearTimeout(reconnectTimer)
       pending.length = 0
-      sendRaw({ type: "leave-live-workspace" })
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        sendRaw({ type: "leave-live-workspace" })
+      }
       socket?.close()
     },
     getVersion() {

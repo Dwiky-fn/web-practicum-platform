@@ -4,6 +4,7 @@ import { useCallback, useState } from "react"
 import EditorTabs from "./EditorTabs"
 import FileExplorer from "./FileExplorer"
 import type { ExplorerClipboard, FileTreeNode, TreeContextMenuState } from "./types"
+import { registerInternalEditorCopy, isInternalEditorCopy, notifyExternalPasteBlocked } from "../../shared/utils/editorClipboardProtection"
 
 interface Props {
   language: string
@@ -93,6 +94,37 @@ export default function CodeEditorLayout({
     window.addEventListener("mousemove", handleMouseMove)
     window.addEventListener("mouseup", handleMouseUp)
   }, [explorerWidth])
+  const handleEditorMount = useCallback((editor: any) => {
+    const container = editor.getDomNode()
+    if (!container) return
+
+    const handleCopyCut = () => {
+      const selection = editor.getModel()?.getValueInRange(editor.getSelection())
+      if (selection) {
+        registerInternalEditorCopy(selection)
+      } else {
+        const fullContent = editor.getValue()
+        if (fullContent) {
+          registerInternalEditorCopy(fullContent)
+        }
+      }
+    }
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const pastedText = e.clipboardData?.getData("text/plain") || ""
+      if (!pastedText) return
+
+      if (!isInternalEditorCopy(pastedText)) {
+        e.preventDefault()
+        e.stopPropagation()
+        notifyExternalPasteBlocked()
+      }
+    }
+
+    container.addEventListener("copy", handleCopyCut, true)
+    container.addEventListener("cut", handleCopyCut, true)
+    container.addEventListener("paste", handlePaste, true)
+  }, [])
 
   return (
     <div className="h-full min-h-0 overflow-hidden border border-[#2b2b2b] bg-[#1e1e1e] shadow-sm">
@@ -152,6 +184,7 @@ export default function CodeEditorLayout({
               path={editorPath}
               value={files[activeFile] ?? ""}
               theme="vs-dark"
+              onMount={handleEditorMount}
               onChange={(value) => {
                 if (readOnly) return
                 if (value !== undefined) {

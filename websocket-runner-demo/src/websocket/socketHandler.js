@@ -13,7 +13,8 @@ const {
 const { runProgram } = require('../runners');
 const { sanitizeRelativePath } = require('../utils/pathSecurity');
 
-const DEFAULT_TIMEOUT_MS = 10_000;
+const HARD_TIMEOUT_MS = parseInt(process.env.EXECUTION_TIMEOUT_MS || '120000', 10);
+const IDLE_TIMEOUT_MS = parseInt(process.env.IDLE_TIMEOUT_MS || '60000', 10);
 
 function validateRunPayload(payload) {
   if (!payload || payload.type !== 'run') {
@@ -46,29 +47,65 @@ function validateRunPayload(payload) {
 function handleSocketConnection(ws) {
   let currentProcess = null;
   let workspaceDir = null;
-  let timeoutHandle = null;
+  let maxTimeoutHandle = null;
+  let idleTimeoutHandle = null;
   let stoppedByUser = false;
   let timedOut = false;
 
-  function clearTimer() {
-    if (timeoutHandle) {
-      clearTimeout(timeoutHandle);
-      timeoutHandle = null;
+  function clearTimers() {
+    if (maxTimeoutHandle) {
+      clearTimeout(maxTimeoutHandle);
+      maxTimeoutHandle = null;
+    }
+    if (idleTimeoutHandle) {
+      clearTimeout(idleTimeoutHandle);
+      idleTimeoutHandle = null;
+    }
+  }
+
+  function resetIdleTimer() {
+    if (idleTimeoutHandle) {
+      clearTimeout(idleTimeoutHandle);
+      idleTimeoutHandle = null;
+    }
+    if (currentProcess && !currentProcess.killed && !timedOut && !stoppedByUser) {
+      idleTimeoutHandle = setTimeout(() => {
+        timedOut = true;
+        sendError(ws, 'Execution timeout: Batas waktu inaktivitas (60 detik) terlampaui');
+        stopCurrentProcess();
+      }, IDLE_TIMEOUT_MS);
+    }
+  }
+
+  function stopCurrentProcess() {
+    if (currentProcess && !currentProcess.killed) {
+      try {
+        currentProcess.kill('SIGKILL');
+      } catch (err) {
+        console.error('Gagal menghentikan proses:', err);
+      }
     }
   }
 
   function resetState() {
+    stopCurrentProcess();
     currentProcess = null;
-    clearTimer();
-    cleanupWorkspace(workspaceDir);
-    workspaceDir = null;
+    clearTimers();
+    if (workspaceDir) {
+      cleanupWorkspace(workspaceDir);
+      workspaceDir = null;
+    }
     stoppedByUser = false;
     timedOut = false;
   }
 
   function stopCurrentProcess() {
     if (currentProcess && !currentProcess.killed) {
-      currentProcess.kill();
+      try {
+        currentProcess.kill('SIGKILL');
+      } catch (err) {
+        console.error('Gagal menghentikan proses:', err);
+      }
     }
   }
 
@@ -77,10 +114,12 @@ function handleSocketConnection(ws) {
 
     process.stdout.on('data', (data) => {
       sendStdout(ws, data.toString());
+      resetIdleTimer();
     });
 
     process.stderr.on('data', (data) => {
       sendStderr(ws, data.toString());
+      resetIdleTimer();
     });
 
     process.on('error', (error) => {
@@ -89,7 +128,7 @@ function handleSocketConnection(ws) {
     });
 
     process.on('close', (code) => {
-      clearTimer();
+      clearTimers();
 
       if (stoppedByUser) {
         sendExit(ws, null, 'Program stopped');
@@ -106,11 +145,13 @@ function handleSocketConnection(ws) {
       resetState();
     });
 
-    timeoutHandle = setTimeout(() => {
+    maxTimeoutHandle = setTimeout(() => {
       timedOut = true;
-      sendError(ws, 'Execution timeout');
+      sendError(ws, 'Execution timeout: Batas maksimum waktu eksekusi (120 detik) terlampaui');
       stopCurrentProcess();
-    }, DEFAULT_TIMEOUT_MS);
+    }, HARD_TIMEOUT_MS);
+
+    resetIdleTimer();
   }
 
   async function handleRun(payload) {
@@ -163,6 +204,7 @@ function handleSocketConnection(ws) {
       }
 
       currentProcess.stdin.write(String(payload.data ?? payload.value ?? ''));
+      resetIdleTimer();
       return;
     }
 

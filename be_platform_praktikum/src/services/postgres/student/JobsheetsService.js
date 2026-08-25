@@ -163,6 +163,14 @@ class JobsheetsService {
       const jobsheets = await this._hydrateJobsheets(result.rows);
       for (const js of jobsheets) {
         js.access = await this.getJobsheetAccess(user.id, js.id, kelasPraktikumId || js.id_kelas_praktikum);
+        if (js.access) {
+          js.normal_deadline = js.deadline;
+          js.normalDeadline = js.deadline;
+          const effective = js.access.effectiveDeadline || js.access.remedialEndAt || js.deadline;
+          js.effective_deadline = effective;
+          js.effectiveDeadline = effective;
+          js.deadline = effective;
+        }
       }
       return jobsheets;
     }
@@ -301,6 +309,14 @@ class JobsheetsService {
         remedialId,
         attemptType
       );
+      if (jobsheet.access) {
+        jobsheet.normal_deadline = jobsheet.deadline;
+        jobsheet.normalDeadline = jobsheet.deadline;
+        const effective = jobsheet.access.effectiveDeadline || jobsheet.access.remedialEndAt || jobsheet.deadline;
+        jobsheet.effective_deadline = effective;
+        jobsheet.effectiveDeadline = effective;
+        jobsheet.deadline = effective;
+      }
       if (!jobsheet.access.canEdit && jobsheet.access.accessMode === 'locked_sequence') {
         throw new ClientError(jobsheet.access.message || 'Selesaikan jobsheet sebelumnya terlebih dahulu.', 403);
       }

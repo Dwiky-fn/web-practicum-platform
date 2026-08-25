@@ -6,6 +6,11 @@ module.exports = (handler) => {
   router.use('/lecturer', requireAuth, requireRoles('DOSEN'));
 
   router.get(
+    '/lecturer/kelas-praktikum/:kelasPraktikumId/monitoring/events',
+    handler.getMonitoringEventsSseHandler,
+  );
+
+  router.get(
     '/lecturer/kelas-praktikum/:kelasPraktikumId/monitoring',
     handler.getClassMonitoringHandler,
   );

@@ -131,7 +131,7 @@ class SubmissionsService {
         ts.report_html,
         ts.attempt_no,
         ts.attempt_type,
-        ts.attempt_label,
+        CASE WHEN ts.attempt_label = 'Pengerjaan Normal' THEN 'Pengerjaan Reguler' ELSE COALESCE(ts.attempt_label, CASE WHEN ts.attempt_type = 'remedial' THEN 'Remedial ' || (ts.attempt_no - 1) ELSE 'Pengerjaan Reguler' END) END AS attempt_label,
         ts.remedial_id,
         ts.submission_source,
         ts.id_kelas_praktikum,
@@ -336,7 +336,7 @@ class SubmissionsService {
     const report = this._generateInitialReport(jobsheet);
     const attemptNo = writeAccess.attemptNo || 1;
     const resolvedAttemptType = writeAccess.attemptType || attemptType || 'normal';
-    const resolvedAttemptLabel = resolvedAttemptType === 'remedial' ? writeAccess.attemptLabel : 'Pengerjaan Normal';
+    const resolvedAttemptLabel = resolvedAttemptType === 'remedial' ? writeAccess.attemptLabel : 'Pengerjaan Reguler';
     const resolvedRemedialId = writeAccess.remedialId || remedialId || null;
     const submissionSource = resolvedAttemptType === 'remedial' ? 'remedial' : 'manual';
     const conflictTarget = resolvedRemedialId
@@ -405,7 +405,7 @@ class SubmissionsService {
           throw new AuthorizationError('Anda tidak memiliki akses ke pengerjaan mahasiswa ini.');
         }
         if (options.attemptType === 'normal' && submission.remedial_id) {
-          throw new AuthorizationError('Submission tidak sesuai dengan attempt yang dipilih.');
+          throw new AuthorizationError('Submission tidak sesuai dengan jenis pengerjaan yang dipilih.');
         }
         if (options.attemptType === 'remedial' && options.remedialId && submission.remedial_id !== options.remedialId) {
           throw new AuthorizationError('Submission tidak sesuai dengan remedial yang dipilih.');
@@ -1116,7 +1116,7 @@ class SubmissionsService {
         ts.id AS "submissionId",
         ts.attempt_no AS "attemptNo",
         ts.attempt_type AS "attemptType",
-        COALESCE(ts.attempt_label, CASE WHEN ts.attempt_type = 'remedial' THEN 'Remedial ' || (ts.attempt_no - 1) ELSE 'Pengerjaan Normal' END) AS "attemptLabel",
+        COALESCE(ts.attempt_label, CASE WHEN ts.attempt_type = 'remedial' THEN 'Remedial ' || (ts.attempt_no - 1) ELSE 'Pengerjaan Reguler' END) AS "attemptLabel",
         ts.status,
         ts.calculated_progress_score AS "calculatedProgressScore",
         ts.score_breakdown AS "scoreBreakdown",

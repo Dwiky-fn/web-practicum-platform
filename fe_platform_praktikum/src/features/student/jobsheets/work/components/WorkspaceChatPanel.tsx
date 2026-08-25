@@ -12,12 +12,15 @@ import { ChatSocketClient } from "../../../../../services/chat/chatSocket"
 import { useCurrentUser } from "../../../../../services/user/useCurrentUser"
 import { formatAcademicDateTime } from "../../../../../shared/utils/formatAcademicDateTime"
 
+import { useChatNotification } from "../../../../../services/chat/ChatNotificationContext"
+
 interface WorkspaceChatPanelProps {
   isOpen: boolean
   onClose: () => void
   kelasPraktikumId: string
   jobsheetId: string
   onRead?: () => void
+  onOpenChat?: () => void
 }
 
 export default function WorkspaceChatPanel({
@@ -26,8 +29,10 @@ export default function WorkspaceChatPanel({
   kelasPraktikumId,
   jobsheetId,
   onRead,
+  onOpenChat,
 }: WorkspaceChatPanelProps) {
   const { user } = useCurrentUser()
+  const { setActiveChatState } = useChatNotification()
   const token = localStorage.getItem("authToken") || ""
 
   const [conversation, setConversation] = useState<ChatConversation | null>(null)
@@ -42,6 +47,18 @@ export default function WorkspaceChatPanel({
   const chatSocketRef = useRef<ChatSocketClient | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const firstUnreadRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setActiveChatState({
+      isChatOpen: isOpen,
+      conversationId: conversation?.id || null,
+      kelasPraktikumId,
+      jobsheetId,
+      openChatDrawer: () => {
+        if (onOpenChat) onOpenChat()
+      },
+    })
+  }, [isOpen, conversation?.id, kelasPraktikumId, jobsheetId, setActiveChatState, onOpenChat])
 
   const scrollToTarget = () => {
     setTimeout(() => {

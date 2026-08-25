@@ -1,11 +1,19 @@
 import { useEffect, useState } from "react"
-import { BookOpen, ChevronDown, ChevronUp, Layers, Sparkles, Users } from "lucide-react"
+import { BookOpen, ChevronDown, ChevronUp, FileSpreadsheet, Layers, Sparkles, Users } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useCurrentUser } from "../../../services/user/useCurrentUser"
 import LecturerLayout from "../components/LecturerLayout"
 import { LecturerButton, LecturerEmptyState } from "../components/LecturerUI"
-import { getLecturerCourseGroups, type LecturerCourseGroup } from "../service"
+import {
+  buildLecturerJobsheetSummaries,
+  getLecturerClassDetail,
+  getLecturerCourseGroups,
+  getLecturerSubmissionMatrix,
+  type LecturerCourseGroup,
+} from "../service"
 import { academicCourseBasePath } from "../../../services/academicScope"
+import { exportCourseGradesToExcel } from "../../../shared/utils/exportGradesToExcel"
+import { toast } from "../../../components/toast/toastStore"
 
 export default function LecturerCoursesPage() {
   const navigate = useNavigate()
@@ -24,6 +32,61 @@ export default function LecturerCoursesPage() {
     }
   })
   const [historyPeriod, setHistoryPeriod] = useState("all")
+  const [exportingCourseId, setExportingCourseId] = useState<string | null>(null)
+
+  const handleExportCourseReport = async (courseGroup: LecturerCourseGroup) => {
+    if (!courseGroup.classes.length) {
+      toast.error("Mata kuliah ini belum memiliki kelas.")
+      return
+    }
+
+    setExportingCourseId(courseGroup.id)
+    try {
+      const scope = activeTab === "history" ? "history" : "active"
+      const classesData = await Promise.all(
+        courseGroup.classes.map(async (classItem) => {
+          const classDetail = await getLecturerClassDetail(classItem.id, { scope })
+          const mataKuliahId = classDetail.mataKuliahId || classDetail.id_mata_kuliah || classDetail.courseId
+          const kelasPraktikumId = classDetail.kelasPraktikumId || classDetail.id_kelas_praktikum
+          const submissionMatrix = await getLecturerSubmissionMatrix(
+            classDetail.courseId,
+            classDetail.jobsheets,
+            classDetail.students,
+            { mataKuliahId, kelasPraktikumId }
+          )
+          const summaries = buildLecturerJobsheetSummaries(
+            classDetail.jobsheets,
+            classDetail.students,
+            submissionMatrix,
+            classDetail.name,
+            classDetail.id,
+            kelasPraktikumId
+          )
+
+          const jobsheetPlan = classDetail.jumlahJobsheetRencana ?? classDetail.jumlah_jobsheet_rencana ?? 1
+
+          return {
+            className: classDetail.name,
+            students: classDetail.students || [],
+            jobsheets: summaries,
+            matrix: submissionMatrix,
+            jobsheetPlan: jobsheetPlan,
+          }
+        })
+      )
+
+      exportCourseGradesToExcel({
+        courseName: courseGroup.name,
+        classesData,
+      })
+
+      toast.success(`Laporan rekapitulasi nilai ${courseGroup.name} berhasil diexport!`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal meng-export laporan rekapitulasi nilai mata kuliah.")
+    } finally {
+      setExportingCourseId(null)
+    }
+  }
 
   useEffect(() => {
     async function loadCourses() {
@@ -205,12 +268,23 @@ export default function LecturerCoursesPage() {
                         {activeTab === "active" ? "Daftar Kelas Praktikum Aktif" : "Riwayat Kelas Praktikum"}
                       </h4>
                       {activeTab === "active" && (
-                        <LecturerButton
-                          variant="secondary"
-                          onClick={() => navigate(`${academicCourseBasePath(course.id, { mataKuliahId: course.mataKuliahId || course.id })}/jobsheets`)}
-                        >
-                          Kelola Jobsheet Mata Kuliah
-                        </LecturerButton>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <LecturerButton
+                            variant="secondary"
+                            disabled={exportingCourseId === course.id}
+                            onClick={() => handleExportCourseReport(course)}
+                            className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 font-bold"
+                          >
+                            <FileSpreadsheet size={15} className="text-emerald-600" />
+                            <span>{exportingCourseId === course.id ? "Mengexport..." : "Laporan Rekapitulasi Nilai"}</span>
+                          </LecturerButton>
+                          <LecturerButton
+                            variant="secondary"
+                            onClick={() => navigate(`${academicCourseBasePath(course.id, { mataKuliahId: course.mataKuliahId || course.id })}/jobsheets`)}
+                          >
+                            Kelola Jobsheet Mata Kuliah
+                          </LecturerButton>
+                        </div>
                       )}
                     </div>
 

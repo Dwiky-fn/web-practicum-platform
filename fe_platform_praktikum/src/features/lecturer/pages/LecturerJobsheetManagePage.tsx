@@ -324,7 +324,7 @@ export default function LecturerJobsheetManagePage() {
               }}
             >
               <Pencil size={15} />
-              <span>Jumlah Jobsheet ({(dataset?.classDetails[0] as any)?.jumlahJobsheetRencana ?? (dataset?.classDetails[0] as any)?.jumlah_jobsheet_rencana ?? 0})</span>
+              <span>Ubah Jumlah Jobsheet ({(dataset?.classDetails[0] as any)?.jumlahJobsheetRencana ?? (dataset?.classDetails[0] as any)?.jumlah_jobsheet_rencana ?? 0})</span>
             </LecturerButton>
             <LecturerButton variant="secondary" className="shrink-0 whitespace-nowrap" onClick={() => {
               const createdCount = dataset?.jobsheets.filter(j => j.status?.toLowerCase() !== "draft").length ?? 0

@@ -168,7 +168,7 @@ export default function JobsheetCard({
                       : "text-gray-400"
                   }
                 >
-                  Deadline:{" "}
+                  {jobsheet.access?.attemptType === "remedial" ? "Deadline Remedial: " : "Deadline: "}
                   {formatAcademicDate(jobsheet.deadline)} - {deadlineState.label}
                 </span>
               </>

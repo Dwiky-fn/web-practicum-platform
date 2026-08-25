@@ -162,7 +162,7 @@ class DeadlineProcessorService {
          NOW() AT TIME ZONE '${ACADEMIC_TIMEZONE}',
          1,
          'normal',
-         'Pengerjaan Normal',
+         'Pengerjaan Reguler',
          NULL,
          'auto_deadline',
          true,

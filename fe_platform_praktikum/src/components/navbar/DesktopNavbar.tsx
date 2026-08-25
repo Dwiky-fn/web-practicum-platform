@@ -1,4 +1,4 @@
-import { Menu } from "lucide-react"
+import { Menu, MessageSquare } from "lucide-react"
 import { NavLink } from "react-router-dom"
 import NotificationBell from "./NotificationBell"
 import ProfileMenu from "./ProfileMenu"
@@ -16,6 +16,7 @@ interface DesktopNavbarProps {
   showMobileButton: boolean
   notifications: Notification[]
   unreadCount: number
+  chatUnreadCount?: number
 
   notifOpen: boolean
   profileOpen: boolean
@@ -26,6 +27,7 @@ interface DesktopNavbarProps {
   onMarkAllNotif: () => void
   onMarkItemRead?: (id: string) => void
 
+  onOpenChat?: () => void
   onGuide?: () => void
   onSettings: () => void
   onLogout: () => void
@@ -39,6 +41,7 @@ export default function DesktopNavbar({
   showMobileButton,
   notifications,
   unreadCount,
+  chatUnreadCount,
   notifOpen,
   profileOpen,
   onToggleNotif,
@@ -46,6 +49,7 @@ export default function DesktopNavbar({
   onOpenMobile,
   onMarkAllNotif,
   onMarkItemRead,
+  onOpenChat,
   onGuide,
   onSettings,
   onLogout,
@@ -124,7 +128,24 @@ export default function DesktopNavbar({
       </div>
 
       {/* RIGHT */}
-      <div className="flex items-center gap-6 relative z-10">
+      <div className="flex items-center gap-5 relative z-10">
+
+        {user?.role === "DOSEN" && onOpenChat && (
+          <button
+            type="button"
+            onClick={() => onOpenChat && onOpenChat()}
+            id="chat-nav-button"
+            className="relative flex items-center justify-center p-2 rounded-xl text-white hover:bg-white/10 transition cursor-pointer"
+            title="Buka Chat"
+          >
+            <MessageSquare size={20} />
+            {Boolean(chatUnreadCount) && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-extrabold text-white animate-pulse">
+                {chatUnreadCount! > 9 ? "9+" : chatUnreadCount}
+              </span>
+            )}
+          </button>
+        )}
 
         <NotificationBell
           notifications={notifications}

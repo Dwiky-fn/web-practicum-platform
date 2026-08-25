@@ -2,9 +2,6 @@ import { useEffect, useMemo, useState } from "react"
 import {
   Activity,
   BookOpen,
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Loader2,
   PlayCircle,
@@ -17,17 +14,13 @@ import {
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import StudentProfileModal from "../components/StudentProfileModal"
 import { toast } from "../../../components/toast/toastStore"
+import { connectMonitoringSse, type MonitoringSseEvent } from "../../../services/monitoringSse"
 import { useBackNavigation } from "../../../shared/utils/backNavigation"
 import {
   formatAcademicDateTime,
   formatAcademicTableDateTime,
   formatAcademicDate,
   formatAcademicTime,
-  combineAcademicDateAndTime,
-  compareAcademicDateTime,
-  formatAcademicDateInput,
-  isValidAcademicDateInput,
-  isValidAcademicTimeInput,
 } from "../../../shared/utils/formatAcademicDateTime"
 import { formatTemplateCodeForDisplay } from "../../../shared/utils/codeTemplateUtils"
 import { formatNumber, formatScore as centralFormatScore } from "../../../shared/utils/formatScore"
@@ -35,12 +28,13 @@ import RichTextViewer from "../../../components/editor/RichTextViewer"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
 import type { Jobsheet } from "../../../services/jobsheet/types"
 import LecturerLayout from "../components/LecturerLayout"
+import { IndonesianDateTimePicker } from "../components/IndonesianDateTimePicker"
+import { datetimeLocalToDbValue } from "../utils/deadline"
 import {
   LecturerButton,
   LecturerEmptyState,
   LecturerModal,
   LecturerPanel,
-  LecturerSelect,
   LecturerTable,
   NativeSelect,
   PageHeader,
@@ -78,201 +72,7 @@ const tabs: Array<{ id: DetailTab; label: string }> = [
   { id: "remedial", label: "Sesi Remedial" },
 ]
 
-const ID_MONTHS = [
-  "Januari",
-  "Februari",
-  "Maret",
-  "April",
-  "Mei",
-  "Juni",
-  "Juli",
-  "Agustus",
-  "September",
-  "Oktober",
-  "November",
-  "Desember",
-]
 
-const ID_WEEKDAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"]
-const HOURS_24 = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"))
-const MINUTES_60 = Array.from({ length: 12 }, (_, index) => String(index * 5).padStart(2, "0"))
-
-function academicDateKey(year: number, monthIndex: number, day: number) {
-  return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-}
-
-function parseAcademicDateInputParts(value: string) {
-  if (!isValidAcademicDateInput(value)) return null
-  const [day, month, year] = value.split("/").map(Number)
-  return { day, monthIndex: month - 1, year }
-}
-
-function getMonthDays(year: number, monthIndex: number) {
-  const totalDays = new Date(year, monthIndex + 1, 0).getDate()
-  const firstDay = new Date(year, monthIndex, 1).getDay()
-  const leadingEmptyCells = (firstDay + 6) % 7
-  return [
-    ...Array.from({ length: leadingEmptyCells }, () => null),
-    ...Array.from({ length: totalDays }, (_, index) => index + 1),
-  ]
-}
-
-function AcademicDatePicker({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-}) {
-  const selected = parseAcademicDateInputParts(value)
-  const today = new Date()
-  const [open, setOpen] = useState(false)
-  const [visibleMonth, setVisibleMonth] = useState(() => selected?.monthIndex ?? today.getMonth())
-  const [visibleYear, setVisibleYear] = useState(() => selected?.year ?? today.getFullYear())
-  const days = getMonthDays(visibleYear, visibleMonth)
-
-  useEffect(() => {
-    if (!selected) return
-    setVisibleMonth(selected.monthIndex)
-    setVisibleYear(selected.year)
-  }, [selected?.monthIndex, selected?.year])
-
-  return (
-    <div className="relative space-y-2">
-      <label className="block text-xs font-bold text-gray-700">{label}</label>
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        className="flex h-10 w-full items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-left text-sm font-semibold text-gray-800 outline-none transition hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-      >
-        <CalendarDays size={16} className="shrink-0 text-blue-600" />
-        <span>{value || "Pilih tanggal"}</span>
-      </button>
-      {open && (
-        <div className="absolute left-0 z-30 mt-1 w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-gray-200 bg-white p-3 shadow-xl">
-          <div className="mb-3 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => {
-                if (visibleMonth === 0) {
-                  setVisibleMonth(11)
-                  setVisibleYear((year) => year - 1)
-                } else {
-                  setVisibleMonth((month) => month - 1)
-                }
-              }}
-              className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
-              aria-label="Bulan sebelumnya"
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <div className="text-sm font-bold text-gray-900">
-              {ID_MONTHS[visibleMonth]} {visibleYear}
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                if (visibleMonth === 11) {
-                  setVisibleMonth(0)
-                  setVisibleYear((year) => year + 1)
-                } else {
-                  setVisibleMonth((month) => month + 1)
-                }
-              }}
-              className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
-              aria-label="Bulan berikutnya"
-            >
-              <ChevronRight size={18} />
-            </button>
-          </div>
-          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-gray-500">
-            {ID_WEEKDAYS.map((dayName) => (
-              <span key={dayName} className="py-1">{dayName}</span>
-            ))}
-          </div>
-          <div className="mt-1 grid grid-cols-7 gap-1">
-            {days.map((day, index) => {
-              if (!day) return <span key={`empty-${index}`} className="h-8" />
-              const key = academicDateKey(visibleYear, visibleMonth, day)
-              const isSelected = value === formatAcademicDateInput(key)
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => {
-                    onChange(formatAcademicDateInput(key))
-                    setOpen(false)
-                  }}
-                  className={`h-8 rounded-md text-sm font-semibold transition ${
-                    isSelected
-                      ? "bg-blue-700 text-white"
-                      : "text-gray-700 hover:bg-blue-50 hover:text-blue-700"
-                  }`}
-                >
-                  {day}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function TimeSelect24Hour({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-}) {
-  const [hour = "", minute = ""] = value.split(":")
-  const update = (nextHour: string, nextMinute: string) => {
-    if (!nextHour || !nextMinute) {
-      onChange("")
-      return
-    }
-    onChange(`${nextHour}:${nextMinute}`)
-  }
-
-  return (
-    <div className="space-y-2">
-      <label className="block text-xs font-bold text-gray-700">{label}</label>
-      <div className="flex items-center gap-2">
-        <LecturerSelect
-          label={`${label} jam`}
-          value={hour}
-          onChange={(nextHour) => update(nextHour, minute || "00")}
-          className="h-10 w-full rounded-lg font-semibold"
-        >
-          <option value="">Jam</option>
-          {HOURS_24.map((item) => (
-            <option key={item} value={item}>{item}</option>
-          ))}
-        </LecturerSelect>
-        <span className="text-sm font-bold text-gray-500">:</span>
-        <LecturerSelect
-          label={`${label} menit`}
-          value={minute}
-          onChange={(nextMinute) => update(hour || "00", nextMinute)}
-          className="h-10 w-full rounded-lg font-semibold"
-        >
-          <option value="">Menit</option>
-          {MINUTES_60.map((item) => (
-            <option key={item} value={item}>{item}</option>
-          ))}
-        </LecturerSelect>
-      </div>
-    </div>
-  )
-}
 
 export default function LecturerJobsheetDetailPage() {
   const navigate = useNavigate()
@@ -321,10 +121,8 @@ export default function LecturerJobsheetDetailPage() {
   const [loadingRemedialStudents, setLoadingRemedialStudents] = useState(false)
 
   // Sesi Remedial Modal Form states
-  const [remStartDate, setRemStartDate] = useState("")
-  const [remStartTime, setRemStartTime] = useState("")
-  const [remEndDate, setRemEndDate] = useState("")
-  const [remEndTime, setRemEndTime] = useState("")
+  const [remStartDateTime, setRemStartDateTime] = useState("")
+  const [remEndDateTime, setRemEndDateTime] = useState("")
   const [remSelectedStudentIds, setRemSelectedStudentIds] = useState<string[]>([])
   const [savingRemedial, setSavingRemedial] = useState(false)
   const [cancelRemedialTarget, setCancelRemedialTarget] = useState<LecturerRemedialSession | null>(null)
@@ -354,20 +152,12 @@ export default function LecturerJobsheetDetailPage() {
     e.preventDefault()
     if (!jobsheetId || !classId) return
     
-    if (!remStartDate || !isValidAcademicDateInput(remStartDate)) {
-      toast.error("Pilih tanggal mulai terlebih dahulu.")
+    if (!remStartDateTime) {
+      toast.error("Pilih waktu mulai remedial terlebih dahulu.")
       return
     }
-    if (!remStartTime || !isValidAcademicTimeInput(remStartTime)) {
-      toast.error("Pilih jam mulai terlebih dahulu.")
-      return
-    }
-    if (!remEndDate || !isValidAcademicDateInput(remEndDate)) {
-      toast.error("Pilih tanggal selesai terlebih dahulu.")
-      return
-    }
-    if (!remEndTime || !isValidAcademicTimeInput(remEndTime)) {
-      toast.error("Pilih jam selesai terlebih dahulu.")
+    if (!remEndDateTime) {
+      toast.error("Pilih waktu berakhir remedial terlebih dahulu.")
       return
     }
     if (remSelectedStudentIds.length === 0) {
@@ -375,11 +165,37 @@ export default function LecturerJobsheetDetailPage() {
       return
     }
 
-    const startDateTimeStr = combineAcademicDateAndTime(remStartDate, remStartTime)
-    const endDateTimeStr = combineAcademicDateAndTime(remEndDate, remEndTime)
+    const startDbVal = datetimeLocalToDbValue(remStartDateTime)
+    const endDbVal = datetimeLocalToDbValue(remEndDateTime)
 
-    if (compareAcademicDateTime(endDateTimeStr, startDateTimeStr) <= 0) {
-      toast.error("Waktu berakhir harus setelah waktu mulai.")
+    if (!startDbVal || !endDbVal) {
+      toast.error("Format tanggal dan waktu remedial tidak valid.")
+      return
+    }
+
+    const startDate = new Date(remStartDateTime)
+    const endDate = new Date(remEndDateTime)
+
+    const startDay = remStartDateTime.slice(0, 10)
+    const endDay = remEndDateTime.slice(0, 10)
+
+    if (endDay < startDay) {
+      toast.error("Tanggal berakhir tidak boleh lebih awal daripada tanggal mulai.")
+      return
+    }
+
+    if (endDay === startDay && endDate.getTime() <= startDate.getTime()) {
+      toast.error("Jam berakhir tidak boleh lebih awal daripada jam mulai pada hari yang sama.")
+      return
+    }
+
+    if (endDate.getTime() <= startDate.getTime()) {
+      toast.error("Waktu berakhir remedial harus setelah waktu mulai.")
+      return
+    }
+
+    if (endDate.getTime() <= Date.now()) {
+      toast.error("Waktu berakhir remedial tidak boleh berada pada waktu yang telah berlalu.")
       return
     }
 
@@ -391,16 +207,14 @@ export default function LecturerJobsheetDetailPage() {
         kelasPraktikumId: kelasPraktikumId || classId,
         title: defaultTitle,
         description: "",
-        startAt: startDateTimeStr,
-        endAt: endDateTimeStr,
+        startAt: startDbVal,
+        endAt: endDbVal,
         studentIds: remSelectedStudentIds,
       })
       toast.success("Sesi remedial berhasil dibuat.")
       setIsRemedialModalOpen(false)
-      setRemStartDate("")
-      setRemStartTime("")
-      setRemEndDate("")
-      setRemEndTime("")
+      setRemStartDateTime("")
+      setRemEndDateTime("")
       setRemSelectedStudentIds([])
       fetchRemedials()
       if (jobsheet) {
@@ -534,6 +348,73 @@ export default function LecturerJobsheetDetailPage() {
       if (intervalId) clearInterval(intervalId)
     }
   }, [activeTab, jobsheetId, classId, kelasPraktikumId, monitoringData])
+
+  // Realtime SSE monitoring subscription for LecturerJobsheetDetailPage
+  useEffect(() => {
+    const effectiveKelasPraktikumId = kelasPraktikumId || classId
+    if (activeTab !== "monitoring" || !effectiveKelasPraktikumId) return undefined
+
+    console.log("[Monitoring][SSE] Connecting LecturerJobsheetDetailPage SSE stream for kelasPraktikumId:", effectiveKelasPraktikumId)
+
+    const disconnect = connectMonitoringSse(
+      effectiveKelasPraktikumId,
+      (event: MonitoringSseEvent) => {
+        console.log("[SSE-CLIENT][LECTURER-DETAIL] SSE event received:", event.type, event)
+        if (event.type === "student-position-updated" || event.type === "student-monitoring-updated") {
+          if (!event.studentId) return
+          setMonitoringData((prev) => {
+            if (!prev) return prev
+            const nextStudents = prev.students.map((st) => {
+              if (st.student_id === event.studentId) {
+                const nextPos = event.sectionName || st.current_position_title || "Percobaan 1"
+                console.log(`[MONITORING-UI][POSITION-UPDATE] Student ${st.fullname} position updated: ${st.current_position_title} -> ${nextPos}`)
+                return {
+                  ...st,
+                  current_position_title: nextPos,
+                  last_activity_at: event.lastActiveAt || new Date().toISOString(),
+                  status: st.status === "not_started" ? ("in_progress" as const) : st.status,
+                }
+              }
+              return st
+            })
+            return {
+              ...prev,
+              students: nextStudents,
+            }
+          })
+        }
+
+        if (event.type === "student-run-count-updated") {
+          if (!event.studentId) return
+          console.log(`[MONITORING-UI][RUN-COUNT-UPDATE] Student ${event.studentId} run count updated`)
+          setMonitoringData((prev) => {
+            if (!prev) return prev
+            const nextStudents = prev.students.map((st) => {
+              if (st.student_id === event.studentId) {
+                return {
+                  ...st,
+                  last_activity_at: new Date().toISOString(),
+                }
+              }
+              return st
+            })
+            return {
+              ...prev,
+              students: nextStudents,
+            }
+          })
+        }
+      },
+      (status) => {
+        console.log("[SSE-CLIENT][LECTURER-DETAIL] Stream status:", status)
+      }
+    )
+
+    return () => {
+      console.log("[SSE-CLIENT][LECTURER-DETAIL] Disconnecting SSE stream")
+      disconnect()
+    }
+  }, [activeTab, kelasPraktikumId, classId])
 
   // Load student log details
   useEffect(() => {
@@ -935,6 +816,20 @@ export default function LecturerJobsheetDetailPage() {
                     >
                       <RefreshCw size={16} className={loadingMonitoring ? "animate-spin" : ""} />
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetKpId = kelasPraktikumId || classId
+                        if (targetKpId && jobsheetId) {
+                          navigate(`/lecturer/kelas-praktikum/${targetKpId}/jobsheets/${jobsheetId}/monitoring`)
+                        }
+                      }}
+                      className="ml-2 flex items-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 font-semibold text-xs px-2.5 py-1 rounded-lg transition duration-150"
+                      title="Buka Tampilan Visual Sidebar Modul"
+                    >
+                      <Activity size={14} />
+                      <span>Mode Visual Modul</span>
+                    </button>
                   </div>
                   
                   <div className="flex flex-wrap items-center gap-3">
@@ -1086,9 +981,9 @@ export default function LecturerJobsheetDetailPage() {
                     <option value="Terlambat">Terlambat</option>
                     <option value="Belum">Belum</option>
                   </NativeSelect>
-                  <NativeSelect value={attemptFilter} onChange={(value) => setAttemptFilter(value as typeof attemptFilter)} label="Attempt">
-                    <option value="all">Semua Attempt</option>
-                    <option value="normal">Pengerjaan Normal</option>
+                  <NativeSelect value={attemptFilter} onChange={(value) => setAttemptFilter(value as typeof attemptFilter)} label="Jenis Pengerjaan">
+                    <option value="all">Semua Jenis Pengerjaan</option>
+                    <option value="normal">Pengerjaan Reguler</option>
                     <option value="remedial">Remedial</option>
                   </NativeSelect>
                   <SearchBox value={keyword} onChange={setKeyword} placeholder="Cari Mahasiswa" />
@@ -1102,7 +997,7 @@ export default function LecturerJobsheetDetailPage() {
                 ) : !filteredEvaluationItems.length ? (
                   <LecturerEmptyState title="Belum ada data submission mahasiswa untuk jobsheet ini." />
                 ) : (
-                  <LecturerTable headers={["NIM", "Mahasiswa", "Attempt", "Status", "Nilai AI", "Progres", "Nilai Akhir", "Aksi"]}>
+                  <LecturerTable headers={["NIM", "Mahasiswa", "Jenis Pengerjaan", "Status", "Nilai AI", "Progres", "Nilai Akhir", "Aksi"]}>
                     {filteredEvaluationItems.map((item) => (
                       <tr key={`${item.student.id}-${item.submission?.id ?? "empty"}`}>
                         <td className="px-4 py-3 font-mono">{item.student.nim}</td>
@@ -1468,26 +1363,20 @@ export default function LecturerJobsheetDetailPage() {
             <div className="flex-1 overflow-hidden p-6">
               <p className="mb-4 text-xs text-gray-500">Semua waktu menggunakan WIB (Asia/Jakarta).</p>
               <div className="grid gap-4 md:grid-cols-2">
-                <AcademicDatePicker
-                  label="Tanggal Mulai"
-                  value={remStartDate}
-                  onChange={setRemStartDate}
-                />
-                <TimeSelect24Hour
-                  label="Jam Mulai"
-                  value={remStartTime}
-                  onChange={setRemStartTime}
-                />
-                <AcademicDatePicker
-                  label="Tanggal Berakhir"
-                  value={remEndDate}
-                  onChange={setRemEndDate}
-                />
-                <TimeSelect24Hour
-                  label="Jam Berakhir"
-                  value={remEndTime}
-                  onChange={setRemEndTime}
-                />
+                <div className="space-y-1.5">
+                  <p className="font-bold text-xs uppercase tracking-wide text-gray-700">Waktu Mulai Remedial</p>
+                  <IndonesianDateTimePicker
+                    value={remStartDateTime}
+                    onChange={setRemStartDateTime}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <p className="font-bold text-xs uppercase tracking-wide text-gray-700">Waktu Berakhir Remedial</p>
+                  <IndonesianDateTimePicker
+                    value={remEndDateTime}
+                    onChange={setRemEndDateTime}
+                  />
+                </div>
               </div>
 
               <div className="mt-5 space-y-2">
@@ -1612,6 +1501,12 @@ export default function LecturerJobsheetDetailPage() {
         jobsheetId={jobsheetId || ""}
         studentId={selectedChatStudent?.id}
         studentName={selectedChatStudent?.name}
+        onOpenChat={(targetStudentId) => {
+          if (targetStudentId) {
+            setSelectedChatStudent({ id: targetStudentId, name: "" })
+          }
+          setIsLecturerChatOpen(true)
+        }}
       />
     </LecturerLayout>
    )

@@ -3,6 +3,15 @@ import type { StudentProgressItemType } from "../../../../../services/progress/t
 import type { JobsheetSubmission } from "../../../../../services/submission/types"
 import { academicCourseBasePath, type AcademicScope } from "../../../../../services/academicScope"
 
+export type StudentAvatarInfo = {
+  studentId?: string
+  name?: string
+  fullname?: string
+  nim?: string
+  profilePhotoUrl?: string | null
+  initials?: string
+}
+
 export interface SidebarNode {
   id: string
   title: string
@@ -13,6 +22,7 @@ export interface SidebarNode {
   meta?: {
     isLastPosition?: boolean
     positionLabel?: string
+    studentAvatar?: StudentAvatarInfo
   }
 }
 
@@ -61,20 +71,14 @@ export function buildSidebarTree(
     {
       id: "task",
       title: "Tugas",
-      children: [
-        {
-          id: "task",
-          title: "Tugas",
-          type: "task",
-          path: `${base}/task${query}`,
-          status:
-            submission?.status === "SUBMITTED" ||
-            submission?.status === "REVIEWING" ||
-            submission?.status === "ACCEPTED"
-              ? "completed"
-              : "pending"
-        }
-      ]
+      type: "task",
+      path: `${base}/task${query}`,
+      status:
+        submission?.status === "SUBMITTED" ||
+        submission?.status === "REVIEWING" ||
+        submission?.status === "ACCEPTED"
+          ? "completed"
+          : "pending"
     }
   ]
 }

@@ -10,11 +10,17 @@ import TopProgressBar from "../../../../components/loading/TopProgressBar"
 import NotFoundPage from "../../../not-found/NotFoundPage"
 import { academicCourseBasePath, academicJobsheetPath } from "../../../../services/academicScope"
 import { formatAcademicDateTime } from "../../../../shared/utils/formatAcademicDateTime"
-import { connectLiveWorkspaceSocket } from "../../../../services/liveWorkspaceSocket"
+import { useCurrentUser } from "../../../../services/user/useCurrentUser"
+import { EyeOff, Clock } from "lucide-react"
 
-const LIVE_WORKSPACE_DEBUG = import.meta.env.DEV && import.meta.env.VITE_LIVE_WORKSPACE_DEBUG === "true"
+import { useSearchParams } from "react-router-dom"
 
 export default function WorkPage() {
+  const { user } = useCurrentUser()
+  const isStudent = !user || user.role === "MAHASISWA"
+
+  const [searchParams, setSearchParams] = useSearchParams()
+
   const { courseId, mataKuliahId: routeMataKuliahId, jobsheetId } = useParams<{
     courseId?: string
     mataKuliahId?: string
@@ -22,7 +28,6 @@ export default function WorkPage() {
   }>()
   const location = useLocation()
   const query = location.search
-  const searchParams = new URLSearchParams(location.search)
   const effectiveCourseId = routeMataKuliahId || courseId
   const scope = {
     classId: searchParams.get("classId") || undefined,
@@ -30,10 +35,121 @@ export default function WorkPage() {
     kelasPraktikumId: searchParams.get("kelasPraktikumId") || undefined,
   }
   const scrollContainerRef = useRef<HTMLElement | null>(null)
-  const liveWorkspaceRef = useRef<ReturnType<typeof connectLiveWorkspaceSocket> | null>(null)
-  const [liveWorkspaceConnection, setLiveWorkspaceConnection] = useState<ReturnType<typeof connectLiveWorkspaceSocket> | null>(null)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [unreadChatCount, setUnreadChatCount] = useState(0)
+  const [isScreenCaptureDetected, setIsScreenCaptureDetected] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get("openChat") === "true") {
+      setIsChatOpen(true)
+      searchParams.delete("openChat")
+      setSearchParams(searchParams, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
+
+  const activateInstantProtection = useCallback(() => {
+    if (!isStudent) return
+    const wrapper = document.getElementById("workpage-content-wrapper")
+    const overlay = document.getElementById("workpage-protection-overlay")
+    if (wrapper) {
+      wrapper.style.filter = "blur(32px)"
+      wrapper.style.pointerEvents = "none"
+      wrapper.style.userSelect = "none"
+      wrapper.style.webkitUserSelect = "none"
+    }
+    if (overlay) {
+      overlay.style.display = "flex"
+    }
+    setIsScreenCaptureDetected(true)
+  }, [isStudent])
+
+  const deactivateInstantProtection = useCallback(() => {
+    const wrapper = document.getElementById("workpage-content-wrapper")
+    const overlay = document.getElementById("workpage-protection-overlay")
+    if (wrapper) {
+      wrapper.style.filter = ""
+      wrapper.style.pointerEvents = ""
+      wrapper.style.userSelect = ""
+      wrapper.style.webkitUserSelect = ""
+    }
+    if (overlay) {
+      overlay.style.display = "none"
+    }
+    setIsScreenCaptureDetected(false)
+  }, [])
+
+  useEffect(() => {
+    // Protection applies strictly to STUDENT accounts ONLY!
+    if (!isStudent) return
+
+    const handleBlur = (e: FocusEvent) => {
+      // Ignore internal element blur events (e.g. clicking Run button, focusing editor/terminal, active element changes)
+      if (document.hasFocus()) return
+      if (e.target && e.target !== window && e.target !== document) return
+      activateInstantProtection()
+    }
+
+    const handleFocus = () => deactivateInstantProtection()
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        activateInstantProtection()
+      }
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const code = e.code
+      const key = e.key
+      const keyLower = key.toLowerCase()
+
+      // 1. PrintScreen key (Windows / Linux / Web fallback)
+      const isPrintScreenKey =
+        code === "PrintScreen" ||
+        keyLower === "printscreen" ||
+        key === "Snapshot"
+
+      // 2. Windows Snipping Tool (Win + Shift + S or Ctrl + Shift + S)
+      const isWinShiftS = (e.metaKey || e.ctrlKey) && e.shiftKey && (code === "KeyS" || keyLower === "s")
+
+      // 3. macOS Screen Capture (Cmd + Shift + 3 / 4 / 5)
+      const isMacCmdShiftNumber =
+        e.metaKey &&
+        e.shiftKey &&
+        (code === "Digit3" || code === "Digit4" || code === "Digit5" || key === "3" || key === "4" || key === "5")
+
+      // 4. ChromeOS Show Windows (Ctrl + Shift + F5)
+      const isChromeOSShowWindows = (e.ctrlKey || e.metaKey) && e.shiftKey && (code === "F5" || key === "F5")
+
+      // 5. DevTools (F12, Ctrl+Shift+I/C/J)
+      const isDevTools =
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && (code === "KeyI" || code === "KeyC" || code === "KeyJ" || keyLower === "i" || keyLower === "c" || keyLower === "j")) ||
+        code === "F12" ||
+        key === "F12"
+
+      if (
+        isPrintScreenKey ||
+        isWinShiftS ||
+        isMacCmdShiftNumber ||
+        isChromeOSShowWindows ||
+        isDevTools
+      ) {
+        // Synchronously activate protection with zero delay (Direct DOM mutation)
+        activateInstantProtection()
+      }
+    }
+
+    window.addEventListener("blur", handleBlur)
+    window.addEventListener("focus", handleFocus)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    window.addEventListener("keydown", handleKeyDown, true)
+
+    return () => {
+      window.removeEventListener("blur", handleBlur)
+      window.removeEventListener("focus", handleFocus)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      window.removeEventListener("keydown", handleKeyDown, true)
+    }
+  }, [isStudent, activateInstantProtection, deactivateInstantProtection])
 
   useEffect(() => {
     if (!scope.kelasPraktikumId || !jobsheetId) return
@@ -50,6 +166,7 @@ export default function WorkPage() {
     }
     checkUnread()
   }, [scope.kelasPraktikumId, jobsheetId])
+
   const {
     jobsheet,
     course,
@@ -65,6 +182,7 @@ export default function WorkPage() {
     trackActivity,
     isBrowsingHistory,
   } = useWorkPage(effectiveCourseId, jobsheetId, routeMataKuliahId)
+
   const [scrollPercent, setScrollPercent] = useState(0)
 
   useEffect(() => {
@@ -84,7 +202,10 @@ export default function WorkPage() {
 
   const access = jobsheet?.access || { accessMode: "editable_normal", canEdit: true, canSubmit: true }
   const accessMode = access.accessMode
-  const readOnly = !access.canEdit || accessMode === "locked_deadline" || accessMode === "readonly_submitted" || accessMode === "readonly_reviewed" || isBrowsingHistory
+  const readOnly = !access.canEdit || accessMode === "locked_deadline" || accessMode === "locked_remedial_not_started" || accessMode === "locked_remedial_ended" || accessMode === "readonly_submitted" || accessMode === "readonly_reviewed" || isBrowsingHistory
+  const formattedStartAt = access.remedialStartAt
+    ? formatAcademicDateTime(access.remedialStartAt)
+    : ""
   const formattedEndAt = access.remedialEndAt
     ? formatAcademicDateTime(access.remedialEndAt)
     : ""
@@ -100,81 +221,15 @@ export default function WorkPage() {
       return
     }
 
-    const percent = Math.min(
-      Math.round(
-        (scrollContainer.scrollTop / (scrollContainer.scrollHeight - scrollContainer.clientHeight)) * 100
-      ),
-      100
-    )
-    
-    setScrollPercent(prev => Math.max(prev, percent))
+    const scrolled = scrollContainer.scrollTop
+    const maxScroll = scrollContainer.scrollHeight - scrollContainer.clientHeight
+    const percent = Math.min(100, Math.max(0, Math.round((scrolled / maxScroll) * 100)))
 
-    if (percent >= 98) {
+    setScrollPercent(percent)
+    if (percent >= 90) {
       completeCurrentProgressItem()
     }
   }, [completeCurrentProgressItem])
-
-  const handleWorkScrollRef = useRef(handleWorkScroll)
-  useEffect(() => {
-    handleWorkScrollRef.current = handleWorkScroll
-  }, [handleWorkScroll])
-
-  useEffect(() => {
-    liveWorkspaceRef.current?.close()
-    liveWorkspaceRef.current = null
-
-    if (!jobsheet || !jobsheetId || !scope.kelasPraktikumId) return undefined
-
-    const connection = connectLiveWorkspaceSocket({
-      role: "student",
-      kelasPraktikumId: scope.kelasPraktikumId,
-      jobsheetId,
-      onEvent: (event) => {
-        if (LIVE_WORKSPACE_DEBUG) {
-          console.debug("[LIVE-WS][STUDENT] event", { type: event.type, workspaceVersion: event.workspaceVersion })
-        }
-      },
-    })
-    liveWorkspaceRef.current = connection
-    setLiveWorkspaceConnection(connection)
-
-    return () => {
-      connection.close()
-      if (liveWorkspaceRef.current === connection) liveWorkspaceRef.current = null
-      setLiveWorkspaceConnection((current) => current === connection ? null : current)
-    }
-  }, [jobsheet, jobsheetId, readOnly, scope.kelasPraktikumId])
-
-  // Scroll ke atas dan auto-check completion saat navigasi atau ukuran konten berubah
-  useEffect(() => {
-    const scrollContainer = scrollContainerRef.current
-    if (!scrollContainer) return
-
-    scrollContainer.scrollTo({ top: 0 })
-
-    // Check langsung & berikan sedikit delay untuk memastikan gambar/DOM selesai dirender
-    handleWorkScrollRef.current()
-    const timer = window.setTimeout(() => {
-      handleWorkScrollRef.current()
-    }, 200)
-
-    // Observer untuk mendeteksi perubahan ukuran konten (misal gambar/teks baru saja ter-load)
-    const resizeObserver = new ResizeObserver(() => {
-      handleWorkScrollRef.current()
-    })
-    resizeObserver.observe(scrollContainer)
-
-    return () => {
-      window.clearTimeout(timer)
-      resizeObserver.disconnect()
-    }
-  }, [location.pathname])
-
-
-
-  useEffect(() => {
-    handleWorkScroll()
-  }, [handleWorkScroll])
 
   if (loading) return <TopProgressBar />
   if (error) {
@@ -192,93 +247,173 @@ export default function WorkPage() {
   if (!effectiveCourseId || !jobsheet || (!submission && accessMode !== "locked_deadline")) return <NotFoundPage />
 
   return (
-    <div className="h-dvh flex flex-col bg-gray-50">
-      <WorkHeader
-        title={jobsheet.title}
-        backTo={academicJobsheetPath(effectiveCourseId, jobsheet.id, scope)}
-        course={course}
-        jobsheet={jobsheet}
-        scope={scope}
-        onToggleChat={() => setIsChatOpen(!isChatOpen)}
-        isChatOpen={isChatOpen}
-        unreadChatCount={unreadChatCount}
-      />
+    <div className="relative h-dvh flex flex-col bg-gray-50 overflow-hidden">
+      <div
+        id="workpage-protection-overlay"
+        onClick={deactivateInstantProtection}
+        style={{ display: isScreenCaptureDetected ? "flex" : "none" }}
+        className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gray-950/95 p-6 text-center text-white backdrop-blur-xl cursor-pointer select-none"
+      >
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 mb-4 border border-amber-500/30">
+          <EyeOff size={32} className="animate-pulse" />
+        </div>
+        <h2 className="text-xl font-bold">Layar Tidak Aktif / Proteksi Screenshot</h2>
+        <p className="mt-2 max-w-md text-sm text-gray-300">
+          Seluruh antarmuka pengerjaan praktikum dikaburkan secara otomatis untuk melindungi materi, kode, dan instruksi dari penangkapan layar.
+        </p>
+        <p className="mt-4 text-xs font-semibold text-amber-400 bg-amber-400/10 px-3 py-1.5 rounded-full border border-amber-400/20">
+          Klik di mana saja atau kembali ke halaman ini untuk melanjutkan.
+        </p>
+      </div>
 
-      <div className="flex flex-1 relative overflow-hidden">
-        <main
-          ref={scrollContainerRef}
-          data-work-scroll
-          onScroll={handleWorkScroll}
-          className="flex-1 overflow-y-auto px-6 py-8 lg:px-10"
-        >
-          <div className="mx-auto max-w-6xl">
-            {accessMode === 'locked_deadline' && !submission ? (
-              <div className="flex flex-col items-center justify-center py-24 px-4">
-                <div className="relative p-8 max-w-md w-full bg-white/80 backdrop-blur-md rounded-2xl border border-red-100 shadow-xl text-center overflow-hidden">
-                  <div className="absolute -right-10 -top-10 w-40 h-40 bg-red-500/5 rounded-full blur-3xl pointer-events-none" />
-                  <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-orange-500/5 rounded-full blur-3xl pointer-events-none" />
-                  
-                  <div className="relative mx-auto flex items-center justify-center w-16 h-16 rounded-full bg-red-50 text-red-500 mb-6 border border-red-100">
-                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">Deadline Berakhir</h3>
-                  <p className="text-gray-500 text-sm mb-6">Deadline pengerjaan telah berakhir. Jobsheet tidak dapat dikerjakan lagi.</p>
-                  <div className="text-xs text-gray-400 border-t border-gray-100 pt-4">
-                    Hubungi dosen pengampu jika Anda memerlukan sesi remedial.
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <>
-                {accessMode === 'locked_deadline' && (
-                  <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    <h3 className="font-semibold text-red-800">Deadline Berakhir</h3>
-                    <p className="mt-1">
-                      Pengerjaan normal telah dikunci. Anda masih dapat melihat riwayat pengerjaan dan hasil review.
-                    </p>
-                  </div>
-                )}
+      <div
+        id="workpage-content-wrapper"
+        className={`flex flex-col h-full w-full ${isScreenCaptureDetected ? "filter blur-2xl pointer-events-none select-none" : ""}`}
+      >
+        <WorkHeader
+          title={jobsheet.title}
+          backTo={academicJobsheetPath(effectiveCourseId, jobsheet.id, scope)}
+          course={course}
+          jobsheet={jobsheet}
+          scope={scope}
+          onToggleChat={() => setIsChatOpen(!isChatOpen)}
+          isChatOpen={isChatOpen}
+          unreadChatCount={unreadChatCount}
+        />
 
-                {accessMode === 'editable_remedial' && !isBrowsingHistory && (
-                  <div className="mb-6 relative overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-4 shadow-md flex items-start gap-3">
-                    <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm mt-0.5 flex shrink-0">
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <div className="flex flex-1 relative overflow-hidden">
+          <main
+            ref={scrollContainerRef}
+            data-work-scroll
+            onScroll={handleWorkScroll}
+            className="flex-1 overflow-y-auto px-6 py-8 lg:px-10"
+          >
+            <div className="mx-auto max-w-6xl">
+              {accessMode === 'locked_deadline' && !submission ? (
+                <div className="flex flex-col items-center justify-center py-24 px-4">
+                  <div className="relative p-8 max-w-md w-full bg-white/80 backdrop-blur-md rounded-2xl border border-red-100 shadow-xl text-center overflow-hidden">
+                    <div className="absolute -right-10 -top-10 w-40 h-40 bg-red-500/5 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-orange-500/5 rounded-full blur-3xl pointer-events-none" />
+                    
+                    <div className="relative mx-auto flex items-center justify-center w-16 h-16 rounded-full bg-red-50 text-red-500 mb-6 border border-red-100">
+                      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-sm">Remedial Aktif</h4>
-                      <p className="text-xs text-blue-100 mt-1">
-                        Remedial aktif sampai <span className="font-semibold">{formattedEndAt}</span>. Kerjakan ulang jobsheet sesuai instruksi dosen.
-                      </p>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">Deadline Berakhir</h3>
+                    <p className="text-gray-500 text-sm mb-6">Deadline pengerjaan telah berakhir. Jobsheet tidak dapat dikerjakan lagi.</p>
+                    <div className="text-xs text-gray-400 border-t border-gray-100 pt-4">
+                      Hubungi dosen pengampu jika Anda memerlukan sesi remedial.
                     </div>
                   </div>
-                )}
+                </div>
+              ) : (
+                <>
+                  {accessMode === 'locked_deadline' && (
+                    <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      <h3 className="font-semibold text-red-800">Deadline Berakhir</h3>
+                      <p className="mt-1">
+                        Pengerjaan reguler telah dikunci. Anda masih dapat melihat riwayat pengerjaan dan hasil review.
+                      </p>
+                    </div>
+                  )}
 
-                <Outlet
-                  context={{
-                    course,
-                    jobsheet,
-                    submission,
-                    programmingLanguage: jobsheet.programmingLanguage || course?.programmingLanguage || "java",
-                    updateExperiment,
-                    updateExercise,
-                    trackActivity,
-                    liveWorkspace: liveWorkspaceConnection,
-                    readOnly,
-                    markProgressItemCompleted,
-                    scrollPercent,
-                  }}
-                />
-              </>
-            )}
-          </div>
-        </main>
+                  {accessMode === 'readonly_submitted' && (
+                    <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                      <h3 className="font-semibold text-blue-800">Sudah Dikumpulkan</h3>
+                      <p className="mt-1">
+                        Jobsheet ini sudah Anda kumpulkan dan sedang menunggu review dosen. Workspace berada dalam mode baca saja (read-only).
+                      </p>
+                    </div>
+                  )}
+
+                  {accessMode === 'readonly_reviewed' && (
+                    <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                      <h3 className="font-semibold text-emerald-800">Review Selesai</h3>
+                      <p className="mt-1">
+                        Jobsheet ini telah selesai direview oleh dosen. Anda dapat melihat hasil penilaian dan umpan balik.
+                      </p>
+                    </div>
+                  )}
+
+                  {accessMode === 'locked_remedial_not_started' && (
+                    <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 shadow-sm flex items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-200/60 text-amber-800">
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-bold text-sm text-amber-900">Remedial Belum Dimulai</h4>
+                        <p className="text-xs text-amber-800 mt-0.5">
+                          Sesi remedial belum dibuka. Sesi ini akan dibuka pada <span className="font-semibold">{formattedStartAt}</span> sampai <span className="font-semibold">{formattedEndAt}</span>.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {accessMode === 'locked_remedial_ended' && (
+                    <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-900 shadow-sm flex items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-200/60 text-rose-800">
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-bold text-sm text-rose-900">Remedial Telah Berakhir</h4>
+                        <p className="text-xs text-rose-800 mt-0.5">
+                          Waktu pengerjaan sesi remedial telah berakhir pada <span className="font-semibold">{formattedEndAt}</span>. Workspace kini berada dalam mode baca saja.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {accessMode === 'editable_remedial' && (
+                    <div className="mb-6 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-600 to-indigo-600 p-4 text-white shadow-md flex items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10 backdrop-blur-sm">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm">Remedial Aktif (Sedang Berlangsung)</h4>
+                        <p className="text-xs text-blue-100 mt-1">
+                          Remedial aktif dari <span className="font-semibold">{formattedStartAt || "sekarang"}</span> sampai <span className="font-semibold">{formattedEndAt}</span>. Kerjakan ulang jobsheet sesuai instruksi dosen.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <Outlet
+                    context={{
+                      course,
+                      jobsheet,
+                      submission,
+                      programmingLanguage: jobsheet.programmingLanguage || course?.programmingLanguage || "java",
+                      updateExperiment,
+                      updateExercise,
+                      trackActivity,
+                      liveWorkspace: null,
+                      readOnly,
+                      markProgressItemCompleted,
+                      scrollPercent,
+                    }}
+                  />
+                </>
+              )}
+            </div>
+          </main>
+
+          {submission && (
+            <WorkSidebar
+              courseId={effectiveCourseId}
+              jobsheet={jobsheet}
+              submission={submission}
+              savedProgress={savedProgress}
+              completedItems={completedItems}
+              scope={scope}
+            />
+          )}
+        </div>
 
         {submission && (
-          <WorkSidebar
+          <WorkFooterNav
             courseId={effectiveCourseId}
             jobsheet={jobsheet}
             submission={submission}
@@ -287,26 +422,16 @@ export default function WorkPage() {
             scope={scope}
           />
         )}
-      </div>
 
-      {submission && (
-        <WorkFooterNav
-          courseId={effectiveCourseId}
-          jobsheet={jobsheet}
-          submission={submission}
-          savedProgress={savedProgress}
-          completedItems={completedItems}
-          scope={scope}
+        <WorkspaceChatPanel
+          isOpen={isChatOpen}
+          onClose={() => setIsChatOpen(false)}
+          kelasPraktikumId={scope.kelasPraktikumId || ""}
+          jobsheetId={jobsheetId || ""}
+          onRead={() => setUnreadChatCount(0)}
+          onOpenChat={() => setIsChatOpen(true)}
         />
-      )}
-
-      <WorkspaceChatPanel
-        isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
-        kelasPraktikumId={scope.kelasPraktikumId || ""}
-        jobsheetId={jobsheetId || ""}
-        onRead={() => setUnreadChatCount(0)}
-      />
+      </div>
     </div>
   )
 }

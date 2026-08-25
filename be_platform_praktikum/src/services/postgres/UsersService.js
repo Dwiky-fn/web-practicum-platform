@@ -472,10 +472,12 @@ class UsersService {
 
     const hashedPassword = await hashBcrypt(newPassword, 10);
 
-    await this._pool.query('UPDATE users SET password = $2 WHERE id = $1', [
-      otpData.user_id,
-      hashedPassword,
-    ]);
+    await this._pool.query(
+      `UPDATE users
+       SET password = $2, is_password_changed = true
+       WHERE id = $1`,
+      [otpData.user_id, hashedPassword]
+    );
 
     await this._pool.query('DELETE FROM password_reset_otps WHERE user_id = $1', [
       otpData.user_id,
@@ -493,6 +495,7 @@ class UsersService {
         u.email,
         u.role,
         u.is_active,
+        u.is_password_changed,
         u.created_at,
         -- Student Profile
         sp.nim,
@@ -789,10 +792,12 @@ class UsersService {
 
     const hashedPassword = await hashBcrypt(newPassword, 10);
 
-    await this._pool.query('UPDATE users SET password = $2 WHERE id = $1', [
-      userId,
-      hashedPassword,
-    ]);
+    await this._pool.query(
+      `UPDATE users
+       SET password = $2, is_password_changed = false
+       WHERE id = $1`,
+      [userId, hashedPassword]
+    );
 
     return this.getUserById(userId);
   }
@@ -847,7 +852,7 @@ class UsersService {
 
     await this._pool.query(
       `UPDATE users
-       SET password = $2
+       SET password = $2, is_password_changed = true
        WHERE id = $1`,
       [userId, hashedPassword],
     );

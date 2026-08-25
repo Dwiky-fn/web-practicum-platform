@@ -103,7 +103,9 @@ export function mapSubmission(data: RawSubmission): JobsheetSubmission {
     score: data.score ?? data.review?.ai_score ?? undefined,
     attemptNo: data.attempt_no,
     attemptType: data.attempt_type as "normal" | "remedial" | undefined,
-    attemptLabel: data.attempt_label || (data.attempt_type === "remedial" ? "Remedial" : "Pengerjaan Normal"),
+    attemptLabel: data.attempt_label && data.attempt_label !== "Pengerjaan Normal"
+      ? data.attempt_label.replace(/Pengerjaan Normal/g, "Pengerjaan Reguler")
+      : (data.attempt_type === "remedial" ? "Remedial" : "Pengerjaan Reguler"),
     remedialId: data.remedial_id,
     parentSubmissionId: data.parent_submission_id,
     isAutoSubmitted: Boolean(data.is_auto_submitted),

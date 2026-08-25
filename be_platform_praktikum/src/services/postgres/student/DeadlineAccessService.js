@@ -69,107 +69,31 @@ class DeadlineAccessService {
 
     const academicContext = contextResult.rows[0];
 
-    // Check for active remedial sessions for this student
-    const activeRemedialRes = await client.query(
-      `SELECT jr.id, jr.status, jr.start_at, jr.end_at,
+    // Check for any remedial sessions assigned to this student
+    const studentRemedialRes = await client.query(
+      `SELECT jr.id, jr.title, jr.status, jr.start_at, jr.end_at,
               to_char(jr.start_at, 'YYYY-MM-DD HH24:MI:SS') AS start_at_text,
-              to_char(jr.end_at, 'YYYY-MM-DD HH24:MI:SS') AS end_at_text
+              to_char(jr.end_at, 'YYYY-MM-DD HH24:MI:SS') AS end_at_text,
+              CASE
+                WHEN (NOW() AT TIME ZONE '${ACADEMIC_TIMEZONE}') < jr.start_at THEN 'not_started'
+                WHEN (NOW() AT TIME ZONE '${ACADEMIC_TIMEZONE}') BETWEEN jr.start_at AND jr.end_at THEN 'active'
+                ELSE 'ended'
+              END AS timing_status
        FROM jobsheet_remedials jr
        JOIN jobsheet_remedial_students jrs ON jrs.remedial_id = jr.id
        WHERE jr.jobsheet_id = $1
          AND jr.id_kelas_praktikum = $2
          AND jrs.student_id = $3
          AND jr.status = 'open'
-         AND (NOW() AT TIME ZONE '${ACADEMIC_TIMEZONE}') BETWEEN jr.start_at AND jr.end_at
        ORDER BY jr.created_at DESC
        LIMIT 1`,
       [jobsheetId, academicContext.id_kelas_praktikum, studentId]
     );
 
-    let activeRemedial = activeRemedialRes.rows[0];
-    let requestedRemedialId = remedialId || (attemptType === 'remedial' ? (activeRemedial?.id || 'unknown') : null);
+    const studentRemedial = studentRemedialRes.rows[0];
 
-    // If a remedial is explicitly requested or active, but the current active remedial does not match it
-    if (requestedRemedialId && (!activeRemedial || activeRemedial.id !== requestedRemedialId)) {
-      const specificRemedialRes = await client.query(
-        `SELECT jr.id, jr.status, jr.start_at, jr.end_at,
-                to_char(jr.start_at, 'YYYY-MM-DD HH24:MI:SS') AS start_at_text,
-                to_char(jr.end_at, 'YYYY-MM-DD HH24:MI:SS') AS end_at_text,
-                EXISTS(
-                  SELECT 1 FROM jobsheet_remedial_students 
-                  WHERE remedial_id = jr.id AND student_id = $2
-                ) AS is_participant,
-                CASE
-                  WHEN jr.status = 'open' AND (NOW() AT TIME ZONE '${ACADEMIC_TIMEZONE}') BETWEEN jr.start_at AND jr.end_at THEN true
-                  ELSE false
-                END AS is_active
-         FROM jobsheet_remedials jr
-         WHERE jr.id = $1 AND jr.jobsheet_id = $3 AND jr.id_kelas_praktikum = $4`,
-        [requestedRemedialId, studentId, jobsheetId, academicContext.id_kelas_praktikum]
-      );
-
-      if (!specificRemedialRes.rows.length) {
-        return {
-          academicContext,
-          accessMode: 'locked_deadline',
-          canEdit: false,
-          canSaveProgress: false,
-          canSubmit: false,
-          attemptType: 'remedial',
-          attemptNo: 2,
-          remedialId: requestedRemedialId,
-          message: 'Akses remedial tidak tersedia atau telah berakhir.',
-          isDeadlinePassed: true,
-        };
-      }
-
-      const specificRemedial = specificRemedialRes.rows[0];
-      if (specificRemedial.status === 'cancelled') {
-        return {
-          academicContext,
-          accessMode: 'locked_deadline',
-          canEdit: false,
-          canSaveProgress: false,
-          canSubmit: false,
-          attemptType: 'remedial',
-          attemptNo: 2,
-          remedialId: requestedRemedialId,
-          message: 'Sesi remedial telah dibatalkan oleh dosen.',
-          isDeadlinePassed: true,
-        };
-      }
-
-      if (!specificRemedial.is_participant) {
-        return {
-          academicContext,
-          accessMode: 'locked_deadline',
-          canEdit: false,
-          canSaveProgress: false,
-          canSubmit: false,
-          attemptType: 'remedial',
-          attemptNo: 2,
-          remedialId: requestedRemedialId,
-          message: 'Anda tidak terdaftar sebagai peserta remedial untuk jobsheet ini.',
-          isDeadlinePassed: true,
-        };
-      }
-
-      return {
-        academicContext,
-        accessMode: 'locked_deadline',
-        canEdit: false,
-        canSaveProgress: false,
-        canSubmit: false,
-        attemptType: 'remedial',
-        attemptNo: 2,
-        remedialId: requestedRemedialId,
-        message: 'Akses remedial tidak tersedia atau telah berakhir.',
-        isDeadlinePassed: true,
-      };
-    }
-
-    if (activeRemedial) {
-      const remedialId = activeRemedial.id;
+    if (studentRemedial) {
+      const remedialId = studentRemedial.id;
       const subResult = await client.query(
         `SELECT ts.id, ts.status, ts.attempt_no, ts.attempt_label, sr.decision
          FROM task_submissions ts
@@ -199,6 +123,55 @@ class DeadlineAccessService {
 
       const attemptLabel = `Remedial ${Math.max(1, attemptNo - 1)}`;
 
+      // 1. Remedial Not Started Yet
+      if (studentRemedial.timing_status === 'not_started') {
+        return {
+          academicContext,
+          accessMode: 'locked_remedial_not_started',
+          canEdit: false,
+          canSaveProgress: false,
+          canSubmit: false,
+          attemptType: 'remedial',
+          attemptNo,
+          attemptLabel,
+          remedialId,
+          remedialTitle: studentRemedial.title,
+          remedialStartAt: studentRemedial.start_at_text,
+          remedialEndAt: studentRemedial.end_at_text,
+          remedialStatus: 'not_started',
+          normalDeadline: academicContext.deadline_text,
+          effectiveDeadline: studentRemedial.end_at_text,
+          deadline: studentRemedial.end_at_text,
+          message: `Waktu remedial belum dimulai. Sesi remedial akan dibuka pada ${studentRemedial.start_at_text}.`,
+          isDeadlinePassed: Boolean(academicContext.is_deadline_passed),
+        };
+      }
+
+      // 2. Remedial Ended
+      if (studentRemedial.timing_status === 'ended') {
+        return {
+          academicContext,
+          accessMode: 'locked_remedial_ended',
+          canEdit: false,
+          canSaveProgress: false,
+          canSubmit: false,
+          attemptType: 'remedial',
+          attemptNo,
+          attemptLabel,
+          remedialId,
+          remedialTitle: studentRemedial.title,
+          remedialStartAt: studentRemedial.start_at_text,
+          remedialEndAt: studentRemedial.end_at_text,
+          remedialStatus: 'ended',
+          normalDeadline: academicContext.deadline_text,
+          effectiveDeadline: studentRemedial.end_at_text,
+          deadline: studentRemedial.end_at_text,
+          message: `Waktu pengerjaan remedial telah berakhir pada ${studentRemedial.end_at_text}.`,
+          isDeadlinePassed: true,
+        };
+      }
+
+      // 3. Remedial Active (Between start_at and end_at)
       if (subResult.rows.length && subResult.rows[0].status === 'SUBMITTED') {
         const sub = subResult.rows[0];
         const isReviewed = sub.decision && sub.decision !== 'PENDING';
@@ -212,7 +185,13 @@ class DeadlineAccessService {
           attemptNo,
           attemptLabel,
           remedialId,
-          remedialEndAt: activeRemedial.end_at_text,
+          remedialTitle: studentRemedial.title,
+          remedialStartAt: studentRemedial.start_at_text,
+          remedialEndAt: studentRemedial.end_at_text,
+          remedialStatus: 'active',
+          normalDeadline: academicContext.deadline_text,
+          effectiveDeadline: studentRemedial.end_at_text,
+          deadline: studentRemedial.end_at_text,
           isDeadlinePassed: Boolean(academicContext.is_deadline_passed),
         };
       }
@@ -227,7 +206,13 @@ class DeadlineAccessService {
         attemptNo,
         attemptLabel,
         remedialId,
-        remedialEndAt: activeRemedial.end_at_text,
+        remedialTitle: studentRemedial.title,
+        remedialStartAt: studentRemedial.start_at_text,
+        remedialEndAt: studentRemedial.end_at_text,
+        remedialStatus: 'active',
+        normalDeadline: academicContext.deadline_text,
+        effectiveDeadline: studentRemedial.end_at_text,
+        deadline: studentRemedial.end_at_text,
         isDeadlinePassed: Boolean(academicContext.is_deadline_passed),
       };
     }
@@ -252,7 +237,7 @@ class DeadlineAccessService {
     if (normalSubResult.rows.length) {
       const sub = normalSubResult.rows[0];
       const attemptNo = Number(sub.attempt_no || 1);
-      const attemptLabel = 'Pengerjaan Normal';
+      const attemptLabel = 'Pengerjaan Reguler';
 
       if (sub.status === 'SUBMITTED') {
         const isReviewed = sub.decision && sub.decision !== 'PENDING';
@@ -266,6 +251,8 @@ class DeadlineAccessService {
           attemptNo,
           attemptLabel,
           remedialId: null,
+          normalDeadline: academicContext.deadline_text,
+          effectiveDeadline: academicContext.deadline_text,
           deadline: academicContext.deadline_text,
           isDeadlinePassed,
         };
@@ -281,6 +268,8 @@ class DeadlineAccessService {
         attemptNo,
         attemptLabel,
         remedialId: null,
+        normalDeadline: academicContext.deadline_text,
+        effectiveDeadline: academicContext.deadline_text,
         deadline: academicContext.deadline_text,
         isDeadlinePassed,
         message: isDeadlinePassed ? DEADLINE_MESSAGE : '',
@@ -295,8 +284,10 @@ class DeadlineAccessService {
       canSubmit: !isDeadlinePassed,
       attemptType: 'normal',
       attemptNo: 1,
-      attemptLabel: 'Pengerjaan Normal',
+      attemptLabel: 'Pengerjaan Reguler',
       remedialId: null,
+      normalDeadline: academicContext.deadline_text,
+      effectiveDeadline: academicContext.deadline_text,
       deadline: academicContext.deadline_text,
       isDeadlinePassed,
       message: isDeadlinePassed ? DEADLINE_MESSAGE : '',

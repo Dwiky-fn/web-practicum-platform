@@ -57,7 +57,7 @@ export default function StudentIdentityCard({ jobsheet, submission }: Props) {
 
               {submission.attemptLabel && (
                 <>
-                  <dt className="text-gray-500 font-medium">Attempt / Pengerjaan</dt>
+                  <dt className="text-gray-500 font-medium">Jenis Pengerjaan</dt>
                   <dd>
                     <span className="font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded text-xs inline-block">
                       {submission.attemptLabel}

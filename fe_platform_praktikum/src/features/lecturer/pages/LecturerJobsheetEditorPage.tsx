@@ -325,18 +325,76 @@ export default function LecturerJobsheetEditorPage() {
     loadData()
   }, [effectiveCourseId, queryKelasPraktikumId, savedJobsheetId, user])
 
+  const theoryRubricTotal = useMemo(() => {
+    return theoryItems.reduce((acc, item) => acc + toHundredths(item.rubric), 0) / 100
+  }, [theoryItems])
+
+  const expRubricTotal = useMemo(() => {
+    return experiments.reduce((acc, item) => acc + toHundredths(item.rubric), 0) / 100
+  }, [experiments])
+
+  const exeRubricTotal = useMemo(() => {
+    return exercises.reduce((acc, item) => acc + toHundredths(item.rubric), 0) / 100
+  }, [exercises])
+
   const totalRubric = useMemo(() => {
-    const theoryTotal = theoryItems.reduce((acc, item) => acc + toHundredths(item.rubric), 0)
-    const expTotal = experiments.reduce((acc, item) => acc + toHundredths(item.rubric), 0)
-    const exeTotal = exercises.reduce((acc, item) => acc + toHundredths(item.rubric), 0)
-    return (theoryTotal + expTotal + exeTotal) / 100
-  }, [theoryItems, experiments, exercises])
+    return (toHundredths(theoryRubricTotal) + toHundredths(expRubricTotal) + toHundredths(exeRubricTotal)) / 100
+  }, [theoryRubricTotal, expRubricTotal, exeRubricTotal])
+
   const rubricTotalValid = isRubricTotalValid(totalRubric)
   const hasUnconfiguredTheoryRubrics = useMemo(() => {
     return theoryItems.some((item) => item.rubric === undefined || item.rubric === null)
   }, [theoryItems])
 
   const totalContentItems = theoryItems.length + experiments.length + exercises.length
+
+  // ── Form Section Tree Navigation State & Scroll Handling ──
+  const [activeSection, setActiveSection] = useState<string>("section-informasi-umum")
+  const [navExpanded, setNavExpanded] = useState({
+    theory: true,
+    experiments: true,
+    exercises: true,
+  })
+
+  const scrollToElement = (id: string) => {
+    setActiveSection(id)
+    const element = document.getElementById(id)
+    if (element) {
+      const yOffset = -110
+      const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset
+      window.scrollTo({ top: y, behavior: "smooth" })
+    }
+  }
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const allIds = [
+        "section-informasi-umum",
+        "section-tujuan-praktikum",
+        "section-dasar-teori",
+        ...theoryItems.map((item, index) => `theory-item-${item.id || index}`),
+        "section-percobaan",
+        ...experiments.map((item, index) => `exp-item-${item.id || index}`),
+        "section-latihan",
+        ...exercises.map((item, index) => `exe-item-${item.id || index}`),
+      ]
+      const scrollPosition = window.scrollY + 140
+
+      for (let i = allIds.length - 1; i >= 0; i--) {
+        const el = document.getElementById(allIds[i])
+        if (el) {
+          const top = el.offsetTop
+          if (scrollPosition >= top) {
+            setActiveSection(allIds[i])
+            break
+          }
+        }
+      }
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [theoryItems, experiments, exercises])
 
   function buildPayload() {
     return {
@@ -587,52 +645,57 @@ export default function LecturerJobsheetEditorPage() {
 
       <div className="mx-auto max-w-7xl grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] items-start w-full min-w-0">
         <div className="space-y-5 min-w-0 w-full">
-          <LecturerPanel className="p-5">
-            <h2 className="mb-4 text-lg font-semibold">Informasi Umum</h2>
-            <div className="space-y-4">
-              <FieldRow label="Judul Jobsheet">
-                <input
-                  className={inputClass}
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  placeholder="Masukkan judul jobsheet"
-                />
-              </FieldRow>
+          <div id="section-informasi-umum" className="scroll-mt-32">
+            <LecturerPanel className="p-5">
+              <h2 className="mb-4 text-lg font-semibold">Informasi Umum</h2>
+              <div className="space-y-4">
+                <FieldRow label="Judul Jobsheet">
+                  <input
+                    className={inputClass}
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    placeholder="Masukkan judul jobsheet"
+                  />
+                </FieldRow>
 
-              <FieldRow label="Deskripsi Singkat">
-                <input
-                  className={inputClass}
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  placeholder="Masukkan deskripsi singkat"
-                />
-              </FieldRow>
-              <FieldRow label="Bahasa Pemrograman">
-                <select
-                  className={inputClass}
-                  value={programmingLanguage}
-                  onChange={(event) => handleLanguageChange(event.target.value as "java" | "python")}
-                >
-                  {programmingLanguage === "" && <option value="">Pilih Bahasa...</option>}
-                  <option value="java">Java</option>
-                  <option value="python">Python</option>
-                </select>
-              </FieldRow>
-            </div>
-          </LecturerPanel>
+                <FieldRow label="Deskripsi Singkat">
+                  <input
+                    className={inputClass}
+                    value={description}
+                    onChange={(event) => setDescription(event.target.value)}
+                    placeholder="Masukkan deskripsi singkat"
+                  />
+                </FieldRow>
+                <FieldRow label="Bahasa Pemrograman">
+                  <select
+                    className={inputClass}
+                    value={programmingLanguage}
+                    onChange={(event) => handleLanguageChange(event.target.value as "java" | "python")}
+                  >
+                    {programmingLanguage === "" && <option value="">Pilih Bahasa...</option>}
+                    <option value="java">Java</option>
+                    <option value="python">Python</option>
+                  </select>
+                </FieldRow>
+              </div>
+            </LecturerPanel>
+          </div>
 
-          <LecturerPanel className="p-5">
-            <h2 className="mb-4 text-lg font-semibold">Tujuan Praktikum</h2>
-            <RichTextEditor
-              value={goalContent}
-              onChange={setGoalContent}
-              role="DOSEN"
-              onUploadImage={handleUploadImage}
-              placeholder="Tulis tujuan praktikum dengan format lengkap..."
-            />
-          </LecturerPanel>
+          <div id="section-tujuan-praktikum" className="scroll-mt-32">
+            <LecturerPanel className="p-5">
+              <h2 className="mb-4 text-lg font-semibold">Tujuan Praktikum</h2>
+              <RichTextEditor
+                value={goalContent}
+                onChange={setGoalContent}
+                role="DOSEN"
+                onUploadImage={handleUploadImage}
+                placeholder="Tulis tujuan praktikum dengan format lengkap..."
+              />
+            </LecturerPanel>
+          </div>
 
-          <LecturerPanel className="p-5">
+          <div id="section-dasar-teori" className="scroll-mt-32">
+            <LecturerPanel className="p-5">
             <div className="mb-4 border-b border-gray-200 pb-3">
               <h2 className="text-lg font-semibold">Dasar Teori</h2>
             </div>
@@ -644,10 +707,11 @@ export default function LecturerJobsheetEditorPage() {
             <div className="space-y-4">
               {theoryItems.map((item, index) => {
                 const itemKey = item.id ?? `theory-${index}`
+                const itemId = `theory-item-${item.id || index}`
                 const isCollapsed = Boolean(collapsedTheoryItems[itemKey])
 
                 return (
-                  <div key={itemKey} className="rounded-lg border border-gray-200 p-4 bg-white shadow-sm transition-all">
+                  <div key={itemKey} id={itemId} className="rounded-lg border border-gray-200 p-4 bg-white shadow-sm transition-all scroll-mt-28">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-center gap-2 flex-1 min-w-0 mr-4">
                         <button
@@ -746,393 +810,610 @@ export default function LecturerJobsheetEditorPage() {
             </div>
           </LecturerPanel>
 
-          <LecturerPanel className="p-5">
-            <div className="mb-4 border-b border-gray-200 pb-3">
-              <h2 className="text-lg font-semibold">Percobaan Praktikum</h2>
-            </div>
-            {!experiments.length && (
-              <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-5 text-center">
-                <p className="text-sm font-medium text-gray-700">Belum ada percobaan.</p>
-              </div>
-            )}
-            <div className="space-y-4">
-              {experiments.map((item, index) => {
-                const itemKey = item.id ?? `experiment-${index}`
-                const isCollapsed = Boolean(collapsedExperiments[itemKey])
+          </div>
 
-                return (
-                  <div key={itemKey} className="rounded-lg border border-blue-100 bg-blue-50 p-4 shadow-sm transition-all">
-                    <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-center gap-2 flex-1 min-w-0 mr-4">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setCollapsedExperiments((prev) => ({
-                              ...prev,
-                              [itemKey]: !prev[itemKey],
-                            }))
-                          }
-                          className="flex shrink-0 items-center justify-center p-1 text-gray-600 hover:text-gray-900 rounded hover:bg-blue-100 transition"
-                          title={isCollapsed ? "Buka (Expand) Percobaan" : "Tutup (Collapse) Percobaan"}
-                        >
-                          {isCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
-                        </button>
-                        <input
-                          type="text"
-                          className="flex-1 bg-white border border-gray-300 rounded shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 px-3 py-1.5 transition-all outline-none font-semibold text-gray-900 min-w-0 text-sm"
-                          value={item.title}
-                          onChange={(event) =>
-                            setExperiments((current) =>
-                              current.map((entry, currentIndex) =>
-                                currentIndex === index ? { ...entry, title: event.target.value } : entry,
-                              ),
-                            )
-                          }
-                          placeholder={`Judul Percobaan ${index + 1}`}
-                        />
-                        <button
-                          type="button"
-                          className="text-red-600 hover:text-red-800 p-1 shrink-0"
-                          onClick={() =>
-                            setExperiments((current) => current.filter((_, currentIndex) => currentIndex !== index))
-                          }
-                          title="Hapus percobaan ini"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
-                          Bobot
+          <div id="section-percobaan" className="scroll-mt-32">
+            <LecturerPanel className="p-5">
+              <div className="mb-4 border-b border-gray-200 pb-3">
+                <h2 className="text-lg font-semibold">Percobaan Praktikum</h2>
+              </div>
+              {!experiments.length && (
+                <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-5 text-center">
+                  <p className="text-sm font-medium text-gray-700">Belum ada percobaan.</p>
+                </div>
+              )}
+              <div className="space-y-4">
+                {experiments.map((item, index) => {
+                  const itemKey = item.id ?? `experiment-${index}`
+                  const itemId = `exp-item-${item.id || index}`
+                  const isCollapsed = Boolean(collapsedExperiments[itemKey])
+
+                  return (
+                    <div key={itemKey} id={itemId} className="rounded-lg border border-blue-100 bg-blue-50 p-4 shadow-sm transition-all scroll-mt-28">
+                      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-2 flex-1 min-w-0 mr-4">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCollapsedExperiments((prev) => ({
+                                ...prev,
+                                [itemKey]: !prev[itemKey],
+                              }))
+                            }
+                            className="flex shrink-0 items-center justify-center p-1 text-gray-600 hover:text-gray-900 rounded hover:bg-blue-100 transition"
+                            title={isCollapsed ? "Buka (Expand) Percobaan" : "Tutup (Collapse) Percobaan"}
+                          >
+                            {isCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
+                          </button>
                           <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
-                            value={item.rubric === 0 || item.rubric === null || item.rubric === undefined ? "" : item.rubric}
-                            placeholder="0"
-                            onFocus={(event) => event.target.select()}
-                            onChange={(event) => {
-                              const raw = event.target.value
-                              const val = raw === "" ? 0 : normalizeRubric(raw)
-                              setExperiments((current) =>
-                                current.map((entry, currentIndex) =>
-                                  currentIndex === index ? { ...entry, rubric: val } : entry,
-                                ),
-                              )
-                            }}
-                          />
-                          %
-                        </label>
-                        <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
-                          Batas Tidak Aktif
-                          <input
-                            type="number"
-                            min="1"
-                            className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
-                            value={item.inactiveDurationMinutes ?? ""}
+                            type="text"
+                            className="flex-1 bg-white border border-gray-300 rounded shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 px-3 py-1.5 transition-all outline-none font-semibold text-gray-900 min-w-0 text-sm"
+                            value={item.title}
                             onChange={(event) =>
                               setExperiments((current) =>
                                 current.map((entry, currentIndex) =>
-                                  currentIndex === index
-                                    ? {
-                                      ...entry,
-                                      inactiveDurationMinutes: event.target.value ? Number(event.target.value) : null,
-                                    }
-                                    : entry,
+                                  currentIndex === index ? { ...entry, title: event.target.value } : entry,
                                 ),
                               )
                             }
+                            placeholder={`Judul Percobaan ${index + 1}`}
                           />
-                          menit
-                        </label>
+                          <button
+                            type="button"
+                            className="text-red-600 hover:text-red-800 p-1 shrink-0"
+                            onClick={() =>
+                              setExperiments((current) => current.filter((_, currentIndex) => currentIndex !== index))
+                            }
+                            title="Hapus percobaan ini"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                            Bobot
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
+                              value={item.rubric === 0 || item.rubric === null || item.rubric === undefined ? "" : item.rubric}
+                              placeholder="0"
+                              onFocus={(event) => event.target.select()}
+                              onChange={(event) => {
+                                const raw = event.target.value
+                                const val = raw === "" ? 0 : normalizeRubric(raw)
+                                setExperiments((current) =>
+                                  current.map((entry, currentIndex) =>
+                                    currentIndex === index ? { ...entry, rubric: val } : entry,
+                                  ),
+                                )
+                              }}
+                            />
+                            %
+                          </label>
+                          <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                            Batas Tidak Aktif
+                            <input
+                              type="number"
+                              min="1"
+                              className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
+                              value={item.inactiveDurationMinutes ?? ""}
+                              onChange={(event) =>
+                                setExperiments((current) =>
+                                  current.map((entry, currentIndex) =>
+                                    currentIndex === index
+                                      ? {
+                                        ...entry,
+                                        inactiveDurationMinutes: event.target.value ? Number(event.target.value) : null,
+                                      }
+                                      : entry,
+                                  ),
+                                )
+                              }
+                            />
+                            menit
+                          </label>
+                        </div>
                       </div>
-                    </div>
 
-                    {!isCollapsed && (
-                      <div className="space-y-3 border-t border-blue-100 pt-3 mt-2">
-                        {/* Judul removed from here and moved to header */}
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium text-gray-700">Instruksi Percobaan</p>
-                          <RichTextEditor
-                            value={item.instructionContent}
-                            onChange={(value) =>
+                      {!isCollapsed && (
+                        <div className="space-y-3 border-t border-blue-100 pt-3 mt-2">
+                          {/* Judul removed from here and moved to header */}
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium text-gray-700">Instruksi Percobaan</p>
+                            <RichTextEditor
+                              value={item.instructionContent}
+                              onChange={(value) =>
+                                setExperiments((current) =>
+                                  current.map((entry, currentIndex) =>
+                                    currentIndex === index ? { ...entry, instructionContent: value } : entry,
+                                  ),
+                                )
+                              }
+                              role="DOSEN"
+                              onUploadImage={handleUploadImage}
+                              placeholder="Tulis instruksi percobaan dengan format lengkap..."
+                            />
+                            <InstructionCodeCheckboxes
+                              value={item.instructionContent}
+                              onChange={(value) =>
+                                setExperiments((current) =>
+                                  current.map((entry, currentIndex) =>
+                                    currentIndex === index ? { ...entry, instructionContent: value } : entry,
+                                  ),
+                                )
+                              }
+                            />
+                          </div>
+                          <LecturerTemplateWorkspace
+                            language={(programmingLanguage as "java" | "python") || "java"}
+                            value={item.templateCode}
+                            onChange={(val) =>
                               setExperiments((current) =>
                                 current.map((entry, currentIndex) =>
-                                  currentIndex === index ? { ...entry, instructionContent: value } : entry,
+                                  currentIndex === index ? { ...entry, templateCode: val } : entry,
                                 ),
                               )
                             }
-                            role="DOSEN"
-                            onUploadImage={handleUploadImage}
-                            placeholder="Tulis instruksi percobaan dengan format lengkap..."
-                          />
-                          <InstructionCodeCheckboxes
-                            value={item.instructionContent}
-                            onChange={(value) =>
-                              setExperiments((current) =>
-                                current.map((entry, currentIndex) =>
-                                  currentIndex === index ? { ...entry, instructionContent: value } : entry,
-                                ),
-                              )
-                            }
+                            label={`Percobaan ${index + 1}`}
+                            defaultTemplateCode={JSON.stringify({ [`percobaan-${index + 1}.${programmingLanguage === "python" ? "py" : "java"}`]: "" })}
                           />
                         </div>
-                        <LecturerTemplateWorkspace
-                          language={(programmingLanguage as "java" | "python") || "java"}
-                          value={item.templateCode}
-                          onChange={(val) =>
-                            setExperiments((current) =>
-                              current.map((entry, currentIndex) =>
-                                currentIndex === index ? { ...entry, templateCode: val } : entry,
-                              ),
-                            )
-                          }
-                          label={`Percobaan ${index + 1}`}
-                          defaultTemplateCode={JSON.stringify({ [`percobaan-${index + 1}.${programmingLanguage === "python" ? "py" : "java"}`]: "" })}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-            <div className="mt-4 flex justify-start">
-              <LecturerButton
-                variant="secondary"
-                onClick={() => setExperiments((current) => [...current, createExperimentItem(current.length + 1, (programmingLanguage || "java") as "java" | "python")])}
-              >
-                <Plus size={16} />
-                Tambah Percobaan
-              </LecturerButton>
-            </div>
-          </LecturerPanel>
-
-          <LecturerPanel className="p-5">
-            <div className="mb-4 border-b border-gray-200 pb-3">
-              <h2 className="text-lg font-semibold">Latihan Praktikum</h2>
-            </div>
-            {!exercises.length && (
-              <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-5 text-center">
-                <p className="text-sm font-medium text-gray-700">Belum ada latihan.</p>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
-            )}
-            <div className="space-y-4">
-              {exercises.map((item, index) => {
-                const itemKey = item.id ?? `exercise-${index}`
-                const isCollapsed = Boolean(collapsedExercises[itemKey])
+              <div className="mt-4 flex justify-start">
+                <LecturerButton
+                  variant="secondary"
+                  onClick={() => setExperiments((current) => [...current, createExperimentItem(current.length + 1, (programmingLanguage || "java") as "java" | "python")])}
+                >
+                  <Plus size={16} />
+                  Tambah Percobaan
+                </LecturerButton>
+              </div>
+            </LecturerPanel>
+          </div>
 
-                return (
-                  <div key={itemKey} className="rounded-lg border border-blue-100 bg-blue-50 p-4 shadow-sm transition-all">
-                    <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-center gap-2 flex-1 min-w-0 mr-4">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setCollapsedExercises((prev) => ({
-                              ...prev,
-                              [itemKey]: !prev[itemKey],
-                            }))
-                          }
-                          className="flex shrink-0 items-center justify-center p-1 text-gray-600 hover:text-gray-900 rounded hover:bg-blue-100 transition"
-                          title={isCollapsed ? "Buka (Expand) Latihan" : "Tutup (Collapse) Latihan"}
-                        >
-                          {isCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
-                        </button>
-                        <input
-                          type="text"
-                          className="flex-1 bg-white border border-gray-300 rounded shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 px-3 py-1.5 transition-all outline-none font-semibold text-gray-900 min-w-0 text-sm"
-                          value={item.title}
-                          onChange={(event) =>
-                            setExercises((current) =>
-                              current.map((entry, currentIndex) =>
-                                currentIndex === index ? { ...entry, title: event.target.value } : entry,
-                              ),
-                            )
-                          }
-                          placeholder={`Judul Latihan ${index + 1}`}
-                        />
-                        <button
-                          type="button"
-                          className="text-red-600 hover:text-red-800 p-1 shrink-0"
-                          onClick={() =>
-                            setExercises((current) => current.filter((_, currentIndex) => currentIndex !== index))
-                          }
-                          title="Hapus latihan ini"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
-                          Bobot
+          <div id="section-latihan" className="scroll-mt-32">
+            <LecturerPanel className="p-5">
+              <div className="mb-4 border-b border-gray-200 pb-3">
+                <h2 className="text-lg font-semibold">Latihan Praktikum</h2>
+              </div>
+              {!exercises.length && (
+                <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-5 text-center">
+                  <p className="text-sm font-medium text-gray-700">Belum ada latihan.</p>
+                </div>
+              )}
+              <div className="space-y-4">
+                {exercises.map((item, index) => {
+                  const itemKey = item.id ?? `exercise-${index}`
+                  const itemId = `exe-item-${item.id || index}`
+                  const isCollapsed = Boolean(collapsedExercises[itemKey])
+
+                  return (
+                    <div key={itemKey} id={itemId} className="rounded-lg border border-blue-100 bg-blue-50 p-4 shadow-sm transition-all scroll-mt-28">
+                      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-2 flex-1 min-w-0 mr-4">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCollapsedExercises((prev) => ({
+                                ...prev,
+                                [itemKey]: !prev[itemKey],
+                              }))
+                            }
+                            className="flex shrink-0 items-center justify-center p-1 text-gray-600 hover:text-gray-900 rounded hover:bg-blue-100 transition"
+                            title={isCollapsed ? "Buka (Expand) Latihan" : "Tutup (Collapse) Latihan"}
+                          >
+                            {isCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
+                          </button>
                           <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
-                            value={item.rubric === 0 || item.rubric === null || item.rubric === undefined ? "" : item.rubric}
-                            placeholder="0"
-                            onFocus={(event) => event.target.select()}
-                            onChange={(event) => {
-                              const raw = event.target.value
-                              const val = raw === "" ? 0 : normalizeRubric(raw)
-                              setExercises((current) =>
-                                current.map((entry, currentIndex) =>
-                                  currentIndex === index ? { ...entry, rubric: val } : entry,
-                                ),
-                              )
-                            }}
-                          />
-                          %
-                        </label>
-                        <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
-                          Batas Tidak Aktif
-                          <input
-                            type="number"
-                            min="1"
-                            className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
-                            value={item.inactiveDurationMinutes ?? ""}
+                            type="text"
+                            className="flex-1 bg-white border border-gray-300 rounded shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 px-3 py-1.5 transition-all outline-none font-semibold text-gray-900 min-w-0 text-sm"
+                            value={item.title}
                             onChange={(event) =>
                               setExercises((current) =>
                                 current.map((entry, currentIndex) =>
-                                  currentIndex === index
-                                    ? {
-                                      ...entry,
-                                      inactiveDurationMinutes: event.target.value ? Number(event.target.value) : null,
-                                    }
-                                    : entry,
+                                  currentIndex === index ? { ...entry, title: event.target.value } : entry,
                                 ),
                               )
                             }
+                            placeholder={`Judul Latihan ${index + 1}`}
                           />
-                          menit
-                        </label>
+                          <button
+                            type="button"
+                            className="text-red-600 hover:text-red-800 p-1 shrink-0"
+                            onClick={() =>
+                              setExercises((current) => current.filter((_, currentIndex) => currentIndex !== index))
+                            }
+                            title="Hapus latihan ini"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                            Bobot
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
+                              value={item.rubric === 0 || item.rubric === null || item.rubric === undefined ? "" : item.rubric}
+                              placeholder="0"
+                              onFocus={(event) => event.target.select()}
+                              onChange={(event) => {
+                                const raw = event.target.value
+                                const val = raw === "" ? 0 : normalizeRubric(raw)
+                                setExercises((current) =>
+                                  current.map((entry, currentIndex) =>
+                                    currentIndex === index ? { ...entry, rubric: val } : entry,
+                                  ),
+                                )
+                              }}
+                            />
+                            %
+                          </label>
+                          <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                            Batas Tidak Aktif
+                            <input
+                              type="number"
+                              min="1"
+                              className="h-9 w-20 rounded-md border border-gray-300 px-2 text-right text-sm"
+                              value={item.inactiveDurationMinutes ?? ""}
+                              onChange={(event) =>
+                                setExercises((current) =>
+                                  current.map((entry, currentIndex) =>
+                                    currentIndex === index
+                                      ? {
+                                        ...entry,
+                                        inactiveDurationMinutes: event.target.value ? Number(event.target.value) : null,
+                                      }
+                                      : entry,
+                                  ),
+                                )
+                              }
+                            />
+                            menit
+                          </label>
+                        </div>
                       </div>
-                    </div>
 
-                    {!isCollapsed && (
-                      <div className="space-y-3 border-t border-blue-100 pt-3 mt-2">
-                        {/* Judul removed from here and moved to header */}
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium text-gray-700">Instruksi Latihan</p>
-                          <RichTextEditor
-                            value={item.instructionContent}
-                            onChange={(value) =>
+                      {!isCollapsed && (
+                        <div className="space-y-3 border-t border-blue-100 pt-3 mt-2">
+                          {/* Judul removed from here and moved to header */}
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium text-gray-700">Instruksi Latihan</p>
+                            <RichTextEditor
+                              value={item.instructionContent}
+                              onChange={(value) =>
+                                setExercises((current) =>
+                                  current.map((entry, currentIndex) =>
+                                    currentIndex === index ? { ...entry, instructionContent: value } : entry,
+                                  ),
+                                )
+                              }
+                              role="DOSEN"
+                              onUploadImage={handleUploadImage}
+                              placeholder="Tulis instruksi latihan dengan format lengkap..."
+                            />
+                          </div>
+                          <LecturerTemplateWorkspace
+                            language={(programmingLanguage as "java" | "python") || "java"}
+                            value={item.templateCode}
+                            onChange={(val) =>
                               setExercises((current) =>
                                 current.map((entry, currentIndex) =>
-                                  currentIndex === index ? { ...entry, instructionContent: value } : entry,
+                                  currentIndex === index ? { ...entry, templateCode: val } : entry,
                                 ),
                               )
                             }
-                            role="DOSEN"
-                            onUploadImage={handleUploadImage}
-                            placeholder="Tulis instruksi latihan dengan format lengkap..."
-                          />
-                          <InstructionCodeCheckboxes
-                            value={item.instructionContent}
-                            onChange={(value) =>
-                              setExercises((current) =>
-                                current.map((entry, currentIndex) =>
-                                  currentIndex === index ? { ...entry, instructionContent: value } : entry,
-                                ),
-                              )
-                            }
+                            label={`Latihan ${index + 1}`}
+                            defaultTemplateCode={JSON.stringify({ [`latihan-${index + 1}.${programmingLanguage === "python" ? "py" : "java"}`]: "" })}
                           />
                         </div>
-                        <LecturerTemplateWorkspace
-                          language={(programmingLanguage as "java" | "python") || "java"}
-                          value={item.templateCode}
-                          onChange={(val) =>
-                            setExercises((current) =>
-                              current.map((entry, currentIndex) =>
-                                currentIndex === index ? { ...entry, templateCode: val } : entry,
-                              ),
-                            )
-                          }
-                          label={`Latihan ${index + 1}`}
-                          defaultTemplateCode={JSON.stringify({ [`latihan-${index + 1}.${programmingLanguage === "python" ? "py" : "java"}`]: "" })}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-            <div className="mt-4 flex justify-start">
-              <LecturerButton
-                variant="secondary"
-                onClick={() => setExercises((current) => [...current, createExerciseItem(current.length + 1, (programmingLanguage || "java") as "java" | "python")])}
-              >
-                <Plus size={16} />
-                Tambah Latihan
-              </LecturerButton>
-            </div>
-          </LecturerPanel>
-
-
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="mt-4 flex justify-start">
+                <LecturerButton
+                  variant="secondary"
+                  onClick={() => setExercises((current) => [...current, createExerciseItem(current.length + 1, (programmingLanguage || "java") as "java" | "python")])}
+                >
+                  <Plus size={16} />
+                  Tambah Latihan
+                </LecturerButton>
+              </div>
+            </LecturerPanel>
+          </div>
 
         </div>
 
-        <LecturerPanel className="p-5 lg:sticky lg:top-5 space-y-4 shadow-md border-slate-200">
-          <h2 className="text-md font-semibold text-gray-800 border-b border-gray-100 pb-2">Simpan Jobsheet</h2>
-          <div className="space-y-2">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block">Total Bobot Penilaian</span>
-            <div className="flex flex-col gap-1">
-              <span
-                className={`rounded px-2.5 py-1 text-center text-sm font-bold ${rubricTotalValid
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
+        <div className="space-y-5 lg:sticky lg:top-[80px]">
+          {/* Card 1: Simpan Jobsheet */}
+          <LecturerPanel className="p-5 space-y-4 shadow-md border-slate-200">
+            <h2 className="text-md font-semibold text-gray-800 border-b border-gray-100 pb-2">Simpan Jobsheet</h2>
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block">Total Bobot Penilaian</span>
+              <div className="flex flex-col gap-1">
+                <span
+                  className={`rounded px-2.5 py-1 text-center text-sm font-bold ${
+                    rubricTotalValid ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
                   }`}
-              >
-                {totalRubric}% / 100%
-              </span>
-              {!rubricTotalValid && (
-                <span className="text-[11px] text-red-600 font-medium text-center">
-                  {totalRubricMessage} Draft tetap bisa disimpan.
+                >
+                  {totalRubric}% / 100%
                 </span>
-              )}
-              {hasUnconfiguredTheoryRubrics && (
-                <span className="text-[11px] text-amber-600 font-medium text-center bg-amber-50 border border-amber-200 rounded p-2 mt-1">
-                  Bobot Dasar Teori belum diatur. Lengkapi bobot seluruh item sebelum jobsheet dipublish.
-                </span>
-              )}
-              {totalContentItems === 0 && (
-                <span className="text-[11px] text-amber-700 font-medium text-center">
-                  Tambahkan minimal satu item konten sebelum publish.
-                </span>
-              )}
+                {!rubricTotalValid && (
+                  <span className="text-[11px] text-red-600 font-medium text-center">
+                    {totalRubricMessage} Draft tetap bisa disimpan.
+                  </span>
+                )}
+                {hasUnconfiguredTheoryRubrics && (
+                  <span className="text-[11px] text-amber-600 font-medium text-center bg-amber-50 border border-amber-200 rounded p-2 mt-1">
+                    Bobot Dasar Teori belum diatur. Lengkapi bobot seluruh item sebelum jobsheet dipublish.
+                  </span>
+                )}
+                {totalContentItems === 0 && (
+                  <span className="text-[11px] text-amber-700 font-medium text-center">
+                    Tambahkan minimal satu item konten sebelum publish.
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-          <div className="flex flex-col gap-2 pt-2">
-            <LecturerButton className="w-full justify-center" variant="secondary" disabled={saving} onClick={handleSaveDraft}>
-              {saving ? "Menyimpan..." : "Simpan Draft"}
-            </LecturerButton>
-            <LecturerButton
-              className="w-full justify-center"
-              disabled={saving || !dataset?.course.classes.length}
-              onClick={() => {
-                if (totalContentItems === 0) {
-                  toast.error("Tambahkan minimal satu dasar teori, percobaan, atau latihan sebelum publish.")
-                  return
-                }
-                if (hasUnconfiguredTheoryRubrics) {
-                  toast.error("Bobot Dasar Teori belum diatur. Lengkapi bobot seluruh item sebelum jobsheet dipublish.")
-                  return
-                }
-                if (!rubricTotalValid) {
-                  toast.error(totalRubricMessage)
-                  return
-                }
-                setPublishOpen(true)
-              }}
-            >
-              Simpan & Publikasikan
-            </LecturerButton>
-          </div>
-        </LecturerPanel>
+            <div className="flex flex-col gap-2 pt-2">
+              <LecturerButton className="w-full justify-center" variant="secondary" disabled={saving} onClick={handleSaveDraft}>
+                {saving ? "Menyimpan..." : "Simpan Draft"}
+              </LecturerButton>
+              <LecturerButton
+                className="w-full justify-center"
+                disabled={saving || !dataset?.course.classes.length}
+                onClick={() => {
+                  if (totalContentItems === 0) {
+                    toast.error("Tambahkan minimal satu dasar teori, percobaan, atau latihan sebelum publish.")
+                    return
+                  }
+                  if (hasUnconfiguredTheoryRubrics) {
+                    toast.error("Bobot Dasar Teori belum diatur. Lengkapi bobot seluruh item sebelum jobsheet dipublish.")
+                    return
+                  }
+                  if (!rubricTotalValid) {
+                    toast.error(totalRubricMessage)
+                    return
+                  }
+                  setPublishOpen(true)
+                }}
+              >
+                Simpan & Publikasikan
+              </LecturerButton>
+            </div>
+          </LecturerPanel>
+
+          {/* Card 2: Navigasi Jobsheet */}
+          <LecturerPanel className="p-4 space-y-3 shadow-md border-slate-200">
+            <h2 className="text-md font-semibold text-gray-800 border-b border-gray-100 pb-2">
+              Navigasi Jobsheet
+            </h2>
+            <nav className="space-y-1 text-xs">
+              {/* Informasi Umum */}
+              <button
+                type="button"
+                onClick={() => scrollToElement("section-informasi-umum")}
+                className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-left font-medium transition cursor-pointer ${
+                  activeSection === "section-informasi-umum"
+                    ? "bg-blue-50 text-blue-700 font-semibold"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <span className="text-[10px]">{activeSection === "section-informasi-umum" ? "●" : "○"}</span>
+                <span className="truncate">Informasi Umum</span>
+              </button>
+
+              {/* Tujuan Praktikum */}
+              <button
+                type="button"
+                onClick={() => scrollToElement("section-tujuan-praktikum")}
+                className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-left font-medium transition cursor-pointer ${
+                  activeSection === "section-tujuan-praktikum"
+                    ? "bg-blue-50 text-blue-700 font-semibold"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <span className="text-[10px]">{activeSection === "section-tujuan-praktikum" ? "●" : "○"}</span>
+                <span className="truncate">Tujuan Praktikum</span>
+              </button>
+
+              {/* Dasar Teori Parent */}
+              <div>
+                <div
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left font-medium cursor-pointer transition ${
+                    activeSection === "section-dasar-teori" || activeSection.startsWith("theory-item-")
+                      ? "bg-blue-50 text-blue-700 font-semibold"
+                      : "text-gray-800 hover:bg-gray-100"
+                  }`}
+                  onClick={() => scrollToElement("section-dasar-teori")}
+                >
+                  <div className="flex items-center gap-1.5 min-w-0 mr-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setNavExpanded((prev) => ({ ...prev, theory: !prev.theory }))
+                      }}
+                      className="p-0.5 hover:bg-blue-100 rounded text-gray-500 hover:text-gray-800 shrink-0"
+                      title={navExpanded.theory ? "Tutup Dasar Teori" : "Buka Dasar Teori"}
+                    >
+                      {navExpanded.theory ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    </button>
+                    <span className="truncate">Dasar Teori</span>
+                  </div>
+                  <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded shrink-0">
+                    {theoryRubricTotal}%
+                  </span>
+                </div>
+
+                {/* Dasar Teori Children */}
+                {navExpanded.theory && theoryItems.length > 0 && (
+                  <div className="ml-3 pl-3 border-l border-gray-200 space-y-0.5 mt-0.5">
+                    {theoryItems.map((item, idx) => {
+                      const itemId = `theory-item-${item.id || idx}`
+                      const isActive = activeSection === itemId
+                      const itemTitle = item.title?.trim() || `Subtopik ${idx + 1}`
+                      return (
+                        <button
+                          key={itemId}
+                          type="button"
+                          onClick={() => scrollToElement(itemId)}
+                          className={`w-full flex items-center justify-between gap-2 px-2 py-1 rounded text-left transition cursor-pointer ${
+                            isActive
+                              ? "bg-blue-100 text-blue-800 font-semibold"
+                              : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[9px] shrink-0">{isActive ? "●" : "○"}</span>
+                            <span className="truncate">{itemTitle}</span>
+                          </div>
+                          <span className="text-[10px] font-semibold text-gray-500 shrink-0 ml-1">
+                            {item.rubric ?? 0}%
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Percobaan Parent */}
+              <div>
+                <div
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left font-medium cursor-pointer transition ${
+                    activeSection === "section-percobaan" || activeSection.startsWith("exp-item-")
+                      ? "bg-blue-50 text-blue-700 font-semibold"
+                      : "text-gray-800 hover:bg-gray-100"
+                  }`}
+                  onClick={() => scrollToElement("section-percobaan")}
+                >
+                  <div className="flex items-center gap-1.5 min-w-0 mr-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setNavExpanded((prev) => ({ ...prev, experiments: !prev.experiments }))
+                      }}
+                      className="p-0.5 hover:bg-blue-100 rounded text-gray-500 hover:text-gray-800 shrink-0"
+                      title={navExpanded.experiments ? "Tutup Percobaan" : "Buka Percobaan"}
+                    >
+                      {navExpanded.experiments ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    </button>
+                    <span className="truncate">Percobaan</span>
+                  </div>
+                  <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded shrink-0">
+                    {expRubricTotal}%
+                  </span>
+                </div>
+
+                {/* Percobaan Children */}
+                {navExpanded.experiments && experiments.length > 0 && (
+                  <div className="ml-3 pl-3 border-l border-gray-200 space-y-0.5 mt-0.5">
+                    {experiments.map((item, idx) => {
+                      const itemId = `exp-item-${item.id || idx}`
+                      const isActive = activeSection === itemId
+                      const itemTitle = item.title?.trim() || `Percobaan ${idx + 1}`
+                      return (
+                        <button
+                          key={itemId}
+                          type="button"
+                          onClick={() => scrollToElement(itemId)}
+                          className={`w-full flex items-center justify-between gap-2 px-2 py-1 rounded text-left transition cursor-pointer ${
+                            isActive
+                              ? "bg-blue-100 text-blue-800 font-semibold"
+                              : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[9px] shrink-0">{isActive ? "●" : "○"}</span>
+                            <span className="truncate">{itemTitle}</span>
+                          </div>
+                          <span className="text-[10px] font-semibold text-gray-500 shrink-0 ml-1">
+                            {item.rubric ?? 0}%
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Latihan Parent */}
+              <div>
+                <div
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left font-medium cursor-pointer transition ${
+                    activeSection === "section-latihan" || activeSection.startsWith("exe-item-")
+                      ? "bg-blue-50 text-blue-700 font-semibold"
+                      : "text-gray-800 hover:bg-gray-100"
+                  }`}
+                  onClick={() => scrollToElement("section-latihan")}
+                >
+                  <div className="flex items-center gap-1.5 min-w-0 mr-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setNavExpanded((prev) => ({ ...prev, exercises: !prev.exercises }))
+                      }}
+                      className="p-0.5 hover:bg-blue-100 rounded text-gray-500 hover:text-gray-800 shrink-0"
+                      title={navExpanded.exercises ? "Tutup Latihan" : "Buka Latihan"}
+                    >
+                      {navExpanded.exercises ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    </button>
+                    <span className="truncate">Latihan</span>
+                  </div>
+                  <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded shrink-0">
+                    {exeRubricTotal}%
+                  </span>
+                </div>
+
+                {/* Latihan Children */}
+                {navExpanded.exercises && exercises.length > 0 && (
+                  <div className="ml-3 pl-3 border-l border-gray-200 space-y-0.5 mt-0.5">
+                    {exercises.map((item, idx) => {
+                      const itemId = `exe-item-${item.id || idx}`
+                      const isActive = activeSection === itemId
+                      const itemTitle = item.title?.trim() || `Latihan ${idx + 1}`
+                      return (
+                        <button
+                          key={itemId}
+                          type="button"
+                          onClick={() => scrollToElement(itemId)}
+                          className={`w-full flex items-center justify-between gap-2 px-2 py-1 rounded text-left transition cursor-pointer ${
+                            isActive
+                              ? "bg-blue-100 text-blue-800 font-semibold"
+                              : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[9px] shrink-0">{isActive ? "●" : "○"}</span>
+                            <span className="truncate">{itemTitle}</span>
+                          </div>
+                          <span className="text-[10px] font-semibold text-gray-500 shrink-0 ml-1">
+                            {item.rubric ?? 0}%
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </nav>
+          </LecturerPanel>
+        </div>
       </div>
 
       {publishOpen && (

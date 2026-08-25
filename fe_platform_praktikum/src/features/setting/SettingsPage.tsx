@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useCurrentUser } from "../../services/user/useCurrentUser";
 import {
+  getUserById,
   updateUser,
   updateUserPassword,
   uploadUserAvatar,
@@ -184,6 +185,8 @@ export default function SettingsPage() {
     try {
       await updateUserPassword(user.id, payload);
       toast.success("Kata sandi berhasil diperbarui.");
+      const freshUser = await getUserById(user.id);
+      applyUser(freshUser);
     } catch (error) {
       showSettingsError(getErrorMessage(error, "Gagal memperbarui kata sandi."));
       throw error;

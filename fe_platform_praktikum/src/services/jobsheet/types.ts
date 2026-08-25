@@ -119,6 +119,8 @@ export type RawJobsheet = {
   overview?: JSONContent;
   goal?: string;
   deadline: string;
+  normalDeadline?: string;
+  effectiveDeadline?: string;
 
   task?: TaskConfig;
 
@@ -147,6 +149,8 @@ export interface Jobsheet {
   summary: JSONContent;
   goal: string;
   deadline: string;
+  normalDeadline?: string;
+  effectiveDeadline?: string;
   urutan?: number;
   sequence?: number;
 
@@ -156,7 +160,7 @@ export interface Jobsheet {
 
   task: TaskConfig;
   access?: {
-    accessMode: "editable_normal" | "locked_deadline" | "locked_sequence" | "readonly_submitted" | "readonly_reviewed" | "editable_remedial";
+    accessMode: "editable_normal" | "locked_deadline" | "locked_sequence" | "readonly_submitted" | "readonly_reviewed" | "editable_remedial" | "locked_remedial_not_started" | "locked_remedial_ended";
     canEdit: boolean;
     canSaveProgress?: boolean;
     canSubmit: boolean;
@@ -165,6 +169,11 @@ export interface Jobsheet {
     attemptNo?: number;
     attemptLabel?: string;
     remedialId?: string;
+    remedialTitle?: string;
+    remedialStartAt?: string;
     remedialEndAt?: string;
+    remedialStatus?: "not_started" | "active" | "ended" | "cancelled";
+    normalDeadline?: string;
+    effectiveDeadline?: string;
   };
 }

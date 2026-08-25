@@ -29,20 +29,16 @@ export function getIncompletePracticeMessage(
     if (!experiment) return null
     
     const stepsConfig = splitInstructionContent(experiment.instructionContent)
-    const codeIndices = stepsConfig.map((step, idx) => step.needsCode ? idx : -1).filter(idx => idx !== -1)
-    
-    if (codeIndices.length === 0) return null
+    if (stepsConfig.length === 0) return null
 
     const report = submission?.report?.experiments?.[targetId]
     const stepsData = report?.steps ?? []
 
     const missingDetails: string[] = []
 
-    for (const index of codeIndices) {
+    for (let index = 0; index < stepsConfig.length; index++) {
+      const stepConfig = stepsConfig[index]
       const step = stepsData[index]
-      const filesObj = (step?.files || {}) as Record<string, string>
-      const hasCode = Object.values(filesObj).some(c => typeof c === "string" && Boolean(c.trim()))
-      const hasOutput = typeof step?.output === "string" && Boolean(step.output.trim())
       
       let hasAnalysis = false
       if (step?.analysis) {
@@ -53,13 +49,23 @@ export function getIncompletePracticeMessage(
         }
       }
 
-      const stepMissing: string[] = []
-      if (!hasCode) stepMissing.push("kode program")
-      if (!hasOutput) stepMissing.push("output (klik Run)")
-      if (!hasAnalysis) stepMissing.push("analisis")
+      if (stepConfig.needsCode) {
+        const filesObj = (step?.files || {}) as Record<string, string>
+        const hasCode = Object.values(filesObj).some(c => typeof c === "string" && Boolean(c.trim()))
+        const hasOutput = typeof step?.output === "string" && Boolean(step.output.trim())
 
-      if (stepMissing.length > 0) {
-        missingDetails.push(`Instruksi ${index + 1} (${stepMissing.join(", ")})`)
+        const stepMissing: string[] = []
+        if (!hasCode) stepMissing.push("kode program")
+        if (!hasOutput) stepMissing.push("output (klik Run)")
+        if (!hasAnalysis) stepMissing.push("analisis")
+
+        if (stepMissing.length > 0) {
+          missingDetails.push(`Instruksi ${index + 1} (${stepMissing.join(", ")})`)
+        }
+      } else {
+        if (!hasAnalysis) {
+          missingDetails.push(`Instruksi ${index + 1} (jawaban analisis)`)
+        }
       }
     }
 
@@ -72,10 +78,12 @@ export function getIncompletePracticeMessage(
     const exercise = jobsheet.exercises.find(exe => exe.id === targetId)
     if (!exercise) return null
 
+    const exerciseConfig = splitInstructionContent(exercise.instructionContent)
+    const needsCode = exerciseConfig[0]?.needsCode !== undefined
+      ? exerciseConfig[0].needsCode
+      : (exercise.instructionContent?.attrs?.needsCode !== undefined ? Boolean(exercise.instructionContent.attrs.needsCode) : true)
+
     const step = submission?.report?.exercises?.[targetId]
-    const filesObj = (step?.files || {}) as Record<string, string>
-    const hasCode = Object.values(filesObj).some(c => typeof c === "string" && Boolean(c.trim()))
-    const hasOutput = typeof step?.output === "string" && Boolean(step.output.trim())
     
     let hasAnalysis = false
     if (step?.analysis) {
@@ -87,9 +95,14 @@ export function getIncompletePracticeMessage(
     }
 
     const stepMissing: string[] = []
-    if (!hasCode) stepMissing.push("kode program")
-    if (!hasOutput) stepMissing.push("output (klik Run)")
-    if (!hasAnalysis) stepMissing.push("analisis")
+    if (needsCode) {
+      const filesObj = (step?.files || {}) as Record<string, string>
+      const hasCode = Object.values(filesObj).some(c => typeof c === "string" && Boolean(c.trim()))
+      const hasOutput = typeof step?.output === "string" && Boolean(step.output.trim())
+      if (!hasCode) stepMissing.push("kode program")
+      if (!hasOutput) stepMissing.push("output (klik Run)")
+    }
+    if (!hasAnalysis) stepMissing.push("jawaban/analisis")
 
     if (stepMissing.length > 0) {
       return `Belum terisi lengkap: Latihan (${stepMissing.join(", ")})`

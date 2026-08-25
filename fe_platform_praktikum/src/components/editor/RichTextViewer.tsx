@@ -6,19 +6,24 @@ import { useCurrentUser } from "../../services/user/useCurrentUser";
 import type { Role } from "../../services/user/types";
 import { toEditorRole } from "./utils/toEditorRole";
 
+import ProtectedContentContainer from "../../shared/components/ProtectedContentContainer";
+
 interface Props {
   content: JSONContent;
   role?: EditorRole;
   mode?: EditorMode;
+  isProtected?: boolean;
 }
 
 export default function RichTextViewer({
   content,
   role,
   mode = "viewer-default",
+  isProtected,
 }: Props) {
   const { user } = useCurrentUser();
   const resolvedRole: EditorRole = role ?? toEditorRole(user?.role as Role);
+  const shouldProtect = isProtected ?? (resolvedRole === "MAHASISWA" && mode !== "editor");
 
   const editor = useEditor({
     extensions: getEditorExtensions(resolvedRole, mode),
@@ -38,17 +43,19 @@ export default function RichTextViewer({
   if (!editor) return null;
 
   return (
-    <div className="prose prose-gray max-w-none min-w-0 [overflow-wrap:anywhere] jobsheet-rich-content
-      prose-headings:font-semibold
-      prose-p:break-words
-      prose-li:break-words
-      prose-table:border
-      prose-table:border-gray-300
-      prose-th:bg-gray-100
-      prose-pre:overflow-x-auto
-      prose-code:text-sm
-    ">
-      <EditorContent editor={editor} />
-    </div>
+    <ProtectedContentContainer enabled={shouldProtect}>
+      <div className="prose prose-gray max-w-none min-w-0 [overflow-wrap:anywhere] jobsheet-rich-content
+        prose-headings:font-semibold
+        prose-p:break-words
+        prose-li:break-words
+        prose-table:border
+        prose-table:border-gray-300
+        prose-th:bg-gray-100
+        prose-pre:overflow-x-auto
+        prose-code:text-sm
+      ">
+        <EditorContent editor={editor} />
+      </div>
+    </ProtectedContentContainer>
   );
 }

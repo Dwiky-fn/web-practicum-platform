@@ -10,6 +10,77 @@ class ChatHandler {
     this.postMessageHandler = this.postMessageHandler.bind(this);
     this.patchReadHandler = this.patchReadHandler.bind(this);
     this.getUnreadCountHandler = this.getUnreadCountHandler.bind(this);
+    this.getEligibleStudentsHandler = this.getEligibleStudentsHandler.bind(this);
+    this.getLecturerClassesHandler = this.getLecturerClassesHandler.bind(this);
+    this.getLecturerJobsheetsHandler = this.getLecturerJobsheetsHandler.bind(this);
+    this.getLecturerStudentsHandler = this.getLecturerStudentsHandler.bind(this);
+  }
+
+  async getLecturerClassesHandler(req, res, next) {
+    try {
+      const classes = await this._chatService.getLecturerClassesWithCount({
+        lecturerId: req.user.id,
+      });
+
+      res.json({
+        status: 'success',
+        data: { classes },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getLecturerJobsheetsHandler(req, res, next) {
+    try {
+      const { kelasPraktikumId } = req.query;
+      const jobsheets = await this._chatService.getLecturerJobsheetsWithCount({
+        lecturerId: req.user.id,
+        kelasPraktikumId,
+      });
+
+      res.json({
+        status: 'success',
+        data: { jobsheets },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getLecturerStudentsHandler(req, res, next) {
+    try {
+      const { kelasPraktikumId, jobsheetId } = req.query;
+      const students = await this._chatService.getLecturerStudentsWithCount({
+        lecturerId: req.user.id,
+        kelasPraktikumId,
+        jobsheetId,
+      });
+
+      res.json({
+        status: 'success',
+        data: { students },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getEligibleStudentsHandler(req, res, next) {
+    try {
+      const { search } = req.query;
+      const students = await this._chatService.getEligibleStudents({
+        lecturerId: req.user.id,
+        search,
+      });
+
+      res.json({
+        status: 'success',
+        data: { students },
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 
   async postConversationHandler(req, res, next) {

@@ -16,6 +16,7 @@ import {
   type MonitoringStudent,
 } from "../../../services/lecturerMonitoring"
 import { formatAcademicTime } from "../../../shared/utils/formatAcademicDateTime"
+import { connectMonitoringSse, type MonitoringSseEvent } from "../../../services/monitoringSse"
 
 function formatTime(value?: string | null) {
   if (!value) return "-"
@@ -25,6 +26,35 @@ function formatTime(value?: string | null) {
 function locationKey(item?: Pick<MonitoringLocation, "moduleType" | "moduleId" | "stepId"> | null) {
   if (!item) return ""
   return `${item.moduleType}:${item.moduleId}:${item.stepId ?? ""}`
+}
+
+function isSameLocation(item: MonitoringLocation, event: MonitoringSseEvent) {
+  const targetExpId = event.experimentId || event.sectionId
+  const targetExeId = event.exerciseId || event.sectionId
+
+  if (targetExpId && item.moduleId) {
+    const targetStr = String(targetExpId)
+    const itemStr = String(item.moduleId)
+    if (targetStr === itemStr || targetStr.startsWith(`${itemStr}:`) || itemStr.startsWith(`${targetStr}:`)) {
+      return true
+    }
+  }
+
+  if (targetExeId && item.moduleId) {
+    if (String(targetExeId) === String(item.moduleId)) {
+      return true
+    }
+  }
+
+  if (event.sectionName && item.title) {
+    const sName = event.sectionName.trim().toLowerCase()
+    const iTitle = item.title.trim().toLowerCase()
+    if (sName === iTitle || iTitle.startsWith(sName) || sName.startsWith(iTitle)) {
+      return true
+    }
+  }
+
+  return false
 }
 
 function firstLocation(groups: MonitoringGroup[]) {
@@ -113,7 +143,14 @@ function ModuleSidebar({
                       active ? "bg-blue-50 text-blue-800" : "text-gray-700 hover:bg-gray-50"
                     }`}
                   >
-                    <span className="min-w-0 truncate">{item.title}</span>
+                    <span className="min-w-0 truncate flex items-center justify-between gap-1 pr-1">
+                      <span className="truncate">{item.title}</span>
+                      {Boolean(item.runningCount) && (
+                        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-100 px-1 text-xs font-bold text-rose-700 shrink-0">
+                          {item.runningCount}
+                        </span>
+                      )}
+                    </span>
                     <AvatarStack item={item} onOpenStudent={onOpenStudent} />
                   </button>
                 )
@@ -216,6 +253,7 @@ function ModuleStudents({
             <tr>
               <th className="px-4 py-3">Mahasiswa</th>
               <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3 text-center">Jumlah Eksekusi</th>
               <th className="px-4 py-3">Terakhir Diperbarui</th>
               <th className="px-4 py-3 text-right">Aksi</th>
             </tr>
@@ -233,6 +271,9 @@ function ModuleStudents({
                   </button>
                 </td>
                 <td className="px-4 py-3">{student.status}</td>
+                <td className="px-4 py-3 text-center font-mono font-semibold text-gray-800">
+                  {student.runCount ?? 0} kali
+                </td>
                 <td className="px-4 py-3">{formatTime(student.lastUpdatedAt)}</td>
                 <td className="px-4 py-3 text-right">
                   <button
@@ -253,9 +294,13 @@ function ModuleStudents({
   )
 }
 
+import LecturerChatDrawer from "../components/LecturerChatDrawer"
+import { useSearchParams } from "react-router-dom"
+
 export default function LecturerClassJobsheetMonitoringPage() {
   const { kelasPraktikumId = "", jobsheetId = "" } = useParams()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { goBackToParent } = useBackNavigation()
   const [data, setData] = useState<MonitoringResponse | null>(null)
   const [selected, setSelected] = useState<MonitoringLocation | null>(null)
@@ -266,6 +311,20 @@ export default function LecturerClassJobsheetMonitoringPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [studentSearch, setStudentSearch] = useState("")
   const [studentStatus, setStudentStatus] = useState("all")
+  const [isChatOpen, setIsChatOpen] = useState(false)
+  const [selectedChatStudentId, setSelectedChatStudentId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (searchParams.get("openChat") === "true") {
+      const studentId = searchParams.get("studentId")
+      if (studentId) {
+        setSelectedChatStudentId(studentId)
+      }
+      setIsChatOpen(true)
+      searchParams.delete("openChat")
+      setSearchParams(searchParams, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   const flatLocations = useMemo(() => data?.sidebar.flatMap((group) => group.children) ?? [], [data])
   const selectedIndex = flatLocations.findIndex((item) => locationKey(item) === locationKey(selected))
@@ -323,6 +382,203 @@ export default function LecturerClassJobsheetMonitoringPage() {
     return () => window.clearInterval(interval)
   }, [loadMonitoring])
 
+  const handleSseEvent = useCallback((event: MonitoringSseEvent) => {
+    console.log("[MONITORING-UI][REALTIME-UPDATE] Processing SSE event:", event.type, event)
+
+    if (event.type === "student-position-updated" || event.type === "student-monitoring-updated") {
+      if (!event.studentId) return
+
+      setData((prevData) => {
+        if (!prevData) return prevData
+
+        let extractedStudent: MonitoringStudent | null = null
+        for (const grp of prevData.sidebar) {
+          for (const loc of grp.children) {
+            const match = loc.avatars.find((s) => s.studentId === event.studentId) ||
+                          loc.remainingAvatars?.find((s) => s.studentId === event.studentId)
+            if (match) {
+              extractedStudent = match
+              break
+            }
+          }
+          if (extractedStudent) break
+        }
+
+        const activeStudent = extractedStudent
+
+        // 1. Remove student avatar from all previous locations in sidebar
+        const updatedSidebar = prevData.sidebar.map((group) => ({
+          ...group,
+          children: group.children.map((loc) => {
+            const hasInAvatars = loc.avatars.some((s) => s.studentId === event.studentId)
+            const hasInRemaining = loc.remainingAvatars?.some((s) => s.studentId === event.studentId)
+
+            if (hasInAvatars || hasInRemaining) {
+              const newAvatars = loc.avatars.filter((s) => s.studentId !== event.studentId)
+              const newRemaining = (loc.remainingAvatars || []).filter((s) => s.studentId !== event.studentId)
+              return {
+                ...loc,
+                avatars: newAvatars,
+                remainingAvatars: newRemaining,
+                remainingAvatarCount: newRemaining.length,
+                activeCount: Math.max(0, loc.activeCount - 1),
+              }
+            }
+            return loc
+          }),
+        }))
+
+        // 2. Add student avatar to the new target location
+        const targetStudent: MonitoringStudent = {
+          studentId: event.studentId || "",
+          name: event.studentName || activeStudent?.name || "Mahasiswa",
+          nim: event.nim || activeStudent?.nim || "",
+          profilePhotoUrl: event.profilePhotoUrl !== undefined ? event.profilePhotoUrl : (activeStudent?.profilePhotoUrl || null),
+          initials: event.initials || activeStudent?.initials || "?",
+          status: activeStudent?.status || "SEDANG",
+          lastUpdatedAt: event.lastActiveAt || new Date().toISOString(),
+        }
+
+        console.log("[POSITION][CLIENT] studentId:", event.studentId, "position:", event.sectionName || event.experimentId || event.exerciseId)
+        console.log("[AVATAR][SOURCE] studentId:", targetStudent.studentId, "avatarUrl:", targetStudent.profilePhotoUrl)
+
+        const finalSidebar = updatedSidebar.map((group) => ({
+          ...group,
+          children: group.children.map((loc) => {
+            const isMatch = isSameLocation(loc, event)
+            if (isMatch) {
+              console.log("[SIDEBAR][MATCH] Matched location:", loc.title, "for event:", event.sectionName || event.experimentId)
+              const exists = loc.avatars.some((s) => s.studentId === targetStudent.studentId)
+              if (!exists) {
+                const nextAvatars = [targetStudent, ...loc.avatars]
+                const maxDisplay = 5
+                const displayAvatars = nextAvatars.slice(0, maxDisplay)
+                const remaining = nextAvatars.slice(maxDisplay)
+                console.log("[AVATAR][RENDER] section:", loc.title, "studentId:", targetStudent.studentId, "avatar: RENDERED")
+                return {
+                  ...loc,
+                  activeCount: loc.activeCount + 1,
+                  avatars: displayAvatars,
+                  remainingAvatars: remaining,
+                  remainingAvatarCount: remaining.length,
+                }
+              }
+            }
+            return loc
+          }),
+        }))
+
+        return {
+          ...prevData,
+          sidebar: finalSidebar,
+          lastUpdatedAt: event.lastActiveAt || new Date().toISOString(),
+        }
+      })
+
+      // 3. Update Detail view if matching
+      setDetail((prevDetail) => {
+        if (!prevDetail) return prevDetail
+
+        const isCurrentLocation = isSameLocation(prevDetail.location, event)
+
+        const updatedStudents = prevDetail.students.map((st) => {
+          if (st.studentId === event.studentId) {
+            return {
+              ...st,
+              locationStatus: isCurrentLocation ? ("active_here" as const) : ("elsewhere" as const),
+              lastUpdatedAt: event.lastActiveAt || new Date().toISOString(),
+            }
+          }
+          return st
+        })
+
+        const activeCount = updatedStudents.filter((s) => s.locationStatus === "active_here").length
+        const completedCount = updatedStudents.filter((s) => s.locationStatus === "completed_here").length
+        const notStartedCount = updatedStudents.filter((s) => s.locationStatus === "not_started_here").length
+        const elsewhereCount = updatedStudents.filter((s) => s.locationStatus === "elsewhere").length
+
+        return {
+          ...prevDetail,
+          students: updatedStudents,
+          statistics: {
+            activeCount,
+            completedCount,
+            notStartedCount,
+            elsewhereCount,
+          },
+          lastUpdatedAt: event.lastActiveAt || new Date().toISOString(),
+        }
+      })
+    }
+
+    if (event.type === "student-run-count-updated") {
+      if (!event.studentId || typeof event.runCount !== "number") return
+
+      console.log(`[MONITORING-UI][RUN-COUNT-REALTIME] Updating run count for student ${event.studentId}: ${event.runCount}`)
+
+      setDetail((prevDetail) => {
+        if (!prevDetail) return prevDetail
+        const updatedStudents = prevDetail.students.map((st) => {
+          if (st.studentId === event.studentId) {
+            return {
+              ...st,
+              runCount: event.runCount,
+            }
+          }
+          return st
+        })
+        return {
+          ...prevDetail,
+          students: updatedStudents,
+        }
+      })
+
+      setData((prevData) => {
+        if (!prevData) return prevData
+        const updatedSidebar = prevData.sidebar.map((group) => ({
+          ...group,
+          children: group.children.map((loc) => {
+            if (isSameLocation(loc, event)) {
+              return {
+                ...loc,
+                runningCount: (loc.runningCount || 0) + 1,
+              }
+            }
+            return loc
+          }),
+        }))
+        return {
+          ...prevData,
+          sidebar: updatedSidebar,
+        }
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!kelasPraktikumId) return undefined
+
+    console.log("[Monitoring][SSE] connecting SSE stream for kelasPraktikumId:", kelasPraktikumId)
+    const disconnect = connectMonitoringSse(
+      kelasPraktikumId,
+      (event) => {
+        handleSseEvent(event)
+      },
+      (status) => {
+        console.log("[Monitoring][SSE] stream status:", status)
+      },
+      () => {
+        console.log("[Monitoring][SSE] reconnect snapshot trigger")
+        loadMonitoring(true).catch(() => {})
+      }
+    )
+
+    return () => {
+      console.log("[Monitoring][SSE] disconnecting SSE stream for kelasPraktikumId:", kelasPraktikumId)
+      disconnect()
+    }
+  }, [kelasPraktikumId, handleSseEvent, loadMonitoring])
+
   const openStudent = (studentId: string) => {
     const params = new URLSearchParams()
     params.set("attemptType", attemptType)
@@ -359,6 +615,11 @@ export default function LecturerClassJobsheetMonitoringPage() {
               <span>{data.context.academicPeriod}</span>
               <span>{data.summary.totalStudents} Mahasiswa</span>
               <span>{data.summary.inProgress} Sedang Mengerjakan</span>
+              {Boolean(data.summary.runningCount) && (
+                <span className="font-bold text-rose-600 animate-pulse">
+                  &bull; {data.summary.runningCount} Program Running
+                </span>
+              )}
               <span>{data.summary.submittedManual + data.summary.submittedAutomatic} Dikumpulkan</span>
               <span>{data.summary.reviewed} Direview</span>
               <span>Terakhir diperbarui: {formatTime(data.lastUpdatedAt)}</span>
@@ -465,6 +726,23 @@ export default function LecturerClassJobsheetMonitoringPage() {
           </button>
         </div>
       </footer>
+
+      <LecturerChatDrawer
+        isOpen={isChatOpen}
+        onClose={() => {
+          setIsChatOpen(false)
+          setSelectedChatStudentId(null)
+        }}
+        kelasPraktikumId={kelasPraktikumId}
+        jobsheetId={jobsheetId}
+        studentId={selectedChatStudentId}
+        onOpenChat={(targetStudentId) => {
+          if (targetStudentId) {
+            setSelectedChatStudentId(targetStudentId)
+          }
+          setIsChatOpen(true)
+        }}
+      />
     </div>
   )
 }

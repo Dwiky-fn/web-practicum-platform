@@ -2,6 +2,9 @@ const pool = require('../postgres');
 const { randomUUID } = require('crypto');
 const http = require('http');
 const https = require('https');
+const { calculateFinalReviewScore } = require('../review/SubmissionReviewScoringService');
+const ReviewsService = require('../postgres/lecturer/ReviewsService');
+const reviewsService = new ReviewsService();
 
 function parseTemplateFiles(templateCode, defaultFileName) {
   if (!templateCode) {
@@ -1146,23 +1149,54 @@ class AiEvaluationQueue {
       codeFeedbacks: mergedCodeFeedbacks
     };
 
-    aiFeedback.scoreSummary = {
-      totalScoreRecommendation: Number(result.totalScoreRecommendation || 0),
-      totalMaxScore: Number(result.totalMaxScore || 0),
-      finalGradeRecommendation: Number(result.finalGradeRecommendation || 0)
-    };
-
-    const totalScore = Math.min(100, Math.max(0, Number(
-      result.finalGradeRecommendation
-      ?? result.totalScoreRecommendation
-      ?? 0
-    )));
-
-    console.log(`[AI Queue] [${submissionId}] Nilai akhir rekomendasi AI: ${totalScore}/100. Menyimpan ke submission_reviews...`);
-
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      const aiSectionEvaluations = experimentResultsForDb
+        .filter((item) => item && item.status !== 'failed')
+        .map((item) => {
+          const isExercise = exercises.some((e) => e.id === item.experimentId);
+          const sectionScore = (item.rubricScores || []).reduce((sum, r) => sum + Number(r.score || 0), 0);
+          return {
+            type: isExercise ? 'exercise' : 'experiment',
+            sectionId: item.experimentId,
+            score: sectionScore,
+          };
+        });
+
+      let totalScore = 0;
+      try {
+        const scoringContext = await reviewsService.getReviewScoringContext(submissionId, client);
+        const aiScoring = calculateFinalReviewScore({
+          ...scoringContext,
+          sectionEvaluations: aiSectionEvaluations,
+        });
+
+        aiFeedback.sectionEvaluations = aiScoring.evaluations;
+        aiFeedback.scoreSummary = {
+          totalScoreRecommendation: aiScoring.finalScore,
+          totalMaxScore: aiScoring.totalWeight,
+          finalGradeRecommendation: aiScoring.finalScore,
+          theoryScore: aiScoring.theoryScore,
+          sectionScore: aiScoring.sectionScore,
+        };
+        totalScore = aiScoring.finalScore;
+      } catch (scoringErr) {
+        console.warn(`[AI Queue] [${submissionId}] Warning calculating combined theory+AI score: ${scoringErr.message}`);
+        aiFeedback.scoreSummary = {
+          totalScoreRecommendation: Number(result.totalScoreRecommendation || 0),
+          totalMaxScore: Number(result.totalMaxScore || 0),
+          finalGradeRecommendation: Number(result.finalGradeRecommendation || 0),
+        };
+        totalScore = Math.min(100, Math.max(0, Number(
+          result.finalGradeRecommendation
+          ?? result.totalScoreRecommendation
+          ?? 0
+        )));
+      }
+
+      console.log(`[AI Queue] [${submissionId}] Nilai akhir rekomendasi AI (Teori + Percobaan + Latihan): ${totalScore}/100. Menyimpan ke submission_reviews...`);
 
       const existingReviewRes = await client.query(
         `SELECT id FROM submission_reviews WHERE submission_id = $1 ORDER BY id DESC LIMIT 1`,

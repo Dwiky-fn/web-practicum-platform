@@ -107,6 +107,47 @@ class RemedialsService {
     await this._assertActiveTeachingContext(kelasPraktikumId, lecturerId);
     const uniqueStudentIds = Array.from(new Set(studentIds || []));
 
+    if (!startAt || !endAt) {
+      throw new ClientError('Waktu mulai dan waktu berakhir remedial wajib diisi');
+    }
+
+    const startDate = new Date(typeof startAt === 'string' && !startAt.includes('T') ? startAt.replace(' ', 'T') : startAt);
+    const endDate = new Date(typeof endAt === 'string' && !endAt.includes('T') ? endAt.replace(' ', 'T') : endAt);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      throw new ClientError('Format waktu remedial tidak valid');
+    }
+
+    const startDay = startDate.toISOString().slice(0, 10);
+    const endDay = endDate.toISOString().slice(0, 10);
+
+    if (endDay < startDay) {
+      throw new ClientError('Tanggal berakhir tidak boleh lebih awal daripada tanggal mulai');
+    }
+
+    if (endDay === startDay && endDate.getTime() <= startDate.getTime()) {
+      throw new ClientError('Jam berakhir tidak boleh lebih awal daripada jam mulai pada hari yang sama');
+    }
+
+    if (endDate.getTime() <= startDate.getTime()) {
+      throw new ClientError('Waktu berakhir remedial harus setelah waktu mulai');
+    }
+
+    if (endDate.getTime() <= Date.now()) {
+      throw new ClientError('Waktu berakhir remedial tidak boleh berada pada waktu yang telah berlalu');
+    }
+
+    const jcRes = await this._pool.query(
+      `SELECT deadline FROM jobsheet_classes WHERE jobsheet_id = $1 AND id_kelas_praktikum = $2 AND is_active = true LIMIT 1`,
+      [jobsheetId, kelasPraktikumId]
+    );
+    if (jcRes.rows.length && jcRes.rows[0].deadline) {
+      const normalDeadline = new Date(jcRes.rows[0].deadline);
+      if (!isNaN(normalDeadline.getTime()) && endDate.getTime() < normalDeadline.getTime()) {
+        throw new ClientError('Waktu berakhir remedial tidak boleh sebelum deadline pengerjaan reguler jobsheet');
+      }
+    }
+
     const client = await this._pool.connect();
     try {
       await client.query('BEGIN');

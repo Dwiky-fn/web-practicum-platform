@@ -28,24 +28,11 @@ import LecturerStudentWorkpagePage from "./features/lecturer/pages/LecturerStude
 import LecturerReviewPage from "./features/lecturer/pages/LecturerReviewPage"
 import UserGuidePage from "./features/documentation/UserGuidePage"
 import NotificationsPage from "./features/notification/NotificationsPage"
+import LecturerClassJobsheetMonitoringPage from "./features/lecturer/pages/LecturerClassJobsheetMonitoringPage"
 
 export type AppUser = {
   role: "MAHASISWA" | "DOSEN" | "ADMIN"
 } | null
-
-
-
-function LegacyClassMonitoringRedirect() {
-  const location = useLocation()
-  const params = new URLSearchParams(location.search)
-  const courseId = params.get("mataKuliahId") || params.get("courseId")
-
-  if (courseId) {
-    return <Navigate to={`/mata-kuliah/${courseId}/jobsheets`} replace />
-  }
-
-  return <Navigate to="/mata-kuliah" replace />
-}
 
 function StudentWorkpageRedirect() {
   const { kelasPraktikumId = "", jobsheetId = "", studentId = "" } = useParams()
@@ -115,7 +102,7 @@ export function AppRoutes({ user }: { user: AppUser }) {
       <Route path="/jobsheets/:id/preview" element={byRole(user, location, { admin: <AdminJobsheetPreviewPage /> })} />
       <Route path="/jobsheets/:jobsheetId" element={byRole(user, location, { dosen: <LecturerJobsheetDetailPage /> })} />
       <Route path="/monitoring" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/lecturer/kelas-praktikum/:kelasPraktikumId/jobsheets/:jobsheetId/monitoring" element={byRole(user, location, { dosen: <LegacyClassMonitoringRedirect /> })} />
+      <Route path="/lecturer/kelas-praktikum/:kelasPraktikumId/jobsheets/:jobsheetId/monitoring" element={byRole(user, location, { dosen: <LecturerClassJobsheetMonitoringPage /> })} />
       <Route path="/lecturer/kelas-praktikum/:kelasPraktikumId/jobsheets/:jobsheetId/students/:studentId/monitor/*" element={byRole(user, location, { dosen: <LecturerStudentWorkpagePage /> })} />
       <Route path="/lecturer/kelas-praktikum/:kelasPraktikumId/jobsheets/:jobsheetId/students/:studentId/workpage" element={byRole(user, location, { dosen: <StudentWorkpageRedirect /> })} />
       <Route path="/reviews/:studentId" element={byRole(user, location, { dosen: <LecturerReviewPage /> })} />

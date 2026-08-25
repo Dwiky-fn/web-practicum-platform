@@ -63,8 +63,30 @@ class ChatService {
   }
 
   async getOrCreateConversation({ studentId, lecturerId, kelasPraktikumId, jobsheetId, requestingUser }) {
-    if (!kelasPraktikumId || !jobsheetId) {
-      throw new InvariantError('kelasPraktikumId dan jobsheetId wajib diisi');
+    let finalKelasPraktikumId = kelasPraktikumId;
+    let finalJobsheetId = jobsheetId;
+
+    if (!finalKelasPraktikumId) {
+      throw new InvariantError('Kelas praktikum belum ditentukan untuk percakapan ini');
+    }
+
+    if (!finalJobsheetId) {
+      const resolveQuery = {
+        text: `
+          SELECT jc.jobsheet_id AS jobsheet_id
+          FROM jobsheet_classes jc
+          WHERE jc.id_kelas_praktikum = $1 AND jc.is_active = true
+          ORDER BY jc.created_at ASC
+          LIMIT 1
+        `,
+        values: [finalKelasPraktikumId],
+      };
+      const resolveRes = await this._pool.query(resolveQuery);
+      if (resolveRes.rows.length) {
+        finalJobsheetId = resolveRes.rows[0].jobsheet_id;
+      } else {
+        throw new InvariantError('Percakapan belum dapat dibuka karena belum ada jobsheet aktif pada kelas ini');
+      }
     }
 
     let finalStudentId = studentId;
@@ -73,15 +95,15 @@ class ChatService {
     if (requestingUser.role === 'MAHASISWA') {
       finalStudentId = requestingUser.id;
       if (!finalLecturerId) {
-        finalLecturerId = await this.resolvePrimaryLecturer(kelasPraktikumId);
+        finalLecturerId = await this.resolvePrimaryLecturer(finalKelasPraktikumId);
       }
-      await this.verifyStudentAccess(finalStudentId, kelasPraktikumId);
+      await this.verifyStudentAccess(finalStudentId, finalKelasPraktikumId);
     } else if (requestingUser.role === 'DOSEN') {
       finalLecturerId = requestingUser.id;
       if (!finalStudentId) {
-        throw new InvariantError('studentId wajib ditentukan untuk dosen');
+        throw new InvariantError('Mahasiswa tujuan belum dipilih');
       }
-      await this.verifyLecturerAccess(finalLecturerId, kelasPraktikumId);
+      await this.verifyLecturerAccess(finalLecturerId, finalKelasPraktikumId);
     } else if (requestingUser.role === 'ADMIN') {
       if (!finalStudentId || !finalLecturerId) {
         throw new InvariantError('studentId dan lecturerId wajib ditentukan');
@@ -102,7 +124,7 @@ class ChatService {
           AND c.jobsheet_id = $4
         LIMIT 1
       `,
-      values: [finalStudentId, finalLecturerId, kelasPraktikumId, jobsheetId],
+      values: [finalStudentId, finalLecturerId, finalKelasPraktikumId, finalJobsheetId],
     };
     const existing = await this._pool.query(findQuery);
     if (existing.rows.length) {
@@ -147,35 +169,178 @@ class ChatService {
   }
 
   async getLecturerConversations({ lecturerId, kelasPraktikumId, jobsheetId }) {
-    await this.verifyLecturerAccess(lecturerId, kelasPraktikumId);
+    if (kelasPraktikumId) {
+      await this.verifyLecturerAccess(lecturerId, kelasPraktikumId);
+    }
 
-    const query = {
-      text: `
-        SELECT c.*,
-               u.fullname AS student_name,
-               u.username AS student_nim,
-               u.avatar_url AS student_avatar,
-               (
-                 SELECT message FROM chat_messages m
-                 WHERE m.conversation_id = c.id
-                 ORDER BY m.created_at DESC LIMIT 1
-               ) AS last_message,
-               (
-                 SELECT COUNT(*)::int FROM chat_messages m
-                 WHERE m.conversation_id = c.id
-                   AND m.sender_id != $1
-                   AND m.read_at IS NULL
-               ) AS unread_count
-        FROM chat_conversations c
-        JOIN users u ON u.id = c.student_id
-        WHERE c.lecturer_id = $1
-          AND c.kelas_praktikum_id = $2
-          AND c.jobsheet_id = $3
-        ORDER BY c.last_message_at DESC
-      `,
-      values: [lecturerId, kelasPraktikumId, jobsheetId],
-    };
-    const result = await this._pool.query(query);
+    let queryText = `
+      SELECT c.*,
+             u.fullname AS student_name,
+             spf.nim AS student_nim,
+             u.avatar_url AS student_avatar,
+             (
+               SELECT message FROM chat_messages m
+               WHERE m.conversation_id = c.id
+               ORDER BY m.created_at DESC LIMIT 1
+             ) AS last_message,
+             (
+               SELECT COUNT(*)::int FROM chat_messages m
+               WHERE m.conversation_id = c.id
+                 AND m.sender_id != $1
+                 AND m.read_at IS NULL
+             ) AS unread_count
+      FROM chat_conversations c
+      JOIN users u ON u.id = c.student_id
+      LEFT JOIN student_profiles spf ON spf.user_id = u.id
+      WHERE c.lecturer_id = $1
+    `;
+
+    const values = [lecturerId];
+
+    if (kelasPraktikumId) {
+      values.push(kelasPraktikumId);
+      queryText += ` AND c.kelas_praktikum_id = $${values.length}`;
+    }
+
+    if (jobsheetId) {
+      values.push(jobsheetId);
+      queryText += ` AND c.jobsheet_id = $${values.length}`;
+    }
+
+    queryText += ` ORDER BY c.last_message_at DESC`;
+
+    const result = await this._pool.query({ text: queryText, values });
+    return result.rows;
+  }
+
+  async getEligibleStudents({ lecturerId, search }) {
+    let queryText = `
+      SELECT DISTINCT
+        u.id,
+        u.fullname AS name,
+        u.avatar_url AS avatar_url,
+        spf.nim AS nim,
+        kp.id AS kelas_praktikum_id,
+        mk.nama_mk AS mata_kuliah_nama,
+        k.kelas AS kelas_nama
+      FROM pengampu p
+      JOIN kelas_praktikum kp ON kp.id = p.id_kelas_praktikum
+      JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
+      JOIN kelas k ON k.id = kp.id_kelas
+      JOIN kelas_mhs km ON km.id_tahun_semester = kp.id_tahun_semester
+                       AND km.id_semester = kp.id_semester
+                       AND km.id_kelas = kp.id_kelas
+                       AND km.status = 'active'
+      JOIN users u ON u.id = km.id_mahasiswa AND u.is_active = true
+      LEFT JOIN student_profiles spf ON spf.user_id = u.id
+      WHERE p.id_dosen = $1
+    `;
+
+    const values = [lecturerId];
+
+    if (search && search.trim()) {
+      values.push(`%${search.trim().toLowerCase()}%`);
+      queryText += ` AND (LOWER(u.fullname) LIKE $2 OR LOWER(COALESCE(spf.nim, '')) LIKE $2)`;
+    }
+
+    queryText += ` ORDER BY u.fullname ASC LIMIT 100`;
+
+    const result = await this._pool.query({ text: queryText, values });
+    return result.rows;
+  }
+
+  async getLecturerClassesWithCount({ lecturerId }) {
+    const queryText = `
+      SELECT
+        kp.id AS kelas_praktikum_id,
+        mk.nama_mk AS mata_kuliah_nama,
+        k.kelas AS kelas_nama,
+        kp.nama_kelas,
+        COALESCE(
+          (
+            SELECT COUNT(*)::int
+            FROM chat_conversations c
+            JOIN chat_messages m ON m.conversation_id = c.id
+            WHERE c.kelas_praktikum_id = kp.id
+              AND c.lecturer_id = p.id_dosen
+              AND m.sender_id = c.student_id
+              AND m.read_at IS NULL
+          ), 0
+        )::int AS unread_count
+      FROM pengampu p
+      JOIN kelas_praktikum kp ON kp.id = p.id_kelas_praktikum
+      JOIN mata_kuliah mk ON mk.id = kp.id_mata_kuliah
+      JOIN kelas k ON k.id = kp.id_kelas
+      WHERE p.id_dosen = $1
+      ORDER BY kp.nama_kelas ASC
+    `;
+    const result = await this._pool.query({ text: queryText, values: [lecturerId] });
+    return result.rows;
+  }
+
+  async getLecturerJobsheetsWithCount({ lecturerId, kelasPraktikumId }) {
+    await this.verifyLecturerAccess(lecturerId, kelasPraktikumId);
+    const queryText = `
+      SELECT
+        COALESCE(jc.jobsheet_id, j.id) AS jobsheet_id,
+        COALESCE(jc.title, j.title) AS jobsheet_title,
+        jc.id_kelas_praktikum,
+        COALESCE(
+          (
+            SELECT COUNT(*)::int
+            FROM chat_conversations c
+            JOIN chat_messages m ON m.conversation_id = c.id
+            WHERE c.kelas_praktikum_id = jc.id_kelas_praktikum
+              AND c.jobsheet_id = COALESCE(jc.jobsheet_id, j.id)
+              AND c.lecturer_id = $1
+              AND m.sender_id = c.student_id
+              AND m.read_at IS NULL
+          ), 0
+        )::int AS unread_count
+      FROM jobsheet_classes jc
+      JOIN jobsheets j ON j.id = jc.jobsheet_id
+      WHERE jc.id_kelas_praktikum = $2 AND jc.is_active = true
+      ORDER BY jc.created_at ASC
+    `;
+    const result = await this._pool.query({ text: queryText, values: [lecturerId, kelasPraktikumId] });
+    return result.rows;
+  }
+
+  async getLecturerStudentsWithCount({ lecturerId, kelasPraktikumId, jobsheetId }) {
+    await this.verifyLecturerAccess(lecturerId, kelasPraktikumId);
+    const queryText = `
+      SELECT
+        c.id AS conversation_id,
+        u.id AS student_id,
+        u.fullname AS student_name,
+        spf.nim AS student_nim,
+        u.avatar_url AS student_avatar,
+        COALESCE(
+          (
+            SELECT COUNT(*)::int
+            FROM chat_messages m
+            WHERE m.conversation_id = c.id
+              AND m.sender_id = c.student_id
+              AND m.read_at IS NULL
+          ), 0
+        )::int AS unread_count,
+        (
+          SELECT MAX(m.created_at)
+          FROM chat_messages m
+          WHERE m.conversation_id = c.id
+        ) AS last_message_at
+      FROM chat_conversations c
+      JOIN users u ON u.id = c.student_id
+      LEFT JOIN student_profiles spf ON spf.user_id = u.id
+      WHERE c.kelas_praktikum_id = $1
+        AND c.jobsheet_id = $2
+        AND c.lecturer_id = $3
+        AND EXISTS (
+          SELECT 1 FROM chat_messages m WHERE m.conversation_id = c.id
+        )
+      ORDER BY last_message_at DESC NULLS LAST
+    `;
+    const result = await this._pool.query({ text: queryText, values: [kelasPraktikumId, jobsheetId, lecturerId] });
     return result.rows;
   }
 

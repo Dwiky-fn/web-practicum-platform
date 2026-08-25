@@ -49,8 +49,11 @@ function resolveActivityStatus(lastActiveAt: string | null, thresholdMinutes: nu
     : { status: "inactive" as const, label: "Tidak Aktif" }
 }
 
+import { useSearchParams } from "react-router-dom"
+
 export default function LecturerMonitoringPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useCurrentUser()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -66,6 +69,18 @@ export default function LecturerMonitoringPage() {
   const [rows, setRows] = useState<LecturerClassMonitoringStudent[]>([])
   const [socketStatus, setSocketStatus] = useState<"connected" | "connecting" | "disconnected">("disconnected")
   const [clockTick, setClockTick] = useState(0)
+
+  useEffect(() => {
+    if (searchParams.get("openChat") === "true") {
+      const studentId = searchParams.get("studentId")
+      if (studentId) {
+        setSelectedChatStudent({ id: studentId, name: "", jobsheetId: "" })
+      }
+      setIsLecturerChatOpen(true)
+      searchParams.delete("openChat")
+      setSearchParams(searchParams, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   const selectedCourse = courseGroups.find((item) => item.id === courseId) ?? null
   const selectedClass = selectedCourse?.classes.find((item) => item.id === classId) ?? null
@@ -572,6 +587,12 @@ export default function LecturerMonitoringPage() {
         studentId={selectedChatStudent?.id}
         studentName={selectedChatStudent?.name}
         onRead={refreshUnreadCounts}
+        onOpenChat={(targetStudentId) => {
+          if (targetStudentId) {
+            setSelectedChatStudent({ id: targetStudentId, name: "", jobsheetId: "" })
+          }
+          setIsLecturerChatOpen(true)
+        }}
       />
     </LecturerLayout>
   )

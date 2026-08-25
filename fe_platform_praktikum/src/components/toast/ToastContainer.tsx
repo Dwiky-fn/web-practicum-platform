@@ -12,6 +12,10 @@ export default function ToastContainer() {
             id={toast.id}
             type={toast.type}
             message={toast.message}
+            title={toast.title}
+            senderName={toast.senderName}
+            senderAvatar={toast.senderAvatar}
+            onClick={toast.onClick}
             duration={toast.duration}
           />
         </div>

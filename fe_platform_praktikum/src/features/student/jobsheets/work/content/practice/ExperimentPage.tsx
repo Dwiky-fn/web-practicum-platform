@@ -7,6 +7,7 @@ import type { JobsheetSubmission } from "../../../../../../services/submission/t
 import NotFoundPage from "../../../../../not-found/NotFoundPage"
 import RichTextViewer from "../../../../../../components/editor/RichTextViewer"
 import { splitInstructionContent } from "../../../../../../shared/utils/splitInstructionContent"
+import ProtectedContentContainer from "../../../../../../shared/components/ProtectedContentContainer"
 import type { connectLiveWorkspaceSocket } from "../../../../../../services/liveWorkspaceSocket"
 
 type StepData = {
@@ -43,7 +44,7 @@ export default function ExperimentPage() {
 
   return (
     <div className="space-y-4">
-      <div>
+      <ProtectedContentContainer>
         <h2 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
           <span>{experiment.title}</span>
           <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded-full">
@@ -52,10 +53,10 @@ export default function ExperimentPage() {
         </h2>
         {experiment.instructionContent && (
           <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5">
-            <RichTextViewer content={experiment.instructionContent} mode="viewer-default" />
+            <RichTextViewer content={experiment.instructionContent} mode="viewer-default" isProtected />
           </div>
         )}
-      </div>
+      </ProtectedContentContainer>
 
       <InstructionWorkspaceCard
         key={componentKey}

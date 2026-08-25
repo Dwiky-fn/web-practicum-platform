@@ -1,5 +1,5 @@
 import { useLocation } from "react-router-dom"
-import { buildSidebarTree } from "../../utils/buildSidebarStructure"
+import { buildSidebarTree, type StudentAvatarInfo } from "../../utils/buildSidebarStructure"
 import { useState } from "react"
 import { Menu } from "lucide-react"
 import type { Jobsheet } from "../../../../../../services/jobsheet/types"
@@ -19,7 +19,7 @@ interface WorkSidebarProps {
   completedItems: StudentProgressItem[]
   scope?: AcademicScope
   basePath?: string
-  lastPositionItem?: { type: string; id: string; label?: string } | null
+  lastPositionItem?: { type: string; id: string; label?: string; studentAvatar?: StudentAvatarInfo } | null
 }
 
 export default function WorkSidebar({
@@ -35,17 +35,41 @@ export default function WorkSidebar({
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const location = useLocation()
-  const groups = buildSidebarTree(courseId, jobsheet, submission, location.search, scope, basePath).map((group) => ({
-    ...group,
-    children: group.children?.map((item) => ({
-      ...item,
-      meta:
-        lastPositionItem && item.type === lastPositionItem.type && item.id === lastPositionItem.id
-          ? { isLastPosition: true, positionLabel: lastPositionItem.label || "Posisi Terakhir" }
-          : item.meta,
-    })),
-  }))
-  const flatItems = groups.flatMap(g => g.children ?? [])
+  const groups = buildSidebarTree(courseId, jobsheet, submission, location.search, scope, basePath).map((group) => {
+    if (!group.children || group.children.length === 0) {
+      const isLastPos =
+        lastPositionItem &&
+        (group.type || "").replace(/s$/, "") === (lastPositionItem.type || "").replace(/s$/, "") &&
+        group.id === lastPositionItem.id
+      return {
+        ...group,
+        meta: isLastPos
+          ? {
+              isLastPosition: true,
+              positionLabel: lastPositionItem.label || "Posisi Terakhir",
+              studentAvatar: lastPositionItem.studentAvatar,
+            }
+          : group.meta,
+      }
+    }
+    return {
+      ...group,
+      children: group.children.map((item) => ({
+        ...item,
+        meta:
+          lastPositionItem &&
+          (item.type || "").replace(/s$/, "") === (lastPositionItem.type || "").replace(/s$/, "") &&
+          item.id === lastPositionItem.id
+            ? {
+                isLastPosition: true,
+                positionLabel: lastPositionItem.label || "Posisi Terakhir",
+                studentAvatar: lastPositionItem.studentAvatar,
+              }
+            : item.meta,
+      })),
+    }
+  })
+  const flatItems = groups.flatMap(g => (g.children && g.children.length > 0) ? g.children : [g])
   const isFinishedSubmission =
     savedProgress >= 100 ||
     submission.status === "SUBMITTED" ||

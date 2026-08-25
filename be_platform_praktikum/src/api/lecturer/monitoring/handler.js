@@ -68,6 +68,16 @@ class LecturerMonitoringHandler {
       return next(error);
     }
   }
+  async getMonitoringEventsSseHandler(req, res, next) {
+    try {
+      const { kelasPraktikumId } = req.params;
+      await this._service._assertLecturerAccess(kelasPraktikumId, req.user.id);
+      const MonitoringSseHub = require('../../../services/monitoring/MonitoringSseHub');
+      MonitoringSseHub.subscribe(kelasPraktikumId, res);
+    } catch (error) {
+      return next(error);
+    }
+  }
 }
 
 module.exports = LecturerMonitoringHandler;

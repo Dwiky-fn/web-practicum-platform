@@ -474,29 +474,36 @@ export function useWorkPage(courseId?: string, jobsheetId?: string, routeMataKul
       if (!experiment) return
 
       const stepsConfig = splitInstructionContent(experiment.instructionContent)
-      const codeIndices = stepsConfig.map((step, idx) => step.needsCode ? idx : -1).filter(idx => idx !== -1)
       const steps = submission.report.experiments?.[currentItem.id]?.steps ?? []
 
-      if (codeIndices.length === 0) return
+      if (stepsConfig.length === 0) return
 
-      const isExperimentComplete = codeIndices.every((idx) => {
+      const isExperimentComplete = stepsConfig.every((stepConfig, idx) => {
         const step = steps[idx]
-        return (
-          hasCode(step?.files) &&
-          hasOutput(step?.output) &&
-          hasMeaningfulAnalysis(step?.analysis)
-        )
+        if (stepConfig.needsCode) {
+          return (
+            hasCode(step?.files) &&
+            hasOutput(step?.output) &&
+            hasMeaningfulAnalysis(step?.analysis)
+          )
+        }
+        return hasMeaningfulAnalysis(step?.analysis)
       })
 
       if (!isExperimentComplete) return
     }
 
     if (currentItem.type === "exercise") {
+      const exerciseObj = jobsheet.exercises.find((exe) => exe.id === currentItem.id)
+      const exerciseConfig = exerciseObj ? splitInstructionContent(exerciseObj.instructionContent) : []
+      const needsCode = exerciseConfig[0]?.needsCode !== undefined
+        ? exerciseConfig[0].needsCode
+        : (exerciseObj?.instructionContent?.attrs?.needsCode !== undefined ? Boolean(exerciseObj.instructionContent.attrs.needsCode) : true)
+
       const exercise = submission.report.exercises?.[currentItem.id]
-      const isExerciseComplete =
-        hasCode(exercise?.files) &&
-        hasOutput(exercise?.output) &&
-        hasMeaningfulAnalysis(exercise?.analysis)
+      const isExerciseComplete = needsCode
+        ? (hasCode(exercise?.files) && hasOutput(exercise?.output) && hasMeaningfulAnalysis(exercise?.analysis))
+        : hasMeaningfulAnalysis(exercise?.analysis)
 
       if (!isExerciseComplete) return
     }

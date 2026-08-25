@@ -31,6 +31,7 @@ export type MonitoringLocation = {
   avatars: MonitoringStudent[]
   remainingAvatarCount: number
   remainingAvatars?: MonitoringStudent[]
+  runningCount?: number
 }
 
 export type MonitoringGroup = {
@@ -59,6 +60,7 @@ export type MonitoringResponse = {
     waitingReview: number
     reviewed: number
     notStarted: number
+    runningCount?: number
   }
   sidebar: MonitoringGroup[]
   insights: {
@@ -74,6 +76,7 @@ export type LocationDetailStudent = MonitoringStudent & {
   submissionId: string | null
   submissionStatus: string | null
   submissionLabel: string | null
+  runCount?: number
 }
 
 export type LocationDetailResponse = {

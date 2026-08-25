@@ -250,24 +250,68 @@ class LecturerReviewsService {
   }
 
   async deleteAiFeedbackForSubmission(submissionId, lecturerId) {
-    const access = await this.ensureSubmissionAccess(submissionId, lecturerId);
-    this.assertActiveTeachingContext(access);
+    const client = await this._pool.connect();
+    try {
+      await client.query('BEGIN');
+      const access = await this.ensureSubmissionAccess(submissionId, lecturerId, client);
+      this.assertActiveTeachingContext(access);
 
-    const result = await this._pool.query(
-      `
-      UPDATE submission_reviews
-      SET
-        ai_score = NULL,
-        ai_feedback = NULL
-      WHERE submission_id = $1
-      RETURNING id
-      `,
-      [submissionId],
-    );
+      const existingRes = await client.query(
+        `SELECT id, feedback_details FROM submission_reviews WHERE submission_id = $1 ORDER BY id DESC LIMIT 1`,
+        [submissionId],
+      );
 
-    return {
-      affectedReviews: result.rowCount,
-    };
+      let affectedReviews = 0;
+      if (existingRes.rows.length > 0) {
+        const reviewId = existingRes.rows[0].id;
+        let details = existingRes.rows[0].feedback_details;
+        if (typeof details === 'string') {
+          try { details = JSON.parse(details); } catch { details = []; }
+        }
+        if (!Array.isArray(details)) details = [];
+
+        const cleanDetails = details.filter((fb) => fb && fb.source !== 'ai' && fb.source !== 'ai_edited_by_lecturer');
+
+        const updateRes = await client.query(
+          `
+          UPDATE submission_reviews
+          SET
+            ai_score = NULL,
+            ai_feedback = NULL,
+            feedback_details = $2
+          WHERE id = $1
+          RETURNING id
+          `,
+          [reviewId, JSON.stringify(cleanDetails)],
+        );
+        affectedReviews = updateRes.rowCount;
+      }
+
+      await client.query(
+        `
+        UPDATE task_submissions
+        SET
+          ai_evaluation_status = 'none',
+          ai_evaluation_error = NULL,
+          ai_evaluation_started_at = NULL,
+          ai_evaluation_finished_at = NULL,
+          ai_evaluation_last_attempt_at = NULL
+        WHERE id = $1
+        `,
+        [submissionId],
+      );
+
+      await client.query('COMMIT');
+
+      return {
+        affectedReviews,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
   async getFeedbacks(submissionId, lecturerId) {
     await this.ensureSubmissionAccess(submissionId, lecturerId);

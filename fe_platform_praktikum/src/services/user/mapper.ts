@@ -23,6 +23,7 @@ export const mapUserResponse = (data: UserResponse): User => {
       tanggal_lahir: formatDateOnlyForInput(data.tanggal_lahir),
       kota: data.kota ?? emptyPersonalData.kota,
     },
+    isPasswordChanged: data.is_password_changed ?? false,
   }
 
   if (data.role === "MAHASISWA") {

@@ -459,12 +459,27 @@ class ClassesService {
 
   async updateClassPlan(id, planCount) {
     const plan = Math.max(1, parseInt(planCount, 10) || 1);
-    await this._pool.query(
-      `UPDATE kelas_praktikum
-       SET jumlah_jobsheet_rencana = $2
-       WHERE id = $1`,
-      [id, plan],
+    const classRes = await this._pool.query(
+      `SELECT id_mata_kuliah, id_tahun_semester FROM kelas_praktikum WHERE id = $1 LIMIT 1`,
+      [id],
     );
+
+    if (classRes.rows.length) {
+      const { id_mata_kuliah, id_tahun_semester } = classRes.rows[0];
+      await this._pool.query(
+        `UPDATE kelas_praktikum
+         SET jumlah_jobsheet_rencana = $1
+         WHERE id_mata_kuliah = $2 AND id_tahun_semester = $3`,
+        [plan, id_mata_kuliah, id_tahun_semester],
+      );
+    } else {
+      await this._pool.query(
+        `UPDATE kelas_praktikum
+         SET jumlah_jobsheet_rencana = $2
+         WHERE id = $1`,
+        [id, plan],
+      );
+    }
     return { success: true, plan };
   }
 

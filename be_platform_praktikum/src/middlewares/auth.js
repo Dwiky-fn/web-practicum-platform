@@ -16,13 +16,18 @@ function sendUnauthorized(
 
 function getBearerToken(req) {
   const authorization = req.headers.authorization || '';
-  const [type, token] = authorization.split(' ');
-
-  if (type !== 'Bearer' || !token) {
-    return null;
+  if (authorization) {
+    const [type, token] = authorization.split(' ');
+    if (type === 'Bearer' && token) {
+      return token;
+    }
   }
 
-  return token;
+  if (req.query && req.query.token) {
+    return req.query.token;
+  }
+
+  return null;
 }
 
 async function requireAuth(req, res, next) {
@@ -40,6 +45,10 @@ async function requireAuth(req, res, next) {
     }
 
     req.user = user;
+
+    if (req.originalUrl && req.originalUrl.includes('/monitoring/events')) {
+      console.log(`[SSE-AUTH] Authentication success for userId: ${user.id} (role: ${user.role})`);
+    }
 
     return next();
   } catch (error) {

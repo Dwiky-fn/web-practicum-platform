@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from "react"
 import StudentProfileModal from "../components/StudentProfileModal"
-import { BookOpen, CheckCircle, Clock, Eye, FileCheck, FileSpreadsheet, Layers, Pencil, Plus, Sparkles, Trash2, Users } from "lucide-react"
+import { BookOpen, CheckCircle, Clock, Eye, FileCheck, FileSpreadsheet, Layers, Plus, Sparkles, Trash2, Users } from "lucide-react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import TopProgressBar from "../../../components/loading/TopProgressBar"
-import { apiFetch } from "../../../services/api"
 import { useBackNavigation } from "../../../shared/utils/backNavigation"
 import { formatAcademicDateTime } from "../../../shared/utils/formatAcademicDateTime"
 import { exportClassGradesToExcel } from "../../../shared/utils/exportGradesToExcel"
@@ -30,13 +29,14 @@ import {
 } from "../service"
 import { toast } from "../../../components/toast/toastStore"
 
-type ClassTab = "summary" | "modules" | "students" | "evaluation"
+type ClassTab = "summary" | "modules" | "students" | "evaluation" | "rekap"
 
 const tabs: Array<{ id: ClassTab; label: string }> = [
   { id: "summary", label: "Ringkasan Kelas" },
   { id: "modules", label: "Jobsheet Praktikum" },
   { id: "students", label: "Daftar Mahasiswa" },
   { id: "evaluation", label: "Evaluasi & Nilai" },
+  { id: "rekap", label: "Laporan Rekapitulasi Nilai" },
 ]
 
 export default function LecturerClassDetailPage() {
@@ -49,9 +49,9 @@ export default function LecturerClassDetailPage() {
   const [error, setError] = useState("")
   const [activeTab, setActiveTab] = useState<ClassTab>(() => {
     const queryTab = searchParams.get("tab") as ClassTab
-    if (queryTab && ["summary", "modules", "students", "evaluation"].includes(queryTab)) return queryTab
+    if (queryTab && ["summary", "modules", "students", "evaluation", "rekap"].includes(queryTab)) return queryTab
     const savedTab = sessionStorage.getItem(`activeTab_class_${classId}`) as ClassTab
-    if (savedTab && ["summary", "modules", "students", "evaluation"].includes(savedTab)) {
+    if (savedTab && ["summary", "modules", "students", "evaluation", "rekap"].includes(savedTab)) {
       return savedTab
     }
     return "summary"
@@ -81,30 +81,6 @@ export default function LecturerClassDetailPage() {
   const [matrix, setMatrix] = useState<LecturerSubmissionMatrixItem[]>([])
   const [classStudents, setClassStudents] = useState<any[]>([])
   const [nativeScope, setNativeScope] = useState<{ mataKuliahId?: string; kelasPraktikumId?: string }>({})
-  const [isEditPlanModalOpen, setIsEditPlanModalOpen] = useState(false)
-  const [editPlanValue, setEditPlanValue] = useState("1")
-  const [savingPlan, setSavingPlan] = useState(false)
-
-  async function handleSaveJobsheetPlan() {
-    if (!classId) return
-    try {
-      setSavingPlan(true)
-      const nextPlan = Number(editPlanValue || 0)
-      await apiFetch(`/lecturer/kelas-praktikum/${classId}/plan`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          jumlah_jobsheet_rencana: nextPlan,
-        }),
-      })
-      setHeader((prev) => ({ ...prev, jobsheetPlan: nextPlan }))
-      setIsEditPlanModalOpen(false)
-      toast.success("Jumlah jobsheet berhasil diperbarui.")
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal memperbarui jumlah jobsheet.")
-    } finally {
-      setSavingPlan(false)
-    }
-  }
   const [deleteTarget, setDeleteTarget] = useState<LecturerJobsheetSummary | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -249,6 +225,23 @@ export default function LecturerClassDetailPage() {
 
   const evalPercentage = submittedCount ? Math.min(100, Math.round((acceptedCount / submittedCount) * 100)) : 0
 
+  const rekapStudentRows = useMemo(() => {
+    const normalized = keyword.trim().toLowerCase()
+    const rawStudents = classStudents.length
+      ? classStudents
+      : Array.from(new Map(matrix.map((item) => [item.student.id, item.student])).values())
+
+    return [...rawStudents]
+      .sort((a, b) => (a.nim || "").localeCompare(b.nim || "", undefined, { numeric: true }))
+      .filter((student) => {
+        const studentName = student.fullname || student.name || ""
+        return (
+          !normalized ||
+          [student.nim, studentName].some((value) => String(value).toLowerCase().includes(normalized))
+        )
+      })
+  }, [classStudents, keyword, matrix])
+
   const handleExportExcel = () => {
     if (!classStudents.length) {
       toast.error("Tidak ada data mahasiswa untuk diexport")
@@ -261,10 +254,11 @@ export default function LecturerClassDetailPage() {
         students: classStudents,
         jobsheets: jobsheets,
         matrix: matrix,
+        jobsheetPlan: header.jobsheetPlan,
       })
-      toast.success("Rekap nilai berhasil diexport ke file Excel!")
+      toast.success("Laporan rekapitulasi nilai berhasil diexport ke file Excel!")
     } catch {
-      toast.error("Gagal meng-export rekap nilai ke Excel.")
+      toast.error("Gagal meng-export laporan rekapitulasi nilai ke Excel.")
     }
   }
 
@@ -319,23 +313,9 @@ export default function LecturerClassDetailPage() {
             <span className="rounded-xl bg-white/10 px-3 py-1.5 text-xs font-bold text-white border border-white/10">
               {header.studentCount} Mahasiswa
             </span>
-            <div className="flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-1.5 text-xs font-bold text-white border border-white/10">
-              <span>{header.jobsheetPublished}/{header.jobsheetPlan} Jobsheet Terbit</span>
-              {!isHistoryScope && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditPlanValue(String(header.jobsheetPlan ?? 0))
-                    setIsEditPlanModalOpen(true)
-                  }}
-                  className="ml-1 inline-flex items-center gap-1 rounded-md bg-white/20 px-2 py-0.5 text-[11px] font-bold text-white hover:bg-white/30 transition-colors cursor-pointer"
-                  title="Ubah Jumlah Jobsheet"
-                >
-                  <Pencil size={12} />
-                  Ubah Jumlah
-                </button>
-              )}
-            </div>
+            <span className="rounded-xl bg-white/10 px-3 py-1.5 text-xs font-bold text-white border border-white/10">
+              {header.jobsheetPublished}/{header.jobsheetPlan} Jobsheet Terbit
+            </span>
           </div>
         </div>
       </div>
@@ -381,23 +361,8 @@ export default function LecturerClassDetailPage() {
                   <div className="flex flex-col justify-between rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/30 p-5 shadow-sm">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">Jumlah Jobsheet</span>
-                      <div className="flex items-center gap-1.5">
-                        {!isHistoryScope && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditPlanValue(String(header.jobsheetPlan ?? 0))
-                              setIsEditPlanModalOpen(true)
-                            }}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100/80 text-emerald-800 hover:bg-emerald-200 transition-colors"
-                            title="Ubah Jumlah Jobsheet"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                        )}
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-                          <BookOpen size={18} />
-                        </div>
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                        <BookOpen size={18} />
                       </div>
                     </div>
                     <p className="mt-3 text-3xl font-extrabold text-gray-900">{header.jobsheetPlan} Jobsheet</p>
@@ -486,16 +451,6 @@ export default function LecturerClassDetailPage() {
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                     {!isHistoryScope && (
                       <>
-                        <LecturerButton
-                          variant="secondary"
-                          onClick={() => {
-                            setEditPlanValue(String(header.jobsheetPlan || 1))
-                            setIsEditPlanModalOpen(true)
-                          }}
-                        >
-                          <Pencil size={15} />
-                          Atur Jumlah Jobsheet
-                        </LecturerButton>
                         <LecturerButton onClick={() => {
                           const createdCount = jobsheets.filter(j => j.status?.toLowerCase() !== "draft").length
                           const plannedCount = header.jobsheetPlan ?? 0
@@ -731,6 +686,130 @@ export default function LecturerClassDetailPage() {
                 </LecturerTable>
               </div>
             )}
+
+            {activeTab === "rekap" && (
+              <div>
+                <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-gray-100 pb-4">
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                      <FileSpreadsheet className="text-emerald-600" size={20} />
+                      Laporan Rekapitulasi Nilai Mata Kuliah
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Jumlah Jobsheet Rencana: <strong className="text-blue-900 font-bold">{header.jobsheetPlan} Jobsheet (1 Semester)</strong> &bull; Total Mahasiswa: <strong className="text-blue-900 font-bold">{header.studentCount} Mahasiswa</strong>
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <SearchBox value={keyword} onChange={setKeyword} placeholder="Cari NIM / Nama..." className="w-full sm:w-60" />
+                    <button
+                      type="button"
+                      onClick={handleExportExcel}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-xs font-bold text-white shadow-sm transition-colors cursor-pointer shrink-0"
+                      title="Export Laporan Rekapitulasi Nilai Ke Excel (.xlsx)"
+                    >
+                      <FileSpreadsheet size={16} />
+                      <span>Export Excel Laporan Rekapitulasi</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200 text-gray-700 font-bold">
+                        <th className="py-3 px-3 text-center w-12 border-r border-gray-200">No</th>
+                        <th className="py-3 px-3 min-w-[110px] border-r border-gray-200">NIM</th>
+                        <th className="py-3 px-3 min-w-[180px] border-r border-gray-200">Nama Mahasiswa</th>
+                        
+                        {Array.from({ length: Math.max(header.jobsheetPlan || 1, jobsheets.length, 1) }, (_, i) => i + 1).map((num) => {
+                          const matchingJs = jobsheets.find((j) => Number(j.number) === num)
+                          return (
+                            <th key={num} className="py-3 px-3 text-center border-r border-gray-200 min-w-[80px]" title={matchingJs ? matchingJs.title : `Jobsheet ${num}`}>
+                              <div className="font-bold text-blue-900">JS {num}</div>
+                              {matchingJs && <div className="text-[10px] font-normal text-gray-500 truncate max-w-[90px]">{matchingJs.title}</div>}
+                            </th>
+                          )
+                        })}
+
+                        <th className="py-3 px-3 text-center bg-emerald-50 text-emerald-900 font-extrabold min-w-[90px]">Nilai Akhir</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {!rekapStudentRows.length ? (
+                        <tr>
+                          <td colSpan={3 + Math.max(header.jobsheetPlan || 1, jobsheets.length, 1) + 1} className="py-8 text-center text-gray-500">
+                            Belum ada data mahasiswa untuk kelas ini.
+                          </td>
+                        </tr>
+                      ) : (
+                        rekapStudentRows.map((student, idx) => {
+                          const totalPlanned = Math.max(header.jobsheetPlan || 1, jobsheets.length, 1)
+                          let totalScore = 0
+                          let scoredCount = 0
+
+                          return (
+                            <tr key={student.id} className="hover:bg-blue-50/30 transition-colors">
+                              <td className="py-2.5 px-3 text-center font-semibold text-gray-500 border-r border-gray-200">{idx + 1}</td>
+                              <td className="py-2.5 px-3 font-mono font-semibold text-gray-700 border-r border-gray-200">{student.nim || "-"}</td>
+                              <td className="py-2.5 px-3 font-semibold text-gray-900 border-r border-gray-200">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedStudentProfileId(student.id)}
+                                  className="hover:text-blue-700 hover:underline text-left font-bold"
+                                >
+                                  {student.fullname || student.name || "-"}
+                                </button>
+                              </td>
+
+                              {Array.from({ length: totalPlanned }, (_, i) => i + 1).map((num) => {
+                                const matchingJs = jobsheets.find((j) => Number(j.number) === num)
+                                if (!matchingJs) {
+                                  return (
+                                    <td key={num} className="py-2.5 px-3 text-center text-gray-400 border-r border-gray-200">-</td>
+                                  )
+                                }
+
+                                const matrixItem = matrix.find((m) => m.student.id === student.id && m.jobsheet.id === matchingJs.id)
+                                const sub = matrixItem?.submission
+                                const score = sub?.review?.finalScore ?? sub?.score
+
+                                if (score !== undefined && score !== null) {
+                                  const numScore = Number(score)
+                                  totalScore += numScore
+                                  scoredCount++
+                                  return (
+                                    <td key={num} className="py-2.5 px-3 text-center font-mono font-bold text-gray-800 border-r border-gray-200">
+                                      {numScore}
+                                    </td>
+                                  )
+                                }
+
+                                if (sub && sub.status && sub.status !== "DRAFT") {
+                                  return (
+                                    <td key={num} className="py-2.5 px-3 text-center text-[10px] font-semibold text-amber-700 bg-amber-50/50 border-r border-gray-200">
+                                      Belum Dinilai
+                                    </td>
+                                  )
+                                }
+
+                                return (
+                                  <td key={num} className="py-2.5 px-3 text-center text-gray-400 border-r border-gray-200">-</td>
+                                )
+                              })}
+
+                              <td className="py-2.5 px-3 text-center font-mono font-extrabold text-emerald-700 bg-emerald-50/30">
+                                {scoredCount > 0 ? Number((totalScore / scoredCount).toFixed(1)) : "-"}
+                              </td>
+                            </tr>
+                          )
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -762,37 +841,6 @@ export default function LecturerClassDetailPage() {
             <p className="text-xs text-gray-500">
               Jobsheet hanya bisa dihapus jika belum digunakan di kelas mana pun.
             </p>
-          </div>
-        </LecturerModal>
-      )}
-
-      {/* Modal Ubah Jumlah Jobsheet */}
-      {isEditPlanModalOpen && (
-        <LecturerModal
-          title="Ubah Jumlah Jobsheet"
-          description={`Tentukan jumlah target jobsheet praktikum yang direncanakan untuk kelas ${header.className} selama 1 semester.`}
-          onClose={() => setIsEditPlanModalOpen(false)}
-          footer={
-            <div className="flex justify-end gap-2">
-              <LecturerButton variant="secondary" onClick={() => setIsEditPlanModalOpen(false)}>
-                Batal
-              </LecturerButton>
-              <LecturerButton onClick={handleSaveJobsheetPlan} disabled={savingPlan}>
-                {savingPlan ? "Menyimpan..." : "Simpan Target"}
-              </LecturerButton>
-            </div>
-          }
-        >
-          <div>
-            <label className="mb-1 block text-xs font-bold text-gray-700">Jumlah Jobsheet</label>
-            <input
-              type="number"
-              min="0"
-              className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm font-semibold focus:border-blue-600 focus:outline-none"
-              value={editPlanValue}
-              onChange={(e) => setEditPlanValue(e.target.value)}
-              placeholder="Contoh: 10"
-            />
           </div>
         </LecturerModal>
       )}

@@ -122,7 +122,7 @@ export default function SidebarCard({
         <div>
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-gray-500">
-              {accessMode === "editable_remedial" ? "Deadline Normal" : "Deadline"}
+              {jobsheet.access?.attemptType === "remedial" ? "Deadline Remedial" : "Deadline"}
             </p>
             <p
               className={`text-sm font-semibold ${
@@ -139,12 +139,48 @@ export default function SidebarCard({
             </p>
           </div>
 
+          {jobsheet.normalDeadline && jobsheet.normalDeadline !== jobsheet.deadline && (
+            <p className="text-[11px] text-gray-400 text-right mt-0.5">
+              Deadline Reguler: {formatAcademicDateTime(jobsheet.normalDeadline)}
+            </p>
+          )}
+
           {!isOverdue && deadlineState.date && (
             <p className="text-[10px] text-gray-400 text-right mt-0.5">
               {deadlineState.label}
             </p>
           )}
         </div>
+
+        {/* REMEDIAL TIME & STATUS INFO */}
+        {(jobsheet.access?.remedialStartAt || jobsheet.access?.remedialEndAt) && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 space-y-1.5 mt-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-900">Sesi Remedial</span>
+              <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                jobsheet.access.remedialStatus === "not_started" || accessMode === "locked_remedial_not_started"
+                  ? "bg-amber-100 text-amber-800 border border-amber-300"
+                  : jobsheet.access.remedialStatus === "active" || accessMode === "editable_remedial"
+                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                  : "bg-rose-100 text-rose-800 border border-rose-300"
+              }`}>
+                {jobsheet.access.remedialStatus === "not_started" || accessMode === "locked_remedial_not_started"
+                  ? "Belum Dimulai"
+                  : jobsheet.access.remedialStatus === "active" || accessMode === "editable_remedial"
+                  ? "Sedang Berlangsung"
+                  : "Sudah Berakhir"}
+              </span>
+            </div>
+            <div className="text-[11px] text-amber-900 space-y-0.5">
+              {jobsheet.access.remedialStartAt && (
+                <p><span className="font-medium text-amber-700">Mulai:</span> {formatAcademicDateTime(jobsheet.access.remedialStartAt)}</p>
+              )}
+              {jobsheet.access.remedialEndAt && (
+                <p><span className="font-medium text-amber-700">Berakhir:</span> {formatAcademicDateTime(jobsheet.access.remedialEndAt)}</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* NILAI */}
         <div className="flex items-center justify-between">

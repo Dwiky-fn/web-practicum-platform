@@ -134,8 +134,8 @@ class AdminUsersService {
         : `${(payload.nim || payload.nip || id)}@student.polnep.ac.id`;
 
       await client.query(
-        `INSERT INTO users (id, fullname, email, password, role, is_active)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
+        `INSERT INTO users (id, fullname, email, password, role, is_active, is_password_changed)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [
           id,
           payload.fullname,
@@ -143,6 +143,7 @@ class AdminUsersService {
           password,
           normalizedRole,
           normalizeStatus(payload.status) === 'AKTIF',
+          false,
         ],
       );
 
@@ -269,7 +270,7 @@ class AdminUsersService {
       if (payload.password && String(payload.password).trim() !== '') {
         const hashedPassword = await bcrypt.hash(String(payload.password).trim(), 10);
         await client.query(
-          `UPDATE users SET password = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+          `UPDATE users SET password = $2, is_password_changed = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
           [id, hashedPassword]
         );
       }

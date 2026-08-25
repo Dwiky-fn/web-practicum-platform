@@ -17,7 +17,7 @@ import type { StudentProgressItem } from "../../../services/progress/types"
 import type { JobsheetSubmission } from "../../../services/submission/types"
 import { formatAcademicDateTime, formatAcademicTime } from "../../../shared/utils/formatAcademicDateTime"
 import { connectLiveWorkspaceSocket, type LiveWorkspaceEvent } from "../../../services/liveWorkspaceSocket"
-import { splitInstructionContent } from "../../../shared/utils/splitInstructionContent"
+import { connectMonitoringSse, type MonitoringSseEvent } from "../../../services/monitoringSse"
 import SubmissionActivityTimeline from "../../student/jobsheets/work/content/task/components/SubmissionActivityTimeline"
 
 const EMPTY_DOC: JSONContent = { type: "doc", content: [] }
@@ -97,14 +97,6 @@ function normalizeReadonlySteps(
     output: step.output ?? "",
     analysis: toDoc(step.analysis),
   }))
-}
-
-function hasSavedWorkspace(steps: Array<{ files?: Record<string, string>; output?: string; analysis?: unknown }>) {
-  return steps.some((step) => (
-    Object.values(step.files ?? {}).some((code) => code.trim().length > 0) ||
-    Boolean(step.output?.trim()) ||
-    JSON.stringify(step.analysis ?? {}).replace(/\s/g, "").length > 20
-  ))
 }
 
 function groupById(groups: MonitoringGroup[], id: string) {
@@ -192,6 +184,7 @@ function buildJobsheet(data: WorkpageResponse): Jobsheet {
 }
 
 function buildSubmission(data: WorkpageResponse): JobsheetSubmission {
+  const report = data.submission.report ?? {}
   return {
     id: data.submission.id ?? "monitoring-readonly",
     jobsheetId: data.context.jobsheetId,
@@ -204,8 +197,8 @@ function buildSubmission(data: WorkpageResponse): JobsheetSubmission {
     calculatedProgressScore: data.submission.progressScore?.progressScore ?? null,
     scoreBreakdown: null,
     report: {
-      experiments: normalizeReportExperiments(data.submission.report.experiments),
-      exercises: normalizeReportExercises(data.submission.report.exercises),
+      experiments: normalizeReportExperiments(report.experiments),
+      exercises: normalizeReportExercises(report.exercises),
       conclusion: null,
     },
     experiments: [],
@@ -215,27 +208,24 @@ function buildSubmission(data: WorkpageResponse): JobsheetSubmission {
   }
 }
 
-function locationToSidebarItem(location: MonitoringLocation | null) {
+function locationToSidebarItem(location: MonitoringLocation | null, studentAvatar?: any) {
   if (!location) return null
-  if (location.moduleType === "theory") return { type: "theory", id: location.moduleId, label: "Posisi Terakhir" }
-  if (location.moduleType === "exercise") return { type: "exercise", id: location.moduleId, label: "Posisi Terakhir" }
-  if (location.moduleType === "experiment") {
-    return {
-      type: "experiment",
-      id: location.moduleId,
-      label: location.stepId ? `Posisi Terakhir - ${location.title.split(" - ").pop()}` : "Posisi Terakhir",
-    }
+  const rawType = (location.moduleType || location.type || "").replace(/s$/, "")
+  return {
+    type: rawType,
+    id: location.moduleId,
+    label: "Posisi Terakhir",
+    studentAvatar,
   }
-  return null
 }
 
 function normalizeReportExperiments(
   experiments: WorkpageResponse["submission"]["report"]["experiments"] = {},
 ): JobsheetSubmission["report"]["experiments"] {
   return Object.fromEntries(
-    Object.entries(experiments).map(([id, experiment]) => [
+    Object.entries(experiments ?? {}).map(([id, experiment]) => [
       id,
-      { steps: normalizeReadonlySteps(experiment.steps ?? []) },
+      { steps: normalizeReadonlySteps(experiment?.steps ?? []) },
     ]),
   )
 }
@@ -244,12 +234,12 @@ function normalizeReportExercises(
   exercises: WorkpageResponse["submission"]["report"]["exercises"] = {},
 ): JobsheetSubmission["report"]["exercises"] {
   return Object.fromEntries(
-    Object.entries(exercises).map(([id, exercise]) => [
+    Object.entries(exercises ?? {}).map(([id, exercise]) => [
       id,
       {
-        files: exercise.files ?? {},
-        output: exercise.output ?? "",
-        analysis: toDoc(exercise.analysis),
+        files: exercise?.files ?? {},
+        output: exercise?.output ?? "",
+        analysis: toDoc(exercise?.analysis),
       },
     ]),
   )
@@ -346,6 +336,7 @@ export default function LecturerStudentWorkpagePage() {
 
     setData((current) => {
       if (!current) return current
+      const report = current.submission?.report ?? {}
       const sectionType = event.sectionType
       const sectionId = event.sectionId || ""
 
@@ -377,7 +368,7 @@ export default function LecturerStudentWorkpagePage() {
           })
         }
         if (sectionType === "experiment" && sectionId) {
-          const previous = current.submission.report.experiments?.[sectionId]?.steps ?? [{ files: {}, output: "", analysis: EMPTY_DOC }]
+          const previous = report.experiments?.[sectionId]?.steps ?? [{ files: {}, output: "", analysis: EMPTY_DOC }]
           const nextSteps = [...previous]
           const first = nextSteps[0] ?? { files: {}, output: "", analysis: EMPTY_DOC }
           nextSteps[0] = {
@@ -393,9 +384,9 @@ export default function LecturerStudentWorkpagePage() {
             submission: {
               ...current.submission,
               report: {
-                ...current.submission.report,
+                ...report,
                 experiments: {
-                  ...(current.submission.report.experiments ?? {}),
+                  ...(report.experiments ?? {}),
                   [sectionId]: { steps: nextSteps },
                 },
               },
@@ -403,16 +394,16 @@ export default function LecturerStudentWorkpagePage() {
           }
         }
         if (sectionType === "exercise" && sectionId) {
-          const previous = current.submission.report.exercises?.[sectionId] ?? { files: {}, output: "", analysis: EMPTY_DOC }
+          const previous = report.exercises?.[sectionId] ?? { files: {}, output: "", analysis: EMPTY_DOC }
           return {
             ...current,
             progress: { ...current.progress, lastUpdatedAt: event.updatedAt || current.progress.lastUpdatedAt },
             submission: {
               ...current.submission,
               report: {
-                ...current.submission.report,
+                ...report,
                 exercises: {
-                  ...(current.submission.report.exercises ?? {}),
+                  ...(report.exercises ?? {}),
                   [sectionId]: {
                     ...previous,
                     files: {
@@ -432,7 +423,7 @@ export default function LecturerStudentWorkpagePage() {
           console.debug("[LIVE-WS][LECTURER] updating analysis state", { sectionType, sectionId })
         }
         if (sectionType === "experiment") {
-          const previous = current.submission.report.experiments?.[sectionId]?.steps ?? [{ files: {}, output: "", analysis: EMPTY_DOC }]
+          const previous = report.experiments?.[sectionId]?.steps ?? [{ files: {}, output: "", analysis: EMPTY_DOC }]
           const nextSteps = [...previous]
           const first = nextSteps[0] ?? { files: {}, output: "", analysis: EMPTY_DOC }
           nextSteps[0] = { ...first, analysis: event.content as JSONContent }
@@ -441,9 +432,9 @@ export default function LecturerStudentWorkpagePage() {
             submission: {
               ...current.submission,
               report: {
-                ...current.submission.report,
+                ...report,
                 experiments: {
-                  ...(current.submission.report.experiments ?? {}),
+                  ...(report.experiments ?? {}),
                   [sectionId]: { steps: nextSteps },
                 },
               },
@@ -451,15 +442,15 @@ export default function LecturerStudentWorkpagePage() {
           }
         }
         if (sectionType === "exercise") {
-          const previous = current.submission.report.exercises?.[sectionId] ?? { files: {}, output: "", analysis: EMPTY_DOC }
+          const previous = report.exercises?.[sectionId] ?? { files: {}, output: "", analysis: EMPTY_DOC }
           return {
             ...current,
             submission: {
               ...current.submission,
               report: {
-                ...current.submission.report,
+                ...report,
                 exercises: {
-                  ...(current.submission.report.exercises ?? {}),
+                  ...(report.exercises ?? {}),
                   [sectionId]: { ...previous, analysis: event.content as JSONContent },
                 },
               },
@@ -485,6 +476,82 @@ export default function LecturerStudentWorkpagePage() {
 
     return () => connection.close()
   }, [applyLiveEvent, jobsheetId, kelasPraktikumId, loadData, studentId])
+
+  useEffect(() => {
+    if (!kelasPraktikumId) return undefined
+
+    console.log("[Monitoring][SSE] Connecting LecturerStudentWorkpagePage SSE stream for kelasPraktikumId:", kelasPraktikumId)
+
+    const disconnect = connectMonitoringSse(
+      kelasPraktikumId,
+      (event: MonitoringSseEvent) => {
+        console.log("[SSE][CLIENT] event received:", event.type, event)
+
+        if (event.studentId === studentId) {
+          if (event.type === "student-position-updated") {
+            const nextLocation: MonitoringLocation = {
+              type: event.sectionType || "experiment",
+              moduleType: event.sectionType || "experiment",
+              moduleId: event.sectionId || event.experimentId || event.exerciseId || "exp-1",
+              stepId: null,
+              title: event.sectionName || "Percobaan 1",
+              activeCount: 1,
+              completedCount: 0,
+              notStartedCount: 0,
+              elsewhereCount: 0,
+              avatars: [],
+              remainingAvatarCount: 0,
+            }
+            console.log("[MONITORING][STATE] student position updated:", event.studentId, "->", nextLocation.title)
+            console.log("[SIDEBAR][AVATAR] studentId:", event.studentId, "target section:", nextLocation.title)
+
+            setData((prev) => {
+              if (!prev) return prev
+              return {
+                ...prev,
+                progress: {
+                  ...prev.progress,
+                  currentLocation: nextLocation,
+                  lastUpdatedAt: event.lastActiveAt || new Date().toISOString(),
+                },
+              }
+            })
+          }
+
+          if (event.type === "student-run-count-updated") {
+            console.log("[SSE][CLIENT] student-run-count-updated received for active student")
+            setData((prev) => {
+              if (!prev) return prev
+              const oldRunCount = prev.monitoringStats?.runCount || 0
+              const newRunCount = typeof event.runCount === "number" ? event.runCount : oldRunCount + 1
+              console.log("[MONITORING][STATE] old runCount:", oldRunCount, "new runCount:", newRunCount)
+              console.log("[MONITORING][UI] rendered runCount:", newRunCount)
+              return {
+                ...prev,
+                monitoringStats: {
+                  ...prev.monitoringStats,
+                  runCount: newRunCount,
+                  hasActivity: true,
+                  inactiveDurationSeconds: 0,
+                  inactiveLabel: "Baru saja",
+                },
+              }
+            })
+          }
+
+          loadData(true)
+        }
+      },
+      (status) => {
+        console.log("[SSE-CLIENT][WORKPAGE] Stream status:", status)
+      }
+    )
+
+    return () => {
+      console.log("[SSE-CLIENT][WORKPAGE] Disconnecting SSE stream")
+      disconnect()
+    }
+  }, [kelasPraktikumId, studentId, loadData])
 
   const jobsheet = useMemo(() => data ? buildJobsheet(data) : null, [data])
   const submission = useMemo(() => data ? buildSubmission(data) : null, [data])
@@ -543,7 +610,7 @@ export default function LecturerStudentWorkpagePage() {
     if (route.section === "experiments") {
       const experiment = workJobsheet.experiments.find((item) => item.id === route.id)
       const group = groupById(workData.structure, route.id)
-      const rawSteps = workData.submission.report.experiments?.[route.id]?.steps ?? []
+      const rawSteps = workData.submission.report?.experiments?.[route.id]?.steps ?? []
       const steps = normalizeReadonlySteps(rawSteps)
       if (!experiment) return <EmptyWorkState text="Percobaan tidak ditemukan." />
       return (
@@ -555,30 +622,27 @@ export default function LecturerStudentWorkpagePage() {
             )}
           </div>
           <RichTextViewer content={experiment.instructionContent ?? EMPTY_DOC} mode="viewer-default" />
-          {hasSavedWorkspace(rawSteps) ? (
-            <InstructionWorkspaceCard
-              key={`${studentId}-${jobsheetId}-${experiment.id}`}
-              instructions={(group?.children ?? []).map((item: any) => {
-                const stepDoc = toDoc(item.instruction || item.title)
-                const needsCode = item.needsCode !== undefined ? Boolean(item.needsCode) : true
-                return { content: stepDoc, needsCode }
-              })}
-              templateCode=""
-              language={workData.context.programmingLanguage || "java"}
-              initialSteps={steps}
-              readOnly
-            />
-          ) : (
-            <EmptyWorkState text="Belum ada pengerjaan yang disimpan mahasiswa pada bagian ini." />
-          )}
+          <InstructionWorkspaceCard
+            key={`${studentId}-${jobsheetId}-${experiment.id}`}
+            instructions={(group?.children ?? []).map((item: any) => {
+              const stepDoc = toDoc(item.instruction || item.title)
+              const needsCode = item.needsCode !== undefined ? Boolean(item.needsCode) : true
+              return { content: stepDoc, needsCode }
+            })}
+            templateCode=""
+            language={workData.context.programmingLanguage || "java"}
+            initialSteps={steps}
+            readOnly
+          />
         </div>
       )
     }
 
     if (route.section === "exercises") {
       const exercise = workJobsheet.exercises.find((item) => item.id === route.id)
-      const rawExercise = workData.submission.report.exercises?.[route.id]
+      const rawExercise = workData.submission.report?.exercises?.[route.id]
       const rawSteps = rawExercise ? [rawExercise] : []
+      const steps = normalizeReadonlySteps(rawSteps)
       if (!exercise) return <EmptyWorkState text="Latihan tidak ditemukan." />
       return (
         <div className="space-y-6">
@@ -589,18 +653,22 @@ export default function LecturerStudentWorkpagePage() {
             )}
           </div>
           <RichTextViewer content={exercise.instructionContent ?? EMPTY_DOC} mode="viewer-default" />
-          {hasSavedWorkspace(rawSteps) ? (
-            <InstructionWorkspaceCard
-              key={`${studentId}-${jobsheetId}-${exercise.id}`}
-              instructions={splitInstructionContent(exercise.instructionContent)}
-              templateCode=""
-              language={workData.context.programmingLanguage || "java"}
-              initialSteps={normalizeReadonlySteps(rawSteps)}
-              readOnly
-            />
-          ) : (
-            <EmptyWorkState text="Belum ada pengerjaan yang disimpan mahasiswa pada bagian ini." />
-          )}
+          {(() => {
+            const needsCode = exercise.instructionContent?.attrs?.needsCode !== undefined
+              ? Boolean(exercise.instructionContent.attrs.needsCode)
+              : true
+            return (
+              <InstructionWorkspaceCard
+                key={`${studentId}-${jobsheetId}-${exercise.id}`}
+                instructions={[{ content: exercise.instructionContent ?? EMPTY_DOC, needsCode }]}
+                templateCode=""
+                language={workData.context.programmingLanguage || "java"}
+                initialSteps={steps}
+                readOnly
+                hideInstructionTabs
+              />
+            )
+          })()}
         </div>
       )
     }
@@ -758,7 +826,7 @@ export default function LecturerStudentWorkpagePage() {
           savedProgress={savedProgress}
           completedItems={completedItems}
           basePath={basePath}
-          lastPositionItem={locationToSidebarItem(currentLocation)}
+          lastPositionItem={locationToSidebarItem(currentLocation, data.student)}
         />
       </div>
 
@@ -779,6 +847,7 @@ export default function LecturerStudentWorkpagePage() {
         jobsheetId={jobsheetId}
         studentId={studentId}
         studentName={data?.student?.name}
+        onOpenChat={() => setIsLecturerChatOpen(true)}
       />
     </div>
   )

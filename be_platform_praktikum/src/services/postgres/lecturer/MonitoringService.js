@@ -1,19 +1,30 @@
 const pool = require('..');
-const { AuthorizationError, InvariantError, NotFoundError } = require('../../../exceptions');
+const {
+  AuthorizationError,
+  InvariantError,
+  NotFoundError,
+} = require('../../../exceptions');
 const JobsheetProgressScoringService = require('../../scoring/JobsheetProgressScoringService');
+const RunningExecutionsTracker = require('../../execution/RunningExecutionsTracker');
 
 function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
 function asObject(value) {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value
+    : {};
 }
 
 function textFromTipTap(node) {
   if (!node) return '';
   if (typeof node.text === 'string') return node.text;
-  return asArray(node.content).map(textFromTipTap).join(' ').replace(/\s+/g, ' ').trim();
+  return asArray(node.content)
+    .map(textFromTipTap)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function extractOrderedSteps(content) {
@@ -24,7 +35,10 @@ function extractOrderedSteps(content) {
       asArray(node.content).forEach((item) => {
         const text = textFromTipTap(item);
         if (text) {
-          const needsCode = item.attrs?.needsCode !== undefined ? Boolean(item.attrs.needsCode) : true;
+          const needsCode =
+            item.attrs?.needsCode !== undefined
+              ? Boolean(item.attrs.needsCode)
+              : true;
           steps.push({ text, needsCode });
         }
       });
@@ -44,17 +58,21 @@ function hasText(value) {
 
 function isStepComplete(step) {
   const files = asObject(step?.files);
-  const hasCode = Object.values(files).some((code) => String(code || '').trim().length > 0);
+  const hasCode = Object.values(files).some(
+    (code) => String(code || '').trim().length > 0,
+  );
   return hasCode && hasText(step?.output) && hasText(step?.analysis);
 }
 
 function initialFromName(name = '') {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((item) => item[0]?.toUpperCase())
-    .join('') || '?';
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((item) => item[0]?.toUpperCase())
+      .join('') || '?'
+  );
 }
 
 function parseDate(value) {
@@ -67,7 +85,8 @@ function parseDate(value) {
 function mapSubmissionLabel(row) {
   if (!row?.submission_id) return null;
   if (row.submission_status === 'REVIEWED') return 'Direview';
-  if (row.submission_status === 'SUBMITTED' && row.is_auto_submitted) return 'Dikumpulkan Otomatis';
+  if (row.submission_status === 'SUBMITTED' && row.is_auto_submitted)
+    return 'Dikumpulkan Otomatis';
   if (row.submission_status === 'SUBMITTED') return 'Dikumpulkan Manual';
   return row.submission_status || null;
 }
@@ -86,16 +105,23 @@ function formatInactiveDuration(seconds) {
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   if (hours < 24) {
-    return remainingMinutes > 0 ? `${hours} jam ${remainingMinutes} menit` : `${hours} jam`;
+    return remainingMinutes > 0
+      ? `${hours} jam ${remainingMinutes} menit`
+      : `${hours} jam`;
   }
   const days = Math.floor(hours / 24);
   const remainingHours = hours % 24;
-  return remainingHours > 0 ? `${days} hari ${remainingHours} jam` : `${days} hari`;
+  return remainingHours > 0
+    ? `${days} hari ${remainingHours} jam`
+    : `${days} hari`;
 }
 
 function toActivityStatus(lastActiveAt, thresholdMinutes) {
   if (!lastActiveAt) return 'not_started';
-  const elapsedMinutes = Math.max(0, Math.floor((Date.now() - new Date(lastActiveAt).getTime()) / 60000));
+  const elapsedMinutes = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(lastActiveAt).getTime()) / 60000),
+  );
   return elapsedMinutes <= thresholdMinutes ? 'active' : 'inactive';
 }
 
@@ -110,7 +136,11 @@ class MonitoringService {
     this._pool = pool;
   }
 
-  async _assertLecturerAccess(kelasPraktikumId, lecturerId, client = this._pool) {
+  async _assertLecturerAccess(
+    kelasPraktikumId,
+    lecturerId,
+    client = this._pool,
+  ) {
     const result = await client.query(
       `SELECT 1
        FROM pengampu
@@ -121,11 +151,18 @@ class MonitoringService {
     );
 
     if (!result.rows.length) {
-      throw new AuthorizationError('Anda tidak memiliki akses untuk memantau mahasiswa pada kelas ini.');
+      throw new AuthorizationError(
+        'Anda tidak memiliki akses untuk memantau mahasiswa pada kelas ini.',
+      );
     }
   }
 
-  async _resolveContext(kelasPraktikumId, jobsheetId, lecturerId, client = this._pool) {
+  async _resolveContext(
+    kelasPraktikumId,
+    jobsheetId,
+    lecturerId,
+    client = this._pool,
+  ) {
     await this._assertLecturerAccess(kelasPraktikumId, lecturerId, client);
 
     const result = await client.query(
@@ -159,7 +196,9 @@ class MonitoringService {
     );
 
     if (!result.rows.length) {
-      throw new NotFoundError('Jobsheet tidak ditemukan pada kelas praktikum ini.');
+      throw new NotFoundError(
+        'Jobsheet tidak ditemukan pada kelas praktikum ini.',
+      );
     }
 
     const row = result.rows[0];
@@ -176,7 +215,12 @@ class MonitoringService {
     };
   }
 
-  async _getAttempts(kelasPraktikumId, jobsheetId, lecturerId, client = this._pool) {
+  async _getAttempts(
+    kelasPraktikumId,
+    jobsheetId,
+    lecturerId,
+    client = this._pool,
+  ) {
     await this._assertLecturerAccess(kelasPraktikumId, lecturerId, client);
     const result = await client.query(
       `SELECT id, title, status,
@@ -190,7 +234,7 @@ class MonitoringService {
     );
 
     return [
-      { attemptType: 'normal', remedialId: null, label: 'Pengerjaan Normal' },
+      { attemptType: 'normal', remedialId: null, label: 'Pengerjaan Reguler' },
       ...result.rows.map((row, index) => ({
         attemptType: 'remedial',
         remedialId: row.id,
@@ -203,29 +247,49 @@ class MonitoringService {
   }
 
   _resolveAttemptScope(query = {}) {
-    const attemptType = query.attemptType === 'remedial' || query.remedialId ? 'remedial' : 'normal';
+    const attemptType =
+      query.attemptType === 'remedial' || query.remedialId
+        ? 'remedial'
+        : 'normal';
     return {
       attemptType,
-      remedialId: attemptType === 'remedial' ? (query.remedialId || null) : null,
-      label: attemptType === 'remedial' ? 'Remedial' : 'Pengerjaan Normal',
+      remedialId: attemptType === 'remedial' ? query.remedialId || null : null,
+      label: attemptType === 'remedial' ? 'Remedial' : 'Pengerjaan Reguler',
     };
   }
 
-  async _validateAttemptScope(kelasPraktikumId, jobsheetId, lecturerId, query, client = this._pool) {
+  async _validateAttemptScope(
+    kelasPraktikumId,
+    jobsheetId,
+    lecturerId,
+    query,
+    client = this._pool,
+  ) {
     const scope = this._resolveAttemptScope(query);
-    const attempts = await this._getAttempts(kelasPraktikumId, jobsheetId, lecturerId, client);
+    const attempts = await this._getAttempts(
+      kelasPraktikumId,
+      jobsheetId,
+      lecturerId,
+      client,
+    );
 
     if (scope.attemptType === 'normal') {
       return { ...attempts[0], attempts };
     }
 
     if (!scope.remedialId) {
-      throw new InvariantError('remedialId wajib disertakan untuk tampilan remedial.');
+      throw new InvariantError(
+        'remedialId wajib disertakan untuk tampilan remedial.',
+      );
     }
 
-    const remedial = attempts.find((item) => item.remedialId === scope.remedialId);
+    const remedial = attempts.find(
+      (item) => item.remedialId === scope.remedialId,
+    );
     if (!remedial) {
-      throw new NotFoundError('Sesi remedial tidak ditemukan pada kelas praktikum ini.');
+      throw new NotFoundError(
+        'Sesi remedial tidak ditemukan pada kelas praktikum ini.',
+      );
     }
 
     return { ...remedial, attempts };
@@ -258,9 +322,18 @@ class MonitoringService {
       instruction: item.content || item.description || '',
     }));
 
-     const experimentGroups = experimentsRes.rows.map((experiment, index) => {
+    const experimentGroups = experimentsRes.rows.map((experiment, index) => {
       const steps = extractOrderedSteps(experiment.instruction_content);
-      const children = (steps.length ? steps : [{ text: experiment.title || `Percobaan ${index + 1}`, needsCode: true }]).map((step, stepIndex) => ({
+      const children = (
+        steps.length
+          ? steps
+          : [
+              {
+                text: experiment.title || `Percobaan ${index + 1}`,
+                needsCode: true,
+              },
+            ]
+      ).map((step, stepIndex) => ({
         type: 'experiment-step',
         moduleType: 'experiment',
         moduleId: experiment.id,
@@ -304,18 +377,26 @@ class MonitoringService {
     };
   }
 
-  async _getStudents(kelasPraktikumId, jobsheetId, attemptScope, client = this._pool) {
-    const remedialJoin = attemptScope.attemptType === 'remedial'
-      ? `JOIN jobsheet_remedial_students jrs
+  async _getStudents(
+    kelasPraktikumId,
+    jobsheetId,
+    attemptScope,
+    client = this._pool,
+  ) {
+    const remedialJoin =
+      attemptScope.attemptType === 'remedial'
+        ? `JOIN jobsheet_remedial_students jrs
            ON jrs.student_id = km.id_mahasiswa
           AND jrs.remedial_id = $3`
-      : '';
-    const params = attemptScope.attemptType === 'remedial'
-      ? [kelasPraktikumId, jobsheetId, attemptScope.remedialId]
-      : [kelasPraktikumId, jobsheetId];
-    const remedialCondition = attemptScope.attemptType === 'remedial'
-      ? 'remedial_id = $3'
-      : 'remedial_id IS NULL';
+        : '';
+    const params =
+      attemptScope.attemptType === 'remedial'
+        ? [kelasPraktikumId, jobsheetId, attemptScope.remedialId]
+        : [kelasPraktikumId, jobsheetId];
+    const remedialCondition =
+      attemptScope.attemptType === 'remedial'
+        ? 'remedial_id = $3'
+        : 'remedial_id IS NULL';
 
     const result = await client.query(
       `SELECT
@@ -414,8 +495,47 @@ class MonitoringService {
       initials: initialFromName(row.fullname),
       completed_items: asArray(row.completed_items),
       report: this._parseReport(row.report_html),
-      lastUpdatedAt: row.last_activity_at || row.last_activity || row.submitted_at || null,
+      lastUpdatedAt:
+        row.last_activity_at || row.last_activity || row.submitted_at || null,
     }));
+  }
+
+  async _getStudentLocationRunCount(
+    studentId,
+    kelasPraktikumId,
+    jobsheetId,
+    remedialId,
+    moduleType,
+    moduleId,
+    stepId = null,
+  ) {
+    let query = `
+      SELECT COUNT(*)::int AS count
+      FROM student_jobsheet_activity_logs
+      WHERE student_id = $1
+        AND id_kelas_praktikum = $2
+        AND jobsheet_id = $3
+        AND UPPER(activity_type) = 'CODE_RUN'
+        AND (${remedialId ? 'remedial_id = $4' : 'remedial_id IS NULL'})
+    `;
+    const params = remedialId
+      ? [studentId, kelasPraktikumId, jobsheetId, remedialId]
+      : [studentId, kelasPraktikumId, jobsheetId];
+
+    if (moduleType === 'experiment' && moduleId) {
+      query += ` AND experiment_id = $${params.length + 1}`;
+      params.push(moduleId);
+      if (stepId) {
+        query += ` AND instruction_id = $${params.length + 1}`;
+        params.push(stepId);
+      }
+    } else if (moduleType === 'exercise' && moduleId) {
+      query += ` AND (exercise_id = $${params.length + 1} OR instruction_id = $${params.length + 1})`;
+      params.push(moduleId);
+    }
+
+    const result = await this._pool.query(query, params);
+    return Number(result.rows[0]?.count || 0);
   }
 
   _parseReport(reportHtml) {
@@ -430,12 +550,18 @@ class MonitoringService {
 
   _isCompleted(student, item) {
     const completedItems = asArray(student.completed_items);
-    if (completedItems.some((completed) => completed.type === item.moduleType && completed.id === item.moduleId)) {
+    if (
+      completedItems.some(
+        (completed) =>
+          completed.type === item.moduleType && completed.id === item.moduleId,
+      )
+    ) {
       if (item.type !== 'experiment-step') return true;
     }
 
     if (item.type === 'experiment-step') {
-      const step = student.report?.experiments?.[item.moduleId]?.steps?.[item.stepIndex];
+      const step =
+        student.report?.experiments?.[item.moduleId]?.steps?.[item.stepIndex];
       return isStepComplete(step);
     }
 
@@ -443,24 +569,45 @@ class MonitoringService {
       return Boolean(student.report?.exercises?.[item.moduleId]);
     }
 
-    return completedItems.some((completed) => completed.type === item.moduleType && completed.id === item.moduleId);
+    return completedItems.some(
+      (completed) =>
+        completed.type === item.moduleType && completed.id === item.moduleId,
+    );
   }
 
   _activeLocation(student, items) {
-    if (!student.first_opened_at && !student.last_activity_at && !student.last_page) return null;
-
-    if (student.current_instruction_id) {
-      const direct = items.find((item) => item.moduleId === student.current_instruction_id);
-      if (direct) return direct;
+    if (
+      !student.first_opened_at &&
+      !student.last_activity_at &&
+      !student.last_page
+    ) {
+      return null;
     }
 
     if (student.current_experiment_id) {
-      const steps = items.filter((item) => item.type === 'experiment-step' && item.moduleId === student.current_experiment_id);
-      return steps.find((item) => !this._isCompleted(student, item)) || steps[steps.length - 1] || null;
+      const experimentMatch = items.find(
+        (item) =>
+          item.moduleId === student.current_experiment_id ||
+          item.id === student.current_experiment_id,
+      );
+      if (experimentMatch) return experimentMatch;
+    }
+
+    if (student.current_instruction_id) {
+      const direct = items.find(
+        (item) =>
+          item.moduleId === student.current_instruction_id ||
+          item.id === student.current_instruction_id,
+      );
+      if (direct) return direct;
     }
 
     if (student.module_id) {
-      const byModule = items.find((item) => item.moduleId === student.module_id || item.stepId === student.module_id);
+      const byModule = items.find(
+        (item) =>
+          item.moduleId === student.module_id ||
+          item.stepId === student.module_id,
+      );
       if (byModule) return byModule;
     }
 
@@ -471,15 +618,19 @@ class MonitoringService {
   _submissionStatus(student) {
     if (student.submission_status === 'REVIEWED') return 'Direview';
     if (student.submission_status === 'SUBMITTED') {
-      return student.is_auto_submitted ? 'Dikumpulkan Otomatis' : 'Dikumpulkan Manual';
+      return student.is_auto_submitted
+        ? 'Dikumpulkan Otomatis'
+        : 'Dikumpulkan Manual';
     }
     const hasRealProgressOrPosition = Boolean(
       student.current_experiment_id ||
       student.current_instruction_id ||
       student.module_id ||
-      (student.progress_percentage != null && Number(student.progress_percentage) > 0) ||
+      (student.progress_percentage != null &&
+        Number(student.progress_percentage) > 0) ||
       (student.progress != null && Number(student.progress) > 0) ||
-      (Array.isArray(student.completed_items) && student.completed_items.length > 0)
+      (Array.isArray(student.completed_items) &&
+        student.completed_items.length > 0),
     );
     if (hasRealProgressOrPosition) {
       return 'Sedang Mengerjakan';
@@ -489,10 +640,23 @@ class MonitoringService {
 
   _classifyStudentForItem(student, item, items) {
     const active = this._activeLocation(student, items);
-    const isActiveHere = active && active.type === item.type && active.moduleId === item.moduleId && active.stepId === item.stepId;
+    const isActiveHere =
+      Boolean(active) &&
+      ((active.type === item.type &&
+        active.moduleId === item.moduleId &&
+        (active.stepId === item.stepId || !item.stepId)) ||
+        (active.moduleType === item.moduleType &&
+          active.moduleId === item.moduleId));
     if (isActiveHere) return 'active_here';
     if (this._isCompleted(student, item)) return 'completed_here';
-    if (!student.first_opened_at && !student.last_activity_at && !student.last_activity && !student.submission_id) return 'not_started_here';
+    if (
+      !student.first_opened_at &&
+      !student.last_activity_at &&
+      !student.last_activity &&
+      !student.submission_id
+    ) {
+      return 'not_started_here';
+    }
     return 'elsewhere';
   }
 
@@ -508,7 +672,14 @@ class MonitoringService {
     };
   }
 
-  _buildSidebar(groups, items, students) {
+  _buildSidebar(
+    groups,
+    items,
+    students,
+    attemptScope = {},
+    kelasPraktikumId = null,
+    jobsheetId = null,
+  ) {
     return groups.map((group) => ({
       ...group,
       children: group.children.map((item) => {
@@ -519,58 +690,159 @@ class MonitoringService {
         const active = classified
           .filter((entry) => entry.status === 'active_here')
           .sort((left, right) => {
-            const statusWeight = this._submissionStatus(left.student) === 'Sedang Mengerjakan' ? -1 : 0;
-            const otherStatusWeight = this._submissionStatus(right.student) === 'Sedang Mengerjakan' ? -1 : 0;
-            if (statusWeight !== otherStatusWeight) return statusWeight - otherStatusWeight;
-            const timeDiff = parseDate(right.student.lastUpdatedAt) - parseDate(left.student.lastUpdatedAt);
+            const statusWeight =
+              this._submissionStatus(left.student) === 'Sedang Mengerjakan'
+                ? -1
+                : 0;
+            const otherStatusWeight =
+              this._submissionStatus(right.student) === 'Sedang Mengerjakan'
+                ? -1
+                : 0;
+            if (statusWeight !== otherStatusWeight)
+              return statusWeight - otherStatusWeight;
+            const timeDiff =
+              parseDate(right.student.lastUpdatedAt) -
+              parseDate(left.student.lastUpdatedAt);
             if (timeDiff !== 0) return timeDiff;
-            if (!left.student.submission_id && right.student.submission_id) return -1;
-            if (left.student.submission_id && !right.student.submission_id) return 1;
-            return String(left.student.fullname).localeCompare(String(right.student.fullname));
+            if (!left.student.submission_id && right.student.submission_id)
+              return -1;
+            if (left.student.submission_id && !right.student.submission_id)
+              return 1;
+            return String(left.student.fullname).localeCompare(
+              String(right.student.fullname),
+            );
           });
 
         return {
           ...item,
           activeCount: active.length,
-          completedCount: classified.filter((entry) => entry.status === 'completed_here').length,
-          notStartedCount: classified.filter((entry) => entry.status === 'not_started_here').length,
-          elsewhereCount: classified.filter((entry) => entry.status === 'elsewhere').length,
-          avatars: active.slice(0, 3).map((entry) => this._publicStudent(entry.student, 'Sedang / Terakhir Aktif di Lokasi Ini')),
+          completedCount: classified.filter(
+            (entry) => entry.status === 'completed_here',
+          ).length,
+          notStartedCount: classified.filter(
+            (entry) => entry.status === 'not_started_here',
+          ).length,
+          elsewhereCount: classified.filter(
+            (entry) => entry.status === 'elsewhere',
+          ).length,
+          avatars: active
+            .slice(0, 3)
+            .map((entry) =>
+              this._publicStudent(
+                entry.student,
+                'Sedang / Terakhir Aktif di Lokasi Ini',
+              ),
+            ),
           remainingAvatarCount: Math.max(0, active.length - 3),
-          remainingAvatars: active.slice(3, 10).map((entry) => this._publicStudent(entry.student, 'Sedang / Terakhir Aktif di Lokasi Ini')),
+          remainingAvatars: active
+            .slice(3, 10)
+            .map((entry) =>
+              this._publicStudent(
+                entry.student,
+                'Sedang / Terakhir Aktif di Lokasi Ini',
+              ),
+            ),
+          runningCount: RunningExecutionsTracker.getRunningCount(
+            kelasPraktikumId,
+            jobsheetId,
+            attemptScope.attemptType,
+            attemptScope.remedialId,
+            item.moduleType,
+            item.moduleId,
+            item.stepId,
+          ),
         };
       }),
     }));
   }
 
-  _summary(students) {
+  _summary(
+    students,
+    kelasPraktikumId = null,
+    jobsheetId = null,
+    attemptScope = {},
+  ) {
     return {
       totalStudents: students.length,
-      inProgress: students.filter((student) => this._submissionStatus(student) === 'Sedang Mengerjakan').length,
-      submittedManual: students.filter((student) => student.submission_status === 'SUBMITTED' && !student.is_auto_submitted).length,
-      submittedAutomatic: students.filter((student) => student.submission_status === 'SUBMITTED' && student.is_auto_submitted).length,
-      waitingReview: students.filter((student) => student.submission_status === 'SUBMITTED').length,
-      reviewed: students.filter((student) => student.submission_status === 'REVIEWED').length,
-      notStarted: students.filter((student) => this._submissionStatus(student) === 'Belum Memulai').length,
+      inProgress: students.filter(
+        (student) => this._submissionStatus(student) === 'Sedang Mengerjakan',
+      ).length,
+      submittedManual: students.filter(
+        (student) =>
+          student.submission_status === 'SUBMITTED' &&
+          !student.is_auto_submitted,
+      ).length,
+      submittedAutomatic: students.filter(
+        (student) =>
+          student.submission_status === 'SUBMITTED' &&
+          student.is_auto_submitted,
+      ).length,
+      waitingReview: students.filter(
+        (student) => student.submission_status === 'SUBMITTED',
+      ).length,
+      reviewed: students.filter(
+        (student) => student.submission_status === 'REVIEWED',
+      ).length,
+      notStarted: students.filter(
+        (student) => this._submissionStatus(student) === 'Belum Memulai',
+      ).length,
+      runningCount: RunningExecutionsTracker.getTotalRunningCount(
+        kelasPraktikumId,
+        jobsheetId,
+        attemptScope.attemptType,
+        attemptScope.remedialId,
+      ),
     };
   }
 
   _insights(sidebar) {
     const items = sidebar.flatMap((group) => group.children);
-    const mostActive = [...items].sort((a, b) => b.activeCount - a.activeCount)[0] || null;
-    const mostNotStarted = [...items].sort((a, b) => b.notStartedCount - a.notStartedCount)[0] || null;
+    const mostActive =
+      [...items].sort((a, b) => b.activeCount - a.activeCount)[0] || null;
+    const mostNotStarted =
+      [...items].sort((a, b) => b.notStartedCount - a.notStartedCount)[0] ||
+      null;
     return {
-      mostActiveLocation: mostActive ? { title: mostActive.title, count: mostActive.activeCount } : null,
-      mostNotStartedLocation: mostNotStarted ? { title: mostNotStarted.title, count: mostNotStarted.notStartedCount } : null,
+      mostActiveLocation: mostActive
+        ? { title: mostActive.title, count: mostActive.activeCount }
+        : null,
+      mostNotStartedLocation: mostNotStarted
+        ? { title: mostNotStarted.title, count: mostNotStarted.notStartedCount }
+        : null,
     };
   }
 
-  async getMonitoring({ kelasPraktikumId, jobsheetId, lecturerId, query = {} }) {
-    const context = await this._resolveContext(kelasPraktikumId, jobsheetId, lecturerId);
-    const attempt = await this._validateAttemptScope(kelasPraktikumId, jobsheetId, lecturerId, query);
+  async getMonitoring({
+    kelasPraktikumId,
+    jobsheetId,
+    lecturerId,
+    query = {},
+  }) {
+    const context = await this._resolveContext(
+      kelasPraktikumId,
+      jobsheetId,
+      lecturerId,
+    );
+    const attempt = await this._validateAttemptScope(
+      kelasPraktikumId,
+      jobsheetId,
+      lecturerId,
+      query,
+    );
     const structure = await this._getStructure(jobsheetId, context.content);
-    const students = await this._getStudents(kelasPraktikumId, jobsheetId, attempt);
-    const sidebar = this._buildSidebar(structure.groups, structure.items, students);
+    const students = await this._getStudents(
+      kelasPraktikumId,
+      jobsheetId,
+      attempt,
+    );
+    const sidebar = this._buildSidebar(
+      structure.groups,
+      structure.items,
+      students,
+      attempt,
+      kelasPraktikumId,
+      jobsheetId,
+    );
 
     return {
       context,
@@ -580,7 +852,7 @@ class MonitoringService {
         label: attempt.label,
       },
       attempts: attempt.attempts,
-      summary: this._summary(students),
+      summary: this._summary(students, kelasPraktikumId, jobsheetId, attempt),
       sidebar,
       insights: this._insights(sidebar),
       lastUpdatedAt: new Date().toISOString(),
@@ -695,7 +967,10 @@ class MonitoringService {
       const threshold = Number(row.inactive_threshold_minutes || 15);
       const lastActiveAt = row.last_active_at || null;
       const inactiveDurationMinutes = lastActiveAt
-        ? Math.max(0, Math.floor((Date.now() - new Date(lastActiveAt).getTime()) / 60000))
+        ? Math.max(
+            0,
+            Math.floor((Date.now() - new Date(lastActiveAt).getTime()) / 60000),
+          )
         : null;
       const activityStatus = toActivityStatus(lastActiveAt, threshold);
 
@@ -704,19 +979,26 @@ class MonitoringService {
         nim: row.nim || '-',
         name: row.fullname,
         profilePhotoUrl: row.avatar_url || null,
-        currentJobsheet: row.jobsheet_id ? {
-          id: row.jobsheet_id,
-          name: row.jobsheet_title,
-          urutan: row.urutan,
-        } : null,
-        currentSection: row.section_type ? {
-          type: row.section_type,
-          id: row.exercise_id || row.experiment_id || row.instruction_id,
-          name: row.section_name,
-        } : null,
+        currentJobsheet: row.jobsheet_id
+          ? {
+              id: row.jobsheet_id,
+              name: row.jobsheet_title,
+              urutan: row.urutan,
+            }
+          : null,
+        currentSection: row.section_type
+          ? {
+              type: row.section_type,
+              id: row.exercise_id || row.experiment_id || row.instruction_id,
+              name: row.section_name,
+            }
+          : null,
         lastActiveAt,
         inactiveDurationMinutes,
-        inactiveDurationLabel: inactiveDurationMinutes == null ? 'Belum ada aktivitas' : formatInactiveDuration(inactiveDurationMinutes * 60),
+        inactiveDurationLabel:
+          inactiveDurationMinutes == null
+            ? 'Belum ada aktivitas'
+            : formatInactiveDuration(inactiveDurationMinutes * 60),
         inactiveThresholdMinutes: threshold,
         inactiveThresholdSource: row.inactive_threshold_source || 'default',
         activityStatus,
@@ -737,9 +1019,15 @@ class MonitoringService {
       },
       summary: {
         totalStudents: students.length,
-        active: students.filter((student) => student.activityStatus === 'active').length,
-        inactive: students.filter((student) => student.activityStatus === 'inactive').length,
-        notStarted: students.filter((student) => student.activityStatus === 'not_started').length,
+        active: students.filter(
+          (student) => student.activityStatus === 'active',
+        ).length,
+        inactive: students.filter(
+          (student) => student.activityStatus === 'inactive',
+        ).length,
+        notStarted: students.filter(
+          (student) => student.activityStatus === 'not_started',
+        ).length,
       },
       students,
       lastUpdatedAt: new Date().toISOString(),
@@ -750,40 +1038,87 @@ class MonitoringService {
     const moduleType = query.moduleType;
     const moduleId = query.moduleId;
     const stepId = query.stepId || null;
-    const item = items.find((candidate) => (
-      candidate.moduleType === moduleType
-      && candidate.moduleId === moduleId
-      && (candidate.stepId || null) === stepId
-    ));
+    const item = items.find(
+      (candidate) =>
+        candidate.moduleType === moduleType &&
+        candidate.moduleId === moduleId &&
+        (candidate.stepId || null) === stepId,
+    );
     if (!item) throw new NotFoundError('Lokasi jobsheet tidak ditemukan.');
     return item;
   }
 
-  async getLocationDetail({ kelasPraktikumId, jobsheetId, lecturerId, query = {} }) {
-    const context = await this._resolveContext(kelasPraktikumId, jobsheetId, lecturerId);
-    const attempt = await this._validateAttemptScope(kelasPraktikumId, jobsheetId, lecturerId, query);
+  async getLocationDetail({
+    kelasPraktikumId,
+    jobsheetId,
+    lecturerId,
+    query = {},
+  }) {
+    const context = await this._resolveContext(
+      kelasPraktikumId,
+      jobsheetId,
+      lecturerId,
+    );
+    const attempt = await this._validateAttemptScope(
+      kelasPraktikumId,
+      jobsheetId,
+      lecturerId,
+      query,
+    );
     const structure = await this._getStructure(jobsheetId, context.content);
     const location = this._findLocation(structure.items, query);
-    const students = await this._getStudents(kelasPraktikumId, jobsheetId, attempt);
+    location.runningCount = RunningExecutionsTracker.getRunningCount(
+      kelasPraktikumId,
+      jobsheetId,
+      attempt.attemptType,
+      attempt.remedialId,
+      location.moduleType,
+      location.moduleId,
+      location.stepId,
+    );
+    const students = await this._getStudents(
+      kelasPraktikumId,
+      jobsheetId,
+      attempt,
+    );
 
-    const rows = students.map((student) => {
-      const rawStatus = this._classifyStudentForItem(student, location, structure.items);
-      const labelMap = {
-        active_here: 'Sedang Mengerjakan',
-        completed_here: 'Sudah Selesai',
-        not_started_here: 'Belum Memulai',
-        elsewhere: 'Berada di Lokasi Lain',
-      };
-      return {
-        ...this._publicStudent(student),
-        locationStatus: rawStatus,
-        locationStatusLabel: labelMap[rawStatus],
-        progressScore: student.calculated_progress_score != null ? Number(student.calculated_progress_score) : null,
-        submissionId: student.submission_id || null,
-        submissionStatus: student.submission_status || null,
-        submissionLabel: mapSubmissionLabel(student),
-      };
-    });
+    const rows = await Promise.all(
+      students.map(async (student) => {
+        const rawStatus = this._classifyStudentForItem(
+          student,
+          location,
+          structure.items,
+        );
+        const labelMap = {
+          active_here: 'Sedang Mengerjakan',
+          completed_here: 'Sudah Selesai',
+          not_started_here: 'Belum Memulai',
+          elsewhere: 'Berada di Lokasi Lain',
+        };
+        const studentRunCount = await this._getStudentLocationRunCount(
+          student.student_id,
+          kelasPraktikumId,
+          jobsheetId,
+          attempt.remedialId,
+          location.moduleType,
+          location.moduleId,
+          location.stepId,
+        );
+        return {
+          ...this._publicStudent(student),
+          locationStatus: rawStatus,
+          locationStatusLabel: labelMap[rawStatus],
+          progressScore:
+            student.calculated_progress_score != null
+              ? Number(student.calculated_progress_score)
+              : null,
+          submissionId: student.submission_id || null,
+          submissionStatus: student.submission_status || null,
+          submissionLabel: mapSubmissionLabel(student),
+          runCount: studentRunCount,
+        };
+      }),
+    );
 
     return {
       context,
@@ -794,23 +1129,50 @@ class MonitoringService {
       },
       location,
       statistics: {
-        activeCount: rows.filter((row) => row.locationStatus === 'active_here').length,
-        completedCount: rows.filter((row) => row.locationStatus === 'completed_here').length,
-        notStartedCount: rows.filter((row) => row.locationStatus === 'not_started_here').length,
-        elsewhereCount: rows.filter((row) => row.locationStatus === 'elsewhere').length,
+        activeCount: rows.filter((row) => row.locationStatus === 'active_here')
+          .length,
+        completedCount: rows.filter(
+          (row) => row.locationStatus === 'completed_here',
+        ).length,
+        notStartedCount: rows.filter(
+          (row) => row.locationStatus === 'not_started_here',
+        ).length,
+        elsewhereCount: rows.filter((row) => row.locationStatus === 'elsewhere')
+          .length,
       },
       students: rows,
       lastUpdatedAt: new Date().toISOString(),
     };
   }
 
-  async getStudentWorkpage({ kelasPraktikumId, jobsheetId, studentId, lecturerId, query = {} }) {
-    const context = await this._resolveContext(kelasPraktikumId, jobsheetId, lecturerId);
-    const attempt = await this._validateAttemptScope(kelasPraktikumId, jobsheetId, lecturerId, query);
-    const students = await this._getStudents(kelasPraktikumId, jobsheetId, attempt);
+  async getStudentWorkpage({
+    kelasPraktikumId,
+    jobsheetId,
+    studentId,
+    lecturerId,
+    query = {},
+  }) {
+    const context = await this._resolveContext(
+      kelasPraktikumId,
+      jobsheetId,
+      lecturerId,
+    );
+    const attempt = await this._validateAttemptScope(
+      kelasPraktikumId,
+      jobsheetId,
+      lecturerId,
+      query,
+    );
+    const students = await this._getStudents(
+      kelasPraktikumId,
+      jobsheetId,
+      attempt,
+    );
     const student = students.find((item) => item.student_id === studentId);
     if (!student) {
-      throw new NotFoundError('Mahasiswa tidak ditemukan pada kelas praktikum ini.');
+      throw new NotFoundError(
+        'Mahasiswa tidak ditemukan pada kelas praktikum ini.',
+      );
     }
     const structure = await this._getStructure(jobsheetId, context.content);
     const logsResult = await this._pool.query(
@@ -832,21 +1194,28 @@ class MonitoringService {
         uniqueLogs.push(log);
       } else {
         const last = uniqueLogs[uniqueLogs.length - 1];
-        const isDuplicate = last.activity_type === log.activity_type
-          && last.experiment_id === log.experiment_id
-          && last.instruction_id === log.instruction_id
-          && Math.abs(new Date(last.created_at).getTime() - new Date(log.created_at).getTime()) < 3000;
+        const isDuplicate =
+          last.activity_type === log.activity_type &&
+          last.experiment_id === log.experiment_id &&
+          last.instruction_id === log.instruction_id &&
+          Math.abs(
+            new Date(last.created_at).getTime() -
+              new Date(log.created_at).getTime(),
+          ) < 3000;
         if (!isDuplicate) {
           uniqueLogs.push(log);
         }
       }
     }
 
-    let progressScore = student.calculated_progress_score != null ? {
-      progressScore: Number(student.calculated_progress_score),
-      items: student.score_breakdown?.items || [],
-      calculatedAt: student.score_breakdown?.calculatedAt || null,
-    } : null;
+    let progressScore =
+      student.calculated_progress_score != null
+        ? {
+            progressScore: Number(student.calculated_progress_score),
+            items: student.score_breakdown?.items || [],
+            calculatedAt: student.score_breakdown?.calculatedAt || null,
+          }
+        : null;
 
     if (!progressScore && student.first_opened_at) {
       progressScore = await JobsheetProgressScoringService.calculate({
@@ -868,16 +1237,22 @@ class MonitoringService {
       FROM student_jobsheet_activity_logs
       WHERE student_id = $1
         AND jobsheet_id = $2
-        AND activity_type = 'run_code'
+        AND UPPER(activity_type) = 'CODE_RUN'
         AND (${attempt.remedialId ? 'remedial_id = $3' : 'remedial_id IS NULL'})
     `;
-    const runCountParams = attempt.remedialId ? [studentId, jobsheetId, attempt.remedialId] : [studentId, jobsheetId];
+    const runCountParams = attempt.remedialId
+      ? [studentId, jobsheetId, attempt.remedialId]
+      : [studentId, jobsheetId];
 
     if (activeType && activeId) {
       if (activeType === 'experiments' || activeType === 'experiment') {
         runCountQuery += ` AND experiment_id = $${runCountParams.length + 1}`;
         runCountParams.push(activeId);
-      } else if (activeType === 'exercises' || activeType === 'exercise' || activeType === 'theory') {
+      } else if (
+        activeType === 'exercises' ||
+        activeType === 'exercise' ||
+        activeType === 'theory'
+      ) {
         runCountQuery += ` AND instruction_id = $${runCountParams.length + 1}`;
         runCountParams.push(activeId);
       }
@@ -897,7 +1272,9 @@ class MonitoringService {
          AND (${attempt.remedialId ? 'remedial_id = $3' : 'remedial_id IS NULL'})
        ORDER BY created_at DESC
        LIMIT 1`,
-      attempt.remedialId ? [studentId, jobsheetId, attempt.remedialId] : [studentId, jobsheetId],
+      attempt.remedialId
+        ? [studentId, jobsheetId, attempt.remedialId]
+        : [studentId, jobsheetId],
     );
 
     const hasActivity = lastActivityRes.rows.length > 0;
@@ -909,7 +1286,10 @@ class MonitoringService {
       lastMeaningfulActivityAt = lastActivityRes.rows[0].created_at;
       const lastActiveDate = new Date(lastMeaningfulActivityAt);
       const nowDate = new Date();
-      inactiveDurationSeconds = Math.max(0, Math.floor((nowDate.getTime() - lastActiveDate.getTime()) / 1000));
+      inactiveDurationSeconds = Math.max(
+        0,
+        Math.floor((nowDate.getTime() - lastActiveDate.getTime()) / 1000),
+      );
       inactiveLabel = formatInactiveDuration(inactiveDurationSeconds);
     }
 
@@ -924,7 +1304,9 @@ class MonitoringService {
       student: this._publicStudent(student),
       status: this._submissionStatus(student),
       progress: {
-        progressPercentage: Number(student.progress_percentage || student.progress || 0),
+        progressPercentage: Number(
+          student.progress_percentage || student.progress || 0,
+        ),
         completedItems: student.completed_items,
         currentLocation: this._activeLocation(student, structure.items),
         firstOpenedAt: student.first_opened_at,
@@ -939,8 +1321,10 @@ class MonitoringService {
         isAutoSubmitted: Boolean(student.is_auto_submitted),
         attemptNo: student.attempt_no || null,
         attemptType: student.attempt_type || attempt.attemptType,
-        remedialId: student.submission_remedial_id || attempt.remedialId || null,
-        finalScore: student.final_score != null ? Number(student.final_score) : null,
+        remedialId:
+          student.submission_remedial_id || attempt.remedialId || null,
+        finalScore:
+          student.final_score != null ? Number(student.final_score) : null,
         progressScore,
         report: student.report,
       },

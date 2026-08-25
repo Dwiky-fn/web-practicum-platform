@@ -76,9 +76,22 @@ export default function SidebarItem({
             {item.title}
           </span>
           {item.meta?.isLastPosition && (
-            <span className="mt-1 block rounded-md bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700 whitespace-pre-line">
-              {item.meta.positionLabel || "Posisi Terakhir"}
-            </span>
+            <div className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-blue-50 border border-blue-200 px-2 py-1 text-[11px] font-semibold text-blue-700">
+              {item.meta.studentAvatar ? (
+                <>
+                  {item.meta.studentAvatar.profilePhotoUrl ? (
+                    <img src={item.meta.studentAvatar.profilePhotoUrl} alt="" className="h-4 w-4 rounded-full object-cover border border-blue-400 shrink-0" />
+                  ) : (
+                    <div className="h-4 w-4 rounded-full bg-blue-600 text-white font-bold text-[8px] flex items-center justify-center shrink-0">
+                      {item.meta.studentAvatar.initials || item.meta.studentAvatar.fullname?.slice(0, 2).toUpperCase() || item.meta.studentAvatar.name?.slice(0, 2).toUpperCase() || "?"}
+                    </div>
+                  )}
+                  <span className="truncate max-w-[100px]">{item.meta.studentAvatar.fullname || item.meta.studentAvatar.name || "Mahasiswa"}</span>
+                </>
+              ) : (
+                <span>{item.meta.positionLabel || "Posisi Terakhir"}</span>
+              )}
+            </div>
           )}
         </span>
       )}

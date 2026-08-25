@@ -198,7 +198,7 @@ export function getSubmissionReviewStatus(submission: JobsheetSubmission | null)
 }
 
 export function formatAttemptLabel(submission: Pick<JobsheetSubmission, "attemptType" | "attemptNo" | "attemptLabel"> | null | undefined) {
-  if (!submission || submission.attemptType === "normal") return "Pengerjaan Normal"
+  if (!submission || submission.attemptType === "normal") return "Pengerjaan Reguler"
   const remedialNumber = Math.max(1, Number(submission.attemptNo || 2) - 1)
   return `Remedial ${remedialNumber}`
 }

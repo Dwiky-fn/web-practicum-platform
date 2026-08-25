@@ -1,5 +1,4 @@
 import Highlight from "@tiptap/extension-highlight"
-import HorizontalRule from "@tiptap/extension-horizontal-rule"
 import Placeholder from "@tiptap/extension-placeholder"
 import Subscript from "@tiptap/extension-subscript"
 import Superscript from "@tiptap/extension-superscript"
@@ -40,7 +39,6 @@ export function getEditorExtensions(
     FontSizeExtension,
     IndentExtension,
     Highlight,
-    HorizontalRule,
     Subscript,
     Superscript,
     Typography,

@@ -1,9 +1,10 @@
-﻿import { CurrentUserProvider } from "./services/user/CurrentUserProvider"
+import { CurrentUserProvider } from "./services/user/CurrentUserProvider"
 import { useCurrentUser } from "./services/user/useCurrentUser"
 import FullScreenLoader from "./components/loading/FullScreenLoader"
 import TopProgressBar from "./components/loading/TopProgressBar"
 import ToastContainer from "./components/toast/ToastContainer"
 import { AppRoutes } from "./routes"
+import { ChatNotificationProvider } from "./services/chat/ChatNotificationContext"
 
 function AppContent() {
   const { user, loading } = useCurrentUser()
@@ -12,7 +13,11 @@ function AppContent() {
     return <FullScreenLoader text="Memeriksa sesi..." />
   }
 
-  return <AppRoutes user={user} />
+  return (
+    <ChatNotificationProvider>
+      <AppRoutes user={user} />
+    </ChatNotificationProvider>
+  )
 }
 
 export default function App() {

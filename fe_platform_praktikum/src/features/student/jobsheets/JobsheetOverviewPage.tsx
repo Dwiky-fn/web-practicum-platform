@@ -307,7 +307,7 @@ function SubmissionHistoryCard({
             <table className="w-full text-left text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-100 text-gray-400 font-semibold text-xs uppercase tracking-wider">
-                  <th className="py-2.5 px-3">Attempt</th>
+                  <th className="py-2.5 px-3">Jenis Pengerjaan</th>
                   <th className="py-2.5 px-3">Status</th>
                   <th className="py-2.5 px-3">Tanggal</th>
                   <th className="py-2.5 px-3 text-right">Nilai</th>
@@ -318,7 +318,7 @@ function SubmissionHistoryCard({
                 {history.map((item) => {
                   const title = item.attemptLabel || (item.attemptType === "remedial"
                     ? `Remedial ${Math.max(1, Number(item.attemptNo || 2) - 1)}`
-                    : "Pengerjaan Normal");
+                    : "Pengerjaan Reguler");
                   const score = item.finalScore ?? null;
                   const dateStr = item.submittedAt ? formatAcademicDate(new Date(item.submittedAt)) : "-";
                   const scoreStr = score !== null ? `${score} / 100` : "-";
@@ -395,7 +395,7 @@ function SubmissionHistoryCard({
             {history.map((item) => {
               const title = item.attemptLabel || (item.attemptType === "remedial"
                 ? `Remedial ${Math.max(1, Number(item.attemptNo || 2) - 1)}`
-                : "Pengerjaan Normal");
+                : "Pengerjaan Reguler");
               const score = item.finalScore ?? null;
               const dateStr = item.submittedAt ? formatAcademicDate(new Date(item.submittedAt)) : "-";
               const scoreStr = score !== null ? `${score} / 100` : "-";

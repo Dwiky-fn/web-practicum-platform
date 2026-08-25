@@ -5,6 +5,7 @@ import { LecturerButton } from "../LecturerUI"
 import { toast } from "../../../../components/toast/toastStore"
 import type { ReviewFeedback } from "../../../../services/reviewFeedbackService"
 import type { SelectedLineRange } from "./CodeReviewBlock"
+import SaveStatusIndicator, { type SaveStatus } from "./SaveStatusIndicator"
 
 interface Props {
   experiments?: Array<{ id: string; title: string }>
@@ -24,7 +25,11 @@ interface Props {
   onSetActiveExperimentId?: (id: string | null) => void
   score: string
   saving: boolean
+  saveStatus?: SaveStatus
+  lastSavedAt?: Date | null
+  saveError?: string
   onSaveReview: (decision: "ACCEPTED") => void
+  onAutoSave?: () => void
   activeTab: "komentar_kode" | "jobsheet"
   onTabChange: (tab: "komentar_kode" | "jobsheet") => void
   submissionId: string
@@ -50,7 +55,11 @@ export default function ReviewSidePanel({
 
   score,
   saving,
+  saveStatus = "idle",
+  lastSavedAt = null,
+  saveError = "",
   onSaveReview,
+  onAutoSave,
   activeTab,
   onTabChange,
   submissionId,
@@ -161,6 +170,7 @@ export default function ReviewSidePanel({
       } else {
         await onCreateFeedback(payload)
       }
+      onAutoSave?.()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal menyimpan catatan dosen jobsheet.")
     }
@@ -231,6 +241,16 @@ export default function ReviewSidePanel({
 
   return (
     <div className="sticky top-6 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm flex flex-col max-h-[calc(100vh-120px)] w-full max-w-[400px]">
+      {/* ── Single Simplified Save Status Bar ── */}
+      <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50/80 px-3.5 py-2 text-xs">
+        <span className="font-semibold text-gray-600">Status Evaluasi:</span>
+        <SaveStatusIndicator
+          status={saveStatus}
+          lastSavedAt={lastSavedAt}
+          errorMessage={saveError}
+        />
+      </div>
+
       {/* Header Tabs */}
       <div className="flex bg-gray-50 border-b border-gray-200 text-[11px] font-bold select-none">
         {(
@@ -519,7 +539,7 @@ export default function ReviewSidePanel({
                 </div>
 
                 {/* Save Overall Review button */}
-                <div className="border-t border-gray-200 pt-4 mt-2">
+                <div className="border-t border-gray-200 pt-4 mt-2 flex flex-col gap-2">
                   <LecturerButton
                     className="w-full py-2 text-xs bg-green-600 hover:bg-green-700 text-white border-none"
                     disabled={saving}

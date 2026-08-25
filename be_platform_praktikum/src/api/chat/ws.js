@@ -101,15 +101,28 @@ function initChatWebSocketServer(server, chatService) {
       }
 
       try {
-        const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+        const secret =
+          process.env.AUTH_TOKEN_SECRET ||
+          process.env.JWT_SECRET ||
+          process.env.ACCESS_TOKEN_SECRET ||
+          (process.env.NODE_ENV === "production" ? null : "development-only-auth-secret")
+
+        if (!secret) {
+          throw new Error("SECRET_NOT_FOUND")
+        }
+
+        const decoded = jwt.verify(token, secret)
+        const userId = decoded.sub || decoded.id
+
         wss.handleUpgrade(request, socket, head, (ws) => {
-          ws.user = decoded;
-          ws.userId = decoded.id;
-          wss.emit('connection', ws, request);
-        });
-      } catch {
-        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-        socket.destroy();
+          ws.user = { id: userId, sub: userId, role: decoded.role }
+          ws.userId = userId
+          wss.emit("connection", ws, request)
+        })
+      } catch (err) {
+        console.error("[CHAT-WS] Token verification failed:", err.message)
+        socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n")
+        socket.destroy()
       }
     }
   });

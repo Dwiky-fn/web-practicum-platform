@@ -147,7 +147,7 @@ export default function SubmissionValidationCard({
       <div>
         {readOnly ? (
           <p className="text-sm text-gray-500">
-            Pengerjaan normal telah dikunci.
+            Pengerjaan reguler telah dikunci.
           </p>
         ) : isAllValid ? (
           <p className="text-sm text-green-600 font-medium">

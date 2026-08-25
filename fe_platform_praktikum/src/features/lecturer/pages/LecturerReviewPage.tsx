@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useBackNavigation } from "../../../shared/utils/backNavigation";
 const emptyDoc = { type: "doc" as const, content: [] }
@@ -33,6 +33,7 @@ import type { ReviewFeedback } from "../../../services/reviewFeedbackService"
 import type { SelectedLineRange } from "../components/review/CodeReviewBlock"
 import ExperimentReviewCard from "../components/review/ExperimentReviewCard"
 import ReviewSidePanel from "../components/review/ReviewSidePanel"
+import type { SaveStatus } from "../components/review/SaveStatusIndicator"
 import { toast } from "../../../components/toast/toastStore"
 
 function isAiDerivedFeedback(item: ReviewFeedback) {
@@ -283,6 +284,10 @@ export default function LecturerReviewPage() {
   const [submission, setSubmission] = useState<JobsheetSubmission | null>(null)
   const [student, setStudent] = useState<{ fullname: string; nim: string } | null>(null)
   const [saving, setSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
+  const [saveError, setSaveError] = useState("")
+  const currentSaveRequestIdRef = useRef(0)
   const [successDecision, setSuccessDecision] = useState<"ACCEPTED" | null>(null)
 
   // Review feedbacks states
@@ -321,6 +326,7 @@ export default function LecturerReviewPage() {
   const [deletingAiFeedback, setDeletingAiFeedback] = useState(false)
   const [confirmDeleteAiFeedback, setConfirmDeleteAiFeedback] = useState(false)
   const [sectionEvaluations, setSectionEvaluations] = useState<Record<string, SectionEvaluationDraft>>({})
+  const sectionEvaluationsRef = useRef<Record<string, SectionEvaluationDraft>>({})
 
   useEffect(() => {
     async function loadData() {
@@ -350,7 +356,9 @@ export default function LecturerReviewPage() {
 
         setScore(String(selectedSubmission?.review?.finalScore ?? ""))
         if (selectedSubmission) {
-          setSectionEvaluations(buildSectionEvaluationDrafts(selectedJobsheet, selectedSubmission))
+          const initialDrafts = buildSectionEvaluationDrafts(selectedJobsheet, selectedSubmission)
+          setSectionEvaluations(initialDrafts)
+          sectionEvaluationsRef.current = initialDrafts
         }
 
         if (classId) {
@@ -449,10 +457,14 @@ export default function LecturerReviewPage() {
         prev
           ? {
               ...prev,
+              aiEvaluationStatus: "none",
+              aiEvaluationError: undefined,
+              aiEvaluatedAt: undefined,
               score: undefined,
               review: prev.review
                 ? {
                     ...prev.review,
+                    aiScore: undefined,
                     aiFeedback: undefined,
                   }
                 : prev.review,
@@ -637,13 +649,13 @@ export default function LecturerReviewPage() {
 
 
 
-  async function handleSaveReview(nextDecision: "ACCEPTED") {
+  const performSaveLecturerReview = useCallback(async (nextDecision?: "ACCEPTED") => {
     if (!user || !submission) return
 
     const jobsheetFeedback = feedbacks.find(f => f.scope === "jobsheet")
     const lecturerFeedbackText = jobsheetFeedback ? jobsheetFeedback.content : ""
 
-    const sectionEvaluationPayload = Object.values(sectionEvaluations)
+    const sectionEvaluationPayload = Object.values(sectionEvaluationsRef.current)
       .filter((item) => item.score !== "")
       .map((item) => ({
         type: item.type,
@@ -654,15 +666,19 @@ export default function LecturerReviewPage() {
         aiFeedback: item.aiFeedback,
       }))
 
+    const decisionPayload = nextDecision || (submission.review?.decision === "ACCEPTED" ? "ACCEPTED" : "PENDING")
+    const requestId = ++currentSaveRequestIdRef.current
+
     try {
       setSaving(true)
-      setError("")
+      setSaveStatus("saving")
+      setSaveError("")
 
       await saveLecturerSubmissionReview(submission.id, {
         lecturerId: user.id,
         aiScore: submission.score !== undefined && submission.score !== null ? Math.min(100, Math.max(0, submission.score)) : undefined,
         feedback: lecturerFeedbackText,
-        decision: nextDecision,
+        decision: decisionPayload,
         sectionEvaluations: sectionEvaluationPayload,
         aiFeedback: {
           feedbacks: feedbacks,
@@ -670,16 +686,58 @@ export default function LecturerReviewPage() {
       })
 
       const refreshedSubmission = await getLecturerSubmission(courseId, jobsheetId, studentId, nativeScope)
-      setSubmission(refreshedSubmission)
-      setSuccessDecision(nextDecision)
-      toast.success("Review berhasil disimpan dan submission diterima.")
-      setIsEditingReview(false)
-    } catch (saveError) {
-      toast.error(saveError instanceof Error ? saveError.message : "Gagal menyimpan review dosen.")
+      if (requestId === currentSaveRequestIdRef.current) {
+        setSubmission(refreshedSubmission)
+        if (nextDecision === "ACCEPTED") {
+          setSuccessDecision("ACCEPTED")
+          setIsEditingReview(false)
+          toast.success("Review berhasil disimpan dan submission diterima.")
+        }
+        setSaveStatus("saved")
+        setLastSavedAt(new Date())
+      }
+    } catch (saveErr) {
+      if (requestId === currentSaveRequestIdRef.current) {
+        const msg = saveErr instanceof Error ? saveErr.message : "Gagal menyimpan review dosen."
+        setSaveStatus("error")
+        setSaveError(msg)
+        if (nextDecision === "ACCEPTED") {
+          toast.error(msg)
+        }
+      }
     } finally {
-      setSaving(false)
+      if (requestId === currentSaveRequestIdRef.current) {
+        setSaving(false)
+      }
     }
-  }
+  }, [user, submission, feedbacks, courseId, jobsheetId, studentId])
+
+  const handleSaveReview = useCallback(async (nextDecision: "ACCEPTED") => {
+    await performSaveLecturerReview(nextDecision)
+  }, [performSaveLecturerReview])
+
+  const handleAutoSaveReview = useCallback(async () => {
+    await performSaveLecturerReview()
+  }, [performSaveLecturerReview])
+
+  const handleSectionEvaluationChange = useCallback((sectionKey: string, value: { score: string; feedback: string }) => {
+    const isExercise = sectionKey.startsWith("exercise:")
+    const sectionId = sectionKey.split(":")[1]
+
+    sectionEvaluationsRef.current = {
+      ...sectionEvaluationsRef.current,
+      [sectionKey]: {
+        ...(sectionEvaluationsRef.current[sectionKey] || {
+          type: isExercise ? "exercise" : "experiment",
+          sectionId,
+        }),
+        ...value,
+      },
+    }
+
+    setSectionEvaluations({ ...sectionEvaluationsRef.current })
+    setSaveStatus("saving")
+  }, [])
 
   const scoreBreakdownItems = submission?.scoreBreakdown?.items ?? []
   const automaticFinalScore = useMemo(() => {
@@ -817,7 +875,7 @@ export default function LecturerReviewPage() {
                   <dd className="text-gray-900">{formatAcademicDateTime(submission.updatedAt)}</dd>
                   {submission && (submission as any).attemptLabel && (
                     <>
-                      <dt className="text-gray-600 font-medium">Attempt / Pengerjaan</dt>
+                      <dt className="text-gray-600 font-medium">Jenis Pengerjaan</dt>
                       <dd className="text-gray-900">
                         <span className="font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded text-xs">
                           {(submission as any).attemptLabel}
@@ -1012,13 +1070,8 @@ export default function LecturerReviewPage() {
                         maxScore: Number(experiment.rubric || 0),
                         feedback: sectionEvaluations[`experiment:${experiment.id}`]?.aiFeedback || "",
                       }}
-                      onEvaluationChange={(value) => setSectionEvaluations((current) => ({
-                        ...current,
-                        [`experiment:${experiment.id}`]: {
-                          ...(current[`experiment:${experiment.id}`] || { type: "experiment", sectionId: experiment.id }),
-                          ...value,
-                        },
-                      }))}
+                      onEvaluationChange={(value) => handleSectionEvaluationChange(`experiment:${experiment.id}`, value)}
+                      onAutoSave={handleAutoSaveReview}
                       feedbacks={feedbacks}
                       readOnly={isReadOnly}
                       selectedLineRange={isReadOnly ? null : selectedLineRange}
@@ -1073,13 +1126,8 @@ export default function LecturerReviewPage() {
                           maxScore: Number(exercise.rubric || 0),
                           feedback: sectionEvaluations[`exercise:${exercise.id}`]?.aiFeedback || "",
                         }}
-                        onEvaluationChange={(value) => setSectionEvaluations((current) => ({
-                          ...current,
-                          [`exercise:${exercise.id}`]: {
-                            ...(current[`exercise:${exercise.id}`] || { type: "exercise", sectionId: exercise.id }),
-                            ...value,
-                          },
-                        }))}
+                        onEvaluationChange={(value) => handleSectionEvaluationChange(`exercise:${exercise.id}`, value)}
+                        onAutoSave={handleAutoSaveReview}
                         feedbacks={feedbacks}
                         readOnly={isReadOnly}
                         selectedLineRange={isReadOnly ? null : selectedLineRange}
@@ -1135,7 +1183,11 @@ export default function LecturerReviewPage() {
                   onSetActiveExperimentId={setActiveExperimentId}
                   score={score}
                   saving={saving}
+                  saveStatus={saveStatus}
+                  lastSavedAt={lastSavedAt}
+                  saveError={saveError}
                   onSaveReview={handleSaveReview}
+                  onAutoSave={handleAutoSaveReview}
                   activeTab={activeTab}
                   onTabChange={setActiveTab}
                   readOnly={isReadOnly}

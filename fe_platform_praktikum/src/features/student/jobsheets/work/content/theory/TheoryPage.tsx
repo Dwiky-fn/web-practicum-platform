@@ -1,6 +1,7 @@
 import { useParams, useOutletContext } from "react-router-dom"
 import type { Jobsheet } from "../../../../../../services/jobsheet/types"
 import RichTextViewer from "../../../../../../components/editor/RichTextViewer"
+import ProtectedContentContainer from "../../../../../../shared/components/ProtectedContentContainer"
 
 export default function TheoryPage() {
   const { theoryId } = useParams()
@@ -20,8 +21,7 @@ export default function TheoryPage() {
   }
 
   return (
-    <div className="space-y-8 relative pb-8">
-
+    <ProtectedContentContainer className="space-y-8 relative pb-8">
       <h1 className="text-3xl font-semibold text-gray-800">
         {theory.title}
       </h1>
@@ -32,7 +32,8 @@ export default function TheoryPage() {
       <RichTextViewer
         content={theory.content}
         mode="viewer-theory"
+        isProtected
       />
-    </div>
+    </ProtectedContentContainer>
   );
 }

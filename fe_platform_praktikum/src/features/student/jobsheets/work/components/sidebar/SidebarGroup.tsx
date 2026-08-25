@@ -20,6 +20,19 @@ export default function SidebarGroup({
 
   const location = useLocation()
 
+  if (!group.children || group.children.length === 0) {
+    return (
+      <div className="py-0.5">
+        <SidebarItem
+          item={group}
+          status={getStatus(group.path)}
+          collapsed={collapsed}
+          onBeforeNavigate={onBeforeNavigate}
+        />
+      </div>
+    )
+  }
+
   const hasActiveChild = group.children?.some(child =>
     location.pathname.startsWith((child.path ?? "").split("?")[0])
   )

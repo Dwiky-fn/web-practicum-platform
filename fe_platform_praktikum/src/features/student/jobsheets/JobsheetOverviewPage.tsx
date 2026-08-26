@@ -365,7 +365,15 @@ function SubmissionHistoryCard({
                             isReviewed ? (
                               <button
                                 type="button"
-                                onClick={() => navigate(`${academicJobsheetWorkPath(courseId, jobsheetId, { classId, mataKuliahId, kelasPraktikumId })}/report/review`)}
+                                onClick={() => navigate(academicJobsheetSubPath(courseId, jobsheetId, "review", {
+                                  classId,
+                                  mataKuliahId,
+                                  kelasPraktikumId,
+                                  submissionId: item.submissionId,
+                                  remedialId: item.remedialId,
+                                  attemptType: item.attemptType,
+                                  attemptNo: item.attemptNo,
+                                }))}
                                 className="inline-flex items-center px-2.5 py-1 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs transition cursor-pointer"
                               >
                                 Lihat Review
@@ -441,7 +449,15 @@ function SubmissionHistoryCard({
                       isReviewed ? (
                         <button
                           type="button"
-                          onClick={() => navigate(`${academicJobsheetWorkPath(courseId, jobsheetId, { classId, mataKuliahId, kelasPraktikumId })}/report/review`)}
+                          onClick={() => navigate(academicJobsheetSubPath(courseId, jobsheetId, "review", {
+                            classId,
+                            mataKuliahId,
+                            kelasPraktikumId,
+                            submissionId: item.submissionId,
+                            remedialId: item.remedialId,
+                            attemptType: item.attemptType,
+                            attemptNo: item.attemptNo,
+                          }))}
                           className="flex-1 py-1.5 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs transition cursor-pointer text-center"
                         >
                           Lihat Review

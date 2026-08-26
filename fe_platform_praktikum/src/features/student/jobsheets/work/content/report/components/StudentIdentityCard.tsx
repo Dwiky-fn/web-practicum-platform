@@ -55,12 +55,12 @@ export default function StudentIdentityCard({ jobsheet, submission }: Props) {
               <dt className="text-gray-500 font-medium">Diperbarui</dt>
               <dd className="text-gray-900 font-medium">{formatAcademicDateTime(submission.updatedAt)}</dd>
 
-              {submission.attemptLabel && (
+              {(submission.attemptLabel || submission.attemptType) && (
                 <>
                   <dt className="text-gray-500 font-medium">Jenis Pengerjaan</dt>
                   <dd>
                     <span className="font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded text-xs inline-block">
-                      {submission.attemptLabel}
+                      {submission.attemptLabel || (submission.attemptType === "remedial" ? `Pengerjaan Remedial${submission.attemptNo ? ` (Ke-${submission.attemptNo})` : ""}` : "Pengerjaan Reguler")}
                     </span>
                   </dd>
                 </>

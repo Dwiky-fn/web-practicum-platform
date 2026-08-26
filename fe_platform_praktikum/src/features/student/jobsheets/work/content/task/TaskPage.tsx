@@ -2,7 +2,7 @@ import { useOutletContext, useNavigate, useParams, useLocation } from "react-rou
 import { useState } from "react"
 import type { Jobsheet } from "../../../../../../services/jobsheet/types" 
 import type { JobsheetSubmission } from "../../../../../../services/submission/types"
-import { academicJobsheetSubPath } from "../../../../../../services/academicScope"
+import { academicJobsheetPath, academicJobsheetSubPath } from "../../../../../../services/academicScope"
 import SubmissionActivityTimeline from "./components/SubmissionActivityTimeline"
 import { submitSubmission, updateSubmission } from "../../../../../../services/submission/service"
 import { updateStudentProgressApi } from "../../../../../../services/progress/service"
@@ -26,6 +26,9 @@ export default function TaskPage() {
     mataKuliahId: routeMataKuliahId || searchParams.get("mataKuliahId") || undefined,
     kelasPraktikumId: searchParams.get("kelasPraktikumId") || undefined,
   }
+  const detailJobsheetPath = jobsheetId && effectiveCourseId
+    ? academicJobsheetPath(effectiveCourseId, jobsheetId, academicScope)
+    : "/mata-kuliah"
 
   const { jobsheet, submission, readOnly } = useOutletContext<{
     jobsheet: Jobsheet
@@ -175,7 +178,7 @@ export default function TaskPage() {
             </p>
             <button
               type="button"
-              onClick={() => window.location.reload()}
+              onClick={() => navigate(detailJobsheetPath)}
               aria-label="Kembali"
               title="Kembali"
               className="w-full flex items-center justify-center gap-2 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"

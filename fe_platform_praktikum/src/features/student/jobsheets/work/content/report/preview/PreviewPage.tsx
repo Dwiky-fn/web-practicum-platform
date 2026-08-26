@@ -18,7 +18,7 @@ import { buildReport } from "../../../../../../../services/submission/buildRepor
 import { useCurrentUser } from "../../../../../../../services/user/useCurrentUser"
 import ScrollToTopButton from "../../../../../../../components/ScrollToTopButton"
 import { toast } from "../../../../../../../components/toast/toastStore"
-import { academicJobsheetSubPath, type AcademicScope } from "../../../../../../../services/academicScope"
+import { academicJobsheetPath, academicJobsheetSubPath, type AcademicScope } from "../../../../../../../services/academicScope"
 import type { JSONContent } from "@tiptap/react"
 
 export default function PreviewPage() {
@@ -41,6 +41,9 @@ export default function PreviewPage() {
   )
   const taskPath = jobsheetId && effectiveCourseId
     ? academicJobsheetSubPath(effectiveCourseId, jobsheetId, "works/task", academicScope)
+    : "/mata-kuliah"
+  const detailJobsheetPath = jobsheetId && effectiveCourseId
+    ? academicJobsheetPath(effectiveCourseId, jobsheetId, academicScope)
     : "/mata-kuliah"
 
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null)
@@ -181,7 +184,7 @@ export default function PreviewPage() {
           </p>
           <button
             type="button"
-            onClick={() => navigate(taskPath)}
+            onClick={() => navigate(detailJobsheetPath)}
             aria-label="Kembali"
             title="Kembali"
             className="w-full flex items-center justify-center gap-2 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"

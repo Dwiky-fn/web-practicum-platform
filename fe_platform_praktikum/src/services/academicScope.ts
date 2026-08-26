@@ -5,6 +5,10 @@ export type AcademicScope = {
   classId?: string
   mataKuliahId?: string
   kelasPraktikumId?: string
+  submissionId?: string
+  attemptNo?: number
+  attemptType?: "normal" | "remedial"
+  remedialId?: string | null
 }
 
 export function academicCourseBasePath(courseId?: string, scope?: AcademicScope) {
@@ -44,6 +48,10 @@ export function academicScopeQuery(scope: AcademicScope) {
   const kelasPraktikumId = scope.kelasPraktikumId ?? scope.classId
   if (scope.mataKuliahId) params.set("mataKuliahId", scope.mataKuliahId)
   if (kelasPraktikumId) params.set("kelasPraktikumId", kelasPraktikumId)
+  if (scope.submissionId) params.set("submissionId", scope.submissionId)
+  if (scope.remedialId) params.set("remedialId", scope.remedialId)
+  if (scope.attemptType) params.set("attemptType", scope.attemptType)
+  if (scope.attemptNo != null) params.set("attemptNo", String(scope.attemptNo))
   const query = params.toString()
   return query ? `?${query}` : ""
 }

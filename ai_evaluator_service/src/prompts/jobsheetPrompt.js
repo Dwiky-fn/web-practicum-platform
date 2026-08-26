@@ -10,26 +10,28 @@ function buildJobsheetPrompt(payload) {
   };
 
   return `
-Lakukan evaluasi keseluruhan untuk satu jobsheet praktikum berdasarkan
-ringkasan hasil evaluasi setiap percobaan dan latihan.
+Lakukan evaluasi keseluruhan untuk satu jobsheet praktikum berdasarkan ringkasan hasil evaluasi setiap percobaan dan latihan.
 
-Tujuan evaluasi:
-1. Menilai pemahaman mahasiswa secara keseluruhan.
-2. Mengidentifikasi kelebihan dan masalah yang berulang.
-3. Menilai konsistensi antarpercobaan/latihan dan kesimpulan mahasiswa.
-4. Menentukan percobaan atau latihan yang membutuhkan perhatian.
-5. Memberikan saran belajar serta rekomendasi nilai berdasarkan rubrik.
+PRINSIP UTAMA EVALUASI JOBSHEET:
+1. "Keberadaan error pada percobaan/latihan tidak otomatis berarti pengerjaan jobsheet mahasiswa gagal."
+2. Evaluasi pemahaman mahasiswa secara holistik berdasarkan pencapaian TUJUAN PEMBELAJARAN JOBSHEET.
+3. Evaluasi kesimpulan mahasiswa (\`studentConclusion\`) secara kontekstual: Apakah kesimpulan menggambarkan pemahaman terhadap konsep yang dipelajari, hasil observasi (termasuk error yang diamati), serta sintesis pemikiran yang masuk akal dari seluruh rangkaian percobaan dan latihan.
 
-Aturan:
-1. Gunakan hanya data yang tersedia.
-2. Jangan mengarang hasil percobaan atau latihan atau source code.
-3. Jangan memberikan solusi program lengkap.
-4. Nilai hanya rekomendasi untuk diperiksa dosen.
-5. experimentId harus tersedia dalam experimentResults, dan exerciseId harus tersedia dalam exerciseResults.
-6. score tidak boleh negatif atau melebihi maxScore.
-7. Jangan menghitung atau menyertakan totalScoreRecommendation maupun rubricScores pada output JSON. Fokus hanya pada jobsheetFeedback. rubricScores dan nilai total akan dihitung secara otomatis oleh sistem.
+TUJUAN EVALUASI:
+1. Menilai tingkat pemahaman keseluruhan mahasiswa terhadap topik praktikum secara objektif dan edukatif.
+2. Mengidentifikasi kekuatan utama dan kendala/masalah berulang yang dialami mahasiswa.
+3. Evaluasi konsistensi antara hasil percobaan, latihan, dan kesimpulan mahasiswa.
+4. Menentukan percobaan atau latihan yang membutuhkan perhatian khusus atau peninjauan ulang.
+5. Memberikan saran pembelajaran yang spesifik, natural, dan membantu pengembangan kompetensi mahasiswa.
 
-Format output wajib:
+ATURAN EVALUASI & PROSEDUR:
+1. Gunakan hanya data ringkasan yang tersedia dalam \`experimentResults\`, \`exerciseResults\`, dan \`studentConclusion\`.
+2. Dilarang mengarang hasil percobaan, latihan, atau kode yang tidak terdapat pada data data evaluasi.
+3. Jika pada beberapa percobaan terjadi error yang memang diharapkan (seperti pengamatan overflow atau sintaks), apresiasi pemahaman konsep mahasiswa yang telah berhasil mengamati fenomena tersebut.
+4. Evaluasi \`studentConclusion\` berdasarkan apakah mahasiswa mampu menyimpulkan poin-poin utama materi. Jika kesimpulan terlalu singkat atau general, berikan masukan konstruktif untuk memperdalam analisis kesimpulan.
+5. Jangan menghitung atau menyertakan \`totalScoreRecommendation\` maupun \`rubricScores\` pada output JSON ini. Sistem akan menyusun rekapsilasi nilai secara otomatis.
+
+FORMAT OUTPUT WAJIB:
 {
   "scope": "jobsheet",
   "submissionId": "string",

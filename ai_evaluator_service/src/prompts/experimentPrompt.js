@@ -13,99 +13,58 @@ function buildExperimentPrompt(payload) {
   };
 
   return `
-Lakukan evaluasi untuk satu percobaan praktikum.
+Lakukan evaluasi untuk satu percobaan praktikum berdasarkan MAKSUD & TUJUAN INSTRUKSI.
 Gunakan hanya bukti yang tersedia dalam data evaluasi.
 
+PRINSIP UTAMA EVALUASI EXPERIMENT:
+1. "Keberadaan error pada program tidak otomatis berarti pengerjaan mahasiswa salah."
+2. "Program yang berhasil dijalankan tidak otomatis berarti pengerjaan mahasiswa benar."
+3. Evaluasi setiap langkah (step) secara INDEPENDEN berdasarkan instruksi spesifik langkah tersebut. Jangan gunakan error pada langkah 2 untuk menyimpulkan langkah 1 salah, dan jangan gunakan keberhasilan langkah 1 untuk menyimpulkan semua langkah benar.
+
 LANGKAH PROSEDUR EVALUASI WAJIB:
-1. BACA & IDENTIFIKASI INSTRUKSI JOBSHEET:
-   - Pelajari secara seksama setiap perintah dan langkah kerja yang tertulis pada \`experiment.instructionContent\`.
-2. BANDINGKAN DENGAN HASIL KERJA MAHASISWA:
-   - **Kode (\`files\`)**: Apakah kode yang dibuat mahasiswa secara persis mengimplementasikan apa yang diminta oleh langkah instruksi?
-   - **Output (\`output\`)**: Apakah luaran program mahasiswa sesuai dengan luaran/perilaku yang diharapkan dalam instruksi?
-   - **Analisis (\`analysis\`)**: Apakah analisis mahasiswa secara relevan menjawab observasi atau pertanyaan yang diajukan dalam instruksi?
-3. EVALUASI KEPATUHAN INSTRUKSI (INSTRUCTION COMPLIANCE):
-   - **Jika Sesuai**: Jika seluruh langkah instruksi telah dilaksanakan dengan benar, berikan skor maksimal rubrik. Jangan membuat-buat isu atau mengkritik gaya penulisan kode yang tidak diminta oleh jobsheet.
-   - **Jika Belum Sesuai**: Sebutkan secara spesifik bagian instruksi mana yang belum dipenuhi atau masih salah.
+1. PAHAMI MAKSUD INSTRUKSI (Instruction Intent):
+   - Pelajari perintah pada \`experiment.instructionContent\` atau \`experiment.instruction\`.
+   - Tentukan tujuan langkah: Apakah untuk mengamati output normal, mengamati perubahan output, mempelajari sintaks, mengamati runtime error, sengaja menghasilkan error (syntax/runtime), membandingkan dua kondisi, atau memperbaiki kode?
 
-Prioritas bukti:
-1. Instruksi dan tujuan percobaan jobsheet.
-2. Hasil test case.
-3. Compiler error atau runtime error.
-4. Output aktual dan expected output.
-5. Source code mahasiswa.
-6. Analisis dan kesimpulan mahasiswa.
-7. Rubrik penilaian.
+2. KLASIFIKASI KONDISI EKSEKUSI:
+   - Evaluator harus mengklasifikasikan kondisi eksekusi ke dalam salah satu kategori:
+     (A) Error yang memang diharapkan oleh instruksi.
+     (B) Error bagian dari eksperimen/objek observasi.
+     (C) Error konsekuensi pembelajaran yang ingin dipahami mahasiswa.
+     (D) Program berhasil dan memenuhi tujuan instruksi.
+     (E) Program berhasil TETAPI tidak memenuhi spesifikasi instruksi (Penyimpangan).
+     (F) Error tidak diharapkan yang terjadi karena penyimpangan/kesalahan mahasiswa.
+   - Kategori (A), (B), (C), dan (D) dianggap SESUAI INSTRUKSI. Dilarang mengurangi skor rubrik untuk kategori ini!
+   - Hanya Kategori (E) dan (F) yang dianggap TIDAK SESUAI INSTRUKSI.
 
-Aturan evaluasi kode:
-1. Evaluasi seluruh file mahasiswa pada field files.
-2. Perhatikan hubungan antarfile berdasarkan data yang tersedia.
-3. Jangan berasumsi program berjalan jika tidak ada bukti eksekusi.
-4. Jangan mengarang compiler error atau runtime error.
-5. Jangan memberikan solusi kode lengkap.
-6. Jika kode sudah tepat dan sesuai instruksi jobsheet, codeFeedbacks boleh berupa array kosong.
-7. Jika files kosong, berarti belum ada kode mahasiswa yang tersimpan; jangan menganggap templateFiles sebagai kode mahasiswa.
-8. templateFiles hanya konteks awal jobsheet, bukan bukti pengerjaan mahasiswa.
-9. PENTING: Perhatikan konteks instruksi percobaan dengan seksama. Jika instruksi percobaan memang secara sengaja menyuruh mahasiswa untuk membuat/menguji kode yang menghasilkan compiler error, runtime error, atau tipe data yang tidak kompatibel (misalnya memasukkan nilai melebihi kapasitas tipe data untuk mengamati apa yang terjadi), maka kode yang menghasilkan error tersebut adalah BENAR dan sesuai instruksi. JANGAN memberikan rekomendasi nilai rendah atau menganggap kode tersebut salah jika perilakunya sudah sesuai dengan tujuan instruksi tersebut.
+3. BANDINGKAN KODE, HASIL EKSEKUSI, DAN ANALISIS MAHASISWA:
+   - **Kode (\`files\`)**: Apakah kode mahasiswa melakukan modifikasi atau tindakan yang diminta oleh instruksi?
+   - **Hasil Eksekusi (\`execution\` / \`stdout\` / \`stderr\` / \`testCases\`)**: Apakah luaran atau error yang muncul sesuai dengan ekspektasi tujuan percobaan?
+   - **Analisis Mahasiswa (\`studentAnalysis\`)**: Apakah analisis mahasiswa secara relevan menjelaskan fenomena, penyebab error, atau hasil observasi?
+   - PISAHKAN evaluasi kode dengan evaluasi analisis: Jika percobaan kode sudah sesuai (termasuk jika menghasilkan error yang diharapkan) namun analisis mahasiswa singkat/kurang penjelasan, berikan skor penuh pada kriteria kebenaran program/instruksi, dan berikan masukan edukatif pada evaluasi analisis (\`analysisEvaluation\`).
 
-Aturan konteks eksperimen:
-Dalam jobsheet praktikum, beberapa instruksi sengaja meminta mahasiswa membuat perubahan kode yang dapat menyebabkan compile error atau output berbeda.
+PANDUAN KONSEP & OBSERVASI ERROR (CONTOH UMUM):
+1. Menguji Batas Tipe Data (misal Byte Overflow): Jika instruksi meminta variabel byte diisi 128 atau -129 untuk mengamati kompilasi/overflow, maka terjadinya compiler error (incompatible types) adalah HASIL YANG BENAR dan SESUAI INSTRUKSI.
+2. Menguji Literal Long (misal Suffix L): Jika instruksi meminta angka 3000000000 tanpa suffix L untuk mengamati error 'integer number too large', error tersebut adalah HASIL KONSISTEN yang diharapkan.
+3. Menguji Literal Float (misal Suffix f): Jika instruksi meminta meng-assign 3.5 ke float tanpa 'f', compiler error (lossy conversion) adalah HASIL OBSERVASI yang diharapkan.
+4. Jika instruksi meminta PERBAIKAN KODE agar program berjalan normal, barulah ketiadaan error dan output yang tepat menjadi kriteria keberhasilan.
 
-Jangan otomatis menganggap compile error sebagai kesalahan mahasiswa.
+ATURAN CODE FEEDBACKS (\`codeFeedbacks\`):
+1. Jika kode mahasiswa sudah tepat dan sesuai instruksi (termasuk error yang diharapkan), \`codeFeedbacks\` boleh berupa array kosong \`[]\`.
+2. Jika ada kesalahan tidak diharapkan pada baris kode tertentu:
+   - \`selectedCode\` HARUS persis sama dengan potongan baris kode mahasiswa pada \`numberedContent\`, termasuk spasi indentasi.
+   - \`startLine\` dan \`endLine\` harus sesuai nomor baris asli pada \`numberedContent\`.
+   - \`message\` menjelaskan secara natural mengapa baris kode tersebut tidak sesuai tujuan instruksi.
+   - \`suggestion\` memberikan saran perbaikan spesifik pada baris tersebut.
+3. Jika tidak yakin nomor baris atau \`selectedCode\` persis cocok, jangan buat \`codeFeedbacks\`; masukkan masukan ke \`experimentFeedback.issues\` atau \`suggestions\`.
 
-Nilailah berdasarkan:
-1. Apakah mahasiswa mengikuti instruksi langkah tersebut.
-2. Apakah output/error yang muncul sesuai dengan konsep yang sedang diuji.
-3. Apakah mahasiswa memberikan analisis yang benar tentang penyebab output/error.
-4. Apakah kode yang dikumpulkan sesuai dengan modifikasi yang diminta.
+ATURAN PENILAIAN & RUBRIK:
+1. Gunakan hanya \`criterionId\` yang tersedia pada rubrik.
+2. \`score\` tidak boleh negatif atau melebihi \`maxScore\`.
+3. \`totalScoreRecommendation\` HARUS merupakan jumlah seluruh \`score\`.
+4. JANGAN mengurangi nilai rubrik jika error pada program mahasiswa merupakan bagian dari perilaku yang sengaja diinstruksikan oleh percobaan.
 
-Jika compile error memang konsekuensi yang diharapkan dari instruksi, beri feedback edukatif, bukan langsung menyalahkan mahasiswa.
-
-Untuk percobaan berbasis observasi, error kompilasi bisa menjadi hasil yang valid jika:
-- mahasiswa memang mengikuti instruksi,
-- error tersebut sesuai dengan konsep yang diuji,
-- mahasiswa mampu menjelaskan penyebab error dengan benar.
-
-Jangan memberi skor rendah hanya karena program error, jika instruksi memang meminta mahasiswa mengamati error tersebut.
-
-Panduan konsep Java yang sering muncul:
-1. Jika instruksi meminta nilaiA bertipe byte diubah menjadi -129 atau 128, bahas variabel nilaiA dan rentang byte -128 sampai 127. Jangan membahas hargaA untuk kasus ini.
-2. Jika instruksi meminta hargaB bertipe long diubah menjadi 3000000000, jelaskan bahwa literal bilangan bulat tanpa suffix L dianggap int dan 3000000000 melebihi batas int. Saran teknis boleh berupa 3000000000L, tetapi jangan menyalahkan total jika tujuan langkah adalah observasi error.
-3. Jika instruksi meminta ips bertipe float diubah menjadi 3.5, jelaskan bahwa literal desimal default-nya double dan assignment ke float perlu suffix f, misalnya ips = 3.5f.
-
-Aturan codeFeedbacks:
-1. selectedCode harus sama persis dengan baris kode mahasiswa pada numberedContent, termasuk spasi indentasi.
-2. startLine dan endLine harus sesuai posisi selectedCode.
-3. message harus menjelaskan masalah pada selectedCode.
-4. suggestion harus memperbaiki selectedCode, bukan baris lain.
-5. Jika tidak yakin selectedCode cocok dengan kode mahasiswa, jangan buat codeFeedbacks; masukkan feedback umum ke experimentFeedback.issues atau suggestions.
-6. Jika selectedCode adalah "        ips = 3.5;", suggestion harus memperbaiki assignment itu, misalnya "Ubah menjadi: ips = 3.5f;". Jangan menyarankan deklarasi "float ips = 3.5f;" kecuali selectedCode memang baris deklarasi.
-
-Aturan nomor baris:
-1. Gunakan nomor yang ditampilkan pada numberedContent.
-2. startLine tidak boleh lebih besar daripada endLine.
-3. fileId dan filePath harus cocok dengan data file.
-4. selectedCode harus sesuai dengan rentang baris yang dikomentari.
-
-Aturan identitas percobaan:
-1. Jika data experiment memiliki field experimentId, gunakan field tersebut sebagai output experimentId.
-2. Jika data experiment memiliki field step, sertakan field step pada output utama dan setiap codeFeedbacks yang relevan.
-3. Field id pada experiment dapat berupa ID internal unik per langkah. Jangan gunakan ID internal gabungan jika experimentId asli tersedia.
-
-Kategori yang diperbolehkan:
-syntax, logic, runtime, output, test_case, code_quality, readability,
-maintainability, performance, security, requirement, analysis.
-
-Severity yang diperbolehkan: low, medium, high.
-
-Aturan penilaian:
-1. Gunakan hanya criterionId yang tersedia pada rubrik.
-2. score tidak boleh negatif atau melebihi maxScore.
-3. maxScore harus sama dengan rubrik.
-4. totalScoreRecommendation harus merupakan jumlah seluruh score.
-5. Nilai hanya rekomendasi dan harus diperiksa dosen.
-6. JANGAN mengurangi nilai rubrik jika compiler/runtime error pada program mahasiswa merupakan bagian dari perilaku yang sengaja diinstruksikan oleh soal percobaan.
-
-Format output wajib:
+FORMAT OUTPUT WAJIB:
 {
   "scope": "experiment",
   "submissionId": "string",

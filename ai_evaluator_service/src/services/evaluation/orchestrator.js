@@ -72,7 +72,17 @@ async function requestValidModelResult(payload) {
   let lastOutput = '';
   let lastErrors = [];
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
-    lastOutput = await generateJsonText({ ...prompt, requestId: payload.requestId });
+    lastOutput = await generateJsonText({
+      ...prompt,
+      requestId: payload.requestId,
+      _meta: {
+        payload,
+        attempt: attempt + 1,
+        isRepair: attempt > 0,
+        lastOutput,
+        lastErrors,
+      },
+    });
     const validation = parseAndValidate(lastOutput, payload);
     if (validation.valid) return validation.value;
     lastErrors = validation.errors;

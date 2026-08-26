@@ -17,7 +17,7 @@ import {
   getFeedbacks,
 } from "../../../../../../../services/reviewFeedbackService"
 import type { ReviewFeedback } from "../../../../../../../services/reviewFeedbackService"
-import { academicJobsheetSubPath, type AcademicScope } from "../../../../../../../services/academicScope"
+import { academicJobsheetPath, type AcademicScope } from "../../../../../../../services/academicScope"
 
 const emptyDoc = { type: "doc" as const, content: [] }
 
@@ -33,14 +33,26 @@ export default function ReviewPage() {
   const mataKuliahId = routeMataKuliahId || searchParams.get("mataKuliahId") || undefined
   const kelasPraktikumId = searchParams.get("kelasPraktikumId") || undefined
   const submissionIdQuery = searchParams.get("submissionId") || undefined
+  const remedialIdQuery = searchParams.get("remedialId") || undefined
+  const attemptTypeQuery = (searchParams.get("attemptType") as "normal" | "remedial" | null) || undefined
+  const attemptNoQuery = searchParams.get("attemptNo") ? Number(searchParams.get("attemptNo")) : undefined
+
   const effectiveCourseId = mataKuliahId || courseId
   const { user } = useCurrentUser()
-  const academicScope: AcademicScope & { submissionId?: string } = useMemo(
-    () => ({ classId, mataKuliahId, kelasPraktikumId, submissionId: submissionIdQuery }),
-    [classId, mataKuliahId, kelasPraktikumId, submissionIdQuery],
+  const academicScope: AcademicScope = useMemo(
+    () => ({
+      classId,
+      mataKuliahId,
+      kelasPraktikumId,
+      submissionId: submissionIdQuery,
+      remedialId: remedialIdQuery,
+      attemptType: attemptTypeQuery,
+      attemptNo: attemptNoQuery,
+    }),
+    [classId, mataKuliahId, kelasPraktikumId, submissionIdQuery, remedialIdQuery, attemptTypeQuery, attemptNoQuery],
   )
-  const taskPath = jobsheetId && effectiveCourseId
-    ? academicJobsheetSubPath(effectiveCourseId, jobsheetId, "works/task", academicScope)
+  const backPath = jobsheetId && effectiveCourseId
+    ? academicJobsheetPath(effectiveCourseId, jobsheetId, { classId, mataKuliahId, kelasPraktikumId })
     : "/mata-kuliah"
 
   const [jobsheet, setJobsheet] = useState<Jobsheet | null>(null)
@@ -192,7 +204,7 @@ export default function ReviewPage() {
         <div className="flex items-center justify-between border-b border-gray-200 pb-4">
           <button
             type="button"
-            onClick={() => navigate(taskPath)}
+            onClick={() => navigate(backPath)}
             className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-blue-600 transition cursor-pointer"
           >
             <ArrowLeft size={18} />

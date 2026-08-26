@@ -10,10 +10,12 @@ import {
   LayoutDashboard,
   Monitor,
   Search,
+  Settings,
   ShieldCheck,
   Sparkles,
   UserCheck,
   Users,
+  Eye,
 } from "lucide-react"
 import { useCurrentUser } from "../../services/user/useCurrentUser"
 import Navbar from "../../components/navbar/Navbar"
@@ -63,7 +65,7 @@ export default function UserGuidePage() {
               <strong>Filter Mata Kuliah:</strong> Gunakan dropdown di banner utama untuk memfilter data ringkasan berdasarkan mata kuliah aktif tertentu.
             </li>
             <li>
-              <strong>Tabel Progres Pembelajaran Kelas:</strong> Menampilkan pencapaian jobsheet terbit dibandingkan total jumlah jobsheet 1 semester per kelas (misal: <em>3/3 Jobsheet 100% Selesai</em>). Klik tombol <strong>Detail</strong> pada baris kelas untuk berpindah langsung ke Halaman Detail Kelas.
+              <strong>Tabel Progres Pembelajaran Kelas:</strong> Menampilkan pencapaian jobsheet terbit dibandingkan total jumlah jobsheet 1 semester per kelas. Klik tombol <strong>Detail</strong> pada baris kelas untuk berpindah langsung ke Halaman Detail Kelas.
             </li>
           </ul>
         </div>
@@ -97,9 +99,9 @@ export default function UserGuidePage() {
     {
       id: "dosen-class-detail",
       pageName: "Halaman Detail Kelas Praktikum (/kelas-praktikum/:courseId/:classId)",
-      title: "3. Pengelolaan Kelas Praktikum (Detail Kelas)",
+      title: "3. Pengelolaan Kelas Praktikum & Sesi Remedial",
       icon: Layers,
-      description: "Pusat pengaturan modul, status rilis jobsheet, pendaftaran mahasiswa, dan matriks nilai.",
+      description: "Pusat pengaturan modul, status rilis jobsheet, pendaftaran mahasiswa, sesi remedial, dan matriks nilai.",
       content: (
         <div className="space-y-4 text-xs text-gray-700 leading-relaxed">
           <p>
@@ -107,13 +109,13 @@ export default function UserGuidePage() {
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li>
-              <strong>Tab Ringkasan Kelas:</strong> Menampilkan indikator total mahasiswa terdaftar, target jobsheet rencana 1 semester (dapat diubah dengan tombol pensil), jumlah jobsheet terbit, serta persentase progres evaluasi kelas.
+              <strong>Tab Ringkasan Kelas:</strong> Menampilkan indikator total mahasiswa terdaftar, target jobsheet rencana 1 semester (dapat diubah dengan ikon pensil), jumlah jobsheet terbit, serta persentase progres evaluasi kelas.
             </li>
             <li>
-              <strong>Tab Jobsheet Praktikum:</strong> Daftar modul jobsheet yang ditugaskan ke kelas. Dosen dapat mengubah status visibilitas (<em>Draft</em> vs <em>Published</em>), menetapkan tanggal rilis &amp; batas waktu (deadline), serta membuka akses remedial.
+              <strong>Tab Jobsheet Praktikum:</strong> Tempat mempublikasikan jobsheet (<em>Draft</em> ke <em>Published</em>), mengatur tanggal rilis &amp; deadline, serta membuka <strong>Sesi Remedial</strong> (menentukan periode waktu remedial &amp; memilih mahasiswa sasaran).
             </li>
             <li>
-              <strong>Tab Daftar Mahasiswa:</strong> Daftar akun mahasiswa yang terdaftar dalam kelas praktikum beserta informasi NIM, Program Studi, dan tombol lihat profil.
+              <strong>Tab Daftar Mahasiswa:</strong> Menampilkan daftar mahasiswa terdaftar beserta NIM, Program Studi, dan tombol akses profil.
             </li>
             <li>
               <strong>Tab Evaluasi &amp; Nilai:</strong> Matriks rekapitulasi nilai dan status pengumpulan mahasiswa untuk seluruh jobsheet dalam 1 tabel yang dapat difilter.
@@ -178,13 +180,13 @@ export default function UserGuidePage() {
     {
       id: "dosen-jobsheet-detail",
       pageName: "Halaman Detail Jobsheet Dosen (/jobsheets/:jobsheetId)",
-      title: "6. Preview Content & Riwayat Pengumpulan Jobsheet",
+      title: "6. Pratinjau Content & Riwayat Pengumpulan Jobsheet",
       icon: FileCheck,
       description: "Meninjau tampilan akhir modul jobsheet dan memantau riwayat pengumpulan per kelas.",
       content: (
         <div className="space-y-4 text-xs text-gray-700 leading-relaxed">
           <p>
-            Halaman ini menampilkan pratinjau (*preview*) modul jobsheet sebagaimana dilihat oleh mahasiswa:
+            Halaman ini menampilkan pratinjau (<em>preview</em>) modul jobsheet sebagaimana dilihat oleh mahasiswa:
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li>
@@ -199,27 +201,27 @@ export default function UserGuidePage() {
     },
     {
       id: "dosen-review-page",
-      pageName: "Halaman Review Pengerjaan Mahasiswa (/reviews/:submissionId)",
-      title: "7. Evaluasi & Penilaian Pengerjaan Mahasiswa (Review Page)",
+      pageName: "Halaman Review Pengerjaan Mahasiswa (/reviews/:studentId)",
+      title: "7. Evaluasi, Fitur AI & Penilaian Dosen (Review Page)",
       icon: CheckCircle,
-      description: "Pemeriksaan kode mahasiswa, Bantuan Feedback AI, dan pemberian nilai akhir.",
+      description: "Pemeriksaan kode mahasiswa, Bantuan Evaluasi AI, rekomendasi nilai, dan pemberian keputusan akhir.",
       content: (
         <div className="space-y-4 text-xs text-gray-700 leading-relaxed">
           <p>
-            Halaman ini merupakan tempat Dosen memeriksa dan menilai jawaban praktikum mahasiswa secara mendalam:
+            Halaman ini merupakan tempat Dosen menilai pengerjaan mahasiswa secara komprehensif:
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li>
-              <strong>Inspeksi Kode Percobaan &amp; Latihan:</strong> Memeriksa baris kode yang ditulis mahasiswa, output eksekusi terminal, serta jawaban analisis teks.
+              <strong>Inspeksi Kode &amp; Uji Eksekusi:</strong> Memeriksa kode program, output terminal, dan analisis mahasiswa. Dosen dapat menguji ulang eksekusi kode di tempat.
             </li>
             <li>
-              <strong>Uji Eksekusi Kode:</strong> Dosen dapat menjalankan ulang kode mahasiswa di tempat untuk memverifikasi kebenaran program.
+              <strong>Bantuan Evaluasi AI (Picu Review AI):</strong> Klik tombol <strong>Picu Review AI</strong> untuk menjalankan evaluasi otomatis. AI akan mengisi rekomendasi skor dan ringkasan feedback per bagian (Percobaan &amp; Latihan) pada kolom kiri (<em>Rekomendasi AI</em>) serta komentar baris kode pada kolom kanan (<em>Komentar Kode</em>).
             </li>
             <li>
-              <strong>Bantuan Feedback Otomatis AI (AI Assistant):</strong> Fitur analisis cerdas berbasis AI yang memberikan rekomendasi masukan dan deteksi kesalahan logika secara otomatis.
+              <strong>Hapus Review AI:</strong> Jika ingin mengosongkan evaluasi AI, gunakan tombol <strong>Hapus Review AI</strong>.
             </li>
             <li>
-              <strong>Catatan Revisi &amp; Nilai Akhir:</strong> Dosen dapat mengisi catatan saran perbaikan dan menginputkan nilai akhir (skala 0 - 100), lalu mengklik <strong>Simpan Evaluation / Selesai Review</strong>.
+              <strong>Penilaian &amp; Keputusan:</strong> Masukkan nilai pada Form Evaluasi Dosen, tuliskan umpan balik akhir, pilih keputusan (<strong>ACCEPTED / Diterima</strong> atau <strong>REVISION / Perlu Revisi</strong>), lalu klik <strong>Simpan Evaluasi</strong>.
             </li>
           </ul>
         </div>
@@ -227,10 +229,10 @@ export default function UserGuidePage() {
     },
     {
       id: "dosen-monitoring-page",
-      pageName: "Halaman Live Monitoring Sesi Lab (/monitoring)",
-      title: "8. Live Monitoring Praktikum Real-Time",
+      pageName: "Halaman Live Monitoring & Live Workspace (/monitoring)",
+      title: "8. Live Monitoring & Inspeksi Workspace Sesi Lab",
       icon: Monitor,
-      description: "Pemantauan telemetry keaktifan pengerjaan koding mahasiswa di laboratorium.",
+      description: "Pemantauan telemetry keaktifan pengerjaan koding mahasiswa di laboratorium secara real-time.",
       content: (
         <div className="space-y-4 text-xs text-gray-700 leading-relaxed">
           <p>
@@ -241,10 +243,32 @@ export default function UserGuidePage() {
               <strong>Koneksi Telemetry WebSocket Live:</strong> Menerima sinyal keaktifan ketikan kode dan eksekusi terminal mahasiswa secara real-time.
             </li>
             <li>
-              <strong>Status Keaktifan:</strong> Indikator status <em>Aktif</em> (sedang mengetik/menjalankan kode) vs <em>Tidak Aktif / Idle</em> (lebih dari N menit tanpa aktivitas).
+              <strong>Status Keaktifan:</strong> Indikator status <em>Aktif</em> (sedang mengetik/menjalankan kode) vs <em>Idle</em>.
             </li>
             <li>
-              <strong>Fitur Live Workspace:</strong> Tombol di setiap baris mahasiswa untuk memantau tampilan workspace mahasiswa secara langsung tanpa mengganggu pengerjaannya.
+              <strong>Inspeksi Live Workspace:</strong> Klik tombol <strong>Inspeksi Workspace</strong> untuk melihat layar editor koding mahasiswa secara live tanpa mengganggu pengerjaannya.
+            </li>
+          </ul>
+        </div>
+      ),
+    },
+    {
+      id: "dosen-settings",
+      pageName: "Halaman Pengaturan Profil & Keamanan (/settings)",
+      title: "9. Pengaturan Akun & Keamanan OTP",
+      icon: Settings,
+      description: "Manajemen profil dosen, verifikasi OTP ubah kata sandi, dan ubah email.",
+      content: (
+        <div className="space-y-4 text-xs text-gray-700 leading-relaxed">
+          <p>
+            Mengelola data akun dan keamanan login Dosen:
+          </p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>
+              <strong>Ubah Password via OTP:</strong> Minta kode OTP 6-digit ke email terdaftar untuk mengubah kata sandi akun.
+            </li>
+            <li>
+              <strong>Ubah Email via OTP:</strong> Verifikasi perubahan alamat email utama menggunakan kode OTP 6-digit.
             </li>
           </ul>
         </div>
@@ -316,13 +340,10 @@ export default function UserGuidePage() {
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li>
-              <strong>Status Penyelesaian:</strong> Indikator badge <em>Selesai</em> (telah dikumpulkan &amp; dinilai), <em>Sedang Dikerjakan</em>, atau <em>Belum Dikerjakan</em>.
+              <strong>Status Penyelesaian:</strong> Indikator badge <em>Selesai</em> (telah dikumpulkan &amp; dinilai), <em>Sedang Dikerjakan</em>, <em>Perlu Revisi</em>, atau <em>Belum Dikerjakan</em>.
             </li>
             <li>
-              <strong>Tenggat Waktu (Deadline):</strong> Informasi tanggal dan jam batas akhir pengumpulan tugas.
-            </li>
-            <li>
-              <strong>Progres Persentase:</strong> Menunjukkan seberapa banyak bagian Percobaan &amp; Latihan yang sudah berhasil diisi.
+              <strong>Tenggat Waktu (Deadline):</strong> Informasi tanggal dan jam batas akhir pengumpulan tugas reguler maupun remedial.
             </li>
           </ul>
         </div>
@@ -333,7 +354,7 @@ export default function UserGuidePage() {
       pageName: "Halaman Overview Jobsheet (/mata-kuliah/:courseId/jobsheets/:jobsheetId)",
       title: "4. Informasi & Riwayat Overview Jobsheet",
       icon: FileText,
-      description: "Rincian instruksi jobsheet, riwayat pengumpulan sebelumnya, dan nilai dari dosen.",
+      description: "Rincian instruksi jobsheet, riwayat pengumpulan sebelumnya (reguler & remedial), dan tombol pengerjaan.",
       content: (
         <div className="space-y-4 text-xs text-gray-700 leading-relaxed">
           <p>
@@ -344,10 +365,10 @@ export default function UserGuidePage() {
               <strong>Tujuan &amp; Deskripsi Praktikum:</strong> Capaian pembelajaran yang akan dipelajari pada bab ini.
             </li>
             <li>
-              <strong>Riwayat Pengumpulan &amp; Nilai:</strong> Jika sudah pernah mengumpulkan, nilai dari Dosen (skala 0 - 100) dan catatan evaluasi akan tampil di tabel riwayat.
+              <strong>Tabel Riwayat Pengerjaan:</strong> Menampilkan daftar seluruh attempt pengerjaan (<em>Pengerjaan Reguler</em>, <em>Remedial 1</em>, dll.), status pengumpulan, nilai yang diperoleh, serta tombol <strong>Lihat Review</strong> untuk membuka rincian evaluasi.
             </li>
             <li>
-              <strong>Tombol Akses Workspace:</strong> Klik <strong>Mulai Pengerjaan / Lanjutkan Workspace</strong> untuk membuka lembar kerja IDE online.
+              <strong>Tombol Akses Workspace:</strong> Klik <strong>Mulai Pengerjaan / Lanjutkan Workspace / Kerjakan Remedial</strong> untuk membuka IDE online.
             </li>
           </ul>
         </div>
@@ -355,7 +376,7 @@ export default function UserGuidePage() {
     },
     {
       id: "mhs-workspace",
-      pageName: "Halaman Online IDE Workspace (/mata-kuliah/:courseId/jobsheets/:jobsheetId/work)",
+      pageName: "Halaman Online IDE Workspace (/work)",
       title: "5. Lembar Kerja Kode Online (IDE Workspace)",
       icon: Code,
       description: "Editor kode online, terminal runner, auto-save, diskusi dosen, dan tombol submit.",
@@ -369,7 +390,7 @@ export default function UserGuidePage() {
               <strong>Multi-Tab Materi:</strong> Beralih antara tab <em>Teori</em> (membaca konsep), <em>Percobaan</em> (mengikuti langkah kode &amp; analisis), dan <em>Latihan Kode</em> (menyelesaikan soal mandiri).
             </li>
             <li>
-              <strong>Monaco Code Editor:</strong> Editor kode modern pendukung sintaks Java &amp; Python dengan fitur penomoran baris dan autocomplete.
+              <strong>Monaco Code Editor:</strong> Editor kode modern pendukung sintaks Java &amp; Python dengan penomoran baris dan autocomplete.
             </li>
             <li>
               <strong>Uji Eksekusi (Run Code):</strong> Klik tombol <strong>Run Code</strong> untuk menjalankan program. Hasil keluaran akan tampil di panel Terminal Output.
@@ -381,7 +402,57 @@ export default function UserGuidePage() {
               <strong>Diskusi Dosen (Live Chat):</strong> Klik tombol <strong>Diskusi Dosen</strong> di header untuk bertanya atau berkonsultasi langsung dengan dosen pengampu.
             </li>
             <li>
-              <strong>Pengumpulan (Submit Jobsheet):</strong> Setelah semua soal terisi, klik tombol <strong>Kumpulkan / Submit Jobsheet</strong> sebelum batas waktu berakhir.
+              <strong>Pengumpulan (Submit Jobsheet):</strong> Klik tombol <strong>Kumpulkan Jobsheet</strong> pada tab Tugas untuk mengumpulkan. Setelah konfirmasi modal, Anda akan diarahkan kembali ke Halaman Detail Jobsheet.
+            </li>
+          </ul>
+        </div>
+      ),
+    },
+    {
+      id: "mhs-review-detail",
+      pageName: "Halaman Detail Review Mahasiswa (/review)",
+      title: "6. Hasil Evaluasi & Detail Review Mahasiswa",
+      icon: Eye,
+      description: "Melihat rincian nilai per bagian, rekomendasi AI, dan umpan balik dosen dari pengerjaan reguler maupun remedial.",
+      content: (
+        <div className="space-y-4 text-xs text-gray-700 leading-relaxed">
+          <p>
+            Halaman ini menampilkan rincian penilaian hasil pengerjaan Anda setelah diperiksa oleh dosen atau AI Evaluator:
+          </p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>
+              <strong>Kartu Informasi &amp; Nilai Akhir:</strong> Menampilkan identitas mahasiswa, materi jobsheet, jenis pengerjaan (<em>Reguler / Remedial</em>), status review, dan nilai akhir yang diperoleh.
+            </li>
+            <li>
+              <strong>Rekomendasi AI &amp; Penilaian Bagian (Kiri):</strong> Menampilkan skor rekomendasi AI serta umpan balik ringkasan per bagian Percobaan dan Latihan.
+            </li>
+            <li>
+              <strong>Komentar Kode (Kanan):</strong> Menampilkan catatan umpan balik yang dituliskan dosen pada baris kode tertentu.
+            </li>
+            <li>
+              <strong>Catatan Umpan Balik Dosen:</strong> Rincian feedback keseluruhan dari dosen pengampu praktikum.
+            </li>
+          </ul>
+        </div>
+      ),
+    },
+    {
+      id: "mhs-settings",
+      pageName: "Halaman Pengaturan Profil & Keamanan (/settings)",
+      title: "7. Pengaturan Akun & Keamanan OTP",
+      icon: Settings,
+      description: "Manajemen profil mahasiswa, verifikasi OTP ubah kata sandi, dan ubah email.",
+      content: (
+        <div className="space-y-4 text-xs text-gray-700 leading-relaxed">
+          <p>
+            Mengelola data akun dan keamanan login Mahasiswa:
+          </p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>
+              <strong>Ubah Password via OTP:</strong> Minta kode OTP 6-digit ke email terdaftar untuk mengubah kata sandi akun.
+            </li>
+            <li>
+              <strong>Ubah Email via OTP:</strong> Verifikasi perubahan alamat email utama menggunakan kode OTP 6-digit.
             </li>
           </ul>
         </div>
@@ -453,13 +524,13 @@ export default function UserGuidePage() {
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li>
-              <strong>Jurusan &amp; Prodi:</strong> Mengelola struktur organisasi akademik departemen.
+              <strong>Tahun Semester / Periode Akademik:</strong> Menentukan periode akademik aktif (misal <em>2027/2028 Ganjil</em>) dan mengaktifkan semester berjalan.
             </li>
             <li>
-              <strong>Tahun Semester / Periode Akademik:</strong> Menentukan periode akademik aktif (misal <em>2027/2028 Ganjil</em>).
+              <strong>Jurusan &amp; Prodi:</strong> Mengelola struktur organisasi akademik departemen dan program studi.
             </li>
             <li>
-              <strong>Master Mata Kuliah:</strong> Menambahkan mata kuliah acuan kurikulum beserta bobot SKS dan deskripsi.
+              <strong>Master Mata Kuliah:</strong> Menambahkan mata kuliah acuan kurikulum beserta kode mata kuliah, bobot SKS, dan deskripsi.
             </li>
           </ul>
         </div>
@@ -482,6 +553,28 @@ export default function UserGuidePage() {
             </li>
             <li>
               <strong>Plotting / Enrollment Mahasiswa:</strong> Mengatur daftar mahasiswa yang terdaftar di kelas praktikum tersebut secara massal atau individu.
+            </li>
+          </ul>
+        </div>
+      ),
+    },
+    {
+      id: "admin-settings",
+      pageName: "Halaman Pengaturan Profil Admin (/settings)",
+      title: "5. Pengaturan Akun & Keamanan OTP Admin",
+      icon: Settings,
+      description: "Manajemen profil admin, verifikasi OTP ubah kata sandi, dan ubah email.",
+      content: (
+        <div className="space-y-4 text-xs text-gray-700 leading-relaxed">
+          <p>
+            Mengelola akun Administrator:
+          </p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>
+              <strong>Ubah Password via OTP:</strong> Minta kode OTP 6-digit ke email terdaftar untuk mengubah kata sandi akun.
+            </li>
+            <li>
+              <strong>Ubah Email via OTP:</strong> Verifikasi perubahan alamat email utama menggunakan kode OTP 6-digit.
             </li>
           </ul>
         </div>

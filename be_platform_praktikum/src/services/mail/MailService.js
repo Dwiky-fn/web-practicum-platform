@@ -47,6 +47,11 @@ class MailService {
   constructor() {
     if (process.env.RESEND_API_KEY) {
       this._resend = new Resend(process.env.RESEND_API_KEY);
+      if (!process.env.RESEND_FROM || !process.env.RESEND_FROM.trim()) {
+        console.warn(
+          '[MailService] Warning: RESEND_API_KEY tersedia tetapi RESEND_FROM belum dikonfigurasi di environment variable. Pastikan RESEND_FROM menggunakan domain yang terverifikasi di akun Resend.'
+        );
+      }
     }
 
     const host = process.env.MAIL_HOST || 'smtp.gmail.com';
@@ -95,12 +100,22 @@ class MailService {
   async _sendMail(mailOptions) {
     if (process.env.RESEND_API_KEY) {
       const resend = this._resend || new Resend(process.env.RESEND_API_KEY);
-      let from = process.env.RESEND_FROM || mailOptions.from || process.env.MAIL_FROM;
-      if (
-        !process.env.RESEND_FROM &&
-        (!from || /@gmail\.com|@yahoo\.com|@outlook\.com|@hotmail\.com/i.test(from))
-      ) {
-        from = 'Platform Praktikum Pemrograman <onboarding@resend.dev>';
+
+      let from = process.env.RESEND_FROM;
+
+      if (!from || !from.trim()) {
+        const fallbackFrom = mailOptions.from || process.env.MAIL_FROM;
+        if (
+          !fallbackFrom ||
+          /@gmail\.com|@yahoo\.com|@outlook\.com|@hotmail\.com/i.test(fallbackFrom)
+        ) {
+          console.warn(
+            '[MailService] Warning: RESEND_FROM tidak dikonfigurasi dan pengirim menggunakan domain publik. Menggunakan fallback testing domain onboarding@resend.dev.'
+          );
+          from = 'Platform Praktikum Pemrograman <onboarding@resend.dev>';
+        } else {
+          from = fallbackFrom;
+        }
       }
 
       const { data, error } = await resend.emails.send({

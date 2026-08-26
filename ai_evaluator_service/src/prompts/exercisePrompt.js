@@ -12,61 +12,43 @@ function buildExercisePrompt(payload) {
   };
 
   return `
-Lakukan evaluasi untuk satu latihan praktikum.
+Lakukan evaluasi untuk satu latihan praktikum (exercise) berdasarkan MAKSUD & TUJUAN SOAL/INSTRUKSI.
 Gunakan hanya bukti yang tersedia dalam data evaluasi.
 
+PRINSIP UTAMA EVALUASI EXERCISE:
+1. "Keberadaan error pada program tidak otomatis berarti pengerjaan mahasiswa salah."
+2. "Program yang berhasil dijalankan tidak otomatis berarti pengerjaan mahasiswa benar."
+3. Evaluasi apakah logika program, variabel, struktur kode, dan luaran mahasiswa benar-benar menyelesaikan persoalan yang diminta oleh soal latihan.
+
 LANGKAH PROSEDUR EVALUASI WAJIB:
-1. BACA & IDENTIFIKASI INSTRUKSI JOBSHEET:
-   - Pelajari secara seksama setiap perintah dan soal yang tertulis pada \`exercise.instructionContent\`.
-2. BANDINGKAN DENGAN HASIL KERJA MAHASISWA:
-   - **Kode (\`files\`)**: Apakah kode yang dibuat mahasiswa secara persis mengimplementasikan logika/soal latihan yang diminta?
-   - **Output (\`output\`)**: Apakah luaran program mahasiswa memenuhi kriteria luaran latihan?
-   - **Analisis (\`analysis\`)**: Apakah analisis mahasiswa secara tepat menjelaskan penyelesaian soal latihan?
-3. EVALUASI KEPATUHAN INSTRUKSI (INSTRUCTION COMPLIANCE):
-   - **Jika Sesuai**: Jika solusi latihan mahasiswa sudah benar dan memenuhi instruksi, berikan skor maksimal rubrik. Jangan mengarang kritik yang tidak relevan.
-   - **Jika Belum Sesuai**: Jelaskan secara spesifik persyaratan soal latihan mana yang belum terpenuhi.
+1. PAHAMI MAKSUD SOAL/INSTRUKSI (Instruction Intent):
+   - Pelajari secara saksama spesifikasi soal pada \`exercise.instructionContent\` atau \`exercise.instruction\`.
+   - Tentukan kriteria keberhasilan: Apakah soal meminta program menyelesaikan perhitungan tertentu, menangani skenario batas, mengimplementasikan algoritma, atau sengaja menguji pengamatan kondisi error tertentu?
 
-Prioritas bukti:
-1. Instruksi dan tujuan latihan jobsheet.
-2. Hasil test case.
-3. Compiler error atau runtime error.
-4. Output aktual dan expected output.
-5. Source code mahasiswa.
-6. Analisis dan kesimpulan mahasiswa.
-7. Rubrik penilaian.
+2. EVALUASI KEPATUHAN & EKSEKUSI PROGRAM:
+   - **Successful Execution tetapi Salah**: Jika program selesai dieksekusi tanpa error namun logika/output tidak sesuai spesifikasi soal latihan, nyatakan secara spesifik persyaratan mana yang belum terpenuhi.
+   - **Error yang Diharapkan Soal**: Jika soal latihan memang meminta mahasiswa membuat/menguji kondisi yang menghasilkan compiler error atau runtime error, maka error tersebut adalah BENAR dan SESUAI INSTRUKSI. Jangan mengurangi skor rubrik untuk error yang diharapkan.
+   - **Error yang Tidak Diharapkan**: Jika soal meminta program berjalan normal tetapi terjadi syntax/parse error, compilation error, runtime error, test failure, atau timeout, identifikasi sebagai masalah yang perlu diperbaiki. Berikan masukan edukatif yang menjelaskan letak kesalahan dan solusi perbaikannya.
 
-Aturan evaluasi kode:
-1. Evaluasi seluruh file mahasiswa pada field files.
-2. Perhatikan hubungan antarfile berdasarkan data yang tersedia.
-3. Jangan berasumsi program berjalan jika tidak ada bukti eksekusi.
-4. Jangan mengarang compiler error atau runtime error.
-5. Jangan memberikan solusi kode lengkap.
-6. Jika kode sudah tepat dan sesuai instruksi jobsheet, codeFeedbacks boleh berupa array kosong.
-7. Jika files kosong, berarti belum ada kode mahasiswa yang tersimpan; jangan menganggap templateFiles sebagai kode mahasiswa.
-8. templateFiles hanya konteks awal jobsheet, bukan bukti pengerjaan mahasiswa.
-9. PENTING: Perhatikan konteks instruksi latihan dengan seksama. Jika instruksi latihan memang secara sengaja menyuruh mahasiswa untuk membuat/menguji kode yang menghasilkan compiler error, runtime error, atau tipe data yang tidak kompatibel, maka kode yang menghasilkan error tersebut adalah BENAR dan sesuai instruksi. JANGAN memberikan rekomendasi nilai rendah atau menganggap kode tersebut salah jika perilakunya sudah sesuai dengan tujuan instruksi tersebut.
+3. EVALUASI ANALISIS/PENJELASAN MAHASISWA (\`studentAnalysis\`):
+   - Pisahkan evaluasi implementasi kode dari evaluasi analisis mahasiswa.
+   - Jika kode latihan sudah benar namun penjelasan mahasiswa masih sangat singkat atau belum mengulas alur logika dengan lengkap, apresiasi kebenaran kodenya dan berikan masukan edukatif pada \`analysisEvaluation\` untuk melengkapi penjelasannya.
 
-Aturan nomor baris:
-1. Gunakan nomor yang ditampilkan pada numberedContent.
-2. startLine tidak boleh lebih besar daripada endLine.
-3. fileId dan filePath harus cocok dengan data file.
-4. selectedCode harus sesuai dengan rentang baris yang dikomentari.
+ATURAN CODE FEEDBACKS (\`codeFeedbacks\`):
+1. Jika kode latihan sudah tepat dan memenuhi soal, \`codeFeedbacks\` boleh berupa array kosong \`[]\`.
+2. Jika terdapat kesalahan spesifik pada kode:
+   - \`selectedCode\` HARUS persis sama dengan potongan baris kode pada \`numberedContent\`, termasuk spasi indentasi.
+   - \`startLine\` dan \`endLine\` harus sesuai nomor baris asli pada \`numberedContent\`.
+   - \`message\` menjelaskan secara jelas dan sopan letak penyimpangan logika atau sintaks.
+   - \`suggestion\` memberikan saran perbaikan yang konstruktif.
 
-Kategori yang diperbolehkan:
-syntax, logic, runtime, output, test_case, code_quality, readability,
-maintainability, performance, security, requirement, analysis.
+ATURAN PENILAIAN & RUBRIK:
+1. Gunakan hanya \`criterionId\` yang tersedia pada rubrik latihan.
+2. \`score\` tidak boleh negatif atau melebihi \`maxScore\`.
+3. \`totalScoreRecommendation\` HARUS merupakan jumlah seluruh \`score\`.
+4. Jangan mengurangi skor jika error pada program merupakan bagian dari skenario yang sengaja diuji oleh soal latihan.
 
-Severity yang diperbolehkan: low, medium, high.
-
-Aturan penilaian:
-1. Gunakan hanya criterionId yang tersedia pada rubrik.
-2. score tidak boleh negatif atau melebihi maxScore.
-3. maxScore harus sama dengan rubrik.
-4. totalScoreRecommendation harus merupakan jumlah seluruh score.
-5. Nilai hanya rekomendasi dan harus diperiksa dosen.
-6. JANGAN mengurangi nilai rubrik jika compiler/runtime error pada program mahasiswa merupakan bagian dari perilaku yang sengaja diinstruksikan oleh soal latihan.
-
-Format output wajib:
+FORMAT OUTPUT WAJIB:
 {
   "scope": "exercise",
   "submissionId": "string",

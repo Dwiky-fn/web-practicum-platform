@@ -6,7 +6,7 @@ const logger = require('../utils/logger');
 const maxConcurrent = readNumberEnv('AI_MAX_CONCURRENT_REQUESTS', 1);
 const limiter = new ConcurrencyLimiter(maxConcurrent);
 
-const WORLDGATE_MODEL = process.env.WORLDGATE_MODEL || 'gpt-4o-mini';
+const WORLDGATE_MODEL = process.env.WORLDGATE_MODEL || 'gpt-5.4-mini';
 const WORLDGATE_BASE_URL = process.env.WORLDGATE_BASE_URL || 'https://api.worldgateapi.com/v1/';
 
 function getWorldGateClient() {

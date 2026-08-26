@@ -4,6 +4,7 @@ const http = require('node:http');
 
 process.env.PORT = '5000';
 process.env.NODE_ENV = 'test';
+process.env.AI_PROVIDER = 'ollama';
 process.env.AI_SERVICE_API_KEY = '';
 process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
 process.env.OLLAMA_MODEL = 'gemma3:4b-it-qat';
@@ -43,7 +44,7 @@ test('GET /health mengembalikan status model', async () => {
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.status, 'success');
-  assert.equal(response.body.ollama.modelAvailable, true);
+  assert.equal(response.body.health.modelAvailable, true);
 });
 
 test('GET /health tetap memberi JSON ketika Ollama tidak aktif', async () => {
@@ -55,7 +56,7 @@ test('GET /health tetap memberi JSON ketika Ollama tidak aktif', async () => {
 
   assert.equal(response.statusCode, 503);
   assert.equal(response.body.status, 'fail');
-  assert.equal(response.body.ollama.status, 'disconnected');
+  assert.equal(response.body.health.connected, false);
 });
 
 test('POST /api/evaluations menerima scope experiment', async () => {

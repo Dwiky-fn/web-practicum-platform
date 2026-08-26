@@ -37,14 +37,18 @@ const PORT = Number(process.env.PORT) || 5000;
 if (require.main === module) {
   server.listen(PORT, () => {
     console.log(`AI Evaluator Service running on http://localhost:${PORT}`);
-    console.log(`Active AI Provider: ${process.env.AI_PROVIDER || 'gemini'}`);
+    console.log(`Active AI Provider: ${process.env.AI_PROVIDER || 'mindrouter'}`);
+    console.log(`MindRouter Model: ${process.env.MINDROUTER_MODEL || 'openai/gpt-5.6-luna'}`);
     console.log(`Gemini Model: ${process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite'}`);
     console.log(`Ollama Model: ${process.env.OLLAMA_MODEL || 'none'}`);
   });
 }
 
 function validateEnvironment() {
-  const provider = (process.env.AI_PROVIDER || 'gemini').toLowerCase().trim();
+  const provider = (process.env.AI_PROVIDER || 'mindrouter').toLowerCase().trim();
+  if (provider === 'mindrouter' && (!process.env.MINDROUTER_API_KEY || !process.env.MINDROUTER_API_KEY.trim())) {
+    console.warn('[Warning] MINDROUTER_API_KEY belum diisi di .env');
+  }
   if (provider === 'gemini' && (!process.env.GEMINI_API_KEY || !process.env.GEMINI_API_KEY.trim())) {
     console.warn('[Warning] GEMINI_API_KEY belum diisi di .env');
   }

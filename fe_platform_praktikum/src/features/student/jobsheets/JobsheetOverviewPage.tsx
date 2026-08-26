@@ -15,7 +15,7 @@ import { getJobsheetById } from "../../../services/jobsheet/service";
 import { getCourseById } from "../../../services/course/service";
 import type { Course } from "../../../services/course/types";
 import { useCurrentUser } from "../../../services/user/useCurrentUser";
-import { academicCourseBasePath, academicScopeQuery, academicJobsheetWorkPath } from "../../../services/academicScope";
+import { academicCourseBasePath, academicScopeQuery, academicJobsheetWorkPath, academicJobsheetSubPath } from "../../../services/academicScope";
 
 function renderGoal(goal?: string | null) {
   if (!goal) {

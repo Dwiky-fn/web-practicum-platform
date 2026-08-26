@@ -17,7 +17,7 @@ import {
   getFeedbacks,
 } from "../../../../../../../services/reviewFeedbackService"
 import type { ReviewFeedback } from "../../../../../../../services/reviewFeedbackService"
-import { academicJobsheetPath, academicJobsheetSubPath, type AcademicScope } from "../../../../../../../services/academicScope"
+import { academicJobsheetPath, type AcademicScope } from "../../../../../../../services/academicScope"
 
 const emptyDoc = { type: "doc" as const, content: [] }
 

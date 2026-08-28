@@ -4,15 +4,15 @@ services:
     container_name: postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${PGUSER:-user_database}
-      POSTGRES_PASSWORD: ${PGPASSWORD:-password_database}
-      POSTGRES_DB: ${PGDATABASE:-database_name}
+      POSTGRES_USER: ${PGUSER:-platform_user}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-platform_password}
+      POSTGRES_DB: ${PGDATABASE:-platform_praktikum}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - practicum-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${PGUSER:-user_database} -d $${PGDATABASE:-database_name}"]
+      test: ["CMD-SHELL", "pg_isready -U $${PGUSER:-platform_user} -d $${PGDATABASE:-platform_praktikum}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -85,9 +85,9 @@ services:
       AUTH_TOKEN_EXPIRES_IN: ${AUTH_TOKEN_EXPIRES_IN:-12h}
       PGHOST: postgres
       PGPORT: 5432
-      PGUSER: ${PGUSER:-user_database}
-      PGPASSWORD: ${PGPASSWORD:-password_database}
-      PGDATABASE: ${PGDATABASE:-database_name}
+      PGUSER: ${PGUSER:-platform_user}
+      PGPASSWORD: ${PGPASSWORD:-platform_password}
+      PGDATABASE: ${PGDATABASE:-platform_praktikum}
       PGSSL: "false"
       INTERACTIVE_RUNNER_WS_URL: ws://runner:4000/ws
       RUNNER_API_KEY: ${RUNNER_API_KEY:-your_runner_api_key_secret}
@@ -130,10 +130,6 @@ services:
       context: ./fe_platform_praktikum
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ""
-        VITE_EXECUTION_WS_URL: ""
-        VITE_LIVE_WORKSPACE_WS_URL: ""
-        VITE_MONITORING_WS_URL: ""
         VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     container_name: frontend
     restart: unless-stopped

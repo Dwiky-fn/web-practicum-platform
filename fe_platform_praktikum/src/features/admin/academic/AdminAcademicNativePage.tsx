@@ -1,4 +1,4 @@
-import { ArrowRight, Eye, Loader2, Plus, X } from "lucide-react"
+import { ArrowRight, Eye, Loader2, Plus, Search, X } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Navigate, useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom"
 import AdminLayout from "../components/AdminLayout"
@@ -624,7 +624,7 @@ export default function AdminAcademicNativePage() {
   }, [classStudents])
 
   const filteredMahasiswa = useMemo(() => {
-    const normalized = searchMahasiswa.trim().toLowerCase()
+    const raw = searchMahasiswa.trim()
     let pool = students
     if (isKelasMahasiswaDetail) {
       const targetSemester = semester.find((item) => item.id === paramSemesterId)?.semester
@@ -640,12 +640,37 @@ export default function AdminAcademicNativePage() {
         && (isPindahan || Number(s.semester) === Number(targetSemester))
       )
     }
-    if (!normalized) return pool
-    return pool.filter((student) =>
-      [student.nim, student.fullname, student.email].some((value) =>
-        value?.toLowerCase().includes(normalized),
+
+    if (!raw) return pool
+
+    const tokens = Array.from(
+      new Set(
+        raw
+          .split(/[\r\n,]+/)
+          .map((t) => t.replace(/\|/g, "").trim())
+          .filter((t) => t && !/^[-]+$/.test(t))
       )
     )
+
+    if (tokens.length === 0) return pool
+
+    const matchedSet = new Set<string>()
+    return pool.filter((student) => {
+      const nim = String(student.nim || "").toLowerCase().trim()
+      const name = String(student.fullname || "").toLowerCase().trim()
+      const email = String(student.email || "").toLowerCase().trim()
+
+      const isMatch = tokens.some((token) => {
+        const lowerToken = token.toLowerCase()
+        return nim.includes(lowerToken) || name.includes(lowerToken) || email.includes(lowerToken)
+      })
+
+      if (isMatch && !matchedSet.has(student.id)) {
+        matchedSet.add(student.id)
+        return true
+      }
+      return false
+    })
   }, [searchMahasiswa, isPindahan, students, isKelasMahasiswaDetail, paramSemesterId, semester, scopedKelasMahasiswa, tahunSemesterId, existingStudentIds])
 
 
@@ -1385,6 +1410,11 @@ export default function AdminAcademicNativePage() {
                 ? "Tempatkan Mahasiswa"
                 : `${modal.item ? "Edit" : "Tambah"} ${allTabs.find((item) => item.id === formTab)?.label.replace(/^\d+\.\s*/, "")}`
             }
+            description={
+              formTab === "kelas-mahasiswa" && isKelasMahasiswaDetail
+                ? "Tambahkan mahasiswa ke kelas ini"
+                : undefined
+            }
             onClose={closeModal}
             footer={<><AdminButton variant="secondary" onClick={closeModal}>Batal</AdminButton><AdminButton disabled={submitting || isTahunDuplicate} type="submit" form="native-academic-form">{submitting ? "Menyimpan..." : "Simpan"}</AdminButton></>}
             size={formTab === "kelas-mahasiswa" && !isKelasMahasiswaDetail ? "sm" : "md"}
@@ -1446,27 +1476,54 @@ export default function AdminAcademicNativePage() {
                       ) : (
                         <>
                           <FieldRow label="Cari Mahasiswa">
-                            <input
-                              className={inputClass}
-                              value={searchMahasiswa}
-                              onChange={(e) => setSearchMahasiswa(e.target.value)}
-                              placeholder="Cari NIM atau nama mahasiswa..."
-                            />
+                            <div className="space-y-2 w-full">
+                              <div className="relative">
+                                <textarea
+                                  rows={3}
+                                  value={searchMahasiswa}
+                                  onChange={(e) => setSearchMahasiswa(e.target.value)}
+                                  placeholder="Cari NIM atau nama mahasiswa..."
+                                  className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-mono resize-y shadow-2xs transition-all placeholder:font-sans placeholder:text-gray-400"
+                                />
+                              </div>
+                              <div className="rounded-md bg-blue-50/60 border border-blue-100/80 p-2.5 text-xs text-gray-600 space-y-1">
+                                <p className="font-medium text-gray-700">
+                                  Untuk mencari beberapa mahasiswa sekaligus, pisahkan NIM dengan koma (,) atau baris baru.
+                                </p>
+                                <div className="flex items-center gap-1.5 pt-0.5">
+                                  <span className="text-gray-500 font-medium">Contoh:</span>
+                                  <code className="rounded bg-white border border-blue-200 px-2 py-0.5 font-mono text-[11px] text-blue-700 font-semibold shadow-2xs">
+                                    3202616006, 3202616008, 3202616009
+                                  </code>
+                                </div>
+                              </div>
+                            </div>
                           </FieldRow>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">Daftar Mahasiswa</label>
-                            <div className="max-h-60 overflow-y-auto rounded-md border border-gray-200 p-2 space-y-1 bg-white">
+
+                          <div className="space-y-2 pt-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-sm font-semibold text-gray-900">Daftar Mahasiswa</label>
+                              <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-100">
+                                {filteredMahasiswa.length} mahasiswa ditemukan
+                              </span>
+                            </div>
+
+                            <div className="max-h-64 overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 space-y-1.5 shadow-2xs">
                               {filteredMahasiswa.length > 0 ? (
                                 filteredMahasiswa.map((student) => {
                                   const isChecked = selectedMahasiswaIds.includes(student.id)
                                   return (
                                     <label
                                       key={student.id}
-                                      className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-gray-50 cursor-pointer"
+                                      className={`flex items-center gap-3.5 rounded-lg px-3.5 py-2.5 text-sm transition-all cursor-pointer border ${
+                                        isChecked
+                                          ? "bg-blue-50/80 border-blue-300 shadow-2xs"
+                                          : "border-transparent hover:bg-gray-50/80 hover:border-gray-200"
+                                      }`}
                                     >
                                       <input
                                         type="checkbox"
-                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                                         checked={isChecked}
                                         onChange={() => {
                                           setSelectedMahasiswaIds((prev) => {
@@ -1478,17 +1535,31 @@ export default function AdminAcademicNativePage() {
                                           })
                                         }}
                                       />
-                                      <span className="text-gray-900 font-medium">
-                                        {student.nim ?? "-"} — {student.fullname}
-                                      </span>
+                                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 flex-1">
+                                        <span className="font-mono text-sm font-bold text-gray-900 tracking-wide">
+                                          {student.nim ?? "-"}
+                                        </span>
+                                        <span className="hidden sm:inline text-gray-300">—</span>
+                                        <span className="text-xs sm:text-sm font-medium text-gray-700">
+                                          {student.fullname}
+                                        </span>
+                                      </div>
                                     </label>
                                   )
                                 })
                               ) : (
-                                <div className="px-3 py-4 text-center text-sm text-gray-500">
-                                  {students.filter((s) => !existingStudentIds.has(s.id)).length === 0
-                                    ? "Semua mahasiswa yang tersedia sudah terdaftar di kelas ini."
-                                    : "Tidak ada mahasiswa yang cocok."}
+                                <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+                                  <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                                    <Search size={20} />
+                                  </div>
+                                  <p className="text-sm font-semibold text-gray-800">
+                                    Tidak ada mahasiswa yang ditemukan
+                                  </p>
+                                  <p className="mt-1 text-xs text-gray-500 max-w-xs">
+                                    {students.filter((s) => !existingStudentIds.has(s.id)).length === 0
+                                      ? "Semua mahasiswa yang tersedia sudah terdaftar di kelas ini."
+                                      : "Coba periksa kembali NIM atau nama yang dimasukkan."}
+                                  </p>
                                 </div>
                               )}
                             </div>

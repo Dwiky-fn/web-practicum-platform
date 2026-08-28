@@ -1020,13 +1020,38 @@ class ClassesService {
       semester: courseSemester,
     } = classInfo.rows[0];
 
-    const keyword = `%${(filters.keyword || '').toLowerCase()}%`;
-    const params = [keyword, idTahunSemester, Number(courseSemester)];
-    let semesterClause = '';
+    const rawKeyword = (filters.keyword || '').trim();
+    const params = [idTahunSemester];
 
+    let semesterClause = '';
     if (filters.semester && filters.semester !== 'all') {
       params.push(Number(filters.semester));
       semesterClause = `AND sp.semester = $${params.length}`;
+    } else if (!rawKeyword) {
+      params.push(Number(courseSemester));
+      semesterClause = `AND sp.semester = $${params.length}`;
+    }
+
+    let keywordClause = '';
+    if (rawKeyword) {
+      const tokens = Array.from(
+        new Set(
+          rawKeyword
+            .split(/[\r\n,]+/)
+            .map((t) => t.replace(/\|/g, '').trim())
+            .filter((t) => t && !/^[-]+$/.test(t)),
+        ),
+      );
+
+      if (tokens.length > 0) {
+        const clauses = [];
+        for (const token of tokens) {
+          params.push(`%${token.toLowerCase()}%`);
+          const idx = params.length;
+          clauses.push(`(LOWER(COALESCE(sp.nim, '')) LIKE $${idx} OR LOWER(u.fullname) LIKE $${idx})`);
+        }
+        keywordClause = `AND (${clauses.join(' OR ')})`;
+      }
     }
 
     const result = await this._pool.query(
@@ -1040,12 +1065,11 @@ class ClassesService {
         AND NOT EXISTS (
           SELECT 1 FROM kelas_mhs km
           WHERE km.id_mahasiswa = u.id
-            AND km.id_tahun_semester = $2
+            AND km.id_tahun_semester = $1
             AND km.status = 'active'
         )
-        AND sp.semester = $3
-        AND ($1 = '%%' OR LOWER(u.fullname) LIKE $1 OR LOWER(COALESCE(sp.nim, '')) LIKE $1)
         ${semesterClause}
+        ${keywordClause}
       ORDER BY sp.nim ASC
       `,
       params,

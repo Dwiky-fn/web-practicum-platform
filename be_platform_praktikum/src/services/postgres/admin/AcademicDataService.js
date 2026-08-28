@@ -1130,7 +1130,7 @@ class AcademicDataService {
   }
 
   _buildKelasPraktikumName(row) {
-    return `${row.nama_mk} - Semester ${row.semester} - Kelas ${row.kelas} - ${row.tahun_semester}`;
+    return `${row.nama_mk} - ${row.semester}${row.kelas}`;
   }
 
   _normalizeJobsheetPlan(value, fallback = 0) {

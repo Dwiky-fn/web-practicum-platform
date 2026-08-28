@@ -51,7 +51,7 @@ export default function KelasPraktikumTab({
     <AdminTable variant="full" headers={headers}>
       {displayedData.map((i) => {
         const lecturersForClass = pengampu.filter((item) => item.id_kelas_praktikum === i.id)
-        const displayClassName = isDetailView ? formatKelasPraktikumName(i) : i.nama_kelas
+        const displayClassName = formatKelasPraktikumName(i)
         return (
           <tr key={i.id} className="hover:bg-blue-50/20 transition-colors">
             <td className="px-4 py-3 font-semibold text-left text-gray-900">{displayClassName}</td>

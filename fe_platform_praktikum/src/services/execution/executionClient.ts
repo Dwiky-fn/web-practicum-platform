@@ -1,7 +1,14 @@
 import type { ExecutionClientMessage, ExecutionServerMessage } from "./types"
 
-const DEFAULT_WS_URL =
-  import.meta.env.VITE_EXECUTION_WS_URL ?? "ws://localhost:3000/execution"
+function getBaseExecutionWsUrl() {
+  const envUrl = import.meta.env.VITE_EXECUTION_WS_URL
+  if (envUrl) return envUrl
+  if (typeof window !== "undefined" && window.location) {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
+    return `${protocol}//${window.location.host}/execution`
+  }
+  return "ws://localhost:3000/execution"
+}
 
 export interface RunExecutionPayload {
   language: string
@@ -15,12 +22,13 @@ export interface RunExecutionPayload {
 
 export function getExecutionWsUrl() {
   const token = localStorage.getItem("authToken")
+  const baseUrl = getBaseExecutionWsUrl()
 
   if (!token) {
-    return DEFAULT_WS_URL
+    return baseUrl
   }
 
-  const url = new URL(DEFAULT_WS_URL)
+  const url = new URL(baseUrl)
   url.searchParams.set("token", token)
 
   return url.toString()
@@ -35,10 +43,10 @@ export class ExecutionClient {
   }
 
   constructor(handlers: {
-      onMessage: (message: ExecutionServerMessage) => void
-      onError: (message: string) => void
-      onClose: () => void
-    }) {
+    onMessage: (message: ExecutionServerMessage) => void
+    onError: (message: string) => void
+    onClose: () => void
+  }) {
     this.handlers = handlers
   }
 

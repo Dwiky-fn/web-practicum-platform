@@ -1,5 +1,13 @@
-const LIVE_WORKSPACE_WS_URL =
-  import.meta.env.VITE_LIVE_WORKSPACE_WS_URL ?? "ws://localhost:3000/live-workspace"
+function getBaseLiveWorkspaceWsUrl() {
+  const envUrl = import.meta.env.VITE_LIVE_WORKSPACE_WS_URL
+  if (envUrl) return envUrl
+  if (typeof window !== "undefined" && window.location) {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
+    return `${protocol}//${window.location.host}/live-workspace`
+  }
+  return "ws://localhost:3000/live-workspace"
+}
+
 const LIVE_WORKSPACE_DEBUG = import.meta.env.DEV && import.meta.env.VITE_LIVE_WORKSPACE_DEBUG === "true"
 
 export type LiveWorkspaceRole = "student" | "lecturer-viewer"
@@ -41,7 +49,7 @@ type ConnectOptions = {
 function buildUrl() {
   const token = localStorage.getItem("authToken")
   if (!token) return null
-  const url = new URL(LIVE_WORKSPACE_WS_URL)
+  const url = new URL(getBaseLiveWorkspaceWsUrl())
   url.searchParams.set("token", token)
   return url
 }

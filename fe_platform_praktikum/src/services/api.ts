@@ -1,7 +1,11 @@
-export const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000"
+const envApiUrl = import.meta.env.VITE_API_URL
+export const API_BASE_URL = (envApiUrl !== undefined && envApiUrl !== null && envApiUrl !== "") ? envApiUrl : ""
 const BASE_URL = API_BASE_URL
 
 function buildApiUrl(endpoint: string) {
+  if (!BASE_URL) {
+    return `/${endpoint.replace(/^\/+/, "")}`
+  }
   return `${BASE_URL.replace(/\/+$/, "")}/${endpoint.replace(/^\/+/, "")}`
 }
 

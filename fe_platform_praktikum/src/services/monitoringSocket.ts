@@ -1,5 +1,12 @@
-const MONITORING_WS_URL =
-  import.meta.env.VITE_MONITORING_WS_URL ?? "ws://localhost:3000/monitoring"
+function getBaseMonitoringWsUrl() {
+  const envUrl = import.meta.env.VITE_MONITORING_WS_URL
+  if (envUrl) return envUrl
+  if (typeof window !== "undefined" && window.location) {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
+    return `${protocol}//${window.location.host}/monitoring`
+  }
+  return "ws://localhost:3000/monitoring"
+}
 
 export type MonitoringSocketEvent = {
   type: string
@@ -50,7 +57,7 @@ export function connectMonitoringSocket(
 
   const connect = () => {
     onStatus?.("connecting")
-    const url = new URL(MONITORING_WS_URL)
+    const url = new URL(getBaseMonitoringWsUrl())
     url.searchParams.set("token", token)
     url.searchParams.set("kelasPraktikumId", kelasPraktikumId)
     socket = new WebSocket(url)

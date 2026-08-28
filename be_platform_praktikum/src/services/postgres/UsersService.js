@@ -299,7 +299,7 @@ class UsersService {
       throw new Error('EMAIL_DUPLICATE');
     }
 
-    await this._pool.query('UPDATE users SET email = $2 WHERE id = $1', [
+    await this._pool.query('UPDATE users SET email = $2, is_email_changed = true WHERE id = $1', [
       userId,
       newEmail,
     ]);
@@ -496,6 +496,7 @@ class UsersService {
         u.role,
         u.is_active,
         u.is_password_changed,
+        u.is_email_changed,
         u.created_at,
         -- Student Profile
         sp.nim,
@@ -712,7 +713,7 @@ class UsersService {
     }
 
     try {
-      await this._pool.query('UPDATE users SET email = $2 WHERE id = $1', [
+      await this._pool.query('UPDATE users SET email = $2, is_email_changed = true WHERE id = $1', [
         userId,
         newEmail,
       ]);

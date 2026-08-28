@@ -190,9 +190,31 @@ export default function Navbar({
           </div>
           <button
             onClick={() => navigate("/settings")}
-            className="flex-shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
+            className="flex-shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
           >
             Ganti Password
+          </button>
+        </div>
+      )}
+
+      {/* Banner Notifikasi Email Default / Ganti Email untuk Login Google */}
+      {user && (user.isEmailChanged === false || (user.email && /@polnep\.ac\.id$/i.test(user.email) && user.isEmailChanged !== true)) && (
+        <div className="bg-sky-50 border-b border-sky-200 px-6 md:px-10 py-3.5 flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center text-sm text-sky-900 relative z-40 shadow-inner">
+          <div className="flex items-center gap-3">
+            <div className="bg-sky-100 p-1.5 rounded-lg text-sky-600 flex-shrink-0">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <p className="font-medium leading-relaxed">
+              Email Anda saat ini masih menggunakan email default. Silakan perbarui dengan email aktif (Gmail) untuk dapat menggunakan fitur <span className="font-semibold text-sky-950">Login dengan Google</span>.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/settings")}
+            className="flex-shrink-0 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-xs hover:shadow transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+          >
+            Ganti Email
           </button>
         </div>
       )}

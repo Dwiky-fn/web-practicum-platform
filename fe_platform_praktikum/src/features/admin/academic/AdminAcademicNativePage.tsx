@@ -2160,22 +2160,6 @@ export default function AdminAcademicNativePage() {
               </div>
               <div className="flex flex-col gap-3 md:flex-row md:items-center">
                 <AdminSearchInput value={detailKelasMahasiswaSearch} onChange={setDetailKelasMahasiswaSearch} placeholder="Cari NIM atau nama" />
-                <AdminButton
-                  variant="secondary"
-                  onClick={() => {
-                    if (!currentKelasSemester) return
-                    setPromotionSourceKsId(currentKelasSemester.id)
-                    setCheckedSourceStudentIds([])
-                    setPromotedStudentsMap({})
-                    const targetSemNum = Number(currentKelasSemester.semester) + 1
-                    const targetClass = kelasSemester.find((ks) => Number(ks.semester) === targetSemNum)
-                    setPromotionTargetKsId(targetClass?.id ?? "")
-                    setIsPromotionWizardOpen(true)
-                  }}
-                  disabled={!activePromotionStudents.length || !currentKelasSemester}
-                >
-                  Kenaikan Semester
-                </AdminButton>
                 <AdminButton onClick={() => openModal("kelas-mahasiswa")} disabled={Boolean(getPrerequisiteWarning("kelas-mahasiswa"))}>
                   <Plus size={16} />
                   Tempatkan Mahasiswa

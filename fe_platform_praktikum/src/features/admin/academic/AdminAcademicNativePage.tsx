@@ -600,19 +600,6 @@ export default function AdminAcademicNativePage() {
     )
   }, [scopedKelasMahasiswa, paramSemesterId, paramKelasId])
 
-  const currentKelasSemester = useMemo(() => {
-    if (!isKelasMahasiswaDetail) return null
-    return kelasSemester.find((item) =>
-      item.id_tahun_semester === tahunSemesterId
-      && item.id_semester === paramSemesterId
-      && item.id_kelas === paramKelasId
-    ) ?? null
-  }, [isKelasMahasiswaDetail, kelasSemester, tahunSemesterId, paramSemesterId, paramKelasId])
-
-  const activePromotionStudents = useMemo(() => {
-    return classStudents.filter((item) => String(item.student_status || "").toLowerCase() === "aktif")
-  }, [classStudents])
-
   const filteredClassStudents = useMemo(() => {
     return classStudents.filter((item) =>
       includesKeyword([item.nim, item.fullname, getStatusLabel(item.status)], detailKelasMahasiswaSearch)

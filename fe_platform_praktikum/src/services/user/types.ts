@@ -43,6 +43,7 @@ export interface User {
   adminProfile?: AdminProfile
   personalData: PersonalData
   isPasswordChanged?: boolean
+  isEmailChanged?: boolean
 }
 
 export interface UserResponse {
@@ -54,6 +55,7 @@ export interface UserResponse {
   is_active?: boolean
   isActive?: boolean
   is_password_changed?: boolean
+  is_email_changed?: boolean
   created_at?: string
   createdAt?: string
   avatar_url?: string

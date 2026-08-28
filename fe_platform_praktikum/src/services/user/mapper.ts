@@ -24,6 +24,7 @@ export const mapUserResponse = (data: UserResponse): User => {
       kota: data.kota ?? emptyPersonalData.kota,
     },
     isPasswordChanged: data.is_password_changed ?? false,
+    isEmailChanged: data.is_email_changed ?? false,
   }
 
   if (data.role === "MAHASISWA") {

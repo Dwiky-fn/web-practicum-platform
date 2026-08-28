@@ -673,6 +673,23 @@ export default function AdminAcademicNativePage() {
     })
   }, [searchMahasiswa, isPindahan, students, isKelasMahasiswaDetail, paramSemesterId, semester, scopedKelasMahasiswa, tahunSemesterId, existingStudentIds])
 
+  const isAllMahasiswaSelected = useMemo(() => {
+    return (
+      filteredMahasiswa.length > 0 &&
+      filteredMahasiswa.every((student) => selectedMahasiswaIds.includes(student.id))
+    )
+  }, [filteredMahasiswa, selectedMahasiswaIds])
+
+  const handleToggleSelectAllMahasiswa = useCallback(() => {
+    if (isAllMahasiswaSelected) {
+      const filteredIds = new Set(filteredMahasiswa.map((s) => s.id))
+      setSelectedMahasiswaIds((prev) => prev.filter((id) => !filteredIds.has(id)))
+    } else {
+      const filteredIds = filteredMahasiswa.map((s) => s.id)
+      setSelectedMahasiswaIds((prev) => Array.from(new Set([...prev, ...filteredIds])))
+    }
+  }, [filteredMahasiswa, isAllMahasiswaSelected])
+
 
   const filtered = useMemo(() => {
     if (activeTab === "tahun") return tahunSemester.filter((i) => includesKeyword([i.tahun_semester, getStatusLabel(i.status)], keyword))
@@ -1502,7 +1519,18 @@ export default function AdminAcademicNativePage() {
 
                           <div className="space-y-2 pt-2">
                             <div className="flex items-center justify-between">
-                              <label className="text-sm font-semibold text-gray-900">Daftar Mahasiswa</label>
+                              <div className="flex items-center gap-3">
+                                <label className="text-sm font-semibold text-gray-900">Daftar Mahasiswa</label>
+                                {filteredMahasiswa.length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={handleToggleSelectAllMahasiswa}
+                                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition cursor-pointer underline underline-offset-2"
+                                  >
+                                    {isAllMahasiswaSelected ? "Batal Pilih Semua" : "Pilih Semua"}
+                                  </button>
+                                )}
+                              </div>
                               <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-100">
                                 {filteredMahasiswa.length} mahasiswa ditemukan
                               </span>

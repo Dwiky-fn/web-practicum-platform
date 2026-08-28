@@ -271,6 +271,23 @@ export default function AdminClassDetailPage() {
       return false
     })
   }, [studentCandidates, query])
+
+  const isAllCandidatesSelected = useMemo(() => {
+    return (
+      filteredCandidates.length > 0 &&
+      filteredCandidates.every((student) => selectedStudentIds.includes(student.id))
+    )
+  }, [filteredCandidates, selectedStudentIds])
+
+  const handleToggleSelectAllCandidates = useCallback(() => {
+    if (isAllCandidatesSelected) {
+      const filteredIds = new Set(filteredCandidates.map((s) => s.id))
+      setSelectedStudentIds((prev) => prev.filter((id) => !filteredIds.has(id)))
+    } else {
+      const filteredIds = filteredCandidates.map((s) => s.id)
+      setSelectedStudentIds((prev) => Array.from(new Set([...prev, ...filteredIds])))
+    }
+  }, [filteredCandidates, isAllCandidatesSelected])
   const studentSemesterOptions = useMemo(
     () => getStudentSemesterOptions(selectedClass?.semesterYear),
     [selectedClass?.semesterYear],
@@ -724,7 +741,18 @@ export default function AdminClassDetailPage() {
 
                 <div className="space-y-2 pt-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-semibold text-gray-900">Daftar Mahasiswa</label>
+                    <div className="flex items-center gap-3">
+                      <label className="text-sm font-semibold text-gray-900">Daftar Mahasiswa</label>
+                      {filteredCandidates.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleToggleSelectAllCandidates}
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition cursor-pointer underline underline-offset-2"
+                        >
+                          {isAllCandidatesSelected ? "Batal Pilih Semua" : "Pilih Semua"}
+                        </button>
+                      )}
+                    </div>
                     <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-100">
                       {filteredCandidates.length} mahasiswa ditemukan
                     </span>

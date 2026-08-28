@@ -194,7 +194,7 @@ export default function Navbar({
             <p className="font-medium leading-relaxed">
               {isDefaultPassword && isDefaultEmail ? (
                 <>
-                  Demi keamanan akun dan untuk dapat menggunakan fitur <span className="font-semibold text-amber-950">Login dengan Google</span>, silakan perbarui <span className="font-semibold">password default</span> dan <span className="font-semibold">email aktif (Gmail)</span> Anda.
+                  Akun Anda masih menggunakan email dan password default. Segera perbarui email Anda dengan email yang aktif agar dapat menggunakan <span className="font-semibold text-amber-950">Login dengan Google</span>, serta ubah password default untuk menjaga keamanan akun.
                 </>
               ) : isDefaultPassword ? (
                 <>

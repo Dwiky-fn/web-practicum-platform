@@ -3,16 +3,18 @@ services:
     image: postgres:17-alpine
     container_name: postgres
     restart: unless-stopped
+    env_file:
+      - ./config/production.env
     environment:
-      POSTGRES_USER: ${PGUSER:-platform_user}
-      POSTGRES_PASSWORD: ${PGPASSWORD:-platform_password}
-      POSTGRES_DB: ${PGDATABASE:-platform_praktikum}
+      POSTGRES_USER: ${PGUSER}
+      POSTGRES_PASSWORD: ${PGPASSWORD}
+      POSTGRES_DB: ${PGDATABASE}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - practicum-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${PGUSER:-platform_user} -d $${PGDATABASE:-platform_praktikum}"]
+      test: ["CMD-SHELL", "pg_isready -U $${PGUSER} -d $${PGDATABASE}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,12 +25,14 @@ services:
       dockerfile: Dockerfile
     container_name: runner
     restart: unless-stopped
+    env_file:
+      - ./config/production.env
     environment:
       PORT: 4000
       NODE_ENV: production
-      RUNNER_API_KEY: ${RUNNER_API_KEY:-your_runner_api_key_secret}
-      EXECUTION_TIMEOUT_MS: ${EXECUTION_TIMEOUT_MS:-120000}
-      IDLE_TIMEOUT_MS: ${IDLE_TIMEOUT_MS:-60000}
+      RUNNER_API_KEY: ${RUNNER_API_KEY}
+      EXECUTION_TIMEOUT_MS: ${EXECUTION_TIMEOUT_MS}
+      IDLE_TIMEOUT_MS: ${IDLE_TIMEOUT_MS}
     deploy:
       resources:
         limits:
@@ -48,21 +52,23 @@ services:
       dockerfile: Dockerfile
     container_name: ai-evaluator
     restart: unless-stopped
+    env_file:
+      - ./config/production.env
     environment:
       PORT: 5000
       NODE_ENV: production
-      AI_SERVICE_API_KEY: ${AI_SERVICE_API_KEY:-your_ai_service_api_key_secret}
-      AI_PROVIDER: ${AI_PROVIDER:-mindrouter}
-      MINDROUTER_API_KEY: ${MINDROUTER_API_KEY:-your_mindrouter_api_key}
-      MINDROUTER_MODEL: ${MINDROUTER_MODEL:-openai/gpt-5.6-luna}
-      MINDROUTER_BASE_URL: ${MINDROUTER_BASE_URL:-https://api.mindrouter.io/v1}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.1-flash-lite}
-      AI_TEMPERATURE: ${AI_TEMPERATURE:-0.1}
-      AI_CONTEXT_LENGTH: ${AI_CONTEXT_LENGTH:-4096}
-      AI_REQUEST_TIMEOUT_MS: ${AI_REQUEST_TIMEOUT_MS:-300000}
-      AI_MAX_CONCURRENT_REQUESTS: ${AI_MAX_CONCURRENT_REQUESTS:-1}
-      AI_MAX_RETRIES: ${AI_MAX_RETRIES:-2}
+      AI_SERVICE_API_KEY: ${AI_SERVICE_API_KEY}
+      AI_PROVIDER: ${AI_PROVIDER}
+      MINDROUTER_API_KEY: ${MINDROUTER_API_KEY}
+      MINDROUTER_MODEL: ${MINDROUTER_MODEL}
+      MINDROUTER_BASE_URL: ${MINDROUTER_BASE_URL}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL}
+      AI_TEMPERATURE: 0.1
+      AI_CONTEXT_LENGTH: 4096
+      AI_REQUEST_TIMEOUT_MS: 300000
+      AI_MAX_CONCURRENT_REQUESTS: 1
+      AI_MAX_RETRIES: 2
       LMS_WEBHOOK_URL: http://backend:3000/api/internal/ai-callback
     networks:
       - practicum-network
@@ -78,37 +84,39 @@ services:
       dockerfile: Dockerfile
     container_name: backend
     restart: unless-stopped
+    env_file:
+      - ./config/production.env
     environment:
       PORT: 3000
       NODE_ENV: production
-      AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET:-your_secret_jwt_token}
-      AUTH_TOKEN_EXPIRES_IN: ${AUTH_TOKEN_EXPIRES_IN:-12h}
+      AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET}
+      AUTH_TOKEN_EXPIRES_IN: ${AUTH_TOKEN_EXPIRES_IN}
       PGHOST: postgres
       PGPORT: 5432
-      PGUSER: ${PGUSER:-platform_user}
-      PGPASSWORD: ${PGPASSWORD:-platform_password}
-      PGDATABASE: ${PGDATABASE:-platform_praktikum}
+      PGUSER: ${PGUSER}
+      PGPASSWORD: ${PGPASSWORD}
+      PGDATABASE: ${PGDATABASE}
       PGSSL: "false"
       INTERACTIVE_RUNNER_WS_URL: ws://runner:4000/ws
-      RUNNER_API_KEY: ${RUNNER_API_KEY:-your_runner_api_key_secret}
+      RUNNER_API_KEY: ${RUNNER_API_KEY}
       AI_EVALUATOR_SERVICE_URL: http://ai-evaluator:5000
-      AI_SERVICE_API_KEY: ${AI_SERVICE_API_KEY:-your_ai_service_api_key_secret}
+      AI_SERVICE_API_KEY: ${AI_SERVICE_API_KEY}
       LMS_WEBHOOK_URL: http://backend:3000/api/internal/ai-callback
-      AI_EVALUATION_MAX_RETRY: ${AI_EVALUATION_MAX_RETRY:-3}
-      AI_EVALUATION_RETRY_DELAY_MS: ${AI_EVALUATION_RETRY_DELAY_MS:-1500}
+      AI_EVALUATION_MAX_RETRY: 3
+      AI_EVALUATION_RETRY_DELAY_MS: 1500
       AI_EVALUATOR_DEBUG_PAYLOAD: "false"
-      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
-      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
-      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
-      MAIL_PORT: ${MAIL_PORT:-587}
-      MAIL_SECURE: ${MAIL_SECURE:-false}
-      MAIL_USER: ${MAIL_USER:-}
-      MAIL_PASS: ${MAIL_PASS:-}
-      MAIL_FROM: ${MAIL_FROM:-}
-      RESEND_API_KEY: ${RESEND_API_KEY:-}
-      RESEND_FROM: ${RESEND_FROM:-}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_SECURE: ${MAIL_SECURE}
+      MAIL_USER: ${MAIL_USER}
+      MAIL_PASS: ${MAIL_PASS}
+      MAIL_FROM: ${MAIL_FROM}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      RESEND_FROM: ${RESEND_FROM}
       LIVE_WORKSPACE_DEBUG: "false"
     depends_on:
       postgres:
@@ -130,7 +138,7 @@ services:
       context: ./fe_platform_praktikum
       dockerfile: Dockerfile
       args:
-        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     container_name: frontend
     restart: unless-stopped
     networks:

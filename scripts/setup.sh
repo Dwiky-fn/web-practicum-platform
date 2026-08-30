@@ -11,7 +11,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 ENV_FILE="$PROJECT_ROOT/config/production.env"
 ENC_FILE="$PROJECT_ROOT/config/production.env.enc"
-DECRYPT_SCRIPT="$PROJECT_ROOT/scripts/decrypt-env.js"
+DECRYPT_SCRIPT="$PROJECT_ROOT/scripts/decrypt-env.sh"
 
 COMPOSE_FILE="$PROJECT_ROOT/docker-compose.yml"
 
@@ -71,7 +71,7 @@ if [[ ! -f "$ENC_FILE" ]]; then
 fi
 
 if [[ ! -f "$DECRYPT_SCRIPT" ]]; then
-    error "scripts/decrypt-env.js tidak ditemukan."
+    error "scripts/decrypt-env.sh tidak ditemukan."
     exit 1
 fi
 
@@ -89,9 +89,9 @@ if ! command -v git >/dev/null 2>&1; then
     exit 1
 fi
 
-if ! command -v node >/dev/null 2>&1; then
-    error "Node.js tidak ditemukan."
-    error "Node.js diperlukan untuk proses dekripsi."
+if ! command -v openssl >/dev/null 2>&1; then
+    error "OpenSSL tidak ditemukan."
+    error "Install OpenSSL terlebih dahulu."
     exit 1
 fi
 
@@ -108,7 +108,7 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 
 success "Git tersedia."
-success "Node.js tersedia."
+success "OpenSSL tersedia."
 success "Docker tersedia."
 success "Docker Compose tersedia."
 
@@ -157,7 +157,7 @@ if [[ -f "$ENV_FILE" ]]; then
         fi
 
         DEPLOYMENT_KEY="$DEPLOYMENT_KEY" \
-            node "$DECRYPT_SCRIPT"
+            bash "$DECRYPT_SCRIPT"
 
         unset DEPLOYMENT_KEY
     fi
@@ -178,7 +178,7 @@ else
     fi
 
     DEPLOYMENT_KEY="$DEPLOYMENT_KEY" \
-        node "$DECRYPT_SCRIPT"
+        bash "$DECRYPT_SCRIPT"
 
     unset DEPLOYMENT_KEY
 fi

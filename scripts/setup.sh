@@ -234,10 +234,69 @@ while [[ "$ATTEMPT" -le "$MAX_ATTEMPTS" ]]; do
 done
 
 if [[ "$POSTGRES_READY" == "true" ]]; then
-    success "PostgreSQL healthy & ready."
+    success "PostgreSQL ready"
 else
     error "PostgreSQL tidak healthy setelah 60 detik."
     exit 1
+fi
+
+# Memeriksa inisialisasi database & sejarah migrasi
+PGUSER_VAL="$(grep '^PGUSER=' "$ENV_FILE" | head -n1 | cut -d'=' -f2- | tr -d '\r\n')"
+PGDATABASE_VAL="$(grep '^PGDATABASE=' "$ENV_FILE" | head -n1 | cut -d'=' -f2- | tr -d '\r\n')"
+
+HAS_PGMIGRATIONS="$(
+    docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T postgres \
+        psql -U "${PGUSER_VAL:-platform_praktikum}" -d "${PGDATABASE_VAL:-platform_praktikum}" -t -Ac \
+        "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'pgmigrations');" 2>/dev/null || echo "f"
+)"
+HAS_PGMIGRATIONS="$(echo "$HAS_PGMIGRATIONS" | tr -d ' \r\n')"
+
+MIGRATION_FILES_COUNT=0
+if [[ -d "$PROJECT_ROOT/be_platform_praktikum/migrations" ]]; then
+    MIGRATION_FILES_COUNT="$(ls -1 "$PROJECT_ROOT/be_platform_praktikum/migrations"/*.js 2>/dev/null | wc -l | tr -d ' \r\n')"
+fi
+
+if [[ "$HAS_PGMIGRATIONS" != "t" && "$HAS_PGMIGRATIONS" != "true" ]]; then
+    info "Database belum diinisialisasi"
+    info "Running database migrations..."
+    MIGRATE_LOG="$(mktemp 2>/dev/null || echo "$PROJECT_ROOT/.docker-migrate.log")"
+    if docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm backend npm run migrate > "$MIGRATE_LOG" 2>&1; then
+        success "Database migrations completed"
+        rm -f "$MIGRATE_LOG"
+    else
+        error "Database migration failed."
+        cat "$MIGRATE_LOG"
+        rm -f "$MIGRATE_LOG"
+        exit 1
+    fi
+else
+    APPLIED_COUNT="$(
+        docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T postgres \
+            psql -U "${PGUSER_VAL:-platform_praktikum}" -d "${PGDATABASE_VAL:-platform_praktikum}" -t -Ac \
+            "SELECT COUNT(*) FROM pgmigrations;" 2>/dev/null || echo "0"
+    )"
+    APPLIED_COUNT="$(echo "$APPLIED_COUNT" | tr -d ' \r\n')"
+
+    info "Existing database detected"
+    success "Migration history ditemukan"
+    success "Database sudah pernah diinisialisasi"
+
+    if [[ "$MIGRATION_FILES_COUNT" -gt 0 && "$MIGRATION_FILES_COUNT" -gt "$APPLIED_COUNT" ]]; then
+        warn "Terdeteksi $((MIGRATION_FILES_COUNT - APPLIED_COUNT)) migration baru yang belum diterapkan"
+        info "Running pending database migrations..."
+        MIGRATE_LOG="$(mktemp 2>/dev/null || echo "$PROJECT_ROOT/.docker-migrate.log")"
+        if docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm backend npm run migrate > "$MIGRATE_LOG" 2>&1; then
+            success "Pending database migrations completed"
+            rm -f "$MIGRATE_LOG"
+        else
+            error "Pending database migration failed."
+            cat "$MIGRATE_LOG"
+            rm -f "$MIGRATE_LOG"
+            exit 1
+        fi
+    else
+        info "Migration dilewati"
+    fi
 fi
 
 # 2. Runner

@@ -79,7 +79,7 @@ Host server / VM produksi **HANYA** memerlukan dependency minimal berikut:
 Jalankan perintah berikut di server produksi:
 
 ```bash
-git clone -b percobaan-setup-otomatis https://github.com/Dwiky-fn/web-practicum-platform.git
+git clone -b development https://github.com/Dwiky-fn/web-practicum-platform.git
 cd web-practicum-platform
 ```
 

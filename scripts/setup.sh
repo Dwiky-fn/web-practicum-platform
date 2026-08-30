@@ -70,25 +70,29 @@ print_header
 step "[1/7] Memeriksa dependency..."
 
 if ! command -v git >/dev/null 2>&1; then
-    error "Git tidak ditemukan. Install Git terlebih dahulu."
+    error "Git tidak ditemukan."
+    info "Cara install di Ubuntu/Debian: sudo apt update && sudo apt install -y git"
     exit 1
 fi
 success "Git tersedia."
 
 if ! command -v openssl >/dev/null 2>&1; then
-    error "OpenSSL tidak ditemukan. Install OpenSSL terlebih dahulu."
+    error "OpenSSL tidak ditemukan."
+    info "Cara install di Ubuntu/Debian: sudo apt update && sudo apt install -y openssl"
     exit 1
 fi
 success "OpenSSL tersedia."
 
 if ! command -v docker >/dev/null 2>&1; then
-    error "Docker tidak ditemukan. Install Docker terlebih dahulu."
+    error "Docker tidak ditemukan."
+    info "Cara install di Ubuntu/Debian: sudo apt update && sudo apt install -y docker.io"
     exit 1
 fi
 success "Docker tersedia."
 
 if ! docker compose version >/dev/null 2>&1; then
-    error "Docker Compose Plugin tidak tersedia. Pastikan 'docker compose' dapat dijalankan."
+    error "Docker Compose Plugin tidak tersedia."
+    info "Cara install di Ubuntu/Debian: sudo apt update && sudo apt install -y docker-compose-v2"
     exit 1
 fi
 success "Docker Compose tersedia."
